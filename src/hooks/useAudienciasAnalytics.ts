@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { localParaZona, type ZonaSP } from "@/lib/audienciaZonas";
+import { formatLocalDate } from "@/lib/dateUtils";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
@@ -51,6 +52,7 @@ export interface TimelinePoint {
 export interface AudienciaRanking {
   id: string;
   titulo: string;
+  ap_code: string | null;
   comissao: string | null;
   tema: string;
   data: string;
@@ -61,6 +63,8 @@ export interface AudienciaRanking {
   vagas: number | null;
   ocupacaoPct: number | null;
   zona: string;
+  /** Agendada com inscrições abertas e data hoje ou futura. */
+  aberta: boolean;
 }
 
 export interface AudienciasStats {
@@ -70,6 +74,8 @@ export interface AudienciasStats {
   totalVideoconferencias: number;
   totalEscritas: number;
   totalAudiencias: number;
+  /** Agendadas, com inscrições abertas e data hoje ou futura (mesma regra do app cidadão). */
+  audienciasAbertas: number;
   audienciasComInscricoes: number;
   pctComInscricoes: number; // 0-100
   ocupacaoMediaPct: number; // 0-100
@@ -83,6 +89,8 @@ export interface AudienciasStats {
   timeline: TimelinePoint[];
 
   // Listas operacionais
+  /** Todas as audiências do recorte (ordenadas por engajamento no aggregate). */
+  allAudiencias: AudienciaRanking[];
   topAudiencias: AudienciaRanking[];
   zeroInscritosProximas: AudienciaRanking[];
   baixaOcupacaoProximas: AudienciaRanking[];
@@ -94,6 +102,7 @@ const EMPTY_STATS: AudienciasStats = {
   totalVideoconferencias: 0,
   totalEscritas: 0,
   totalAudiencias: 0,
+  audienciasAbertas: 0,
   audienciasComInscricoes: 0,
   pctComInscricoes: 0,
   ocupacaoMediaPct: 0,
@@ -103,6 +112,7 @@ const EMPTY_STATS: AudienciasStats = {
   byZona: [],
   byTipoEngajamento: [],
   timeline: [],
+  allAudiencias: [],
   topAudiencias: [],
   zeroInscritosProximas: [],
   baixaOcupacaoProximas: [],
@@ -117,6 +127,7 @@ interface AudienciaRow {
   local: string;
   ap_code: string | null;
   status: string;
+  inscricoes_abertas: boolean | null;
   vagas_disponiveis: number | null;
 }
 
@@ -156,7 +167,7 @@ async function fetchAudiencias(
     let q = supabase
       .from("audiencias")
       .select(
-        "id, titulo, comissao, tema, data, local, ap_code, status, vagas_disponiveis",
+        "id, titulo, comissao, tema, data, local, ap_code, status, inscricoes_abertas, vagas_disponiveis",
       )
       .order("data", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
@@ -221,6 +232,16 @@ async function fetchParticipacoes(audienciaIds: string[]): Promise<ParticipacaoR
 function ocupacao(inscritos: number, vagas: number | null): number | null {
   if (!vagas || vagas <= 0) return null;
   return Math.min(1, inscritos / vagas);
+}
+
+/** Alinhado a Audiencias.tsx / ChatMessageBubble — inscrições aceitas e data não passada. */
+export function isAudienciaAberta(a: Pick<AudienciaRow, "data" | "status" | "inscricoes_abertas">, todayIso: string): boolean {
+  const dataStr = a.data.slice(0, 10);
+  if (dataStr < todayIso) return false;
+  if (a.inscricoes_abertas === false) return false;
+  const status = (a.status ?? "").toLowerCase().trim();
+  if (/realizada|cancelada|adiada|encerrad/.test(status)) return false;
+  return status === "agendada" || status === "scheduled" || status === "";
 }
 
 function isProximaDentroDe(dataISO: string, dias: number): boolean {
@@ -299,8 +320,11 @@ export function aggregate(
   let countOcupacao = 0;
 
   const rankings: AudienciaRanking[] = [];
+  const todayIso = formatLocalDate(new Date()) ?? new Date().toISOString().slice(0, 10);
+  let audienciasAbertas = 0;
 
   audiencias.forEach((a) => {
+    if (isAudienciaAberta(a, todayIso)) audienciasAbertas += 1;
     const slot = porAudiencia.get(a.id);
     const lembretes = slot?.lembretes ?? 0;
     const video = slot?.video ?? 0;
@@ -337,6 +361,7 @@ export function aggregate(
     rankings.push({
       id: a.id,
       titulo: a.titulo,
+      ap_code: a.ap_code,
       comissao: a.comissao,
       tema: a.tema,
       data: a.data,
@@ -347,8 +372,11 @@ export function aggregate(
       vagas: a.vagas_disponiveis,
       ocupacaoPct: oc !== null ? Math.round(oc * 100) : null,
       zona,
+      aberta: isAudienciaAberta(a, todayIso),
     });
   });
+
+  const allAudiencias = [...rankings].sort((a, b) => b.data.localeCompare(a.data));
 
   const topAudiencias = [...rankings]
     .sort((a, b) => b.inscricoes - a.inscricoes)
@@ -387,6 +415,7 @@ export function aggregate(
     totalVideoconferencias: totalVideo,
     totalEscritas,
     totalAudiencias: audiencias.length,
+    audienciasAbertas,
     audienciasComInscricoes,
     pctComInscricoes:
       audiencias.length > 0
@@ -401,6 +430,7 @@ export function aggregate(
     timeline: Array.from(timelineMap.entries())
       .map(([date, v]) => ({ date, ...v }))
       .sort((a, b) => a.date.localeCompare(b.date)),
+    allAudiencias,
     topAudiencias,
     zeroInscritosProximas,
     baixaOcupacaoProximas,
@@ -411,6 +441,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
   const [stats, setStats] = useState<AudienciasStats>(EMPTY_STATS);
   // HU-5.3 — refetch silencioso (initial vs realtime).
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
@@ -420,6 +451,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
 
   const fetchData = useCallback(async () => {
     setError(null);
+    setIsRefreshing(true);
     try {
       const startDate = toIsoDate(filters.startDate);
       const endDate = toIsoDate(filters.endDate);
@@ -456,6 +488,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
       // HU-5.3 — não resetar stats: mantém último resultado bom visível.
     } finally {
       setIsInitialLoading(false);
+      setIsRefreshing(false);
     }
     // HU-14.5 — facet serializado para estabilizar identidade do objeto.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,6 +505,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
     stats,
     isLoading: isInitialLoading,
     isInitialLoading,
+    isRefreshing,
     error,
     refresh: fetchData,
     lastUpdate,
@@ -488,6 +522,7 @@ const REALTIME_TABLES = [
 export const __test__ = {
   aggregate,
   ocupacao,
+  isAudienciaAberta,
   isProximaDentroDe,
   rank,
 };

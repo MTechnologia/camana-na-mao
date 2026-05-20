@@ -19,7 +19,7 @@ O log do Supabase mostrava que o conteúdo parseado estava vazio:
 ### Causa Raiz
 
 O problema ocorria quando:
-1. O LLM (Lovable AI Gateway) retornava uma resposta vazia no stream SSE
+1. O LLM configurado em `AI_CHAT_BASE_URL` retornava uma resposta vazia no stream SSE
 2. O stream continha apenas tool calls sem conteúdo de texto
 3. O parsing do SSE falhava silenciosamente
 
@@ -114,7 +114,7 @@ No Supabase Dashboard:
 ### 3. Monitorar Frequência
 
 Se o problema persistir frequentemente:
-- Verifique se o Lovable AI Gateway está retornando respostas válidas
+- Verifique se o provedor em `AI_CHAT_BASE_URL` está retornando respostas válidas
 - Verifique se há problemas de conectividade
 - Considere adicionar retry logic ou fallback para outro provider
 
@@ -125,7 +125,7 @@ Se o problema persistir frequentemente:
 ### Melhorias Futuras:
 
 1. **Retry Logic**: Se o conteúdo estiver vazio, tentar novamente a requisição
-2. **Fallback Provider**: Se Lovable falhar, usar vLLM como fallback
+2. **Fallback Provider**: Configurar segundo endpoint em `AI_CHAT_BASE_URL` se necessário
 3. **Alertas**: Notificar quando o problema ocorrer com frequência
 4. **Cache de Respostas**: Para perguntas comuns, usar cache
 

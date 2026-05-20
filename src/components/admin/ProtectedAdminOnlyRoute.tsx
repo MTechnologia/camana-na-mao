@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
+import { AdminProviders } from '@/components/admin/AdminProviders';
 import { toast } from 'sonner';
 
 interface ProtectedAdminOnlyRouteProps {
@@ -33,6 +34,6 @@ export const ProtectedAdminOnlyRoute = ({ children }: ProtectedAdminOnlyRoutePro
 
   if (!isAdmin) return null;
 
-  return <>{children}</>;
+  return <AdminProviders>{children}</AdminProviders>;
 };
 

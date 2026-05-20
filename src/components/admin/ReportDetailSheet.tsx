@@ -478,7 +478,7 @@ function AIPanel({
       {ai.enrichedData && (
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Dados enriquecidos pelo n8n
+            Dados enriquecidos (processamento automático)
           </summary>
           <pre className="mt-2 p-2 bg-muted rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(ai.enrichedData, null, 2)}

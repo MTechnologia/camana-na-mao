@@ -205,7 +205,7 @@ export const PERMISSIONS: PermissionDefinition[] = [
     label: "Análises avançadas",
     description: "Acessa /admin/analytics com filtros e drill-downs.",
     domain: "analytics",
-    roles: ["admin", "gestor", "assessor"],
+    roles: ["admin", "gestor", "vereador", "assessor"],
   },
   {
     key: "analytics.view_forecast",

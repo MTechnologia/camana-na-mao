@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
+import { PageShell } from '@/components/ui/PageShell';
+import { RN_ANL_003_TRENDS_LEGEND } from '@/lib/analyticsParameterLegends';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
@@ -21,7 +22,7 @@ import { useTransportLines } from '@/hooks/useTransportLines';
 import { buildTrendChartRows } from '@/lib/buildTrendChartRows';
 import { LineChart as LineChartIcon, RefreshCw, AlertTriangle } from 'lucide-react';
 
-export default function TrendDashboardPage() {
+export function TrendDashboardPage() {
   const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>('all');
   const [lineId, setLineId] = useState<string | null>(null);
   const [period, setPeriod] = useState<ReportsTrendPeriod>('30d');
@@ -41,20 +42,9 @@ export default function TrendDashboardPage() {
   const lineFilterVisible = typeFilter === 'all' || typeFilter === 'transport';
 
   return (
-    <AdminLayout>
+    <PageShell title="Tendências temporais" titleInfo={RN_ANL_003_TRENDS_LEGEND}>
       <div className="space-y-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <LineChartIcon className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Tendência temporal</h1>
-              <p className="text-sm text-muted-foreground">
-                Evolução de reclamações e avaliações por categoria, com filtros dinâmicos.
-              </p>
-            </div>
-          </div>
+        <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar
@@ -145,6 +135,6 @@ export default function TrendDashboardPage() {
           )}
         </Card>
       </div>
-    </AdminLayout>
+    </PageShell>
   );
 }

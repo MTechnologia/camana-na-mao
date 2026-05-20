@@ -1,7 +1,7 @@
 # Configuração Rápida: vLLM no Supabase
 
 **Data:** 2026-01-27  
-**Problema:** `LOVABLE_API_KEY` não está sendo reconhecido ou está vazio
+**Problema:** Chat de IA sem resposta ou erro de configuração do provedor LLM
 
 ---
 
@@ -51,18 +51,13 @@ Após adicionar os secrets, você deve ter:
 ✅ AI_CHAT_BASE_URL = http://34.41.3.173:8000/v1
 ✅ AI_API_KEY = dummy (obrigatório - qualquer valor serve)
 ✅ AI_CHAT_MODEL = Qwen/Qwen2.5-3B-Instruct (opcional)
-✅ LOVABLE_API_KEY = lv_... (já existe, será usado como fallback)
 ```
 
 ---
 
 ## Ordem de Prioridade
 
-Com essa configuração, o sistema usará nesta ordem:
-
-1. **vLLM** (`AI_CHAT_BASE_URL`) - **PRINCIPAL**
-2. **Lovable AI** (`LOVABLE_API_KEY`) - **FALLBACK** (se vLLM falhar)
-3. **Erro** (se ambos falharem)
+Com essa configuração, o sistema usa o endpoint configurado em `AI_CHAT_BASE_URL` (compatível com API OpenAI). Se a URL ou a chave estiverem incorretas, as Edge Functions retornam erro nos logs.
 
 ---
 
@@ -134,16 +129,10 @@ Após configurar:
 
 ## Configuração Completa Recomendada
 
-Para máxima redundância, configure:
-
 ```bash
-# Provider principal (vLLM)
 AI_CHAT_BASE_URL=http://34.41.3.173:8000/v1
-AI_API_KEY=dummy (obrigatório - qualquer valor serve)
+AI_API_KEY=dummy
 AI_CHAT_MODEL=Qwen/Qwen2.5-3B-Instruct
-
-# Fallback (Lovable - já existe)
-LOVABLE_API_KEY=lv_... (já configurado, não precisa mexer)
 ```
 
 ---

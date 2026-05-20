@@ -10,7 +10,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 import { __test__, useAudienciasAnalytics } from "./useAudienciasAnalytics";
 import { supabase } from "@/integrations/supabase/client";
 
-const { aggregate, ocupacao, isProximaDentroDe, rank } = __test__;
+const { aggregate, ocupacao, isAudienciaAberta, isProximaDentroDe, rank } = __test__;
 
 interface AudienciaRow {
   id: string;
@@ -21,6 +21,7 @@ interface AudienciaRow {
   local: string;
   ap_code: string | null;
   status: string;
+  inscricoes_abertas: boolean | null;
   vagas_disponiveis: number | null;
 }
 
@@ -45,6 +46,7 @@ function aud(overrides: Partial<AudienciaRow> = {}): AudienciaRow {
     local: "Pinheiros",
     ap_code: null,
     status: "agendada",
+    inscricoes_abertas: true,
     vagas_disponiveis: 100,
     ...overrides,
   };
@@ -95,6 +97,55 @@ describe("rank", () => {
   });
 });
 
+describe("isAudienciaAberta", () => {
+  const today = "2026-05-19";
+
+  it("é aberta quando agendada, inscrições abertas e data futura", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "agendada", inscricoes_abertas: true },
+        today,
+      ),
+    ).toBe(true);
+  });
+
+  it("não é aberta quando a data já passou", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-10", status: "agendada", inscricoes_abertas: true },
+        today,
+      ),
+    ).toBe(false);
+  });
+
+  it("não é aberta quando inscrições estão fechadas", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "agendada", inscricoes_abertas: false },
+        today,
+      ),
+    ).toBe(false);
+  });
+
+  it("é aberta quando inscricoes_abertas é null (default do banco)", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "agendada", inscricoes_abertas: null },
+        today,
+      ),
+    ).toBe(true);
+  });
+
+  it("não é aberta quando status é realizada", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "realizada", inscricoes_abertas: true },
+        today,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("isProximaDentroDe", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -122,6 +173,22 @@ describe("isProximaDentroDe", () => {
 });
 
 describe("aggregate", () => {
+  it("conta audienciasAbertas no recorte filtrado", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-19T12:00:00"));
+    const r = aggregate(
+      [
+        aud({ id: "open", data: "2026-05-25", inscricoes_abertas: true, status: "agendada" }),
+        aud({ id: "past", data: "2026-05-10", inscricoes_abertas: true, status: "agendada" }),
+        aud({ id: "closed", data: "2026-05-25", inscricoes_abertas: false, status: "agendada" }),
+      ],
+      [],
+      [],
+    );
+    expect(r.audienciasAbertas).toBe(1);
+    vi.useRealTimers();
+  });
+
   it("retorna stats vazias com inputs vazios", () => {
     const r = aggregate([], [], []);
     expect(r.totalAudiencias).toBe(0);

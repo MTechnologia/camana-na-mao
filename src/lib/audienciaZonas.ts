@@ -41,7 +41,8 @@ const ZONA_KEYWORDS: { zona: ZonaSP; keywords: string[] }[] = [
     zona: "Zona Oeste",
     keywords: [
       "lapa", "pinheiros", "butantã", "jaguaré", "rio pequeno", "raposo tavares",
-      "vila sônia", "morumbi", "barra funda",
+      "vila sônia", "morumbi", "barra funda", "jardim everest", "brooklin",
+      "vila olimpia", "vila olímpia", "vila andrade", "vila gomes", "vl gomes",
     ],
   },
   {

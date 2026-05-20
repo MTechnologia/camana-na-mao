@@ -11,7 +11,7 @@ import {
   Search,
   Users,
 } from "lucide-react";
-import { AdminLayout } from "@/layouts/AdminLayout";
+import { AdminPageShell } from '@/components/admin/AdminPageShell';
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
@@ -119,7 +119,7 @@ function fmtDateTime(iso: string): string {
   }
 }
 
-const AuditLogs = () => {
+const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
   const { getAllLogs, getActors } = useAuditLog();
@@ -254,16 +254,16 @@ const AuditLogs = () => {
 
   if (roleLoading) {
     return (
-      <AdminLayout>
+      <AdminPageShell embedded={embedded}>
         <div className="flex items-center justify-center h-96">
           <div className="text-muted-foreground">Carregando...</div>
         </div>
-      </AdminLayout>
+      </AdminPageShell>
     );
   }
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -455,7 +455,7 @@ const AuditLogs = () => {
         onOpenChange={(o) => !o && setSelected(null)}
         actor={selected?.user_id ? actorById.get(selected.user_id) ?? null : null}
       />
-    </AdminLayout>
+    </AdminPageShell>
   );
 };
 

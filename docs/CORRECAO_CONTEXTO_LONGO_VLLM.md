@@ -50,7 +50,7 @@ Quando detecta erro de contexto muito longo:
 ### 4. Fallback Automático
 
 Se o retry falhar:
-- Tenta **Lovable AI** (que suporta mais contexto)
+- Retorna mensagem amigável ao usuário
 - Retorna mensagem amigável se ambos falharem
 
 ---
@@ -78,9 +78,7 @@ Se o retry falhar:
    ↓ (se erro 400 - contexto muito longo)
 2. Tenta com 3 mensagens + system prompt ainda menor
    ↓ (se ainda falhar)
-3. Tenta Lovable AI (suporta mais contexto)
-   ↓ (se falhar)
-4. Retorna mensagem amigável ao usuário
+3. Retorna mensagem amigável ao usuário
 ```
 
 ---
@@ -123,7 +121,7 @@ const maxSystemPromptChars = 6000; // ~1500 tokens
 
 Trocar para modelo com mais contexto:
 - `Qwen/Qwen2.5-7B-Instruct` (suporta mais tokens, mas pode não caber na T4)
-- Ou usar Lovable AI para conversas longas
+- Ou aumentar `max_model_len` no vLLM
 
 ### Opção 3: Implementar Resumo de Conversa
 
@@ -148,10 +146,9 @@ Após o deploy, monitore os logs para:
    [ai-orchestrator] Retry with reduced context successful
    ```
 
-3. **Fallbacks para Lovable:**
+3. **Erros após retry:**
    ```
-   [ai-orchestrator] Attempting fallback to Lovable AI...
-   [ai-orchestrator] Fallback to Lovable successful
+   [ai-orchestrator] Context too long after retry, returning friendly message
    ```
 
 ---
@@ -162,7 +159,7 @@ Com essas correções:
 
 1. **Maioria das requisições**: Funcionam com 5 mensagens
 2. **Conversas longas**: Retry automático com 3 mensagens
-3. **Casos extremos**: Fallback para Lovable AI
+3. **Casos extremos**: Mensagem amigável ao usuário
 4. **Usuário**: Sempre recebe resposta (não crasha)
 
 ---
@@ -174,13 +171,13 @@ Com essas correções:
 1. **Verifique logs** para ver se está truncando corretamente
 2. **Reduza ainda mais** o número de mensagens (de 5 para 3)
 3. **Aumente max_model_len** no container (se houver memória)
-4. **Use Lovable AI** como principal para conversas longas
+4. **Aumente** `max_model_len` ou implemente resumo de conversa
 
 ### Se performance piorar
 
 - O truncamento pode afetar a qualidade das respostas
 - Considere aumentar `max_model_len` no vLLM
-- Ou usar Lovable AI para conversas mais longas
+- Ou implementar resumo de mensagens antigas
 
 ---
 

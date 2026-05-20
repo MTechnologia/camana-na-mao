@@ -164,7 +164,7 @@ def main() -> None:
 
     add_heading(doc, "1. Objetivo")
     doc.add_paragraph(
-        "Definir a proposta técnica para substituir o provedor atual (Lovable) por uma solução self-hosted, "
+        "Definir a proposta técnica para operar o assistente com provedor LLM self-hosted, "
         "mantendo conversação geral, contextualização, chatbot de serviços e RAG, com operação 24/7."
     )
 
@@ -253,7 +253,7 @@ def main() -> None:
     add_bullets(
         doc,
         [
-            "Atualizar `supabase/functions/ai-orchestrator/index.ts` para usar `CAMARA_LLM_BASE_URL` (em vez do Lovable).",
+            "Atualizar `supabase/functions/ai-orchestrator/index.ts` para usar `CAMARA_LLM_BASE_URL` / `AI_CHAT_BASE_URL`.",
             "Adicionar secrets/envs: `CAMARA_LLM_BASE_URL` e `CAMARA_LLM_API_KEY` (ou `CAMARA_LLM_HMAC_SECRET`).",
             "Adicionar timeouts, retry curto e circuit breaker no `ai-orchestrator`.",
             "Manter o padrão tool-first + RAG + memória por conversa.",
