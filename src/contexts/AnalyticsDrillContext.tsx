@@ -95,8 +95,8 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
   }, [region, grain, activeRegion, resetDrill]);
 
   const kpis = useMemo(
-    () => buildDrillKpisFromStats(stats, grain),
-    [stats, grain],
+    () => buildDrillKpisFromStats(stats, grain, activeRegion, category),
+    [stats, grain, activeRegion, category],
   );
 
   const chartData = useMemo(

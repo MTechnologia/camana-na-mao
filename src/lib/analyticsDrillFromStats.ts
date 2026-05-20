@@ -1,5 +1,5 @@
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
-import { bairroParaZona } from '@/lib/regionMapping';
+import { bairroParaZona, ZONA_DESCONHECIDA } from '@/lib/regionMapping';
 import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
 import type {
   AnalyticsMetric,
@@ -18,32 +18,65 @@ const EMPTY_KPIS: DrillKpis = {
   patterns: 0,
 };
 
+/** Relatos no total que não entram na distribuição por bairro (RPC top 20 ou bairro nulo). */
+export function unallocatedVolumeFromStats(stats: ReportsAnalyticsStats): number {
+  const distributed = stats.demographics.byRegion.reduce((s, r) => s + r.count, 0);
+  return Math.max(0, stats.total - distributed);
+}
+
+function volumeKpiFromStats(
+  stats: ReportsAnalyticsStats,
+  grain: DrillGrain,
+  activeRegion?: string,
+  category?: string,
+): number {
+  if (grain === 'overview') return stats.total;
+
+  if (grain === 'region' && activeRegion) {
+    const zoneLabel = regionLabel(activeRegion);
+    return stats.demographics.byRegion
+      .filter((r) => (bairroParaZona(r.region) ?? r.region) === zoneLabel || r.region === activeRegion)
+      .reduce((s, r) => s + r.count, 0);
+  }
+
+  const cats =
+    category === 'all'
+      ? stats.categories
+      : stats.categories.filter((c) => c.category === category);
+  return cats.reduce((s, c) => s + c.count, 0);
+}
+
+function sentimentKpiFromStats(stats: ReportsAnalyticsStats, grain: DrillGrain, activeRegion?: string): number {
+  const rows =
+    grain === 'region' && activeRegion
+      ? stats.demographics.byRegion.filter((r) => {
+          const zoneLabel = regionLabel(activeRegion);
+          return (bairroParaZona(r.region) ?? r.region) === zoneLabel || r.region === activeRegion;
+        })
+      : stats.demographics.byRegion;
+
+  if (rows.length === 0) return 0;
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  if (totalCount <= 0) return 0;
+  const weighted = rows.reduce((s, r) => s + (r.sentiment ?? 50) * r.count, 0);
+  return Math.min(99, Math.round(weighted / totalCount));
+}
+
 export function buildDrillKpisFromStats(
   stats: ReportsAnalyticsStats | null,
   grain: DrillGrain,
+  activeRegion?: string,
+  category?: string,
 ): DrillKpis {
   if (!stats) return EMPTY_KPIS;
 
-  const depthFactor = grain === 'district' ? 0.85 : grain === 'region' ? 0.92 : 1;
-  const avgSentiment =
-    stats.demographics.byRegion.length > 0
-      ? stats.demographics.byRegion.reduce((s, r) => s + (r.sentiment ?? 50), 0) /
-        stats.demographics.byRegion.length
-      : 50;
-
-  const pending = stats.byStatus.find((s) => s.status === 'pending')?.count ?? stats.pending;
-  const resolved = stats.resolved || 0;
-  const responseHours =
-    stats.total > 0 && resolved > 0 ? Math.round((pending / Math.max(resolved, 1)) * 24 * 10) / 10 : 0;
+  const patternsCount = stats.criticality.patterns.length || stats.categories.length;
 
   return {
-    volume: Math.round(stats.total * depthFactor),
-    responseHours: Math.min(99, responseHours),
-    sentimentPct: Math.min(99, Math.round(avgSentiment * depthFactor)),
-    patterns: Math.max(
-      0,
-      Math.round((stats.criticality.patterns.length || stats.categories.length) * depthFactor),
-    ),
+    volume: volumeKpiFromStats(stats, grain, activeRegion, category),
+    responseHours: responseHoursFromStats(stats),
+    sentimentPct: sentimentKpiFromStats(stats, grain, activeRegion),
+    patterns: Math.max(0, patternsCount),
   };
 }
 
@@ -57,24 +90,45 @@ function groupByZone(stats: ReportsAnalyticsStats): Map<string, { count: number;
     cur.n += 1;
     zones.set(zone, cur);
   }
+
+  const gap = unallocatedVolumeFromStats(stats);
+  if (gap > 0) {
+    const cur = zones.get(ZONA_DESCONHECIDA) ?? { count: 0, sentiment: 0, n: 0 };
+    cur.count += gap;
+    zones.set(ZONA_DESCONHECIDA, cur);
+  }
+
   return zones;
+}
+
+function responseHoursFromStats(stats: ReportsAnalyticsStats): number {
+  const pending = stats.byStatus.find((s) => s.status === 'Pendente')?.count ?? stats.pending;
+  const resolved = stats.resolved || 0;
+  if (stats.total <= 0 || resolved <= 0) return 0;
+  return Math.min(99, Math.round((pending / Math.max(resolved, 1)) * 24 * 10) / 10);
 }
 
 function metricFromZone(
   data: { count: number; sentiment: number; n: number },
   metric: AnalyticsMetric,
   patternsCount: number,
+  stats: ReportsAnalyticsStats,
 ): number {
   switch (metric) {
     case 'sentiment':
       return data.n > 0 ? Math.round(data.sentiment / data.n) : 0;
     case 'response_time':
-      return 0;
+      return responseHoursFromStats(stats);
     case 'patterns':
       return patternsCount;
     default:
       return data.count;
   }
+}
+
+/** Soma dos valores do gráfico de barras (útil para validar paridade com o KPI de volume). */
+export function sumChartBarValues(points: ChartBarPoint[]): number {
+  return points.reduce((s, p) => s + p.value, 0);
 }
 
 export function buildChartSeriesFromStats(
@@ -94,7 +148,7 @@ export function buildChartSeriesFromStats(
         label: zone,
         filterKey: 'region' as const,
         filterValue: zoneToFilterId(zone),
-        value: metricFromZone(data, metric, stats.criticality.patterns.length),
+        value: metricFromZone(data, metric, stats.criticality.patterns.length, stats),
       }))
       .sort((a, b) => b.value - a.value);
   }
