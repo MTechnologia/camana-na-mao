@@ -102,6 +102,27 @@ export const CHART_PARAMETER_LEGENDS = {
       description: 'Quanto maior a barra, maior o número de relatos naquele tema.',
     },
   ],
+  trendByCategory: [
+    {
+      term: 'Linhas por categoria',
+      description:
+        'Cada linha mostra a evolução de um tema (categoria do relato ou tipo de avaliação) ao longo do tempo.',
+    },
+    {
+      term: 'Eixo horizontal',
+      description:
+        'Marcos temporais conforme o período: dias (7 ou 30 dias), semanas (90 dias) ou meses (12 meses).',
+    },
+    {
+      term: 'Eixo vertical',
+      description: 'Quantidade de registros contabilizados em cada intervalo.',
+    },
+    {
+      term: 'Filtros desta tela',
+      description:
+        'Tipo de relato, linha de transporte e janela temporal refinam a série exibida abaixo da barra de recorte global.',
+    },
+  ],
   statusPipeline: [
     {
       term: 'Etapas',
@@ -347,13 +368,66 @@ export const RN_MAP_001_HEATMAP_PAGE_LEGEND: ParameterLegendItem = {
     'Mapas de calor por densidade de uso (pessoas no app), concentração de avaliações, intensidade de demanda (botão + relatos + avaliações) e tempos médios de espera informados nas avaliações de equipamentos. Troca de métrica sem perder os filtros globais.',
 };
 
+export const HEATMAP_PAGE_LEGENDS: ParameterLegendItem[] = [
+  RN_MAP_001_HEATMAP_PAGE_LEGEND,
+  {
+    term: 'Abas e filtros locais',
+    description:
+      'Cada aba usa uma métrica territorial diferente. Fonte, período e escopo refinam só o mapa da aba ativa.',
+  },
+];
+
 export function heatmapMetricLabel(metricId: string): string {
   return HEATMAP_METRICS.find((m) => m.id === metricId)?.label ?? metricId;
 }
 
+export const TRENDS_PAGE_LEGENDS: ParameterLegendItem[] = [
+  RN_ANL_003_TRENDS_LEGEND,
+  {
+    term: 'Recorte local',
+    description:
+      'Tipo (urbano, transporte, avaliações), linha de ônibus/metrô e período (7 dias a 12 meses) aplicam-se só a esta visualização.',
+  },
+];
+
+export const PAINEIS_INDEX_PAGE_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Painéis personalizados',
+    description:
+      'Layouts salvos com widgets do catálogo analítico. O recorte global (barra superior) sincroniza com a análise institucional.',
+  },
+  {
+    term: 'Filtros por widget',
+    description:
+      'Cada widget pode herdar o recorte global ou usar filtros próprios definidos na edição.',
+  },
+];
+
+export const PAINEIS_AVANCADO_PAGE_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Modo foco',
+    description:
+      'Visualização ampliada do painel selecionado, ideal para reuniões e acompanhamento contínuo.',
+  },
+  RN_ANL_003_TRENDS_LEGEND,
+];
+
+export const PAINEIS_CRIAR_PAGE_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Construtor de painéis',
+    description:
+      'Biblioteca de widgets à esquerda, canvas central e configuração à direita. Templates aceleram o primeiro layout.',
+  },
+  {
+    term: 'Mesmo motor analítico',
+    description: 'Os dados exibidos nos widgets seguem o mesmo recorte e agregações da análise institucional.',
+  },
+];
+
 export const SECTION_CHART_LEGENDS = {
   volumeTimeSeries: CHART_PARAMETER_LEGENDS.volumeTimeSeries,
   volumeByCategory: CHART_PARAMETER_LEGENDS.volumeByCategory,
+  trendByCategory: CHART_PARAMETER_LEGENDS.trendByCategory,
   metricTrends: [
     KPI_PARAMETER_LEGENDS.volume,
     KPI_PARAMETER_LEGENDS.sentiment,
@@ -539,6 +613,18 @@ export const URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND: ParameterLegendItem = {
     'Central operacional para priorizar relatos na fila, encaminhar à comissão temática ou vereador responsável e acompanhar cada etapa até a conclusão. A triagem é obrigatória antes do encaminhamento; todas as mudanças de status ficam na linha do tempo do protocolo. Os indicadores e a lista seguem o recorte de período, região e categoria definido no topo da página.',
 };
 
+export const URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS: ParameterLegendItem[] = [
+  URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND,
+];
+
+export const REFERRALS_PAGE_LEGEND: ParameterLegendItem = {
+  term: 'Análise de Encaminhamentos',
+  description:
+    'Visão unificada do encaminhamento: indicadores do fluxo, filas por comissão temática e por vereador. Para triar e registrar ações em cada protocolo, use Gestão de relatos. Respeita o recorte global de período, região e categoria.',
+};
+
+export const REFERRALS_PAGE_LEGENDS: ParameterLegendItem[] = [REFERRALS_PAGE_LEGEND];
+
 export const REPORTS_WORKFLOW_KPI_LEGENDS = {
   awaitingTriage: {
     term: 'Aguardando triagem',
@@ -613,12 +699,6 @@ export const PUBLIC_HEARINGS_KPI_LEGENDS = {
     description: 'Textos ou pedidos de fala enviados para audiências no recorte.',
   },
 } as const satisfies Record<string, ParameterLegendItem>;
-
-export const REFERRALS_PAGE_LEGEND: ParameterLegendItem = {
-  term: 'Análise de Encaminhamentos',
-  description:
-    'Visão unificada do encaminhamento: indicadores do fluxo, filas por comissão temática e por vereador. Para triar e registrar ações em cada protocolo, use Gestão de relatos. Respeita o recorte global de período, região e categoria.',
-};
 
 export const REFERRAL_KPI_LEGENDS = {
   total: { term: 'Total', description: 'Encaminhamentos no recorte (todas as etapas).' },

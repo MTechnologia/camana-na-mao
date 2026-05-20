@@ -19,68 +19,21 @@ import {
 import { useAnalyticsChartData } from '@/hooks/useAnalyticsChartData';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ChartCard, ChartHeight } from '@/components/admin/analytics/ChartCard';
+import { ChartParametersHelp } from '@/components/admin/analytics/ChartParametersHelp';
 import {
   CHART_COLORS,
   chartTooltipStyle,
   formatChartNumber,
 } from '@/components/admin/analytics/chartTheme';
-import { ParameterLegend } from '@/components/admin/analytics/ParameterLegend';
 import { PatternsByRegionList } from '@/components/admin/analytics/PatternsByRegionList';
 import { SentimentPolarityPiesGrid } from '@/components/admin/analytics/SentimentPolarityPiesGrid';
-import { SENTIMENT_POLARITY_PREPEND_SECTION } from '@/lib/analyticsParameterLegends';
 import { CHART_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import { buildAiInsightsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
 import { useMemo } from 'react';
-
-function ChartCard({
-  title,
-  subtitle,
-  legend,
-  legendTitle,
-  legendVariant = 'collapsible',
-  showSentimentPolarity = false,
-  children,
-  className,
-}: {
-  title: string;
-  subtitle?: string;
-  legend?: ParameterLegendItem[];
-  legendTitle?: string;
-  legendVariant?: 'collapsible' | 'always';
-  /** Exibe positivo, neutro e negativo sempre visíveis (gráficos de sentimento). */
-  showSentimentPolarity?: boolean;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <Card className={className}>
-      <CardContent className="p-4">
-        <div className="mb-3">
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          {subtitle ? <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p> : null}
-        </div>
-        {children}
-        {legend?.length || showSentimentPolarity ? (
-          <ParameterLegend
-            items={legend ?? []}
-            prependSection={showSentimentPolarity ? SENTIMENT_POLARITY_PREPEND_SECTION : undefined}
-            title={legendTitle ?? 'Parâmetros'}
-            variant={legendVariant}
-            className="mt-3"
-          />
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChartHeight({ children }: { children: ReactNode }) {
-  return <div className="h-[260px] w-full">{children}</div>;
-}
 
 export function VolumeTabPanel() {
   const { volumeTimeSeries, volumeByCategory, statusBreakdown, isLoading } = useAnalyticsChartData();
@@ -441,8 +394,16 @@ export function AiInsightsPanel() {
 
   return (
     <div className="space-y-4">
-      <ParameterLegend items={CHART_PARAMETER_LEGENDS.aiSummaryCards} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <Card className="relative overflow-hidden">
+        <CardContent className="relative p-4">
+          <ChartParametersHelp
+            className="absolute right-3 top-3 z-10"
+            items={CHART_PARAMETER_LEGENDS.aiSummaryCards}
+            title="Parâmetros"
+            chartTitle="Resumo para IA"
+          />
+          <p className="mb-3 pr-9 text-sm font-medium text-foreground">Resumo para IA</p>
+          <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-primary/20 bg-accent p-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Volume (recorte)</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{kpis.volume.toLocaleString('pt-BR')}</p>
@@ -457,10 +418,18 @@ export function AiInsightsPanel() {
             urban_reports, report_patterns e RPC demografia
           </p>
         </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-3 rounded-xl border border-primary/20 bg-accent p-4">
-        <p className="text-sm font-medium text-accent-foreground">Análise assistida por IA</p>
+      <div className="relative space-y-3 rounded-xl border border-primary/20 bg-accent p-4">
+        <ChartParametersHelp
+          className="absolute right-3 top-3 z-10"
+          items={CHART_PARAMETER_LEGENDS.aiInsights}
+          title="Parâmetros"
+          chartTitle="Análise assistida por IA"
+        />
+        <p className="pr-9 text-sm font-medium text-accent-foreground">Análise assistida por IA</p>
         <p className="text-sm text-muted-foreground">
           Insights derivados dos agregados do recorte ativo (RN-IA-001).
         </p>
@@ -487,7 +456,6 @@ export function AiInsightsPanel() {
             ))}
           </ul>
         )}
-        <ParameterLegend items={CHART_PARAMETER_LEGENDS.aiInsights} className="mt-3 bg-background/50" />
       </div>
     </div>
   );

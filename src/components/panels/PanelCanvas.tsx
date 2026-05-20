@@ -18,8 +18,14 @@ const ROW_SPAN_CLASS: Record<PanelWidget['rowSpan'], string> = {
   2: 'min-h-[340px]',
 };
 
+const CHROMELESS_TYPES: PanelWidget['type'][] = ['kpi_quad'];
+
 function sortedWidgets(widgets: PanelWidget[]) {
   return [...widgets].sort((a, b) => a.order - b.order);
+}
+
+function isChromeless(type: PanelWidget['type']) {
+  return CHROMELESS_TYPES.includes(type);
 }
 
 export function PanelCanvas({
@@ -36,6 +42,7 @@ export function PanelCanvas({
   onRemoveWidget?: (id: string) => void;
 }) {
   const widgets = sortedWidgets(panel.widgets);
+  const isView = mode === 'view';
 
   if (widgets.length === 0) {
     return (
@@ -55,30 +62,36 @@ export function PanelCanvas({
       {widgets.map((widget) => {
         const selected = selectedWidgetId === widget.id;
         const entry = getCatalogEntry(widget.type);
-        return (
-          <Card
-            key={widget.id}
-            className={cn(
-              COL_SPAN_CLASS[widget.colSpan],
-              ROW_SPAN_CLASS[widget.rowSpan],
-              'flex flex-col overflow-hidden transition-shadow',
-              mode === 'edit' && selected && 'ring-2 ring-primary ring-offset-2',
-              mode === 'edit' && 'cursor-pointer hover:shadow-md',
-            )}
-            onClick={mode === 'edit' ? () => onSelectWidget?.(widget.id) : undefined}
-          >
-            <CardContent className="flex h-full flex-col p-4">
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                    {mode === 'edit' ? (
+        const chromeless = isView && isChromeless(widget.type);
+
+        const widgetBody = (
+          <div className={cn('min-h-0 flex-1', chromeless ? '' : isView ? 'p-4 md:p-5' : 'p-4')}>
+            <PanelWidgetRenderer widget={widget} embedded={isView} />
+          </div>
+        );
+
+        if (mode === 'edit') {
+          return (
+            <Card
+              key={widget.id}
+              className={cn(
+                COL_SPAN_CLASS[widget.colSpan],
+                ROW_SPAN_CLASS[widget.rowSpan],
+                'flex flex-col overflow-hidden transition-shadow',
+                selected && 'ring-2 ring-primary ring-offset-2',
+                'cursor-pointer hover:shadow-md',
+              )}
+              onClick={() => onSelectWidget?.(widget.id)}
+            >
+              <CardContent className="flex h-full flex-col p-4">
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                       <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                    ) : null}
-                    {widget.title}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{entry.label}</p>
-                </div>
-                {mode === 'edit' ? (
+                      {widget.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{entry.label}</p>
+                  </div>
                   <div className="flex shrink-0 gap-1">
                     <Button
                       type="button"
@@ -107,17 +120,33 @@ export function PanelCanvas({
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                ) : null}
-              </div>
-              <div className="min-h-0 flex-1">
-                <PanelWidgetRenderer widget={widget} />
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+                {widgetBody}
+              </CardContent>
+            </Card>
+          );
+        }
+
+        return (
+          <article
+            key={widget.id}
+            className={cn(
+              COL_SPAN_CLASS[widget.colSpan],
+              !chromeless && ROW_SPAN_CLASS[widget.rowSpan],
+              'flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm',
+              chromeless && 'min-h-0 shadow-md',
+            )}
+          >
+            {!chromeless ? (
+              <header className="shrink-0 border-b border-border/50 bg-muted/20 px-4 py-2.5 md:px-5">
+                <h3 className="text-sm font-semibold text-foreground">{widget.title}</h3>
+                <p className="text-xs text-muted-foreground">{entry.label}</p>
+              </header>
+            ) : null}
+            {widgetBody}
+          </article>
         );
       })}
     </div>
   );
 }
-
-

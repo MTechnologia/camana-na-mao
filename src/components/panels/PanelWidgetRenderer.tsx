@@ -12,12 +12,19 @@ import {
   WidgetTerritoryIntensity,
 } from '@/components/panels/widgets/PanelWidgetCharts';
 
-export function PanelWidgetRenderer({ widget }: { widget: PanelWidget }) {
+export function PanelWidgetRenderer({
+  widget,
+  embedded = false,
+}: {
+  widget: PanelWidget;
+  /** Visualização dentro do painel salvo — sem cards aninhados. */
+  embedded?: boolean;
+}) {
   switch (widget.type) {
     case 'kpi_quad':
-      return <WidgetKpiQuad widget={widget} />;
+      return <WidgetKpiQuad widget={widget} embedded={embedded} />;
     case 'kpi_single':
-      return <WidgetKpiSingle widget={widget} />;
+      return <WidgetKpiSingle widget={widget} embedded={embedded} />;
     case 'chart_bar_drill':
       return <WidgetBarDrill widget={widget} />;
     case 'chart_line_volume':
@@ -27,9 +34,9 @@ export function PanelWidgetRenderer({ widget }: { widget: PanelWidget }) {
     case 'chart_pie_sentiment':
       return <WidgetPieSentiment widget={widget} />;
     case 'list_patterns_top':
-      return <WidgetPatternsTop widget={widget} />;
+      return <WidgetPatternsTop widget={widget} embedded={embedded} />;
     case 'list_patterns_region':
-      return <WidgetPatternsRegion widget={widget} />;
+      return <WidgetPatternsRegion widget={widget} embedded={embedded} />;
     case 'chart_scatter_correlation':
       return <WidgetScatterCorrelation widget={widget} />;
     case 'chart_territory_intensity':

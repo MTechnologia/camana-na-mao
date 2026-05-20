@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -8,17 +7,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { AdminReportsHeatmap } from '@/components/admin/AdminReportsHeatmap';
+import { HeatmapFiltersBar } from '@/components/admin/heatmap-page/HeatmapFiltersBar';
+import { HeatmapMetricsStrip } from '@/components/admin/heatmap-page/HeatmapMetricsStrip';
+import { HeatmapPanelShell } from '@/components/admin/heatmap-page/HeatmapPanelShell';
 import {
   useUsageHeatmap,
   type UsageHeatmapPeriod,
   type UsageHeatmapTypeFilter,
 } from '@/hooks/useUsageHeatmap';
-import { SAO_PAULO_HEATMAP_BOUNDS } from '@/lib/reportsHeatmapData';
-import { RefreshCw, AlertTriangle, Info } from 'lucide-react';
 
 export function UsageHeatmapPanel() {
   const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>('all_usage');
@@ -27,75 +26,73 @@ export function UsageHeatmapPanel() {
   const { data, isLoading, error, refresh } = useUsageHeatmap({ typeFilter, period });
   const breakdown = data?.breakdown;
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Densidade geográfica de uso: relatos urbanos, avaliações, visitas e transporte
-          (geocoded por zona). Apenas pontos dentro de São Paulo (lat {SAO_PAULO_HEATMAP_BOUNDS.minLat}–
-          {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng {SAO_PAULO_HEATMAP_BOUNDS.minLng}–
-          {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
-        </span>
+  const summaryCells = useMemo(() => {
+    if (!data) return [];
+    return [
+      { label: 'Células no mapa', value: data.points.length },
+      { label: 'Urbano', value: breakdown?.urban ?? 0 },
+      { label: 'Avaliações', value: breakdown?.evaluation ?? 0 },
+      { label: 'Transporte', value: breakdown?.transport ?? 0 },
+    ];
+  }, [data, breakdown]);
+
+  const filters = (
+    <HeatmapFiltersBar onRefresh={refresh} isLoading={isLoading}>
+      <div className="space-y-1.5">
+        <Label htmlFor="heatmap-type" className="text-xs font-medium text-muted-foreground">
+          Fonte de dados
+        </Label>
+        <Select
+          value={typeFilter}
+          onValueChange={(v) => setTypeFilter(v as UsageHeatmapTypeFilter)}
+        >
+          <SelectTrigger id="heatmap-type" className="h-9 bg-background">
+            <SelectValue placeholder="Fonte" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all_usage">Uso total (todas as fontes)</SelectItem>
+            <SelectItem value="all_reports">Apenas relatos (urbano + avaliações)</SelectItem>
+            <SelectItem value="urban">Relatos urbanos</SelectItem>
+            <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
+            <SelectItem value="visits">Visitas a equipamentos públicos</SelectItem>
+            <SelectItem value="transport">Relatos de transporte (por zona)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="heatmap-period" className="text-xs font-medium text-muted-foreground">
+          Período
+        </Label>
+        <Select value={period} onValueChange={(v) => setPeriod(v as UsageHeatmapPeriod)}>
+          <SelectTrigger id="heatmap-period" className="h-9 bg-background">
+            <SelectValue placeholder="Período" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="7d">Últimos 7 dias</SelectItem>
+            <SelectItem value="30d">Últimos 30 dias</SelectItem>
+            <SelectItem value="90d">Últimos 90 dias</SelectItem>
+            <SelectItem value="12m">Últimos 12 meses</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </HeatmapFiltersBar>
+  );
 
-      <Card className="p-4 md:p-6">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="grid flex-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="heatmap-type">Fonte de dados</Label>
-              <Select
-                value={typeFilter}
-                onValueChange={(v) => setTypeFilter(v as UsageHeatmapTypeFilter)}
-              >
-                <SelectTrigger id="heatmap-type">
-                  <SelectValue placeholder="Fonte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_usage">Uso total (todas as fontes)</SelectItem>
-                  <SelectItem value="all_reports">Apenas relatos (urbano + avaliações)</SelectItem>
-                  <SelectItem value="urban">Relatos urbanos</SelectItem>
-                  <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
-                  <SelectItem value="visits">Visitas a equipamentos públicos</SelectItem>
-                  <SelectItem value="transport">Relatos de transporte (por zona)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="heatmap-period">Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as UsageHeatmapPeriod)}>
-                <SelectTrigger id="heatmap-period">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-        </div>
-
-        {error && (
-          <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {isLoading && !data ? (
-          <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
-        ) : (
-          <AdminReportsHeatmap points={data?.points ?? []} />
-        )}
-
-        {data && (
+  return (
+    <HeatmapPanelShell
+      metricId="uso"
+      subtitle="Pontos geocodificados em São Paulo — densidade por célula"
+      filters={
+        <>
+          {filters}
+          {summaryCells.length > 0 ? (
+            <HeatmapMetricsStrip cells={summaryCells} isLoading={isLoading && !data} />
+          ) : null}
+        </>
+      }
+      error={error}
+      footer={
+        data ? (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-muted-foreground">
               {data.points.length} células no mapa
@@ -104,17 +101,20 @@ export function UsageHeatmapPanel() {
                 ? ` Dados desde ${new Date(data.start_at).toLocaleString('pt-BR')}.`
                 : ''}
             </p>
-            {breakdown && (
+            {breakdown ? (
               <div className="flex flex-wrap gap-2 text-xs">
-                <Badge variant="outline">Urbano: {breakdown.urban}</Badge>
-                <Badge variant="outline">Avaliações: {breakdown.evaluation}</Badge>
                 <Badge variant="outline">Visitas: {breakdown.visits}</Badge>
-                <Badge variant="outline">Transporte: {breakdown.transport}</Badge>
               </div>
-            )}
+            ) : null}
           </div>
-        )}
-      </Card>
-    </div>
+        ) : null
+      }
+    >
+      {isLoading && !data ? (
+        <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
+      ) : (
+        <AdminReportsHeatmap points={data?.points ?? []} />
+      )}
+    </HeatmapPanelShell>
   );
 }

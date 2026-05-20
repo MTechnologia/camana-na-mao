@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { ReportDetailSheet } from '@/components/admin/reports/ReportDetailSheet';
 import { ReportsDataTable } from '@/components/admin/reports/ReportsDataTable';
 import { ReportsQueueToolbar } from '@/components/admin/reports/ReportsQueueToolbar';
 import { ReportsWorkflowBanner } from '@/components/admin/reports/ReportsWorkflowBanner';
 import { ReportsWorkflowKpis } from '@/components/admin/reports/ReportsWorkflowKpis';
 import { ReportsManagementChartSection } from '@/components/admin/charts/SectionChartPanels';
+import { UrbanReportsExploreLinks } from '@/components/admin/urban-reports/UrbanReportsExploreLinks';
+import { UrbanReportsPageHeader } from '@/components/admin/urban-reports/UrbanReportsPageHeader';
+import { UrbanReportsSubNav } from '@/components/admin/urban-reports/UrbanReportsSubNav';
 import { Button } from '@/components/ui/button';
-import { PageShell } from '@/components/ui/PageShell';
+import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { useUrbanReportsManagement } from '@/hooks/useUrbanReportsManagement';
-import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
 
 export function ReportsManagementPage() {
   const {
@@ -26,41 +28,51 @@ export function ReportsManagementPage() {
   } = useUrbanReportsManagement();
 
   return (
-    <PageShell
-      title="Gestão de relatos urbanos"
-      titleInfo={URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND}
-      actions={
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/admin/referrals?tab=fluxo">
-            <ExternalLink className="mr-1.5 h-4 w-4" />
-            Análise de Encaminhamentos
-          </Link>
-        </Button>
-      }
-    >
+    <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
+      <UrbanReportsPageHeader
+        title="Gestão de relatos"
+        legends={URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS}
+        ariaLabel="Ajuda sobre gestão de relatos urbanos"
+        actions={
+          <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
+            <Link to="/admin/referrals?tab=fluxo">
+              <Share2 className="h-3.5 w-3.5" aria-hidden />
+              Encaminhamentos
+            </Link>
+          </Button>
+        }
+      />
+
+      <UrbanReportsSubNav />
+
+      <ReportsWorkflowKpis counts={counts} queueTab={queueTab} onSelectTab={setQueueTab} />
+
       <ReportsWorkflowBanner />
 
-      <ReportsWorkflowKpis
-        counts={counts}
-        queueTab={queueTab}
-        onSelectTab={setQueueTab}
-      />
-
-      <ReportsQueueToolbar
-        queueTab={queueTab}
-        onTabChange={setQueueTab}
-        search={search}
-        onSearchChange={setSearch}
-        resultCount={filtered.length}
-      />
-
-      <ReportsDataTable
-        rows={filtered}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-      />
+      <section
+        aria-label="Fila de relatos"
+        className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
+      >
+        <div className="px-4 pt-4 md:px-5">
+          <ReportsQueueToolbar
+            queueTab={queueTab}
+            onTabChange={setQueueTab}
+            search={search}
+            onSearchChange={setSearch}
+            resultCount={filtered.length}
+          />
+        </div>
+        <ReportsDataTable
+          rows={filtered}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          embedded
+        />
+      </section>
 
       <ReportsManagementChartSection />
+
+      <UrbanReportsExploreLinks />
 
       <ReportDetailSheet
         report={selected}
@@ -69,6 +81,6 @@ export function ReportsManagementPage() {
           updateReport(updated);
         }}
       />
-    </PageShell>
+    </div>
   );
 }

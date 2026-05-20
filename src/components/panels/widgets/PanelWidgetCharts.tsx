@@ -32,7 +32,13 @@ function MiniChart({ tall, children }: { tall?: boolean; children: ReactNode }) 
   return <div className={tall ? 'h-[280px] w-full' : 'h-[220px] w-full'}>{children}</div>;
 }
 
-export function WidgetKpiQuad({ widget }: { widget: PanelWidget }) {
+export function WidgetKpiQuad({
+  widget,
+  embedded = false,
+}: {
+  widget: PanelWidget;
+  embedded?: boolean;
+}) {
   const { kpis } = usePanelWidgetAnalytics(widget);
   const items = [
     { label: 'Volume', value: formatChartNumber(kpis.volume), hint: 'relatos' },
@@ -40,6 +46,23 @@ export function WidgetKpiQuad({ widget }: { widget: PanelWidget }) {
     { label: 'Sentimento +', value: `${kpis.sentimentPct}%`, hint: 'positivo' },
     { label: 'Padrões', value: formatChartNumber(kpis.patterns), hint: 'temas ativos' },
   ];
+
+  if (embedded) {
+    return (
+      <div className="grid grid-cols-2 divide-x divide-y divide-border bg-card lg:grid-cols-4 lg:divide-y-0">
+        {items.map((item) => (
+          <div key={item.label} className="flex flex-col gap-1 px-4 py-4 md:px-5 md:py-5">
+            <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+            <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+              {item.value}
+            </p>
+            <p className="text-xs text-muted-foreground">{item.hint}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
@@ -58,7 +81,13 @@ export function WidgetKpiQuad({ widget }: { widget: PanelWidget }) {
   );
 }
 
-export function WidgetKpiSingle({ widget }: { widget: PanelWidget }) {
+export function WidgetKpiSingle({
+  widget,
+  embedded = false,
+}: {
+  widget: PanelWidget;
+  embedded?: boolean;
+}) {
   const metric = widget.filters.metric ?? 'volume';
   const { kpis } = usePanelWidgetAnalytics(widget);
   const valueMap: Record<AnalyticsMetric, string> = {
@@ -68,10 +97,14 @@ export function WidgetKpiSingle({ widget }: { widget: PanelWidget }) {
     patterns: formatChartNumber(kpis.patterns),
   };
   return (
-    <div className="flex h-full min-h-[120px] flex-col justify-center rounded-lg border border-border bg-muted/20 px-4 py-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {metricLabel(metric)}
-      </p>
+    <div
+      className={
+        embedded
+          ? 'flex h-full min-h-[120px] flex-col justify-center px-4 py-4 md:px-5'
+          : 'flex h-full min-h-[120px] flex-col justify-center rounded-lg border border-border bg-muted/20 px-4 py-4'
+      }
+    >
+      <p className="text-xs font-medium text-muted-foreground">{metricLabel(metric)}</p>
       <p className="mt-2 text-3xl font-semibold tabular-nums text-foreground">{valueMap[metric]}</p>
     </div>
   );
@@ -254,16 +287,32 @@ export function WidgetPieSentiment({ widget }: { widget: PanelWidget }) {
   );
 }
 
-export function WidgetPatternsTop({ widget }: { widget: PanelWidget }) {
+export function WidgetPatternsTop({
+  widget,
+  embedded = false,
+}: {
+  widget: PanelWidget;
+  embedded?: boolean;
+}) {
   const { bundle } = usePanelWidgetAnalytics(widget);
   const topN = widget.filters.topN ?? 8;
   const rows = useMemo(() => bundle.topPatterns.slice(0, topN), [bundle.topPatterns, topN]);
   return (
-    <ul className="max-h-[300px] space-y-2 overflow-y-auto pr-1">
+    <ul
+      className={
+        embedded
+          ? 'max-h-[300px] divide-y divide-border overflow-y-auto'
+          : 'max-h-[300px] space-y-2 overflow-y-auto pr-1'
+      }
+    >
       {rows.map((row, i) => (
         <li
           key={row.id}
-          className="flex items-center justify-between gap-2 rounded-md border border-border/80 bg-muted/20 px-3 py-2 text-sm"
+          className={
+            embedded
+              ? 'flex items-center justify-between gap-2 px-1 py-2.5 text-sm'
+              : 'flex items-center justify-between gap-2 rounded-md border border-border/80 bg-muted/20 px-3 py-2 text-sm'
+          }
         >
           <span className="flex min-w-0 items-center gap-2">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -285,15 +334,29 @@ export function WidgetPatternsTop({ widget }: { widget: PanelWidget }) {
   );
 }
 
-export function WidgetPatternsRegion({ widget }: { widget: PanelWidget }) {
+export function WidgetPatternsRegion({
+  widget,
+  embedded = false,
+}: {
+  widget: PanelWidget;
+  embedded?: boolean;
+}) {
   const { bundle } = usePanelWidgetAnalytics(widget);
   const rows = bundle.patternsByRegion;
   return (
-    <ul className="max-h-[300px] space-y-2 overflow-y-auto">
+    <ul
+      className={
+        embedded
+          ? 'max-h-[300px] divide-y divide-border overflow-y-auto'
+          : 'max-h-[300px] space-y-2 overflow-y-auto'
+      }
+    >
       {rows.map((row) => (
         <li
           key={row.regionId}
-          className="rounded-md border border-border/80 bg-muted/20 px-3 py-2.5 text-sm"
+          className={
+            embedded ? 'px-1 py-2.5 text-sm' : 'rounded-md border border-border/80 bg-muted/20 px-3 py-2.5 text-sm'
+          }
         >
           <p className="font-medium text-foreground">{row.regionLabel}</p>
           <p className="mt-0.5 text-foreground">{row.primaryPattern}</p>

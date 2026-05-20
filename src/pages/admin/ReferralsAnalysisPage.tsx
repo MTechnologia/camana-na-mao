@@ -1,20 +1,25 @@
 import { useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ReferralRulesSummary } from '@/components/admin/referrals/ReferralRulesSummary';
-import { ArrowLeft, Building2, Share2, Users } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { ReferralDestinationsTable } from '@/components/admin/referrals/ReferralDestinationsTable';
 import {
   CommissionsChartSection,
   CouncilMembersChartSection,
   ReferralsChartSection,
 } from '@/components/admin/charts/SectionChartPanels';
-import { KpiCard } from '@/components/ui/KpiCard';
+import { ReferralsKpiStrip } from '@/components/admin/urban-reports/ReferralsKpiStrip';
+import { UrbanReportsExploreLinks } from '@/components/admin/urban-reports/UrbanReportsExploreLinks';
+import { UrbanReportsPageHeader } from '@/components/admin/urban-reports/UrbanReportsPageHeader';
+import { UrbanReportsSubNav } from '@/components/admin/urban-reports/UrbanReportsSubNav';
 import { Button } from '@/components/ui/button';
-import { PageShell } from '@/components/ui/PageShell';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { REFERRAL_KPI_LEGENDS, REFERRALS_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
+import { REFERRALS_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { useReferralsAdmin } from '@/hooks/useReferralsAdmin';
 import { useReferralDestinations } from '@/hooks/useReferralDestinations';
+import { cn } from '@/lib/utils';
+import { Building2, Share2, Users } from 'lucide-react';
 
 const TABS = [
   { id: 'fluxo', label: 'Fluxo', icon: Share2 },
@@ -41,68 +46,77 @@ export function ReferralsAnalysisPage() {
   }, [tabParam, activeTab, setSearchParams]);
 
   return (
-    <PageShell
-      title="Análise de Encaminhamentos"
-      titleInfo={REFERRALS_PAGE_LEGEND}
-      actions={
-        <Button variant="default" size="sm" asChild>
-          <Link to="/admin/reports">
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Ir para Gestão de relatos
-          </Link>
-        </Button>
-      }
-    >
-      <ReferralRulesSummary className="mb-4" />
+    <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
+      <UrbanReportsPageHeader
+        title="Análise de encaminhamentos"
+        legends={REFERRALS_PAGE_LEGENDS}
+        ariaLabel="Ajuda sobre análise de encaminhamentos"
+        actions={
+          <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
+            <Link to="/admin/reports">
+              <FileText className="h-3.5 w-3.5" aria-hidden />
+              Gestão de relatos
+            </Link>
+          </Button>
+        }
+      />
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}
-      >
-        <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1 p-1">
-          {TABS.map((t) => (
-            <TabsTrigger
-              key={t.id}
-              value={t.id}
-              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <t.icon className="h-4 w-4" aria-hidden />
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <UrbanReportsSubNav />
 
-        <TabsContent value="fluxo" className="mt-0 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-4">
-            <KpiCard label="Total" value={String(kpis.total)} parameter={REFERRAL_KPI_LEGENDS.total} />
-            <KpiCard label="Pendentes" value={String(kpis.pending)} parameter={REFERRAL_KPI_LEGENDS.pending} />
-            <KpiCard label="Enviados" value={String(kpis.sent)} parameter={REFERRAL_KPI_LEGENDS.sent} />
-            <KpiCard label="Resolvidos" value={String(kpis.resolved)} parameter={REFERRAL_KPI_LEGENDS.resolved} />
-          </div>
-          <ReferralsChartSection />
-        </TabsContent>
+      <ReferralRulesSummary />
 
-        <TabsContent value="comissoes" className="mt-0 space-y-6">
-          <CommissionsChartSection />
-          <ReferralDestinationsTable
-            title="Comissões temáticas"
-            description="Destinos institucionais para encaminhamento após triagem do relato."
-            destinations={commissions}
-            nameColumnLabel="Comissão"
-          />
-        </TabsContent>
+      <section aria-label="Abas de encaminhamento" className="space-y-4">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}
+          className="w-full"
+        >
+          <Card className="overflow-hidden border-border/80 p-1.5 shadow-sm">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-transparent p-0">
+              {TABS.map((t) => (
+                <TabsTrigger
+                  key={t.id}
+                  value={t.id}
+                  className={cn(
+                    'h-9 gap-1.5 rounded-md text-xs font-medium sm:text-sm',
+                    'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm',
+                  )}
+                >
+                  <t.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Card>
 
-        <TabsContent value="vereadores" className="mt-0 space-y-6">
-          <CouncilMembersChartSection />
-          <ReferralDestinationsTable
-            title="Vereadores"
-            description="Parlamentares disponíveis para encaminhamento direto, com temas de afinidade e carga atual."
-            destinations={councilMembers}
-            nameColumnLabel="Vereador(a)"
-          />
-        </TabsContent>
-      </Tabs>
-    </PageShell>
+          <TabsContent value="fluxo" className="mt-4 space-y-6 focus-visible:outline-none">
+            <ReferralsKpiStrip kpis={kpis} />
+            <ReferralsChartSection />
+          </TabsContent>
+
+          <TabsContent value="comissoes" className="mt-4 space-y-6 focus-visible:outline-none">
+            <CommissionsChartSection />
+            <ReferralDestinationsTable
+              title="Comissões temáticas"
+              description="Destinos institucionais para encaminhamento após triagem do relato."
+              destinations={commissions}
+              nameColumnLabel="Comissão"
+            />
+          </TabsContent>
+
+          <TabsContent value="vereadores" className="mt-4 space-y-6 focus-visible:outline-none">
+            <CouncilMembersChartSection />
+            <ReferralDestinationsTable
+              title="Vereadores"
+              description="Parlamentares disponíveis para encaminhamento direto, com temas de afinidade e carga atual."
+              destinations={councilMembers}
+              nameColumnLabel="Vereador(a)"
+            />
+          </TabsContent>
+        </Tabs>
+      </section>
+
+      <UrbanReportsExploreLinks />
+    </div>
   );
 }
-

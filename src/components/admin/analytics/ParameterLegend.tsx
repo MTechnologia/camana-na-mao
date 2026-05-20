@@ -2,34 +2,65 @@ import { ChevronDown } from 'lucide-react';
 import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import { cn } from '@/lib/utils';
 
-type LegendSection = {
+export type ParameterLegendSection = {
   title: string;
   items: ParameterLegendItem[];
 };
 
 type ParameterLegendProps = {
   items: ParameterLegendItem[];
-  /** Seção exibida no topo do conteúdo (ex.: polaridades de sentimento). */
-  prependSection?: LegendSection;
+  prependSection?: ParameterLegendSection;
   title?: string;
   className?: string;
-  /** `always` — bloco sempre visível; `collapsible` — acordeão (padrão). */
   variant?: 'collapsible' | 'always';
   defaultOpen?: boolean;
 };
 
-function LegendBody({ items }: { items: ParameterLegendItem[] }) {
+type LegendDensity = 'compact' | 'modal';
+
+function LegendBody({ items, density = 'compact' }: { items: ParameterLegendItem[]; density?: LegendDensity }) {
   if (items.length === 0) return null;
+  const modal = density === 'modal';
+
   return (
-    <dl className="space-y-2">
+    <dl className={cn(modal ? 'space-y-3' : 'space-y-2')}>
       {items.map((item) => (
-        <div key={item.term} className="text-[11px] leading-snug">
-          <dt className="font-medium text-foreground">{item.term}</dt>
-          <dd className="mt-0.5 text-muted-foreground">{item.description}</dd>
+        <div
+          key={item.term}
+          className={cn(
+            modal
+              ? 'rounded-lg border border-border/70 bg-card px-4 py-3.5 shadow-sm'
+              : 'text-[11px] leading-snug',
+          )}
+        >
+          <dt
+            className={cn(
+              'font-semibold text-foreground',
+              modal ? 'text-sm leading-snug' : 'font-medium',
+            )}
+          >
+            {item.term}
+          </dt>
+          <dd className={cn('text-muted-foreground', modal ? 'mt-2 text-sm leading-relaxed' : 'mt-0.5')}>
+            {item.description}
+          </dd>
           {item.formula ? (
-            <dd className="mt-1 rounded bg-background/80 px-2 py-1 font-mono text-[10px] leading-relaxed text-foreground/85">
-              <span className="font-sans font-medium text-muted-foreground">Como calculamos: </span>
-              {item.formula}
+            <dd
+              className={cn(
+                'rounded-md bg-muted/60 text-foreground/90',
+                modal ? 'mt-3 border border-border/50 px-3 py-2.5 text-xs leading-relaxed' : 'mt-1 px-2 py-1 font-mono text-[10px] leading-relaxed',
+                !modal && 'font-mono',
+              )}
+            >
+              <span
+                className={cn(
+                  'block font-sans font-medium text-muted-foreground',
+                  modal ? 'mb-1 text-[11px] uppercase tracking-wide' : '',
+                )}
+              >
+                Como calculamos
+              </span>
+              <span className={modal ? 'font-mono text-[13px] leading-relaxed' : undefined}>{item.formula}</span>
             </dd>
           ) : null}
         </div>
@@ -38,33 +69,49 @@ function LegendBody({ items }: { items: ParameterLegendItem[] }) {
   );
 }
 
-function LegendSectionBlock({ section }: { section: LegendSection }) {
+function LegendSectionBlock({
+  section,
+  density = 'compact',
+}: {
+  section: ParameterLegendSection;
+  density?: LegendDensity;
+}) {
+  const modal = density === 'modal';
   return (
-    <div>
-      <p className="mb-2 text-xs font-medium text-foreground">{section.title}</p>
-      <LegendBody items={section.items} />
+    <div className={cn(modal && 'rounded-lg border border-border/70 bg-muted/20 px-4 py-3.5')}>
+      <p className={cn('font-medium text-foreground', modal ? 'mb-3 text-sm' : 'mb-2 text-xs')}>
+        {section.title}
+      </p>
+      <LegendBody items={section.items} density={density} />
     </div>
   );
 }
 
-function LegendContent({
+export function ParameterLegendContent({
   prependSection,
   items,
+  density = 'compact',
 }: {
-  prependSection?: LegendSection;
+  prependSection?: ParameterLegendSection;
   items: ParameterLegendItem[];
+  density?: LegendDensity;
 }) {
   const hasMain = items.length > 0;
   const hasPrepend = Boolean(prependSection?.items.length);
+  const modal = density === 'modal';
 
   if (!hasPrepend && !hasMain) return null;
 
   return (
-    <>
-      {prependSection && hasPrepend ? <LegendSectionBlock section={prependSection} /> : null}
-      {hasPrepend && hasMain ? <div className="my-3 border-t border-border/60" aria-hidden /> : null}
-      {hasMain ? <LegendBody items={items} /> : null}
-    </>
+    <div className={cn(modal && 'space-y-4')}>
+      {prependSection && hasPrepend ? (
+        <LegendSectionBlock section={prependSection} density={density} />
+      ) : null}
+      {hasPrepend && hasMain ? (
+        <div className={cn('border-t border-border/60', modal ? 'my-1' : 'my-3')} aria-hidden />
+      ) : null}
+      {hasMain ? <LegendBody items={items} density={density} /> : null}
+    </div>
   );
 }
 
@@ -82,14 +129,11 @@ export function ParameterLegend({
   if (variant === 'always') {
     return (
       <section
-        className={cn(
-          'rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5',
-          className,
-        )}
+        className={cn('rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5', className)}
         aria-label={title}
       >
         <p className="mb-2 text-xs font-medium text-foreground">{title}</p>
-        <LegendContent prependSection={prependSection} items={items} />
+        <ParameterLegendContent prependSection={prependSection} items={items} />
       </section>
     );
   }
@@ -113,7 +157,7 @@ export function ParameterLegend({
         />
       </summary>
       <div className="border-t border-border/60 px-3 pb-2.5 pt-2">
-        <LegendContent prependSection={prependSection} items={items} />
+        <ParameterLegendContent prependSection={prependSection} items={items} />
       </div>
     </details>
   );

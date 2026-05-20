@@ -1,19 +1,53 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { AnalyticsDrillProvider } from '@/contexts/AnalyticsDrillContext';
 import { CustomPanelsProvider } from '@/contexts/CustomPanelsContext';
 import { ReferralRoutingRulesProvider } from '@/contexts/ReferralRoutingRulesContext';
 import { AdminShell } from '@/components/admin/AdminSidebar';
-import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminBreadcrumbs } from '@/components/admin/AnalyticsContextBar';
-import { UnifiedAnalyticsContextBar } from '@/components/admin/UnifiedAnalyticsContextBar';
+import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
+import { usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
 import { ReportDrillSheet } from '@/components/admin/analytics/ReportDrillSheet';
 
 function AdminMain() {
+  const { pathname } = useLocation();
+  const pathNorm = pathname.replace(/\/+$/, '') || '/';
+  const isExecutiveHome = pathNorm === '/admin';
+  const isPaineisSection = pathNorm === '/paineis' || pathNorm.startsWith('/paineis/');
+  const isUrbanReportsSection =
+    pathNorm === '/admin/reports' || pathNorm.startsWith('/admin/referrals');
+  const hideBreadcrumbs =
+    isExecutiveHome ||
+    pathNorm === '/admin/analytics' ||
+    pathNorm === '/admin/trends' ||
+    pathNorm === '/admin/reports-heatmap' ||
+    pathNorm === '/admin/classification-accuracy' ||
+    isPaineisSection ||
+    isUrbanReportsSection;
+
   return (
-    <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
-      <AdminBreadcrumbs />
-      <Outlet />
+    <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 lg:p-8">
+      <div className="mx-auto w-full min-w-0 max-w-screen-2xl">
+        {!hideBreadcrumbs ? <AdminBreadcrumbs /> : null}
+        <Outlet />
+      </div>
     </main>
+  );
+}
+
+function AdminAppShell() {
+  const { pathname } = useLocation();
+  const showUnifiedBar =
+    USE_UNIFIED_ANALYTICS_CONTEXT_BAR && usesUnifiedAnalyticsBar(pathname);
+
+  return (
+    <AdminShell>
+      <AdminHeader
+        showAnalyticsFilters={showUnifiedBar}
+        hideBreadcrumbs={showUnifiedBar}
+      />
+      <AdminMain />
+    </AdminShell>
   );
 }
 
@@ -22,10 +56,7 @@ export function AdminAppLayout() {
     <AnalyticsDrillProvider>
       <ReferralRoutingRulesProvider>
         <CustomPanelsProvider>
-          <AdminShell>
-            {USE_UNIFIED_ANALYTICS_CONTEXT_BAR ? <UnifiedAnalyticsContextBar /> : null}
-            <AdminMain />
-          </AdminShell>
+          <AdminAppShell />
           <ReportDrillSheet />
         </CustomPanelsProvider>
       </ReferralRoutingRulesProvider>
