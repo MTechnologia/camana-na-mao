@@ -144,6 +144,7 @@ export const useUserRole = () => {
   const canConfigureSystem = isAdmin;
   const canViewAuditLogs = isAdmin;
   const canViewGabinete = (isVereador || isAssessor) && Boolean(councilMemberId);
+  const canAccessAdminPanel = isAdmin || isGestor || canViewGabinete;
   const canRespondReferrals = (isVereador || isAssessor) && Boolean(councilMemberId);
   const canViewOpenManifests = (isVereador || isAssessor) && Boolean(councilMemberId);
   /** Validação / aprovação de sugestões de correção de equipamentos. */
@@ -172,6 +173,7 @@ export const useUserRole = () => {
     canConfigureSystem,
     canViewAuditLogs,
     canViewGabinete,
+    canAccessAdminPanel,
     canRespondReferrals,
     canViewOpenManifests,
     canModerateServiceCorrections,

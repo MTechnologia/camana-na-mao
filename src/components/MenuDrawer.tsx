@@ -35,7 +35,7 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, canViewDashboards, canViewGabinete } = useUserRole();
+  const { canAccessAdminPanel, canViewDashboards, canViewGabinete } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
   const { prefetch } = usePrefetch();
@@ -280,7 +280,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
           </div>
 
           {/* Admin Area */}
-          {(isAdmin || isGestor) && (
+          {canAccessAdminPanel && (
             <>
               <div className="my-4 border-t border-border" />
               <div className="mb-4">

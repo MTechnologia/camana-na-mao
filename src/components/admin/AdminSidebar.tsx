@@ -49,6 +49,8 @@ function SidebarCollapseButton({
 export function AdminSidebar() {
   const {
     isAdmin,
+    isGestor,
+    roles,
     canManageUsers,
     canConfigureSystem,
     canViewAuditLogs,
@@ -61,12 +63,17 @@ export function AdminSidebar() {
     closeMobileMenu,
   } = useAdminShell();
 
-  const filtered = filterNavSections(adminNavSections, isAdmin, {
-    canManageUsers,
-    canConfigureSystem,
-    canViewAuditLogs,
-    canModerateServiceCorrections,
-  });
+  const filtered = filterNavSections(
+    adminNavSections,
+    isAdmin,
+    {
+      canManageUsers,
+      canConfigureSystem,
+      canViewAuditLogs,
+      canModerateServiceCorrections,
+    },
+    { isGestor, roles },
+  );
   const collapsed = sidebarCollapsed;
 
   return (

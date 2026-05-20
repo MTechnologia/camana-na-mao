@@ -37,14 +37,35 @@ export const adminNavSectionsDropdown: NavSection[] = [
         label: 'Análise institucional',
         Icon: BarChart3,
         items: [
-          { to: '/admin', label: 'Dashboard executivo', Icon: LayoutDashboard },
-          { to: '/admin/analytics', label: 'Análise de relatos urbanos', Icon: BarChart3 },
-          { to: '/admin/trends', label: 'Tendências', Icon: TrendingUp },
-          { to: '/admin/reports-heatmap', label: 'Mapa de calor', Icon: Map },
+          {
+            to: '/admin',
+            label: 'Dashboard executivo',
+            Icon: LayoutDashboard,
+            requiredAnyPermission: ['analytics.view_advanced', 'reports.read'],
+          },
+          {
+            to: '/admin/analytics',
+            label: 'Análise de relatos urbanos',
+            Icon: BarChart3,
+            requiredAnyPermission: ['analytics.view_advanced'],
+          },
+          {
+            to: '/admin/trends',
+            label: 'Tendências',
+            Icon: TrendingUp,
+            requiredAnyPermission: ['analytics.view_advanced'],
+          },
+          {
+            to: '/admin/reports-heatmap',
+            label: 'Mapa de calor',
+            Icon: Map,
+            requiredAnyPermission: ['analytics.view_advanced'],
+          },
           {
             to: '/admin/classification-accuracy',
             label: 'Acurácia da classificação',
             Icon: Target,
+            requiredAnyPermission: ['analytics.view_advanced'],
           },
         ],
       },
@@ -68,8 +89,18 @@ export const adminNavSectionsDropdown: NavSection[] = [
         label: 'Relatos urbanos',
         Icon: FileText,
         items: [
-          { to: '/admin/reports', label: 'Gestão de relatos', Icon: FileText },
-          { to: '/admin/referrals', label: 'Análise de Encaminhamentos', Icon: Share2 },
+          {
+            to: '/admin/reports',
+            label: 'Gestão de relatos',
+            Icon: FileText,
+            requiredAnyPermission: ['reports.read'],
+          },
+          {
+            to: '/admin/referrals',
+            label: 'Análise de Encaminhamentos',
+            Icon: Share2,
+            requiredAnyPermission: ['reports.read', 'gabinete.view'],
+          },
         ],
       },
       {
@@ -145,7 +176,12 @@ export const adminNavSectionsDropdown: NavSection[] = [
         label: 'Administração e conformidade',
         Icon: ShieldCheck,
         items: [
-          { to: '/admin/docs/overview', label: 'Documentação', Icon: BookOpen },
+          {
+            to: '/admin/docs/overview',
+            label: 'Documentação',
+            Icon: BookOpen,
+            requiredAnyPermission: ['reports.read', 'gabinete.view'],
+          },
           { to: '/admin/users', label: 'Usuários e perfis', Icon: Users, adminOnly: true },
           { to: '/admin/audit-logs', label: 'Auditoria', Icon: ScrollText, adminOnly: true },
           {

@@ -14,6 +14,8 @@ export type NavItem = {
   adminOnly?: boolean;
   /** Permissão RBAC adicional (além de adminOnly, quando aplicável) */
   requiresPermission?: NavPermission;
+  /** Exige ao menos uma permissão (para vereador/assessor no painel admin) */
+  requiredAnyPermission?: string[];
 };
 
 export type NavGroup = {
