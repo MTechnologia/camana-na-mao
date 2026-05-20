@@ -16,6 +16,11 @@ import {
   resolveGlobalCategoryFilter,
 } from '@/lib/globalCategoryFilter';
 import {
+  EMPTY_RESPONSE_TIME_DRILL,
+  loadResponseTimeDrillStats,
+  type ResponseTimeDrillStats,
+} from '@/lib/responseTimeAggregates';
+import {
   buildNeighborhoodBreakdownFromGeoRows,
   buildTimelineFromUrbanReports,
   buildVolumeByZoneFromGeoRows,
@@ -99,6 +104,12 @@ export interface ReportsAnalyticsStats {
   
   /** Volume por zona (coords + bairro dos relatos no recorte). */
   volumeByZone: { zone: string; count: number }[];
+
+  /** Bairros/locais por zona — base do drill-down por distrito (volume). */
+  neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[];
+
+  /** HU-2.2 — tempo médio até resposta/resolução (relatos resolvidos no recorte). */
+  responseTime: ResponseTimeDrillStats;
 
   // Criticidade
   criticality: {
@@ -208,6 +219,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
+      const responseTimePromise = loadResponseTimeDrillStats(filters);
+
       // Tentar buscar dados demográficos via função segura (SECURITY DEFINER)
       const { data: rpcResult, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
         p_gender: mappedGender,
@@ -230,6 +243,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
+      const responseTime = await responseTimePromise;
       const demographicsFromRpc = rpcResult as Record<string, unknown>;
       
       // Usar dados da função segura
@@ -521,6 +535,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           categories,
           volumeByZone,
           neighborhoodBreakdown,
+          responseTime,
           demographics: {
             byGender,
             byRace,

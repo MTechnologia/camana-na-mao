@@ -32,9 +32,10 @@ export const KPI_PARAMETER_LEGENDS: Record<AnalyticsMetric, ParameterLegendItem>
   },
   response_time: {
     term: 'Tempo médio de resposta',
-    description: 'Em quantas horas, em média, o cidadão recebe a primeira resposta ou encaminhamento.',
+    description:
+      'Média de horas entre abertura e encerramento dos relatos resolvidos no recorte (urbano e transporte). Zonas sem resolvidos aparecem com 0 h.',
     formula:
-      'Para cada relato: horas entre abertura e primeira resposta. Depois: soma desses tempos ÷ quantidade de relatos.',
+      'Para cada relato resolvido: horas entre created_at e updated_at (ou responded_at no transporte). Média aritmética no período e filtros ativos.',
   },
   sentiment: {
     term: 'Sentimento agregado',
