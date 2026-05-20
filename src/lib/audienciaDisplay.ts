@@ -270,3 +270,28 @@ export function observacaoParaDetalheAudiencia(
   }
   return observacao.trim();
 }
+
+/** Título exibido no admin quando o campo titulo é genérico no banco. */
+export function formatAudienciaTitulo(input: {
+  titulo?: string | null;
+  ap_code?: string | null;
+  tema?: string | null;
+  comissao?: string | null;
+}): string {
+  const raw = (input.titulo ?? "").trim();
+  const isGeneric =
+    raw.length === 0 || /^audi[eê]ncia\s+p[uú]blica$/i.test(raw) || /^audi[eê]ncia$/i.test(raw);
+
+  if (!isGeneric) return raw;
+
+  const ap = (input.ap_code ?? "").trim();
+  if (ap) return ap;
+
+  const tema = (input.tema ?? "").trim();
+  if (tema) return tema;
+
+  const comissao = (input.comissao ?? "").trim();
+  if (comissao) return comissao;
+
+  return "Audiência pública";
+}

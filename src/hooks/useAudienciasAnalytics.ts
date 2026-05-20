@@ -52,6 +52,7 @@ export interface TimelinePoint {
 export interface AudienciaRanking {
   id: string;
   titulo: string;
+  ap_code: string | null;
   comissao: string | null;
   tema: string;
   data: string;
@@ -62,6 +63,8 @@ export interface AudienciaRanking {
   vagas: number | null;
   ocupacaoPct: number | null;
   zona: string;
+  /** Agendada com inscrições abertas e data hoje ou futura. */
+  aberta: boolean;
 }
 
 export interface AudienciasStats {
@@ -86,6 +89,8 @@ export interface AudienciasStats {
   timeline: TimelinePoint[];
 
   // Listas operacionais
+  /** Todas as audiências do recorte (ordenadas por engajamento no aggregate). */
+  allAudiencias: AudienciaRanking[];
   topAudiencias: AudienciaRanking[];
   zeroInscritosProximas: AudienciaRanking[];
   baixaOcupacaoProximas: AudienciaRanking[];
@@ -107,6 +112,7 @@ const EMPTY_STATS: AudienciasStats = {
   byZona: [],
   byTipoEngajamento: [],
   timeline: [],
+  allAudiencias: [],
   topAudiencias: [],
   zeroInscritosProximas: [],
   baixaOcupacaoProximas: [],
@@ -355,6 +361,7 @@ export function aggregate(
     rankings.push({
       id: a.id,
       titulo: a.titulo,
+      ap_code: a.ap_code,
       comissao: a.comissao,
       tema: a.tema,
       data: a.data,
@@ -365,8 +372,11 @@ export function aggregate(
       vagas: a.vagas_disponiveis,
       ocupacaoPct: oc !== null ? Math.round(oc * 100) : null,
       zona,
+      aberta: isAudienciaAberta(a, todayIso),
     });
   });
+
+  const allAudiencias = [...rankings].sort((a, b) => b.data.localeCompare(a.data));
 
   const topAudiencias = [...rankings]
     .sort((a, b) => b.inscricoes - a.inscricoes)
@@ -420,6 +430,7 @@ export function aggregate(
     timeline: Array.from(timelineMap.entries())
       .map(([date, v]) => ({ date, ...v }))
       .sort((a, b) => a.date.localeCompare(b.date)),
+    allAudiencias,
     topAudiencias,
     zeroInscritosProximas,
     baixaOcupacaoProximas,
