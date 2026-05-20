@@ -14,15 +14,15 @@ function AdminAccessLoading() {
   );
 }
 
-/** gestor + admin */
+/** admin, gestor e gabinete (vereador/assessor vinculados) */
 export function ProtectedAdminRoute() {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, isGestor, loading: roleLoading } = useUserRole();
+  const { canAccessAdminPanel, loading: roleLoading } = useUserRole();
   const loc = useLocation();
 
   if (authLoading || roleLoading) return <AdminAccessLoading />;
   if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
-  if (!isAdmin && !isGestor) return <Navigate to="/" replace />;
+  if (!canAccessAdminPanel) return <Navigate to="/" replace />;
 
   return (
     <AdminProviders>

@@ -130,6 +130,11 @@ const WorstServicesByDimensionPage = lazy(() => import("./pages/analytics/WorstS
 const AdminDashboard = lazy(() =>
   import("./pages/admin/AdminDashboard").then((m) => ({ default: m.AdminDashboard })),
 );
+const AdminIndexRedirect = lazy(() =>
+  import("./components/admin/AdminIndexRedirect").then((m) => ({
+    default: m.AdminIndexRedirect,
+  })),
+);
 const AdminNotificationsPage = lazy(() =>
   import("./pages/admin/AdminNotificationsPage").then((m) => ({ default: m.AdminNotificationsPage })),
 );
@@ -418,7 +423,7 @@ const AppContent = () => {
           <Route element={<ProtectedAdminRoute />}>
             <Route element={<AdminAppLayout />}>
               <Route path="/admin">
-                <Route index element={<AdminDashboard />} />
+                <Route index element={<AdminIndexRedirect />} />
                 <Route path="notifications" element={<AdminNotificationsPage />} />
                 <Route path="analytics" element={<ReportsAnalyticsPage />} />
                 <Route path="trends" element={<TrendDashboardPage />} />

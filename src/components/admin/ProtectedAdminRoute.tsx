@@ -10,16 +10,16 @@ interface ProtectedAdminRouteProps {
 
 export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, loading } = useUserRole();
+  const { canAccessAdminPanel, loading } = useUserRole();
 
   useEffect(() => {
-    if (!loading && !isAdmin && !isGestor) {
+    if (!loading && !canAccessAdminPanel) {
       toast.error('Acesso negado', {
         description: 'Você não tem permissão para acessar esta área.',
       });
       navigate('/');
     }
-  }, [isAdmin, isGestor, loading, navigate]);
+  }, [canAccessAdminPanel, loading, navigate]);
 
   if (loading) {
     return (
@@ -32,7 +32,7 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
     );
   }
 
-  if (!isAdmin && !isGestor) {
+  if (!canAccessAdminPanel) {
     return null;
   }
 
