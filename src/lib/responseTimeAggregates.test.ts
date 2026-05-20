@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyVolumeTerritoryZones,
   buildResponseTimeDrillStats,
   EMPTY_RESPONSE_TIME_DRILL,
-  enrichZonesFromNeighborhoodBreakdown,
   filterResponseTimeRecords,
+  lookupZoneFromBreakdown,
+  recordsFromTerritoryGeoRows,
   recordsFromUrbanRows,
   type ResponseTimeRecord,
 } from '@/lib/responseTimeAggregates';
-import type { UrbanReportRow } from '@/lib/reportsAnalyticsAggregates';
+import type { TerritoryGeoRow, UrbanReportRow } from '@/lib/reportsAnalyticsAggregates';
 
 function rec(overrides: Partial<ResponseTimeRecord> = {}): ResponseTimeRecord {
   return {
@@ -90,23 +92,50 @@ describe('recordsFromUrbanRows', () => {
   });
 });
 
-describe('enrichZonesFromNeighborhoodBreakdown', () => {
-  it('reclassifica Não informada quando o bairro existe no breakdown de volume', () => {
+describe('recordsFromTerritoryGeoRows', () => {
+  it('inclui resolvido com status legado e resolved_at da triagem', () => {
+    const rows: TerritoryGeoRow[] = [
+      {
+        id: 'u1',
+        source: 'urbano',
+        status: 'concluído',
+        category: 'Mobilidade',
+        created_at: '2026-04-01T10:00:00Z',
+        updated_at: null,
+        neighborhood: 'Tatuapé',
+        location: null,
+        latitude: -23.54,
+        longitude: -46.56,
+      },
+    ];
+    const triage = new Map([['urban_reports:u1', '2026-04-02T10:00:00Z']]);
+    const records = recordsFromTerritoryGeoRows(rows, triage);
+    expect(records).toHaveLength(1);
+    expect(records[0].hours).toBe(24);
+    expect(records[0].zone).toBe('Zona Leste');
+  });
+});
+
+describe('applyVolumeTerritoryZones', () => {
+  it('reclassifica via match exato ou substring no breakdown de volume', () => {
     const records: ResponseTimeRecord[] = [
       {
-        source: 'urbano',
+        source: 'transporte',
         category: 'X',
-        neighborhood: 'Jardim Everest',
+        neighborhood: 'Av. Faria Lima, Brooklin Paulista',
         zone: 'Não informada',
         hours: 10,
         createdAt: '2026-04-01T10:00:00Z',
         closedAt: '2026-04-01T20:00:00Z',
       },
     ];
-    const enriched = enrichZonesFromNeighborhoodBreakdown(records, [
-      { neighborhood: 'Jardim Everest', zone: 'Zona Oeste' },
+    const enriched = applyVolumeTerritoryZones(records, [
+      { neighborhood: 'Brooklin Paulista', zone: 'Zona Oeste' },
     ]);
     expect(enriched[0].zone).toBe('Zona Oeste');
+    expect(lookupZoneFromBreakdown('VL GOMES', [{ neighborhood: 'Vila Gomes', zone: 'Zona Oeste' }])).toBe(
+      'Zona Oeste',
+    );
   });
 });
 

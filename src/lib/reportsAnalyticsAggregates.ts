@@ -41,6 +41,20 @@ export type GeoReportRow = {
   longitude?: number | null;
 };
 
+/** Geo + metadados do relato — mesma linha usada no volume territorial e no tempo médio. */
+export type TerritoryGeoSource = 'urbano' | 'transporte';
+
+export type TerritoryGeoRow = GeoReportRow & {
+  id?: string;
+  source: TerritoryGeoSource;
+  status?: string | null;
+  category?: string | null;
+  reportType?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  responded_at?: string | null;
+};
+
 /** Contagem por zona canônica usando coords (prioridade) + texto de localização. */
 export function buildVolumeByZoneFromGeoRows(
   rows: GeoReportRow[],

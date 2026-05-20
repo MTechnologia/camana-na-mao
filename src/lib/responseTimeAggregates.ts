@@ -5,15 +5,16 @@ import {
   resolveGlobalCategoryFilter,
 } from '@/lib/globalCategoryFilter';
 import { regionLabel } from '@/lib/analyticsLabels';
+import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
 import {
   bairroParaZona,
-  ZONA_DESCONHECIDA,
   ZONAS_FILTRO,
   type ZonaVolumeOuDesconhecida,
 } from '@/lib/regionMapping';
 import {
   districtLabelFromGeoRow,
   type GeoReportRow,
+  type TerritoryGeoRow,
   type UrbanReportRow,
 } from '@/lib/reportsAnalyticsAggregates';
 
@@ -82,6 +83,8 @@ function normalizeDistrictKey(value: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -94,107 +97,145 @@ function zoneFromGeoRow(row: GeoReportRow): ZonaVolumeOuDesconhecida {
   return bairroParaZona(text, row.latitude, row.longitude);
 }
 
-/** Mesma base geográfica do gráfico de volume (coords + bairro/local). */
-export function recordsFromUrbanRows(rows: UrbanReportRow[]): ResponseTimeRecord[] {
+function triageMapKey(sourceTable: string, reportId: string): string {
+  return `${sourceTable}:${reportId}`;
+}
+
+function isResolvedReportStatus(status: string | null | undefined): boolean {
+  return normalizeCitizenReportStatus(status) === 'resolved';
+}
+
+/** Mapa report_triage.resolved_at por (source_table, report_id). */
+export async function fetchTriageResolvedAtMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const { data, error } = await supabase
+        .from('report_triage')
+        .select('source_table, report_id, resolved_at')
+        .not('resolved_at', 'is', null)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      if (error) throw error;
+      const rows = data ?? [];
+      for (const row of rows) {
+        if (!row.source_table || !row.report_id || !row.resolved_at) continue;
+        map.set(triageMapKey(row.source_table, row.report_id), row.resolved_at);
+      }
+      if (rows.length < PAGE_SIZE) break;
+    }
+  } catch (err) {
+    console.warn('[fetchTriageResolvedAtMap]', err);
+  }
+  return map;
+}
+
+/**
+ * Tempo médio a partir das MESMAS linhas geográficas do gráfico de volume
+ * (apenas relatos resolvidos).
+ */
+export function recordsFromTerritoryGeoRows(
+  rows: TerritoryGeoRow[],
+  triageResolvedAt?: Map<string, string>,
+): ResponseTimeRecord[] {
   const out: ResponseTimeRecord[] = [];
   for (const row of rows) {
-    if (row.status !== 'resolved' && row.status !== 'closed') continue;
-    if (!row.created_at || !row.updated_at) continue;
+    if (!isResolvedReportStatus(row.status)) continue;
+    if (!row.created_at) continue;
+
+    const sourceTable =
+      row.source === 'urbano' ? 'urban_reports' : 'transport_reports';
+    const closedAt =
+      (row.id && triageResolvedAt?.get(triageMapKey(sourceTable, row.id))) ||
+      (row.source === 'transporte' ? row.responded_at : null) ||
+      row.updated_at;
+    if (!closedAt) continue;
+
     const geo: GeoReportRow = {
       neighborhood: row.neighborhood,
-      location: row.location_address ?? null,
-      latitude: row.latitude ?? null,
-      longitude: row.longitude ?? null,
+      location: row.location,
+      latitude: row.latitude,
+      longitude: row.longitude,
     };
+
     out.push({
-      source: 'urbano',
+      source: row.source,
       category: safeText(row.category, 'Sem categoria'),
+      reportType: row.reportType,
       neighborhood: districtLabelFromGeoRow(geo),
       zone: zoneFromGeoRow(geo),
-      hours: diffHours(row.created_at, row.updated_at),
+      hours: diffHours(row.created_at, closedAt),
       createdAt: row.created_at,
-      closedAt: row.updated_at,
+      closedAt,
     });
   }
   return out;
 }
 
-/**
- * Quando coords/texto não classificam a zona, reaproveita o mapa bairro→zona
- * já calculado para o volume territorial no mesmo recorte.
- */
-export function enrichZonesFromNeighborhoodBreakdown(
+/** Mesma base geográfica do gráfico de volume (coords + bairro/local). */
+export function recordsFromUrbanRows(rows: UrbanReportRow[]): ResponseTimeRecord[] {
+  const territoryRows: TerritoryGeoRow[] = rows.map((row) => ({
+    id: row.id,
+    source: 'urbano' as const,
+    status: row.status,
+    category: row.category,
+    reportType: undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    neighborhood: row.neighborhood,
+    location: row.location_address ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+  }));
+  return recordsFromTerritoryGeoRows(territoryRows);
+}
+
+function stripDistrictPrefix(value: string): string {
+  return value.replace(/^(vila|vl|jardim|jd)\s+/, '').trim();
+}
+
+function districtKeysMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  const sa = stripDistrictPrefix(a);
+  const sb = stripDistrictPrefix(b);
+  return sa.length > 0 && sb.length > 0 && (sa === sb || sa.includes(sb) || sb.includes(sa));
+}
+
+/** Busca zona no breakdown de volume (match exato, substring ou prefixo vila/vl/jd). */
+export function lookupZoneFromBreakdown(
+  neighborhood: string,
+  breakdown: { neighborhood: string; zone: string }[],
+): ZonaVolumeOuDesconhecida | null {
+  const key = normalizeDistrictKey(neighborhood);
+  if (!key) return null;
+  for (const row of breakdown) {
+    const bk = normalizeDistrictKey(row.neighborhood);
+    if (!bk) continue;
+    if (districtKeysMatch(key, bk)) {
+      return row.zone as ZonaVolumeOuDesconhecida;
+    }
+  }
+  return null;
+}
+
+/** Alinha zona do tempo médio ao mapa bairro→zona já exibido no volume. */
+export function applyVolumeTerritoryZones(
   records: ResponseTimeRecord[],
   breakdown: { neighborhood: string; zone: string }[],
 ): ResponseTimeRecord[] {
   if (!breakdown.length) return records;
-  const map = new Map<string, ZonaVolumeOuDesconhecida>();
-  for (const row of breakdown) {
-    map.set(normalizeDistrictKey(row.neighborhood), row.zone as ZonaVolumeOuDesconhecida);
-  }
   return records.map((r) => {
-    if (r.zone !== ZONA_DESCONHECIDA) return r;
-    const zone = map.get(normalizeDistrictKey(r.neighborhood));
+    const zone = lookupZoneFromBreakdown(r.neighborhood, breakdown);
     return zone ? { ...r, zone } : r;
   });
 }
 
-async function fetchResolvedTransportForFilters(
-  filters: ReportsAnalyticsFilters,
-): Promise<ResponseTimeRecord[]> {
-  const slice = resolveGlobalCategoryFilter(filters.category);
-  if (!slice.isAll && slice.transportSubcategories.length === 0) {
-    return [];
-  }
-
-  const out: ResponseTimeRecord[] = [];
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    let q = supabase
-      .from('transport_reports')
-      .select(
-        'created_at, updated_at, responded_at, status, report_type, sub_category, location, stop_location',
-      )
-      .eq('status', 'resolved')
-      .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-    if (filters.startDate) {
-      q = q.gte('created_at', `${filters.startDate}T00:00:00`);
-    }
-    if (filters.endDate) {
-      q = q.lte('created_at', `${filters.endDate}T23:59:59`);
-    }
-    if (!slice.isAll) {
-      const orParts = slice.transportSubcategories.flatMap((sc) => [
-        `sub_category.eq.${sc}`,
-        `report_type.eq.${sc}`,
-      ]);
-      if (orParts.length === 0) return out;
-      q = q.or(orParts.join(','));
-    }
-
-    const { data, error } = await q;
-    if (error) throw error;
-    const rows = data ?? [];
-    for (const r of rows) {
-      const closedAt = r.responded_at ?? r.updated_at;
-      if (!r.created_at || !closedAt) continue;
-      const location = (r.location as string) || (r.stop_location as string) || '';
-      const geo: GeoReportRow = { neighborhood: null, location: location || null };
-      out.push({
-        source: 'transporte',
-        category: safeText(r.sub_category || r.report_type, 'Sem categoria'),
-        reportType: safeText(r.report_type, ''),
-        neighborhood: districtLabelFromGeoRow(geo),
-        zone: zoneFromGeoRow(geo),
-        hours: diffHours(r.created_at, closedAt),
-        createdAt: r.created_at,
-        closedAt,
-      });
-    }
-    if (rows.length < PAGE_SIZE) break;
-  }
-  return out;
+/** @deprecated Use applyVolumeTerritoryZones */
+export function enrichZonesFromNeighborhoodBreakdown(
+  records: ResponseTimeRecord[],
+  breakdown: { neighborhood: string; zone: string }[],
+): ResponseTimeRecord[] {
+  return applyVolumeTerritoryZones(records, breakdown);
 }
 
 /** Aplica recorte global (período já veio na query; aqui região + categoria temática). */
@@ -296,10 +337,13 @@ export function buildResponseTimeDrillStats(records: ResponseTimeRecord[]): Resp
 }
 
 export type ComputeResponseTimeOptions = {
-  /** Relatos urbanos já carregados para volume/timeline (mesmo recorte por created_at). */
-  urbanRows?: UrbanReportRow[];
+  /** Linhas geo do mesmo recorte do gráfico de volume (preferencial). */
+  territoryGeoRows?: TerritoryGeoRow[];
   /** Mapa bairro→zona do volume territorial no recorte ativo. */
   neighborhoodBreakdown?: { neighborhood: string; zone: string }[];
+  triageResolvedAt?: Map<string, string>;
+  /** Fallback legado — relatos urbanos sem pipeline territorial. */
+  urbanRows?: UrbanReportRow[];
 };
 
 export async function computeResponseTimeDrillStats(
@@ -307,11 +351,17 @@ export async function computeResponseTimeDrillStats(
   options: ComputeResponseTimeOptions = {},
 ): Promise<ResponseTimeDrillStats> {
   try {
-    const urban = options.urbanRows ? recordsFromUrbanRows(options.urbanRows) : [];
-    const transport = await fetchResolvedTransportForFilters(filters);
-    let merged = [...urban, ...transport];
+    const triageMap = options.triageResolvedAt ?? (await fetchTriageResolvedAtMap());
+    let merged: ResponseTimeRecord[] = [];
+
+    if (options.territoryGeoRows?.length) {
+      merged = recordsFromTerritoryGeoRows(options.territoryGeoRows, triageMap);
+    } else if (options.urbanRows?.length) {
+      merged = recordsFromUrbanRows(options.urbanRows);
+    }
+
     if (options.neighborhoodBreakdown?.length) {
-      merged = enrichZonesFromNeighborhoodBreakdown(merged, options.neighborhoodBreakdown);
+      merged = applyVolumeTerritoryZones(merged, options.neighborhoodBreakdown);
     }
     return buildResponseTimeDrillStats(filterResponseTimeRecords(merged, filters));
   } catch (err) {
@@ -320,7 +370,7 @@ export async function computeResponseTimeDrillStats(
   }
 }
 
-/** @deprecated Use computeResponseTimeDrillStats — mantido para compatibilidade. */
+/** @deprecated Use computeResponseTimeDrillStats */
 export async function loadResponseTimeDrillStats(
   filters: ReportsAnalyticsFilters,
 ): Promise<ResponseTimeDrillStats> {
