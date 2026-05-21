@@ -25,6 +25,8 @@ import {
   adminBarAnalyticsNavButtonClass,
   adminBarGhostActionClass,
   adminBarNavButtonClass,
+  adminBarSidebarActionsGroupClass,
+  adminBarSidebarGhostActionClass,
 } from './adminHeaderStyles';
 
 const routeNames: Record<string, string> = {
@@ -69,21 +71,23 @@ interface AdminHeaderProps {
   hideBreadcrumbs?: boolean;
 }
 
-function AdminHeaderActions() {
+function AdminHeaderActions({ sidebarTone = false }: { sidebarTone?: boolean }) {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { signOut } = useAuth();
+  const groupClass = sidebarTone ? adminBarSidebarActionsGroupClass : adminBarActionsGroupClass;
+  const ghostClass = sidebarTone ? adminBarSidebarGhostActionClass : adminBarGhostActionClass;
 
   return (
-    <div className={adminBarActionsGroupClass}>
-      <NotificationDropdown triggerClassName={adminBarGhostActionClass} />
+    <div className={groupClass}>
+      <NotificationDropdown triggerClassName={ghostClass} />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             size="icon"
-            className={cn('h-9 w-9', adminBarGhostActionClass)}
+            className={cn('h-9 w-9', ghostClass)}
             aria-label="Menu da conta"
           >
             <Avatar className="h-8 w-8">
@@ -222,10 +226,11 @@ export const AdminHeader = ({
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 bg-analytics-bar backdrop-blur-sm',
-        showAnalyticsFilters ? 'text-white' : 'text-analytics-bar-foreground',
+        'sticky top-0 z-40 backdrop-blur-sm',
+        showAnalyticsFilters
+          ? 'bg-sidebar text-sidebar-foreground border-sidebar-border shadow-sm'
+          : 'bg-analytics-bar text-analytics-bar-foreground border-analytics-bar-border',
         !hideHeaderDivider && 'border-b shadow-sm',
-        showAnalyticsFilters ? 'border-white/10 shadow-black/10' : 'border-analytics-bar-border',
         hideHeaderDivider && 'border-b-0 shadow-none',
       )}
     >

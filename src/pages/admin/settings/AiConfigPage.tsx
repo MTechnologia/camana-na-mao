@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { RotateCcw, Upload } from 'lucide-react';
+import { PlatformSectionHeading } from '@/components/admin/platform/PlatformSectionHeading';
 import { SettingsLayout } from '@/components/admin/settings/SettingsLayout';
 import { useConfigEnvironment } from '@/contexts/ConfigEnvironmentContext';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,6 @@ export function AiConfigPage() {
   return (
     <SettingsLayout
       title="IA — versionamento e templates"
-      description="Templates com variáveis validadas, publicação por ambiente e rollback automático se a acurácia cair."
       actions={
         <Button
           type="button"
@@ -47,8 +47,10 @@ export function AiConfigPage() {
         </Button>
       }
     >
-      <Tabs defaultValue="versions">
-        <TabsList>
+      <section className="space-y-3">
+        <PlatformSectionHeading title="Configuração de IA" />
+      <Tabs defaultValue="versions" className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm p-4 md:p-5">
+        <TabsList className="flex h-auto w-full flex-wrap gap-1 bg-muted/50 p-1">
           <TabsTrigger value="versions">Versões</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="rollback">Rollback automático</TabsTrigger>
@@ -254,6 +256,7 @@ export function AiConfigPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </section>
     </SettingsLayout>
   );
 }

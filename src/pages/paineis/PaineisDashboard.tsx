@@ -5,12 +5,13 @@ import { PanelSelector } from '@/components/panels/PanelSelector';
 import {
   PaineisOverviewChartSection,
 } from '@/components/admin/charts/SectionChartPanels';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
 import { PaineisExploreLinks } from '@/components/admin/paineis-page/PaineisExploreLinks';
+import { PAINEIS_INDEX_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { PaineisPageHeader } from '@/components/admin/paineis-page/PaineisPageHeader';
 import { PaineisSubNav } from '@/components/admin/paineis-page/PaineisSubNav';
 import { PaineisSummaryStrip } from '@/components/admin/paineis-page/PaineisSummaryStrip';
 import { Button } from '@/components/ui/button';
-import { PAINEIS_INDEX_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { useCustomPanels } from '@/contexts/CustomPanelsContext';
 
 export function PaineisDashboard() {
@@ -20,8 +21,6 @@ export function PaineisDashboard() {
     <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
       <PaineisPageHeader
         title="Meus painéis"
-        legends={PAINEIS_INDEX_PAGE_LEGENDS}
-        ariaLabel="Ajuda sobre meus painéis"
         actions={
           <>
             <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
@@ -65,7 +64,9 @@ export function PaineisDashboard() {
 
       <PaineisOverviewChartSection />
 
-      <PaineisExploreLinks />
+      <PageUsageGuideFooter items={PAINEIS_INDEX_PAGE_LEGENDS} pageName="Meus painéis">
+        <PaineisExploreLinks />
+      </PageUsageGuideFooter>
     </div>
   );
 }

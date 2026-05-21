@@ -1,7 +1,21 @@
-import { useEffect, useId, useState, type ComponentType } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useId,
+  useState,
+  type ComponentProps,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import type { NavGroup, NavSection } from '@/config/adminNav.types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +28,37 @@ const navItemBase = cn(
   'flex items-center text-sm transition-[color,background-color,box-shadow] duration-150',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
 );
+
+const collapsedIconButtonClass = cn(
+  navItemBase,
+  'relative mx-auto h-9 w-9 shrink-0 justify-center rounded-lg',
+  'text-sidebar-foreground',
+  'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+);
+
+const tooltipContentClass =
+  'z-[200] border-border bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-md';
+
+const NavItemLink = forwardRef<
+  HTMLAnchorElement,
+  ComponentProps<typeof NavLink> & { children: ReactNode }
+>(function NavItemLink({ className, children, ...props }, ref) {
+  return (
+    <NavLink ref={ref} className={className} {...props}>
+      {children}
+    </NavLink>
+  );
+});
+
+function NavIcon({ Icon, collapsed }: { Icon: ComponentType<{ className?: string }>; collapsed: boolean }) {
+  return (
+    <Icon
+      className={cn('shrink-0 text-current', collapsed ? 'h-[1.125rem] w-[1.125rem]' : 'h-4 w-4')}
+      strokeWidth={1.75}
+      aria-hidden
+    />
+  );
+}
 
 export function SidebarNavItem({
   to,
@@ -32,55 +77,43 @@ export function SidebarNavItem({
   onNavigate: () => void;
   nested?: boolean;
 }) {
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      navItemBase,
+      collapsed
+        ? cn(
+            collapsedIconButtonClass,
+            isActive &&
+              'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-black/20',
+          )
+        : cn(
+            'gap-2.5 rounded-lg py-2',
+            nested
+              ? cn(
+                  'px-3 pl-9 text-[13px]',
+                  isActive && 'border-l-2 border-sidebar-primary pl-[calc(2.25rem-2px)]',
+                )
+              : cn('px-3', isActive && 'border-l-2 border-sidebar-primary pl-[calc(0.75rem-2px)]'),
+            ),
+      !collapsed &&
+        (isActive
+          ? 'bg-sidebar-primary font-medium text-sidebar-primary-foreground shadow-sm'
+          : 'text-sidebar-foreground/88 hover:bg-sidebar-accent hover:text-sidebar-foreground'),
+    );
+
   const link = (
-    <NavLink
-      to={to}
-      end={end}
-      onClick={onNavigate}
-      title={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
-          navItemBase,
-          collapsed
-            ? 'relative mx-auto h-10 w-10 justify-center rounded-xl'
-            : cn(
-                'gap-2.5 rounded-lg py-2',
-                nested
-                  ? cn('px-3 pl-9 text-[13px]', isActive && 'border-l-2 border-sidebar-primary pl-[calc(2.25rem-2px)]')
-                  : cn('px-3', isActive && 'border-l-2 border-sidebar-primary pl-[calc(0.75rem-2px)]'),
-              ),
-          isActive
-            ? collapsed
-              ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-black/15'
-              : 'bg-sidebar-primary font-medium text-sidebar-primary-foreground shadow-sm'
-            : collapsed
-              ? 'text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-              : 'text-sidebar-foreground/88 hover:bg-sidebar-accent hover:text-sidebar-foreground',
-        )
-      }
-    >
-      <Icon
-        className={cn(
-          'shrink-0',
-          collapsed ? 'h-[1.125rem] w-[1.125rem]' : 'h-4 w-4',
-          'opacity-95',
-        )}
-        aria-hidden
-      />
+    <NavItemLink to={to} end={end} onClick={onNavigate} className={linkClass}>
+      <NavIcon Icon={Icon} collapsed={collapsed} />
       {collapsed ? <span className="sr-only">{label}</span> : label}
-    </NavLink>
+    </NavItemLink>
   );
 
   if (!collapsed) return link;
 
   return (
-    <Tooltip>
+    <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent
-        side="right"
-        sideOffset={8}
-        className="border-sidebar-border/30 bg-highlight px-2.5 py-1.5 text-xs font-medium text-primary shadow-md"
-      >
+      <TooltipContent side="right" sideOffset={10} className={tooltipContentClass}>
         {label}
       </TooltipContent>
     </Tooltip>
@@ -107,26 +140,52 @@ function SidebarNavGroup({
 
   if (collapsed) {
     return (
-      <ul className="space-y-1">
-        {group.items.map((item) => (
-          <li key={item.to} className="relative">
-            <SidebarNavItem
-              to={item.to}
-              end={navItemRequiresExactMatch(item, group.items)}
-              label={item.label}
-              icon={group.Icon}
-              collapsed
-              onNavigate={onNavigate}
-            />
-            {routeActive && (
-              <span
-                className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sidebar-primary"
-                aria-hidden
-              />
-            )}
-          </li>
-        ))}
-      </ul>
+      <DropdownMenu>
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  collapsedIconButtonClass,
+                  routeActive &&
+                    'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm shadow-black/20',
+                )}
+                aria-label={group.label}
+                aria-haspopup="menu"
+              >
+                <NavIcon Icon={group.Icon} collapsed />
+              </button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={10} className={tooltipContentClass}>
+            {group.label}
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent
+          side="right"
+          align="start"
+          sideOffset={8}
+          className="z-[200] min-w-[12rem] border-border"
+        >
+          <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {group.label}
+          </p>
+          {group.items.map((item) => (
+            <DropdownMenuItem key={item.to} asChild>
+              <NavLink
+                to={item.to}
+                end={navItemRequiresExactMatch(item, group.items)}
+                onClick={onNavigate}
+                className="cursor-pointer"
+              >
+                <item.Icon className="mr-2 h-4 w-4 shrink-0 opacity-80" aria-hidden />
+                {item.label}
+              </NavLink>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
@@ -139,15 +198,13 @@ function SidebarNavGroup({
         className={cn(
           'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors',
           'hover:bg-sidebar-accent',
-          routeActive
-            ? 'text-sidebar-foreground'
-            : 'text-sidebar-foreground/90',
+          routeActive ? 'text-sidebar-foreground' : 'text-sidebar-foreground/90',
           open && 'bg-sidebar-accent/60',
         )}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <group.Icon className="h-4 w-4 shrink-0 text-sidebar-primary opacity-95" aria-hidden />
+        <group.Icon className="h-4 w-4 shrink-0 text-sidebar-primary" strokeWidth={1.75} aria-hidden />
         <span className="min-w-0 flex-1 truncate">{group.label}</span>
         <ChevronDown
           className={cn(
@@ -220,7 +277,7 @@ export function SidebarNavSection({
     >
       {collapsed && sectionIndex > 0 && (
         <div
-          className="mx-auto my-3 h-px w-9 bg-sidebar-border/80"
+          className="mx-auto my-2.5 h-px w-8 bg-sidebar-border/80"
           role="separator"
           aria-hidden
         />
@@ -237,12 +294,12 @@ export function SidebarNavSection({
       {items.length > 0 ? (
         <ul
           className={cn(
-            collapsed ? 'space-y-1' : 'space-y-0.5',
+            collapsed ? 'flex flex-col items-center gap-1' : 'space-y-0.5',
             groups.length > 0 && !collapsed && 'mb-2.5',
           )}
         >
           {items.map((item) => (
-            <li key={item.to}>
+            <li key={item.to} className={cn(collapsed && 'w-full')}>
               <SidebarNavItem
                 to={item.to}
                 end={navItemRequiresExactMatch(item, items)}
@@ -257,9 +314,9 @@ export function SidebarNavSection({
       ) : null}
 
       {groups.length > 0 ? (
-        <ul className={cn(collapsed ? 'space-y-1' : 'space-y-2')}>
+        <ul className={cn(collapsed ? 'flex flex-col items-center gap-1' : 'space-y-2')}>
           {groups.map((group) => (
-            <li key={group.id}>
+            <li key={group.id} className={cn(collapsed && 'w-full')}>
               <SidebarNavGroup group={group} collapsed={collapsed} onNavigate={onNavigate} />
             </li>
           ))}

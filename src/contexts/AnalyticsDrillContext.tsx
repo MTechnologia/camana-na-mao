@@ -8,8 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { useGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
 import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import {
   buildChartSeriesFromStats,
   buildDrillKpisFromStats,
@@ -56,7 +56,7 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
     () => globalFiltersToReportsAnalytics(period, region, category),
     [period, region, category],
   );
-  const { stats } = useReportsAnalytics(filters);
+  const { stats } = useGlobalReportsAnalytics();
 
   const [metric, setMetric] = useState<AnalyticsMetric>('volume');
   const [grain, setGrain] = useState<DrillGrain>('overview');
@@ -95,8 +95,8 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
   }, [region, grain, activeRegion, resetDrill]);
 
   const kpis = useMemo(
-    () => buildDrillKpisFromStats(stats, grain),
-    [stats, grain],
+    () => buildDrillKpisFromStats(stats, grain, activeRegion, activeDistrict),
+    [stats, grain, activeRegion, activeDistrict],
   );
 
   const chartData = useMemo(

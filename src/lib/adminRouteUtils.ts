@@ -7,6 +7,8 @@ const ANALYTICS_CONTEXT_PATHS = [
   '/admin/classification-accuracy',
   '/admin/reports',
   '/admin/referrals',
+  '/admin/equipment-ratings',
+  '/admin/public-hearings',
   '/paineis',
 ] as const;
 

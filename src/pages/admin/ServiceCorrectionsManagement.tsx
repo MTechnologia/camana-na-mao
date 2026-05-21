@@ -59,7 +59,7 @@ import {
   serviceCorrectionSlaDeadline,
   SERVICE_CORRECTION_REVIEW_SLA_HOURS,
 } from "@/lib/serviceCorrectionFields";
-import { KPICard } from "@/components/analytics/KPICard";
+import { ServiceCorrectionsKpiStrip } from '@/components/admin/service-corrections/ServiceCorrectionsKpiStrip';
 
 const MIN_NOTES_ON_REJECT = 10;
 
@@ -275,7 +275,17 @@ function PendingQueueTable({
   );
 }
 
-export default function ServiceCorrectionsManagement({ embedded }: { embedded?: boolean } = {}) {
+type ServiceCorrectionsManagementProps = {
+  embedded?: boolean;
+  hidePageHeader?: boolean;
+  onRefreshReady?: (refresh: () => void) => void;
+};
+
+export default function ServiceCorrectionsManagement({
+  embedded,
+  hidePageHeader: _hidePageHeader,
+  onRefreshReady,
+}: ServiceCorrectionsManagementProps = {}) {
   const {
     rows,
     loading,
@@ -353,27 +363,18 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
     setRejectDialogOpen(true);
   };
 
+  useEffect(() => {
+    onRefreshReady?.(() => void refetch());
+  }, [onRefreshReady, refetch]);
+
   return (
     <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-              <ClipboardList className="h-8 w-8 text-primary" />
-              Painel — sugestões de correção de equipamentos
-            </h1>
-            <p className="text-muted-foreground mt-1 max-w-2xl">
-              <strong>Fluxo:</strong> primeiro <strong>aceitar</strong> a sugestão (aprovação); só então atualize o
-              cadastro oficial (ex.: GeoSampa/backoffice) e marque <strong>cadastro atualizado</strong>. O munícipe é
-              notificado na aprovação e de novo quando a correção estiver refletida.{" "}
-              <strong>Meta:</strong> fila pendente em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
-        </div>
+        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <strong className="text-foreground">Fluxo:</strong> aceitar a sugestão → atualizar cadastro oficial → marcar{' '}
+          <strong className="text-foreground">cadastro atualizado</strong>. Meta: fila pendente em até{' '}
+          {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h.
+        </p>
 
         <Tabs
           value={activeTab}
@@ -410,73 +411,37 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
           </div>
 
           <TabsContent value="queue" className="mt-0 space-y-4">
-            <Card>
-              <CardContent className="p-4 sm:p-6 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3">
-                  <div>
-                    <p className="font-semibold text-foreground flex items-center gap-2">
-                      <ListChecks className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                      {statusCounts.pending} sugestão(ões) aguardando validação
+            <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+              <div className="space-y-3 border-b border-border/80 px-4 py-4 md:px-5">
+                <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3">
+                  <p className="flex items-center gap-2 font-semibold text-foreground">
+                    <ListChecks className="h-4 w-4 text-amber-700 dark:text-amber-400" aria-hidden />
+                    {statusCounts.pending} sugestão(ões) aguardando validação
+                  </p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Fora do prazo de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h primeiro; depois as mais próximas do limite.
+                  </p>
+                  {statusCounts.pendingOverSla > 0 ? (
+                    <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-destructive">
+                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                      {statusCounts.pendingOverSla} fora do prazo — priorize a validação.
                     </p>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      Ordem: fora do prazo de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h primeiro; depois as mais próximas do
-                      limite. Clique em <strong>Validar</strong> para decidir.
-                    </p>
-                    {statusCounts.pendingOverSla > 0 ? (
-                      <p className="text-sm font-medium text-destructive mt-2 flex items-center gap-1.5">
-                        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-                        {statusCounts.pendingOverSla} fora do prazo — priorize a validação.
-                      </p>
-                    ) : null}
-                  </div>
+                  ) : null}
                 </div>
-                <PendingQueueTable rows={rows} loading={loading} openDetail={openDetail} />
-              </CardContent>
-            </Card>
+              </div>
+              <PendingQueueTable rows={rows} loading={loading} openDetail={openDetail} />
+            </section>
           </TabsContent>
 
           <TabsContent value="history" className="mt-0 space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <KPICard
-                title="Pendentes"
-                value={statusCounts.pending}
-                icon={ListChecks}
-                subtitle="Ir para a fila"
-                onClick={() => setActiveTab("queue")}
-              />
-              <KPICard
-                title="Aceitas"
-                value={statusCounts.approved}
-                icon={CheckCircle2}
-                subtitle="Aguardando refletir no cadastro"
-                onClick={() => goHistory("approved")}
-                className={historyFilter === "approved" ? "ring-2 ring-primary/40" : ""}
-              />
-              <KPICard
-                title="Recusadas"
-                value={statusCounts.rejected}
-                icon={Circle}
-                subtitle="Não aplicadas"
-                onClick={() => goHistory("rejected")}
-                className={historyFilter === "rejected" ? "ring-2 ring-primary/40" : ""}
-              />
-              <KPICard
-                title="Aplicadas"
-                value={statusCounts.applied}
-                icon={CheckCircle2}
-                subtitle="Registro no cadastro"
-                onClick={() => goHistory("applied")}
-                className={historyFilter === "applied" ? "ring-2 ring-primary/40" : ""}
-              />
-              <KPICard
-                title="Total"
-                value={statusCounts.all}
-                icon={ClipboardList}
-                subtitle="Todos os status"
-                onClick={() => goHistory("all")}
-                className={`col-span-2 lg:col-span-1 ${historyFilter === "all" ? "ring-2 ring-primary/40" : ""}`}
-              />
-            </div>
+            <ServiceCorrectionsKpiStrip
+              counts={statusCounts}
+              historyFilter={historyFilter}
+              onSelect={(filter, tab) => {
+                if (tab === 'queue') setActiveTab('queue');
+                else goHistory(filter);
+              }}
+            />
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1 sm:max-w-md">

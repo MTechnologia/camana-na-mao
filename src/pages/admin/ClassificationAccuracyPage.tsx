@@ -1,7 +1,8 @@
 import { useClassificationAccuracyMetrics } from '@/hooks/useClassificationAccuracyMetrics';
 import { ClassificationAccuracyKpiCards } from '@/components/admin/classification-accuracy/ClassificationAccuracyKpiCards';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
+import { CLASSIFICATION_ACCURACY_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { PendingPredictionsTable } from '@/components/admin/classification-accuracy/PendingPredictionsTable';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -15,7 +16,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, RefreshCw, CheckCircle2, XCircle, Info } from 'lucide-react';
-import { CLASSIFICATION_ACCURACY_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
 import { cn } from '@/lib/utils';
 
 const reportTypeLabel = (t: string | null) =>
@@ -32,17 +32,9 @@ export function ClassificationAccuracyPage() {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             Câmara na Mão · Gestão
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
-              Acurácia da classificação
-            </h1>
-            <ParameterInfoListTrigger
-              items={[CLASSIFICATION_ACCURACY_PAGE_LEGEND]}
-              tooltipTitle="Sobre esta tela"
-              ariaLabel="Ajuda sobre acurácia da classificação"
-              className="h-5 w-5 shrink-0 text-[11px]"
-            />
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
+            Acurácia da classificação
+          </h1>
         </div>
         <Button
           type="button"
@@ -248,6 +240,11 @@ export function ClassificationAccuracyPage() {
           )}
         </CardContent>
       </Card>
+
+      <PageUsageGuideFooter
+        items={CLASSIFICATION_ACCURACY_PAGE_LEGENDS}
+        pageName="Acurácia da classificação"
+      />
     </div>
   );
 }

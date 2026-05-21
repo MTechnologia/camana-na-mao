@@ -1,114 +1,113 @@
-import { useMemo } from 'react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PageShell } from '@/components/ui/PageShell';
-import { KpiCard } from '@/components/ui/KpiCard';
+import { ExternalLink } from 'lucide-react';
+import { PublicHearingsExploreLinks } from '@/components/admin/public-hearings/PublicHearingsExploreLinks';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
+import { PUBLIC_HEARINGS_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
+import { PublicHearingsKpiStrip } from '@/components/admin/public-hearings/PublicHearingsKpiStrip';
+import { PublicHearingsList } from '@/components/admin/public-hearings/PublicHearingsList';
+import { PublicHearingsPageHeader } from '@/components/admin/public-hearings/PublicHearingsPageHeader';
 import {
-  PUBLIC_HEARINGS_KPI_LEGENDS,
-  PUBLIC_HEARINGS_PAGE_LEGEND,
-} from '@/lib/analyticsParameterLegends';
+  PublicHearingsQueueToolbar,
+  type PublicHearingsListTab,
+} from '@/components/admin/public-hearings/PublicHearingsQueueToolbar';
+import { PublicHearingsSubNav } from '@/components/admin/public-hearings/PublicHearingsSubNav';
+import { Button } from '@/components/ui/button';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { globalFiltersToAudiencias } from '@/lib/globalFiltersToAudiencias';
 import { useAudienciasAnalytics } from '@/hooks/useAudienciasAnalytics';
 
+function filterBySearch<T extends { titulo: string; comissao: string | null; zona: string }>(
+  items: T[],
+  q: string,
+): T[] {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return items;
+  return items.filter((a) => {
+    const hay = `${a.titulo} ${a.comissao ?? ''} ${a.zona}`.toLowerCase();
+    return hay.includes(needle);
+  });
+}
+
 export function PublicHearingsPage() {
   const { period, region } = useGlobalFilters();
   const filters = useMemo(() => globalFiltersToAudiencias(period, region), [period, region]);
-  const { stats, isLoading, isRefreshing, error, refresh, lastUpdate } =
-    useAudienciasAnalytics(filters);
+  const { stats, isLoading, isRefreshing, error, refresh } = useAudienciasAnalytics(filters);
   const busy = isLoading || isRefreshing;
 
+  const [listTab, setListTab] = useState<PublicHearingsListTab>('top');
+  const [search, setSearch] = useState('');
+
+  const listForTab = useMemo(() => {
+    if (listTab === 'zero') return stats.zeroInscritosProximas;
+    if (listTab === 'low') return stats.baixaOcupacaoProximas;
+    return stats.topAudiencias;
+  }, [listTab, stats.topAudiencias, stats.zeroInscritosProximas, stats.baixaOcupacaoProximas]);
+
+  const filteredList = useMemo(
+    () => filterBySearch(listForTab, search),
+    [listForTab, search],
+  );
+
   return (
-    <PageShell title="Audiências públicas" titleInfo={PUBLIC_HEARINGS_PAGE_LEGEND}>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <KpiCard
-          label="Audiências abertas"
-          value={isLoading ? '—' : String(stats.audienciasAbertas)}
-          parameter={PUBLIC_HEARINGS_KPI_LEGENDS.open}
-        />
-        <KpiCard
-          label="Inscrições confirmadas"
-          value={isLoading ? '—' : String(stats.totalInscricoes)}
-          parameter={PUBLIC_HEARINGS_KPI_LEGENDS.registrations}
-        />
-        <KpiCard
-          label="Manifestações recebidas"
-          value={isLoading ? '—' : String(stats.totalEscritas)}
-          parameter={PUBLIC_HEARINGS_KPI_LEGENDS.statements}
-        />
-      </div>
+    <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
+      <PublicHearingsPageHeader
+        title="Gestão de audiências"
+        actions={
+          <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
+            <Link to="/audiencias">
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              App cidadão
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
-        {lastUpdate && (
-          <p className="text-xs text-muted-foreground">
-            Atualizado às{' '}
-            {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        )}
-        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
-          <RefreshCw className={cn('mr-2 h-4 w-4', busy && 'animate-spin')} />
-          Atualizar
-        </Button>
-      </div>
+      <PublicHearingsSubNav />
 
-      {error && (
-        <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+      <PublicHearingsKpiStrip stats={stats} loading={isLoading} />
+
+      {error ? (
+        <p
+          className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          role="alert"
+        >
           {error}
         </p>
-      )}
+      ) : null}
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="border-b border-border bg-muted/40 px-4 py-3">
-          <p className="text-sm font-semibold">Audiências no recorte</p>
+      <section
+        aria-label="Lista de audiências"
+        className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
+      >
+        <div className="border-b border-border/80 bg-muted/30 px-4 py-3 md:px-5">
+          <p className="text-sm font-semibold text-foreground">Audiências no recorte</p>
           <p className="text-xs text-muted-foreground">
-            Engajamento combinado (lembretes + videoconferência + manifestações escritas).
+            Engajamento combinado: lembretes, videoconferência e manifestações escritas.
           </p>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-2 p-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
-            ))}
-          </div>
-        ) : stats.topAudiencias.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma audiência no período.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {stats.topAudiencias.map((a) => (
-              <li
-                key={a.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between hover:bg-muted/30"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{a.titulo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {a.comissao ?? 'Sem comissão'} · {format(new Date(a.data), 'dd/MM/yyyy', { locale: ptBR })} ·{' '}
-                    {a.zona}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Badge variant="secondary">
-                    {a.inscricoes} {a.inscricoes === 1 ? 'inscrição' : 'inscrições'}
-                  </Badge>
-                  {a.ocupacaoPct != null && (
-                    <Badge variant="outline">{a.ocupacaoPct}% vagas</Badge>
-                  )}
-                  <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                    <Link to={`/audiencias/${a.id}`}>Ver detalhe</Link>
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </PageShell>
+        <div className="px-4 pt-4 md:px-5">
+          <PublicHearingsQueueToolbar
+            listTab={listTab}
+            onListTabChange={setListTab}
+            search={search}
+            onSearchChange={setSearch}
+            resultCount={filteredList.length}
+            loading={busy}
+            onRefresh={() => void refresh()}
+          />
+        </div>
+
+        <PublicHearingsList items={filteredList} loading={isLoading} embedded />
+      </section>
+
+      <PageUsageGuideFooter
+        items={PUBLIC_HEARINGS_PAGE_LEGENDS}
+        pageName="Gestão de audiências"
+      >
+        <PublicHearingsExploreLinks />
+      </PageUsageGuideFooter>
+    </div>
   );
 }

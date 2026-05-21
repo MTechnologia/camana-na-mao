@@ -1,5 +1,7 @@
 import { AnalyticsDrillBreadcrumb } from '@/components/admin/analytics/AnalyticsDrillBreadcrumb';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
 import { UrbanAnalyticsExploreLinks } from '@/components/admin/urban-analytics/UrbanAnalyticsExploreLinks';
+import { URBAN_REPORTS_ANALYTICS_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { UrbanAnalyticsKpiStrip } from '@/components/admin/urban-analytics/UrbanAnalyticsKpiStrip';
 import { UrbanAnalyticsPageHeader } from '@/components/admin/urban-analytics/UrbanAnalyticsPageHeader';
 import { UrbanAnalyticsTabs } from '@/components/admin/urban-analytics/UrbanAnalyticsTabs';
@@ -15,7 +17,12 @@ export function ReportsAnalyticsPage() {
 
       <UrbanAnalyticsTabs />
 
-      <UrbanAnalyticsExploreLinks />
+      <PageUsageGuideFooter
+        items={URBAN_REPORTS_ANALYTICS_PAGE_LEGENDS}
+        pageName="Análise de relatos urbanos"
+      >
+        <UrbanAnalyticsExploreLinks />
+      </PageUsageGuideFooter>
     </div>
   );
 }

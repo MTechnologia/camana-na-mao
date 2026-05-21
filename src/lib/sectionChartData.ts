@@ -40,12 +40,6 @@ function formatDayLabel(isoDate: string): string {
 
 export function buildVolumeSeriesFromStats(stats: ReportsAnalyticsStats | null): SeriesPoint[] {
   if (!stats?.timeline?.length) return [];
-  const resolvedByDate = new Map(
-    stats.byStatus
-      .filter((s) => s.status === 'resolved' || s.status === 'closed')
-      .map(() => [] as string[]),
-  );
-  void resolvedByDate;
   const resolvedTotal = stats.byStatus.find((s) => s.status === 'resolved')?.count ?? 0;
   const ratio = stats.total > 0 ? resolvedTotal / stats.total : 0.3;
 

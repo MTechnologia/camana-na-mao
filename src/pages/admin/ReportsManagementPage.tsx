@@ -6,11 +6,12 @@ import { ReportsQueueToolbar } from '@/components/admin/reports/ReportsQueueTool
 import { ReportsWorkflowBanner } from '@/components/admin/reports/ReportsWorkflowBanner';
 import { ReportsWorkflowKpis } from '@/components/admin/reports/ReportsWorkflowKpis';
 import { ReportsManagementChartSection } from '@/components/admin/charts/SectionChartPanels';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
 import { UrbanReportsExploreLinks } from '@/components/admin/urban-reports/UrbanReportsExploreLinks';
+import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { UrbanReportsPageHeader } from '@/components/admin/urban-reports/UrbanReportsPageHeader';
 import { UrbanReportsSubNav } from '@/components/admin/urban-reports/UrbanReportsSubNav';
 import { Button } from '@/components/ui/button';
-import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { useUrbanReportsManagement } from '@/hooks/useUrbanReportsManagement';
 
 export function ReportsManagementPage() {
@@ -31,8 +32,6 @@ export function ReportsManagementPage() {
     <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
       <UrbanReportsPageHeader
         title="Gestão de relatos"
-        legends={URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS}
-        ariaLabel="Ajuda sobre gestão de relatos urbanos"
         actions={
           <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
             <Link to="/admin/referrals?tab=fluxo">
@@ -72,7 +71,12 @@ export function ReportsManagementPage() {
 
       <ReportsManagementChartSection />
 
-      <UrbanReportsExploreLinks />
+      <PageUsageGuideFooter
+        items={URBAN_REPORTS_MANAGEMENT_PAGE_LEGENDS}
+        pageName="Gestão de relatos"
+      >
+        <UrbanReportsExploreLinks />
+      </PageUsageGuideFooter>
 
       <ReportDetailSheet
         report={selected}

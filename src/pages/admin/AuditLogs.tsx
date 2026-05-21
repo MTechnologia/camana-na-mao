@@ -4,10 +4,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Calendar as CalendarIcon,
-  Download,
   Eye,
   Filter,
-  Lock,
   Search,
   Users,
 } from "lucide-react";
@@ -25,7 +23,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -119,7 +116,13 @@ function fmtDateTime(iso: string): string {
   }
 }
 
-const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
+type AuditLogsProps = {
+  embedded?: boolean;
+  hidePageHeader?: boolean;
+  onExportReady?: (exportFn: () => void) => void;
+};
+
+const AuditLogs = ({ embedded, hidePageHeader, onExportReady }: AuditLogsProps) => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
   const { getAllLogs, getActors } = useAuditLog();
@@ -214,7 +217,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
     [logs],
   );
 
-  const exportLogs = () => {
+  const exportLogs = useCallback(() => {
     const rows: AuditCsvRow[] = filteredLogs.map((log) => {
       const actor = log.user_id ? actorById.get(log.user_id) : null;
       return {
@@ -250,7 +253,11 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
         ? `${filteredLogs.length} registros — use o menu do navegador para salvar.`
         : `${filteredLogs.length} registros exportados.`,
     });
-  };
+  }, [filteredLogs, actorById, toast]);
+
+  useEffect(() => {
+    onExportReady?.(exportLogs);
+  }, [exportLogs, onExportReady]);
 
   if (roleLoading) {
     return (
@@ -264,30 +271,11 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
 
   return (
     <AdminPageShell embedded={embedded}>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              Logs de Auditoria
-              <Badge variant="outline" className="text-[10px] h-5 px-2 gap-1">
-                <Lock className="h-3 w-3" />
-                Imutável
-              </Badge>
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Histórico completo de ações administrativas no sistema.
-              Registros não podem ser editados ou apagados (somente arquivados
-              após 12 meses).
-            </p>
-          </div>
-          <Button onClick={exportLogs} className="gap-2" variant="outline">
-            <Download className="w-4 h-4" />
-            Exportar CSV
-          </Button>
-        </div>
-
-        {/* Filtros */}
-        <Card className="p-3 space-y-3">
+      <section
+        aria-label="Trilha de auditoria"
+        className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
+      >
+        <div className="space-y-3 border-b border-border/80 px-4 py-4 md:px-5">
           <div className="flex flex-col lg:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -375,10 +363,14 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               </>
             )}
           </div>
-        </Card>
+          <p className="text-xs text-muted-foreground">
+            {isLoading
+              ? 'Carregando…'
+              : `${filteredLogs.length} registro${filteredLogs.length === 1 ? '' : 's'} exibido${filteredLogs.length === 1 ? '' : 's'}`}
+            {logs.length >= 500 ? ' · Limite 500 — refine os filtros.' : ''}
+          </p>
+        </div>
 
-        {/* Tabela */}
-        <div className="rounded-md border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -440,15 +432,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               )}
             </TableBody>
           </Table>
-        </div>
-
-        <div className="text-xs text-muted-foreground text-center">
-          Exibindo {filteredLogs.length} de {logs.length} registros
-          {logs.length >= 500 && (
-            <span> · Limite 500 — refine os filtros para ver mais.</span>
-          )}
-        </div>
-      </div>
+      </section>
 
       <AuditLogDetailSheet
         log={selected}

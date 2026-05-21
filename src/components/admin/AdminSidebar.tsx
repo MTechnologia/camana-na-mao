@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { filterNavSections } from '@/lib/adminNavFilter';
@@ -69,8 +70,11 @@ export function AdminSidebar() {
   });
   const collapsed = sidebarCollapsed;
 
+  const tooltipContentClass =
+    'z-[200] border-border bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-md';
+
   return (
-    <>
+    <TooltipProvider delayDuration={0}>
       <button
         type="button"
         className={cn(
@@ -82,30 +86,45 @@ export function AdminSidebar() {
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl shadow-black/20',
+          'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl shadow-black/20',
           'transition-[width,transform] duration-200 ease-in-out',
           'md:static md:z-auto md:min-h-screen md:translate-x-0',
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'md:w-20' : 'md:w-[280px]',
+          mobileMenuOpen ? 'w-[280px] translate-x-0' : 'w-[280px] -translate-x-full md:translate-x-0',
+          collapsed ? 'md:w-[4.5rem]' : 'md:w-[280px]',
         )}
         aria-label="Menu principal"
         data-collapsed={collapsed ? 'true' : 'false'}
       >
         <div
           className={cn(
-            'flex shrink-0 items-center border-b border-sidebar-border',
-            collapsed ? 'h-14 justify-center px-2' : 'h-14 gap-3 px-4',
+            'flex shrink-0 border-b border-sidebar-border',
+            collapsed
+              ? 'flex-col items-center gap-2 px-2 py-3'
+              : 'h-14 items-center gap-3 px-4',
           )}
         >
           <div
             className={cn(
-              'flex shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground',
-              collapsed ? 'h-10 w-10' : 'h-9 w-9 rounded-lg',
+              'flex shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground',
+              collapsed ? 'h-9 w-9' : 'h-9 w-9',
             )}
           >
-            <Shield className="h-5 w-5" aria-hidden />
+            <Shield className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden />
           </div>
-          {!collapsed && (
+          {collapsed ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <SidebarCollapseButton
+                  collapsed
+                  onClick={toggleSidebarCollapsed}
+                  className="hidden md:inline-flex"
+                />
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10} className={tooltipContentClass}>
+                Expandir menu
+              </TooltipContent>
+            </Tooltip>
+          ) : (
             <>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
@@ -124,9 +143,9 @@ export function AdminSidebar() {
 
         <nav
           className={cn(
-            'flex-1 overflow-y-auto overflow-x-hidden',
+            'flex-1 overflow-y-auto',
             '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/25',
-            collapsed ? 'px-2 py-3' : 'px-2 py-3',
+            collapsed ? 'px-1.5 py-3' : 'px-2 py-3',
           )}
         >
           {filtered.map((section, sectionIndex) => (
@@ -140,25 +159,7 @@ export function AdminSidebar() {
           ))}
         </nav>
 
-        {collapsed ? (
-          <div className="shrink-0 border-t border-sidebar-border bg-sidebar p-2 md:block">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarCollapseButton
-                  collapsed
-                  onClick={toggleSidebarCollapsed}
-                  className="mx-auto flex md:inline-flex"
-                />
-              </TooltipTrigger>
-              <TooltipContent
-                side="right"
-                className="border-sidebar-primary/20 bg-highlight px-2.5 py-1.5 text-xs font-medium text-primary"
-              >
-                Expandir menu
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        ) : (
+        {!collapsed ? (
           <div className="flex shrink-0 border-t border-sidebar-border p-2 md:hidden">
             <SidebarCollapseButton
               collapsed={false}
@@ -166,9 +167,9 @@ export function AdminSidebar() {
               className="w-full"
             />
           </div>
-        )}
+        ) : null}
       </aside>
-    </>
+    </TooltipProvider>
   );
 }
 

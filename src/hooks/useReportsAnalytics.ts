@@ -11,6 +11,8 @@ import {
   SOCIAL_CLASS_LABELS,
 } from "@/lib/demographicDrill";
 import {
+  buildNeighborhoodBreakdownFromUrbanReports,
+  buildVolumeByZoneFromUrbanReports,
   buildTimelineFromUrbanReports,
   filterUrbanReportsByRegion,
   mapReportPatternsToAlerts,
@@ -66,6 +68,12 @@ export interface ReportsAnalyticsStats {
   
   // Categorias
   categories: { category: string; count: number }[];
+
+  /** Volume por zona (relatos urbanos georreferenciados). */
+  volumeByZone: { zone: string; count: number }[];
+
+  /** Bairros por zona — drill territorial (detalhe por distrito). */
+  neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[];
   
   // Demografia
   demographics: {
@@ -112,6 +120,8 @@ const emptyStats: ReportsAnalyticsStats = {
   timeline: [],
   byStatus: [],
   categories: [],
+  volumeByZone: [],
+  neighborhoodBreakdown: [],
   demographics: {
     byGender: [],
     byRace: [],
@@ -141,6 +151,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const [stats, setStats] = useState<ReportsAnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Serializar filters para comparação estável
   const filtersKey = JSON.stringify(filters);
@@ -296,12 +307,15 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       let urbanReports: Record<string, unknown>[] = [];
       let timeline: TimelineDataPoint[] = [];
       let patternAlerts: PatternAlert[] = [];
+      let volumeByZone: { zone: string; count: number }[] = [];
+      let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
 
       try {
         let urbanQuery = supabase
           .from('urban_reports')
           .select(`
             id, description, category, location_address, status, created_at, severity, neighborhood,
+            latitude, longitude,
             urban_report_likes(count),
             urban_report_comments(count)
           `)
@@ -327,6 +341,16 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           filters.region,
         );
         timeline = buildTimelineFromUrbanReports(urbanForTimeline);
+        const urbanRows = urbanReports as UrbanReportRow[];
+        volumeByZone = buildVolumeByZoneFromUrbanReports(urbanRows).map((r) => ({
+          zone: r.zone,
+          count: r.count,
+        }));
+        neighborhoodBreakdown = buildNeighborhoodBreakdownFromUrbanReports(urbanRows).map((r) => ({
+          neighborhood: r.neighborhood,
+          zone: r.zone,
+          count: r.count,
+        }));
 
         const { data: patternRows } = await supabase
           .from('report_patterns')
@@ -395,6 +419,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           timeline,
           byStatus,
           categories,
+          volumeByZone,
+          neighborhoodBreakdown,
           demographics: {
             byGender,
             byRace,
@@ -420,6 +446,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           },
         });
         setError(null);
+        setLastUpdate(new Date());
       }
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -430,7 +457,16 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     } finally {
       if (isMounted) setIsLoading(false);
     }
-  }, [filters.ageGroup, filters.gender, filters.race, filters.socialClass, filters.startDate, filters.endDate]);
+  }, [
+    filters.ageGroup,
+    filters.gender,
+    filters.race,
+    filters.socialClass,
+    filters.startDate,
+    filters.endDate,
+    filters.region,
+    filters.category,
+  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -438,5 +474,11 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     return () => { isMounted = false; };
   }, [filtersKey, fetchAnalytics]);
 
-  return { stats, isLoading, error, refresh: () => fetchAnalytics(true) };
+  return {
+    stats,
+    isLoading,
+    error,
+    lastUpdate,
+    refresh: () => fetchAnalytics(true),
+  };
 };

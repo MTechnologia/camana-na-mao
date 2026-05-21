@@ -1,4 +1,5 @@
 import { VolumeByRegionChart } from '@/components/admin/analytics/VolumeByRegionChart';
+import { ExecutiveSupplementaryCharts } from '@/components/admin/executive/ExecutiveSupplementaryCharts';
 import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
 import { metricLabel } from '@/lib/analyticsLabels';
 
@@ -6,7 +7,7 @@ export function ExecutiveChartSection() {
   const { metric } = useAnalyticsDrill();
 
   return (
-    <section aria-labelledby="executive-chart-heading" className="space-y-3">
+    <section aria-labelledby="executive-chart-heading" className="space-y-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="executive-chart-heading" className="text-sm font-semibold text-foreground">
@@ -19,7 +20,9 @@ export function ExecutiveChartSection() {
           </p>
         </div>
       </div>
-      <VolumeByRegionChart variant="executive" showLegend={false} />
+      <VolumeByRegionChart variant="executive" showLegend />
+
+      <ExecutiveSupplementaryCharts />
     </section>
   );
 }

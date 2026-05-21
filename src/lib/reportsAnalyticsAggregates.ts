@@ -1,8 +1,14 @@
 import type { PatternAlert } from '@/components/analytics/PatternAlerts';
 import type { ReportsAnalyticsStats, TimelineDataPoint } from '@/hooks/useReportsAnalytics';
 import type { PatternRankRow } from '@/types/analyticsDrill';
+import type { SeriesPoint } from '@/lib/chartTypes';
 import { regionLabel } from '@/lib/analyticsLabels';
-import { bairroParaZona } from '@/lib/regionMapping';
+import {
+  bairroParaZona,
+  ZONA_DESCONHECIDA,
+  ZONAS_FILTRO,
+  type ZonaVolumeOuDesconhecida,
+} from '@/lib/regionMapping';
 
 export type UrbanReportRow = {
   id: string;
@@ -10,11 +16,121 @@ export type UrbanReportRow = {
   status: string | null;
   category: string | null;
   neighborhood: string | null;
+  location_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
+
+export type NeighborhoodBreakdownRow = {
+  neighborhood: string;
+  zone: ZonaVolumeOuDesconhecida;
+  count: number;
+};
+
+export const DISTRICT_LABEL_FALLBACK = 'Sem bairro definido';
+
+function districtLabelFromUrbanRow(row: UrbanReportRow): string {
+  const nb = row.neighborhood?.trim();
+  if (nb) return nb;
+  const loc = row.location_address?.trim();
+  if (loc) {
+    const part = loc.split(',')[0]?.trim();
+    if (part && part.length <= 80) return part;
+    return loc.slice(0, 80);
+  }
+  return DISTRICT_LABEL_FALLBACK;
+}
+
+/** Volume por zona canônica (5 zonas + Não informada) — paridade com o dev. */
+export function buildVolumeByZoneFromUrbanReports(
+  reports: UrbanReportRow[],
+): { zone: ZonaVolumeOuDesconhecida; count: number }[] {
+  const counts = new Map<ZonaVolumeOuDesconhecida, number>();
+  for (const zona of ZONAS_FILTRO) counts.set(zona, 0);
+
+  for (const row of reports) {
+    const text = [row.neighborhood, row.location_address].filter(Boolean).join(' ');
+    const zone = bairroParaZona(text, row.latitude, row.longitude);
+    const key = counts.has(zone) ? zone : ZONA_DESCONHECIDA;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return ZONAS_FILTRO.map((zone) => ({ zone, count: counts.get(zone) ?? 0 }));
+}
+
+/** Contagem por bairro dentro de cada zona — base do drill “Detalhe por distrito”. */
+export function buildNeighborhoodBreakdownFromUrbanReports(
+  reports: UrbanReportRow[],
+): NeighborhoodBreakdownRow[] {
+  const map = new Map<string, { zone: ZonaVolumeOuDesconhecida; count: number }>();
+
+  for (const row of reports) {
+    const text = [row.neighborhood, row.location_address].filter(Boolean).join(' ');
+    const zone = bairroParaZona(text, row.latitude, row.longitude);
+    const label = districtLabelFromUrbanRow(row);
+    const key = `${zone}\u0000${label}`;
+    const cur = map.get(key) ?? { zone, count: 0 };
+    cur.count += 1;
+    map.set(key, cur);
+  }
+
+  return [...map.entries()]
+    .map(([key, v]) => ({
+      neighborhood: key.split('\u0000')[1] ?? DISTRICT_LABEL_FALLBACK,
+      zone: v.zone,
+      count: v.count,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
 
 export function formatTimelineDayLabel(isoDate: string): string {
   const d = new Date(isoDate);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+/** Quatro indicadores no tempo — mesma agregação do dashboard executivo no dev. */
+export function buildMetricTrendsFromStats(stats: ReportsAnalyticsStats | null): SeriesPoint[] {
+  if (!stats) return [];
+
+  const patterns = stats.criticality.patterns.length || 0;
+  const regionRows = stats.demographics.byRegion;
+  const regionTotal = regionRows.reduce((s, r) => s + r.count, 0);
+  const sentiment =
+    regionTotal > 0
+      ? Math.round(
+          regionRows.reduce((s, r) => s + (r.sentiment ?? 50) * r.count, 0) / regionTotal,
+        )
+      : 50;
+  const pending = stats.byStatus.find((s) => s.status === 'Pendente')?.count ?? stats.pending;
+  const resolved = stats.resolved || 0;
+  const response =
+    stats.total > 0 && resolved > 0
+      ? Math.min(99, Math.round((pending / Math.max(resolved, 1)) * 24 * 10) / 10)
+      : 0;
+
+  if (stats.timeline.length > 0) {
+    return stats.timeline.map((p) => ({
+      label: formatTimelineDayLabel(p.date),
+      volume: p.total,
+      sentiment,
+      patterns,
+      response,
+    }));
+  }
+
+  if (stats.total > 0) {
+    return [
+      {
+        label: 'Total no período',
+        volume: stats.total,
+        sentiment,
+        patterns,
+        response,
+      },
+    ];
+  }
+
+  return [];
 }
 
 /** Série diária de volume e resolvidos a partir dos relatos urbanos filtrados. */
@@ -53,7 +169,12 @@ export function filterUrbanReportsByRegion(
   if (!region || region === 'all') return reports;
   const zoneLabel = regionLabel(region);
   return reports.filter((r) => {
-    const zone = bairroParaZona(r.neighborhood ?? '') ?? r.neighborhood;
+    const zone =
+      bairroParaZona(
+        [r.neighborhood, r.location_address].filter(Boolean).join(' '),
+        r.latitude,
+        r.longitude,
+      ) ?? r.neighborhood;
     return zone === zoneLabel || r.neighborhood === region || r.neighborhood === zoneLabel;
   });
 }

@@ -650,11 +650,42 @@ export const EXECUTIVE_DASHBOARD_PAGE_LEGEND: ParameterLegendItem = {
     'Visão executiva consolidada. Use o recorte no topo para período, região e categoria; a trilha de navegação para aprofundar o território; e os cartões de indicadores para trocar a métrica do gráfico sem perder o recorte ativo.',
 };
 
+export const EXECUTIVE_DASHBOARD_PAGE_LEGENDS: ParameterLegendItem[] = [
+  EXECUTIVE_DASHBOARD_PAGE_LEGEND,
+  {
+    term: 'Navegação em camadas',
+    description:
+      'Esta página resume indicadores e um gráfico territorial. Use os atalhos abaixo para análises mais profundas ou painéis salvos.',
+  },
+];
+
+export const EXECUTIVE_HOMOLOGATION_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'RN-ANL-002 — filtros globais obrigatórios',
+    description:
+      'Período, região e categoria no topo definem o recorte de KPIs e gráfico. Complemento RN-ANL-001: atualização ao mudar filtro em tempo real.',
+  },
+  {
+    term: 'RN-ANL-003 — navegação em camadas',
+    description:
+      'Trilha analítica, drill no gráfico e botão Ver relatos mantêm o contexto do recorte.',
+  },
+  {
+    term: 'RN-ANL-004 — quatro indicadores oficiais',
+    description:
+      'Volume, tempo de resposta, sentimento e padrões recorrentes no recorte selecionado.',
+  },
+];
+
 export const URBAN_REPORTS_ANALYTICS_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Análise de relatos urbanos',
   description:
     'Indicadores e drills sobre volume, sentimento e padrões de relatos urbanos. Para avaliações de equipamento use o menu dedicado; para audiências, Audiências públicas.',
 };
+
+export const URBAN_REPORTS_ANALYTICS_PAGE_LEGENDS: ParameterLegendItem[] = [
+  URBAN_REPORTS_ANALYTICS_PAGE_LEGEND,
+];
 
 export const EQUIPMENT_RATINGS_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Avaliações de equipamentos',
@@ -662,11 +693,21 @@ export const EQUIPMENT_RATINGS_PAGE_LEGEND: ParameterLegendItem = {
     'Registros estruturados de avaliação de serviços e equipamentos públicos (nota, tempo de espera, vínculo ao equipamento). Distinto de relatos urbanos abertos pelo cidadão.',
 };
 
+export const EQUIPMENT_RATINGS_PAGE_LEGENDS: ParameterLegendItem[] = [EQUIPMENT_RATINGS_PAGE_LEGEND];
+
 export const PUBLIC_HEARINGS_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Audiências públicas',
   description:
     'Inscrições e manifestações em audiências da Câmara. Fluxo, vagas e status de participação — separado de relatos urbanos e de avaliações de equipamento.',
 };
+
+export const PUBLIC_HEARINGS_PAGE_LEGENDS: ParameterLegendItem[] = [PUBLIC_HEARINGS_PAGE_LEGEND];
+
+export const CLASSIFICATION_ACCURACY_PAGE_LEGENDS: ParameterLegendItem[] = [
+  CLASSIFICATION_ACCURACY_PAGE_LEGEND,
+];
+
+export const EXPORTS_PAGE_LEGENDS: ParameterLegendItem[] = [EXPORTS_PAGE_LEGEND];
 
 export const EQUIPMENT_RATINGS_KPI_LEGENDS = {
   total: {

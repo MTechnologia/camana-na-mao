@@ -1,17 +1,13 @@
 import type { ReactNode } from 'react';
 import { AdminLiveIndicator } from '@/components/admin/AdminLiveIndicator';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 
 type PaineisPageHeaderProps = {
   title: string;
-  legends: ParameterLegendItem[];
-  ariaLabel: string;
   actions?: ReactNode;
 };
 
-export function PaineisPageHeader({ title, legends, ariaLabel, actions }: PaineisPageHeaderProps) {
+export function PaineisPageHeader({ title, actions }: PaineisPageHeaderProps) {
   const { lastRecalcAt } = useGlobalFilters();
 
   return (
@@ -21,17 +17,9 @@ export function PaineisPageHeader({ title, legends, ariaLabel, actions }: Painei
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             Câmara na Mão · Gestão · Painéis
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
-              {title}
-            </h1>
-            <ParameterInfoListTrigger
-              items={legends}
-              tooltipTitle="Sobre esta tela"
-              ariaLabel={ariaLabel}
-              className="h-5 w-5 shrink-0 text-[11px]"
-            />
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
+            {title}
+          </h1>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 lg:pt-1">

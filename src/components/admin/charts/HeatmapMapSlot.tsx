@@ -1,5 +1,5 @@
 import { Map } from 'lucide-react';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
+import { ChartParametersHelp } from '@/components/admin/analytics/ChartParametersHelp';
 import { heatmapChartLegend, heatmapMetricLabel } from '@/lib/analyticsParameterLegends';
 import { cn } from '@/lib/utils';
 
@@ -34,10 +34,10 @@ export function HeatmapMapSlot({ metric, className }: HeatmapMapSlotProps) {
             <p className="truncate text-sm font-medium text-foreground">Mapa territorial</p>
             <p className="truncate text-xs text-muted-foreground">{metricName}</p>
           </div>
-          <ParameterInfoListTrigger
+          <ChartParametersHelp
             items={legend}
-            tooltipTitle="Parâmetros do mapa"
-            ariaLabel={`Parâmetros do mapa: ${metricName}`}
+            title="Parâmetros do mapa"
+            chartTitle={metricName}
           />
         </div>
         <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
