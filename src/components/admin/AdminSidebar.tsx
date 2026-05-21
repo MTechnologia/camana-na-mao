@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import { Menu, PanelLeft, PanelLeftClose, Shield } from 'lucide-react';
 import { SidebarNavSection } from '@/components/admin/AdminSidebarNav';
 import { adminNavSections } from '@/config/adminNav';
@@ -14,17 +14,17 @@ import {
 import { filterNavSections } from '@/lib/adminNavFilter';
 import { cn } from '@/lib/utils';
 
-function SidebarCollapseButton({
-  collapsed,
-  onClick,
-  className,
-}: {
-  collapsed: boolean;
-  onClick: () => void;
-  className?: string;
-}) {
+const SidebarCollapseButton = forwardRef<
+  HTMLButtonElement,
+  {
+    collapsed: boolean;
+    onClick: () => void;
+    className?: string;
+  }
+>(function SidebarCollapseButton({ collapsed, onClick, className }, ref) {
   return (
     <Button
+      ref={ref}
       type="button"
       variant="ghost"
       size="icon"
@@ -44,7 +44,7 @@ function SidebarCollapseButton({
       )}
     </Button>
   );
-}
+});
 
 export function AdminSidebar() {
   const {

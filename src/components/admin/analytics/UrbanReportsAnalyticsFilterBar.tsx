@@ -1,4 +1,5 @@
 import { RotateCcw } from 'lucide-react';
+import { AnalyticsLiveBadge } from '@/components/analytics/AnalyticsLiveBadge';
 import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Button } from '@/components/ui/button';
 import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
@@ -25,6 +26,9 @@ export function UrbanReportsAnalyticsFilterBar() {
     setCategory,
     setStatus,
     reset,
+    lastUpdate,
+    refresh,
+    isLoading,
   } = useUrbanReportsAnalyticsFilters();
 
   const periodLabel =
@@ -88,6 +92,12 @@ export function UrbanReportsAnalyticsFilterBar() {
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             Redefinir
           </Button>
+          <AnalyticsLiveBadge
+            className="ml-auto shrink-0"
+            lastUpdates={[lastUpdate]}
+            onRefresh={refresh}
+            refreshing={isLoading}
+          />
         </div>
         <p className="truncate text-[11px] text-muted-foreground" title={recorteSummary}>
           {recorteSummary}

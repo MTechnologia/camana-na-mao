@@ -8,8 +8,15 @@ import {
   type ReactNode,
 } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import {
+  useOptionalGlobalReportsAnalytics,
+} from '@/contexts/GlobalReportsAnalyticsContext';
 import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
+import {
+  useReportsAnalytics,
+  type ReportsAnalyticsFilters,
+  type ReportsAnalyticsStats,
+} from '@/hooks/useReportsAnalytics';
 import {
   buildChartSeriesFromStats,
   buildDrillKpisFromStats,
@@ -61,16 +68,31 @@ const AnalyticsDrillContext = createContext<AnalyticsDrillContextValue | null>(n
 
 const OVERVIEW_CRUMB: DrillCrumb = { id: 'overview', grain: 'overview', label: 'São Paulo (capital)' };
 
-export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
-  const { period, region, category, periodCompare, setRegion, setCategory } = useGlobalFilters();
-  const filters = useMemo(
-    () =>
-      globalFiltersToReportsAnalytics(period, region, category, {
-        periodA: periodCompare.periodA,
-      }),
-    [period, region, category, periodCompare.periodA],
-  );
+function AnalyticsDrillLocalLoader({
+  children,
+  filters,
+}: {
+  children: ReactNode;
+  filters: ReportsAnalyticsFilters;
+}) {
   const { stats } = useReportsAnalytics(filters);
+  return (
+    <AnalyticsDrillStateProvider stats={stats} filters={filters}>
+      {children}
+    </AnalyticsDrillStateProvider>
+  );
+}
+
+function AnalyticsDrillStateProvider({
+  children,
+  stats,
+  filters,
+}: {
+  children: ReactNode;
+  stats: ReportsAnalyticsStats | null;
+  filters: ReportsAnalyticsFilters;
+}) {
+  const { region, setRegion, setCategory } = useGlobalFilters();
 
   const [metric, setMetric] = useState<AnalyticsMetric>('volume');
   const [grain, setGrain] = useState<DrillGrain>('overview');
@@ -299,6 +321,29 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
   return (
     <AnalyticsDrillContext.Provider value={value}>{children}</AnalyticsDrillContext.Provider>
   );
+}
+
+/** Sempre montado no layout admin — ReportDrillSheet depende deste contexto. */
+export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
+  const global = useOptionalGlobalReportsAnalytics();
+  const { period, region, category, periodCompare } = useGlobalFilters();
+  const filters = useMemo(
+    () =>
+      globalFiltersToReportsAnalytics(period, region, category, {
+        periodA: periodCompare.periodA,
+      }),
+    [period, region, category, periodCompare.periodA],
+  );
+
+  if (global) {
+    return (
+      <AnalyticsDrillStateProvider stats={global.stats} filters={filters}>
+        {children}
+      </AnalyticsDrillStateProvider>
+    );
+  }
+
+  return <AnalyticsDrillLocalLoader filters={filters}>{children}</AnalyticsDrillLocalLoader>;
 }
 
 export function useAnalyticsDrill(): AnalyticsDrillContextValue {

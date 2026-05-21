@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 import { buildAnalyticsChartBundle } from '@/lib/analyticsFromStats';
-import { buildChartSeriesFromStats, buildDrillKpisFromStats, buildSentimentPolarityFromStats } from '@/lib/analyticsDrillFromStats';
+import {
+  buildChartSeriesFromStats,
+  buildDrillKpisForRegionFilter,
+  buildSentimentPolarityFromStats,
+} from '@/lib/analyticsDrillFromStats';
 import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useResolvedWidgetFilters } from '@/hooks/useResolvedWidgetFilters';
@@ -20,7 +24,10 @@ export function usePanelWidgetAnalytics(widget: PanelWidget) {
     [stats, resolved.period, resolved.region, resolved.category],
   );
 
-  const kpis = useMemo(() => buildDrillKpisFromStats(stats, 'overview'), [stats]);
+  const kpis = useMemo(
+    () => buildDrillKpisForRegionFilter(stats, resolved.region),
+    [stats, resolved.region],
+  );
 
   const chartSeries = (
     grain: DrillGrain,

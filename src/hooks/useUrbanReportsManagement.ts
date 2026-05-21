@@ -7,6 +7,7 @@ import {
   stageToDbStatus,
 } from '@/lib/urbanReportPersistence';
 import { useReportsAdmin, type UnifiedManifest } from '@/hooks/useReportsAdmin';
+import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
 import type {
   ReportQueueTab,
   UrbanReportRecord,
@@ -39,7 +40,14 @@ export function useUrbanReportsManagement() {
     setCategoryFilter,
     setRegionFilter,
     updateManifestStatus,
+    refetch,
+    lastDataUpdate,
   } = useReportsAdmin();
+
+  useRegisterAnalyticsLive('reports-management', {
+    lastUpdate: lastDataUpdate,
+    refresh: refetch,
+  });
   const [overrides, setOverrides] = useState<Record<string, UrbanReportRecord>>({});
   const [queueTab, setQueueTab] = useState<ReportQueueTab>('triage');
   const [search, setSearch] = useState('');

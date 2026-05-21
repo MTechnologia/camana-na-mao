@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
 import {
   buildChartSeriesFromStats,
+  buildDrillKpisForRegionFilter,
   buildDrillKpisFromStats,
   sumChartBarValues,
   unallocatedVolumeFromStats,
@@ -94,6 +95,22 @@ describe('analyticsDrillFromStats volume parity', () => {
     const stats = mockStats();
     const kpis = buildDrillKpisFromStats(stats, 'overview');
     expect(kpis.volume).toBe(36);
+  });
+
+  it('buildDrillKpisForRegionFilter usa volume da zona, não o total do RPC', () => {
+    const stats = mockStats({
+      total: 330,
+      volumeByZone: [
+        { zone: 'Zona Norte', count: 4 },
+        { zone: 'Zona Leste', count: 2 },
+        { zone: 'Centro', count: 0 },
+        { zone: 'Zona Sul', count: 0 },
+        { zone: 'Zona Oeste', count: 0 },
+        { zone: 'Não informada', count: 0 },
+      ],
+    });
+    expect(buildDrillKpisForRegionFilter(stats, 'all').volume).toBe(330);
+    expect(buildDrillKpisForRegionFilter(stats, 'north').volume).toBe(4);
   });
 
   it('soma das barras de volume no overview iguala o KPI', () => {
