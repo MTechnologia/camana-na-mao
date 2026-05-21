@@ -16,6 +16,14 @@ import { Button } from '@/components/ui/button';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { globalFiltersToAudiencias } from '@/lib/globalFiltersToAudiencias';
 import { useAudienciasAnalytics } from '@/hooks/useAudienciasAnalytics';
+import { useUserRole } from '@/hooks/useUserRole';
+import { formatAudienciaTitulo } from '@/lib/audienciaDisplay';
+import {
+  PublicHearingsKpiSheet,
+  type PublicHearingsKpiMode,
+} from '@/components/admin/public-hearings/PublicHearingsKpiSheet';
+import { AudienciaEngagementDetailSheet } from '@/components/admin/public-hearings/AudienciaEngagementDetailSheet';
+import type { AudienciaRanking } from '@/hooks/useAudienciasAnalytics';
 
 function filterBySearch<T extends { titulo: string; comissao: string | null; zona: string }>(
   items: T[],
@@ -34,6 +42,12 @@ export function PublicHearingsPage() {
   const filters = useMemo(() => globalFiltersToAudiencias(period, region), [period, region]);
   const { stats, isLoading, isRefreshing, error, refresh } = useAudienciasAnalytics(filters);
   const busy = isLoading || isRefreshing;
+  const listItems = stats.allAudiencias.length > 0 ? stats.allAudiencias : stats.topAudiencias;
+
+  const openDetail = (audiencia: AudienciaRanking) => {
+    setDetailAudiencia(audiencia);
+    setDetailOpen(true);
+  };
 
   const [listTab, setListTab] = useState<PublicHearingsListTab>('top');
   const [search, setSearch] = useState('');
