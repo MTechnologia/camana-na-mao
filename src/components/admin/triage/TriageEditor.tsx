@@ -24,6 +24,7 @@ import {
 import {
   useReportTriage,
   useTriageAssignees,
+  type TriageRecord,
 } from "@/hooks/useReportTriage";
 import type { ReportSource } from "@/contexts/ReportDetailContext";
 
@@ -39,11 +40,13 @@ interface TriageEditorProps {
   source: ReportSource;
   /** Permite ocultar quando o usuário não tem permissão (admin/gestor). */
   canEdit?: boolean;
+  /** Chamado após persistência bem-sucedida em `report_triage` (ex.: alinhar lista de gestão). */
+  onSaved?: (record: TriageRecord) => void;
 }
 
 const UNASSIGNED_VALUE = "__unassigned__";
 
-export function TriageEditor({ reportId, source, canEdit = true }: TriageEditorProps) {
+export function TriageEditor({ reportId, source, canEdit = true, onSaved }: TriageEditorProps) {
   const { triage, isLoading, error, upsert } = useReportTriage(reportId, source);
   const { assignees, isLoading: loadingAssignees } = useTriageAssignees();
 
@@ -77,13 +80,14 @@ export function TriageEditor({ reportId, source, canEdit = true }: TriageEditorP
   const handleSave = async () => {
     setSaving(true);
     try {
-      await upsert({
+      const saved = await upsert({
         priority,
         assigneeId,
         triageStatus: status,
         notes: notes.trim() || null,
       });
       toast.success("Triagem salva.");
+      if (saved) onSaved?.(saved);
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "Erro desconhecido.";
