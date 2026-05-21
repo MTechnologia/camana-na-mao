@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -12,13 +11,20 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { AdminReportsHeatmap } from '@/components/admin/AdminReportsHeatmap';
+import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
+import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
+import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
   useUsageHeatmap,
   type UsageHeatmapPeriod,
   type UsageHeatmapTypeFilter,
 } from '@/hooks/useUsageHeatmap';
-import { SAO_PAULO_HEATMAP_BOUNDS } from '@/lib/reportsHeatmapData';
-import { RefreshCw, AlertTriangle, Info } from 'lucide-react';
+import {
+  USAGE_HEATMAP_PERIOD_LEGEND,
+  USAGE_HEATMAP_SOURCE_FILTER_LEGEND,
+  usageHeatmapPanelLegends,
+} from '@/lib/analyticsParameterLegends';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 
 export function UsageHeatmapPanel() {
   const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>('all_usage');
@@ -29,21 +35,27 @@ export function UsageHeatmapPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Densidade geográfica de uso: relatos urbanos, avaliações, visitas e transporte
-          (geocoded por zona). Apenas pontos dentro de São Paulo (lat {SAO_PAULO_HEATMAP_BOUNDS.minLat}–
-          {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng {SAO_PAULO_HEATMAP_BOUNDS.minLng}–
-          {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
-        </span>
-      </div>
+      <HeatmapPanelIntro
+        intro={
+          <>
+            Concentração de uso da plataforma no território de São Paulo. Passe o mouse nos parâmetros (
+            <span className="font-medium text-foreground">?</span>) ou expanda a legenda abaixo para
+            entender cada indicador.
+          </>
+        }
+        legends={usageHeatmapPanelLegends()}
+        tooltipTitle="Parâmetros — densidade de uso"
+        ariaLabel="Ver todos os parâmetros do mapa de densidade de uso"
+      />
 
       <Card className="p-4 md:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div className="grid flex-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="heatmap-type">Fonte de dados</Label>
+              <HeatmapFilterLabel
+                htmlFor="heatmap-type"
+                legend={USAGE_HEATMAP_SOURCE_FILTER_LEGEND}
+              />
               <Select
                 value={typeFilter}
                 onValueChange={(v) => setTypeFilter(v as UsageHeatmapTypeFilter)}
@@ -62,7 +74,7 @@ export function UsageHeatmapPanel() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="heatmap-period">Período</Label>
+              <HeatmapFilterLabel htmlFor="heatmap-period" legend={USAGE_HEATMAP_PERIOD_LEGEND} />
               <Select value={period} onValueChange={(v) => setPeriod(v as UsageHeatmapPeriod)}>
                 <SelectTrigger id="heatmap-period">
                   <SelectValue placeholder="Período" />
@@ -89,6 +101,8 @@ export function UsageHeatmapPanel() {
           </div>
         )}
 
+        <HeatmapVisualScale variant="density" className="mb-3" />
+
         {isLoading && !data ? (
           <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
         ) : (
@@ -106,10 +120,18 @@ export function UsageHeatmapPanel() {
             </p>
             {breakdown && (
               <div className="flex flex-wrap gap-2 text-xs">
-                <Badge variant="outline">Urbano: {breakdown.urban}</Badge>
-                <Badge variant="outline">Avaliações: {breakdown.evaluation}</Badge>
-                <Badge variant="outline">Visitas: {breakdown.visits}</Badge>
-                <Badge variant="outline">Transporte: {breakdown.transport}</Badge>
+                <Badge variant="outline" title="Células com peso de relatos urbanos">
+                  Urbano: {breakdown.urban}
+                </Badge>
+                <Badge variant="outline" title="Células com peso de avaliações">
+                  Avaliações: {breakdown.evaluation}
+                </Badge>
+                <Badge variant="outline" title="Células com peso de visitas a equipamentos">
+                  Visitas: {breakdown.visits}
+                </Badge>
+                <Badge variant="outline" title="Células com peso de transporte (por zona)">
+                  Transporte: {breakdown.transport}
+                </Badge>
               </div>
             )}
           </div>

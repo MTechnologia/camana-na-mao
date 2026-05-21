@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Clock, RefreshCw, AlertTriangle, Info } from 'lucide-react';
+import { Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -15,6 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { IntensityDemandMap, colorForWait } from '@/components/admin/IntensityDemandMap';
 import type { ZoneIntensity } from '@/hooks/useIntensityDemand';
 import { useWaitTimeByZone, type WaitTimePeriod } from '@/hooks/useWaitTimeByZone';
+import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
+import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
+import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
+import {
+  HEATMAP_EXTENDED_PERIOD_LEGEND,
+  waitTimeHeatmapPanelLegends,
+} from '@/lib/analyticsParameterLegends';
 
 /** Converte score 1–5 em horas equivalentes para a escala de cor do mapa. */
 function scoreToHours(score: number): number {
@@ -43,14 +49,18 @@ export function WaitTimeHeatmapPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Média do tempo de espera informado nas avaliações de equipamentos (campo{' '}
-          <strong>wait_time_score</strong>), agregado por zona da cidade. Verde = espera menor; vermelho =
-          espera maior.
-        </span>
-      </div>
+      <HeatmapPanelIntro
+        intro={
+          <>
+            Tempo de espera informado nas avaliações de equipamentos, agregado por zona. Use os
+            parâmetros (<span className="font-medium text-foreground">?</span>) ou a legenda para
+            interpretar cores e médias.
+          </>
+        }
+        legends={waitTimeHeatmapPanelLegends()}
+        tooltipTitle="Parâmetros — tempo médio de espera"
+        ariaLabel="Ver todos os parâmetros do mapa de tempo de espera"
+      />
 
       {!isLoading && zones.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -76,9 +86,9 @@ export function WaitTimeHeatmapPanel() {
       <Card className="p-4 md:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-2">
-            <Label htmlFor="wait-period">Período</Label>
+            <HeatmapFilterLabel htmlFor="wait-period" legend={HEATMAP_EXTENDED_PERIOD_LEGEND} />
             <Select value={period} onValueChange={(v) => setPeriod(v as WaitTimePeriod)}>
-              <SelectTrigger id="wait-period" className="w-[200px]">
+              <SelectTrigger id="wait-period" className="w-full max-w-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -102,6 +112,8 @@ export function WaitTimeHeatmapPanel() {
           </div>
         )}
 
+        <HeatmapVisualScale variant="wait" className="mb-3" />
+
         {isLoading && zones.length === 0 ? (
           <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
         ) : (
@@ -110,7 +122,7 @@ export function WaitTimeHeatmapPanel() {
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">Legenda (faixa informada):</span>
+          <span className="text-muted-foreground">Referência rápida:</span>
           <Badge style={{ backgroundColor: colorForWait(24), color: 'white' }}>Espera menor</Badge>
           <Badge style={{ backgroundColor: colorForWait(120), color: 'black' }}>Intermediária</Badge>
           <Badge style={{ backgroundColor: colorForWait(168), color: 'white' }}>Espera maior</Badge>

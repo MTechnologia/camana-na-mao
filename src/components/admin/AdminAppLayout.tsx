@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { AnalyticsDrillProvider } from '@/contexts/AnalyticsDrillContext';
 import { CustomPanelsProvider } from '@/contexts/CustomPanelsContext';
 import { ReferralRoutingRulesProvider } from '@/contexts/ReferralRoutingRulesContext';
@@ -6,6 +6,7 @@ import { AdminShell } from '@/components/admin/AdminSidebar';
 import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
 import { AdminBreadcrumbs } from '@/components/admin/AnalyticsContextBar';
 import { UnifiedAnalyticsContextBar } from '@/components/admin/UnifiedAnalyticsContextBar';
+import { usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
 import { ReportDrillSheet } from '@/components/admin/analytics/ReportDrillSheet';
 import { ReportDetailSheet } from '@/components/admin/ReportDetailSheet';
 import { ReportDetailProvider } from '@/contexts/ReportDetailContext';
@@ -20,13 +21,17 @@ function AdminMain() {
 }
 
 export function AdminAppLayout() {
+  const { pathname } = useLocation();
+  const showUnifiedBar =
+    USE_UNIFIED_ANALYTICS_CONTEXT_BAR && usesUnifiedAnalyticsBar(pathname);
+
   return (
     <ReportDetailProvider>
       <AnalyticsDrillProvider>
         <ReferralRoutingRulesProvider>
           <CustomPanelsProvider>
             <AdminShell>
-              {USE_UNIFIED_ANALYTICS_CONTEXT_BAR ? <UnifiedAnalyticsContextBar /> : null}
+              {showUnifiedBar ? <UnifiedAnalyticsContextBar /> : null}
               <AdminMain />
             </AdminShell>
             <ReportDrillSheet />

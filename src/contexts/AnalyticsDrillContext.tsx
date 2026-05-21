@@ -62,10 +62,13 @@ const AnalyticsDrillContext = createContext<AnalyticsDrillContextValue | null>(n
 const OVERVIEW_CRUMB: DrillCrumb = { id: 'overview', grain: 'overview', label: 'São Paulo (capital)' };
 
 export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
-  const { period, region, category, setRegion, setCategory } = useGlobalFilters();
+  const { period, region, category, periodCompare, setRegion, setCategory } = useGlobalFilters();
   const filters = useMemo(
-    () => globalFiltersToReportsAnalytics(period, region, category),
-    [period, region, category],
+    () =>
+      globalFiltersToReportsAnalytics(period, region, category, {
+        periodA: periodCompare.periodA,
+      }),
+    [period, region, category, periodCompare.periodA],
   );
   const { stats } = useReportsAnalytics(filters);
 

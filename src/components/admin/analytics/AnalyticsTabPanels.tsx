@@ -32,8 +32,7 @@ import { CHART_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
 import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import { buildAiInsightsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
+import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
 import { useMemo } from 'react';
 
 function ChartCard({
@@ -430,11 +429,7 @@ const AI_INSIGHT_KIND_LABELS: Record<string, string> = {
 
 export function AiInsightsPanel() {
   const { topPatterns, kpis, isLoading } = useAnalyticsChartData();
-  const { period, region, category } = useGlobalFilters();
-  const filters = useMemo(
-    () => globalFiltersToReportsAnalytics(period, region, category),
-    [period, region, category],
-  );
+  const { filters } = useUrbanReportsAnalyticsFilters();
   const { stats } = useReportsAnalytics(filters);
   const insights = useMemo(() => buildAiInsightsFromStats(stats), [stats]);
   const top = topPatterns[0];

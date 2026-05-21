@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Activity, Clock, AlertTriangle, RefreshCw, Info, MapPinned } from 'lucide-react';
+import { Activity, Clock, AlertTriangle, RefreshCw, MapPinned } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -13,12 +12,20 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { IntensityDemandMap, type IntensityMapColorBy } from '@/components/admin/IntensityDemandMap';
+import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
+import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
+import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
   useIntensityDemand,
   type IntensityPeriod,
   type IntensityScope,
   type ZoneIntensity,
 } from '@/hooks/useIntensityDemand';
+import {
+  HEATMAP_EXTENDED_PERIOD_LEGEND,
+  INTENSITY_HEATMAP_SCOPE_LEGEND,
+  intensityDemandPanelLegends,
+} from '@/lib/analyticsParameterLegends';
 
 function formatHours(h: number): string {
   if (h < 1) return `${Math.round(h * 60)} min`;
@@ -39,22 +46,18 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          {colorBy === 'volume' ? (
-            <>
-              <strong>Tamanho e cor</strong> por volume de relatos (urbanos + transporte). Zonas mais
-              vermelhas concentram maior demanda no recorte.
-            </>
-          ) : (
-            <>
-              <strong>Tamanho</strong> pelo volume; <strong>cor</strong> pelo tempo médio composto de
-              atendimento (verde &lt; 24h → vermelho ≥ 1 semana).
-            </>
-          )}
-        </span>
-      </div>
+      <HeatmapPanelIntro
+        intro={
+          <>
+            Demanda de relatos por zona da capital (urbano e/ou transporte). Passe o mouse nos
+            parâmetros (<span className="font-medium text-foreground">?</span>) ou expanda a legenda
+            para entender volume, tempo composto e prioridade.
+          </>
+        }
+        legends={intensityDemandPanelLegends()}
+        tooltipTitle="Parâmetros — intensidade de demanda"
+        ariaLabel="Ver todos os parâmetros do mapa de intensidade de demanda"
+      />
 
       {!isLoading && zones.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -73,7 +76,7 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div className="grid flex-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="intensity-period">Período</Label>
+              <HeatmapFilterLabel htmlFor="intensity-period" legend={HEATMAP_EXTENDED_PERIOD_LEGEND} />
               <Select value={period} onValueChange={(v) => setPeriod(v as IntensityPeriod)}>
                 <SelectTrigger id="intensity-period">
                   <SelectValue />
@@ -87,7 +90,7 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="intensity-scope">Tipo de relato</Label>
+              <HeatmapFilterLabel htmlFor="intensity-scope" legend={INTENSITY_HEATMAP_SCOPE_LEGEND} />
               <Select value={scope} onValueChange={(v) => setScope(v as IntensityScope)}>
                 <SelectTrigger id="intensity-scope">
                   <SelectValue />
@@ -113,6 +116,8 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
           </div>
         )}
 
+        <HeatmapVisualScale variant="volume" className="mb-3" />
+
         {isLoading && zones.length === 0 ? (
           <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
         ) : (
@@ -120,19 +125,9 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-          <span className="text-muted-foreground">Legenda:</span>
-          {colorBy === 'volume' ? (
-            <>
-              <Badge style={{ backgroundColor: 'hsl(120,75%,45%)', color: 'white' }}>Baixa demanda</Badge>
-              <Badge style={{ backgroundColor: 'hsl(0,75%,45%)', color: 'white' }}>Alta demanda</Badge>
-            </>
-          ) : (
-            <>
-              <Badge style={{ backgroundColor: 'hsl(120,75%,45%)', color: 'white' }}>&lt; 24h</Badge>
-              <Badge style={{ backgroundColor: 'hsl(60,75%,45%)', color: 'black' }}>~3 dias</Badge>
-              <Badge style={{ backgroundColor: 'hsl(0,75%,45%)', color: 'white' }}>≥ 1 semana</Badge>
-            </>
-          )}
+          <span className="text-muted-foreground">Referência rápida:</span>
+          <Badge style={{ backgroundColor: 'hsl(120,75%,45%)', color: 'white' }}>Baixa demanda</Badge>
+          <Badge style={{ backgroundColor: 'hsl(0,75%,45%)', color: 'white' }}>Alta demanda</Badge>
         </div>
       </Card>
 

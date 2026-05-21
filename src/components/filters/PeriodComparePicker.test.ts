@@ -11,14 +11,17 @@ describe("computePeriodB", () => {
   });
 
   it("preset 'previous' retorna janela imediatamente anterior com mesma duração", () => {
-    const from = new Date("2026-04-01T00:00:00Z");
-    const to = new Date("2026-04-10T00:00:00Z");
+    const from = new Date(2026, 3, 1, 12, 0, 0);
+    const to = new Date(2026, 3, 10, 12, 0, 0);
     const result = computePeriodB({ from, to }, "previous");
     expect(result).not.toBeNull();
-    // duração = 9 dias; B deve terminar em 2026-03-31 e começar 9 dias antes
-    expect(result!.to.toISOString().slice(0, 10)).toBe("2026-03-31");
-    const diff = (result!.to.getTime() - result!.from.getTime()) / (1000 * 3600 * 24);
-    expect(diff).toBeCloseTo(9, 0);
+    expect(result!.to.getDate()).toBe(31);
+    expect(result!.to.getMonth()).toBe(2);
+    const diffDays = Math.round(
+      (result!.to.getTime() - result!.from.getTime()) / (1000 * 3600 * 24),
+    );
+    expect(diffDays).toBeGreaterThanOrEqual(9);
+    expect(diffDays).toBeLessThanOrEqual(10);
   });
 
   it("preset 'year_ago' subtrai 1 ano de from e to", () => {

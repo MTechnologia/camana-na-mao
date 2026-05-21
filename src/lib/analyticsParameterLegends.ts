@@ -7,11 +7,37 @@ export type ParameterLegendItem = {
   formula?: string;
 };
 
+/** Recorte local da página Análise de relatos urbanos (período, categoria, status). */
+export const URBAN_ANALYTICS_FILTER_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Período',
+    description:
+      'Intervalo de datas dos relatos urbanos considerados. KPIs, gráficos e abas usam esse recorte.',
+  },
+  {
+    term: 'Categoria',
+    description:
+      'Tema do relato (Mobilidade, Saúde, Urbanismo, etc.). Restringe volumes e padrões ao assunto escolhido.',
+  },
+  {
+    term: 'Status',
+    description:
+      'Etapa do protocolo (pendente, em andamento, resolvido, rejeitado). Filtra a base antes das agregações.',
+  },
+];
+
 export const FILTER_PARAMETER_LEGENDS: ParameterLegendItem[] = [
   {
     term: 'Período',
     description:
       'Intervalo de datas dos relatos considerados (ex.: últimos 30 dias). Tudo na página usa esse recorte.',
+  },
+  {
+    term: 'Comparar períodos',
+    description:
+      'Modo HU-5.1: define o período principal (A) e, opcionalmente, um período B para comparar volume e categorias. KPIs e gráfico territorial seguem o período A; a seção de comparação mostra deltas A vs B.',
+    formula:
+      'Presets do período B: anterior (mesma duração antes de A), mesmo intervalo no ano passado, ou datas personalizadas.',
   },
   {
     term: 'Região',
@@ -312,9 +338,9 @@ export const HEATMAP_METRIC_LEGENDS: Record<HeatmapMetricId, ParameterLegendItem
   uso: {
     term: 'Densidade de uso',
     description:
-      'Quantidade de pessoas (usuários distintos) que utilizaram o app Câmara na Mão em cada região no período filtrado.',
+      'Concentração geográfica de interações com a plataforma em São Paulo: relatos urbanos, avaliações publicadas, visitas a equipamentos e relatos de transporte (quando a fonte inclui transporte).',
     formula:
-      'Contagem de usuários únicos com sessão ou ação registrada na zona (Período, Região e Categoria aplicados).',
+      'Por célula no mapa (~50 m): soma dos pesos das fontes selecionadas. Manchas mais quentes = mais eventos no período.',
   },
   avaliacoes: {
     term: 'Concentração de avaliações',
@@ -325,15 +351,16 @@ export const HEATMAP_METRIC_LEGENDS: Record<HeatmapMetricId, ParameterLegendItem
   demanda: {
     term: 'Intensidade de demanda',
     description:
-      'Volume de entradas no app por região: soma de inputs no botão principal, relatos abertos e avaliações de equipamentos.',
-    formula: '(Inputs no botão) + (relatos) + (avaliações de equipamentos) na zona.',
+      'Volume de relatos (urbanos e/ou transporte) por zona da capital, com tempo médio composto de atendimento para priorização.',
+    formula:
+      'Por zona: contagem de relatos no período; tempo composto = média ponderada de resolução, primeira resposta e pendência; score de prioridade 0–100.',
   },
   espera: {
     term: 'Tempo médio de espera',
     description:
-      'Nas avaliações de equipamentos o cidadão pode informar o tempo de espera. O mapa usa a média desses registros por região.',
+      'Média do tempo de espera informado pelo cidadão nas avaliações de equipamentos, agregada por zona da cidade.',
     formula:
-      'Soma dos tempos de espera informados ÷ quantidade de avaliações com esse campo preenchido na zona (em minutos).',
+      'Média do wait_time_score (1–5, maior = espera mais longa) por zona, a partir do distrito do equipamento avaliado.',
   },
 };
 
@@ -346,8 +373,204 @@ export const EXPORTS_PAGE_LEGEND: ParameterLegendItem = {
 export const RN_MAP_001_HEATMAP_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Quatro métricas territoriais',
   description:
-    'Mapas de calor por densidade de uso (pessoas no app), concentração de avaliações, intensidade de demanda (botão + relatos + avaliações) e tempos médios de espera informados nas avaliações de equipamentos. Troca de métrica sem perder os filtros globais.',
+    'Mapas de calor por densidade de uso (eventos georreferenciados), concentração de avaliações, intensidade de demanda (relatos urbanos + transporte) e tempos médios de espera informados nas avaliações de equipamentos. Cada aba traz legenda e tooltips nos parâmetros.',
 };
+
+/** HU-4.1 — Filtro “Fonte de dados” do painel de densidade de uso. */
+export const USAGE_HEATMAP_SOURCE_FILTER_LEGEND: ParameterLegendItem = {
+  term: 'Fonte de dados',
+  description:
+    'Define quais tipos de interação entram no mapa. O padrão “Uso total” agrega todas as fontes disponíveis na mesma camada de calor.',
+};
+
+export const USAGE_HEATMAP_SOURCE_OPTIONS_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Uso total (todas as fontes)',
+    description: 'Relatos urbanos, avaliações, visitas a equipamentos e transporte (por zona) no mesmo mapa.',
+  },
+  {
+    term: 'Apenas relatos (urbano + avaliações)',
+    description: 'Exclui visitas e transporte; útil para comparar demandas registradas como relato ou avaliação.',
+  },
+  {
+    term: 'Relatos urbanos',
+    description: 'Relatos de problemas urbanos com coordenada ou endereço dentro dos limites de São Paulo.',
+  },
+  {
+    term: 'Avaliações de serviços',
+    description: 'Avaliações publicadas vinculadas a equipamentos com localização conhecida.',
+  },
+  {
+    term: 'Visitas a equipamentos',
+    description: 'Registros de visita presencial a UBS, escolas e demais equipamentos georreferenciados.',
+  },
+  {
+    term: 'Relatos de transporte',
+    description:
+      'Relatos sem GPS direto: contagem por zona da capital (centroide da zona) a partir do bairro ou local informado.',
+  },
+];
+
+/** HU-4.1 — Filtro de período do mapa de densidade. */
+export const USAGE_HEATMAP_PERIOD_LEGEND: ParameterLegendItem = {
+  term: 'Período',
+  description: 'Janela de tempo dos eventos exibidos no mapa.',
+  formula:
+    'Inclui registros com data de criação a partir de hoje menos 7, 30 ou 90 dias, ou 12 meses (365 dias).',
+};
+
+/** HU-4.1 — Camada Google Maps HeatmapLayer e rodapé do painel. */
+export const USAGE_HEATMAP_LAYER_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Intensidade no mapa (cor)',
+    description:
+      'Camada de calor: tons frios (azul/verde) = poucos eventos na área; tons quentes (amarelo/laranja/vermelho) = maior concentração no recorte.',
+    formula:
+      'Peso da célula ÷ maior peso entre as células carregadas — escala normalizada ao atualizar dados ou filtros.',
+  },
+  {
+    term: 'Agregação por célula',
+    description:
+      'Coordenadas próximas (~50 m) são agrupadas. Vários eventos no mesmo ponto somam peso e aumentam o brilho da mancha.',
+  },
+  {
+    term: 'Contagem no rodapé',
+    description:
+      '“Células no mapa” = pontos geográficos únicos após agregação. Os badges Urbano/Avaliações/Visitas/Transporte mostram quantas células cada fonte contribuiu.',
+  },
+  {
+    term: 'Limite territorial',
+    description: 'Somente coordenadas dentro do retângulo de São Paulo (capital) entram na visualização.',
+  },
+];
+
+/** Lista completa para legenda expandida e tooltip “?” do painel HU-4.1. */
+export function usageHeatmapPanelLegends(): ParameterLegendItem[] {
+  return [
+    HEATMAP_METRIC_LEGENDS.uso,
+    USAGE_HEATMAP_SOURCE_FILTER_LEGEND,
+    ...USAGE_HEATMAP_SOURCE_OPTIONS_LEGENDS,
+    USAGE_HEATMAP_PERIOD_LEGEND,
+    ...USAGE_HEATMAP_LAYER_LEGENDS,
+  ];
+}
+
+/** Período com opção “Tudo” (abas avaliações, demanda, espera). */
+export const HEATMAP_EXTENDED_PERIOD_LEGEND: ParameterLegendItem = {
+  term: 'Período',
+  description: 'Janela de tempo dos dados no mapa e nos cartões resumo.',
+  formula: 'Últimos 30 ou 90 dias, 12 meses, ou “Tudo” sem data inicial de corte.',
+};
+
+/** HU-4.2 — Concentração de avaliações. */
+export const RATINGS_HEATMAP_SERVICE_TYPE_LEGEND: ParameterLegendItem = {
+  term: 'Tipo de serviço',
+  description:
+    'Filtra avaliações pelo tipo de equipamento (UBS, escola, etc.). “Todos” mantém todos os tipos com coordenada válida em São Paulo.',
+};
+
+export const RATINGS_HEATMAP_MAP_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Camada de fundo (calor)',
+    description: 'Mancha de densidade onde há mais avaliações publicadas, independentemente da nota média.',
+  },
+  {
+    term: 'Clique na bolha',
+    description:
+      'Abre o detalhe do equipamento: comentários, distribuição de estrelas e dimensões com pior nota.',
+  },
+  {
+    term: 'Polarização',
+    description:
+      'Percentual de avaliações extremas (1–2★ e 4–5★) em relação ao total do equipamento — alto índice indica opiniões divididas.',
+    formula: '(Avaliações 1–2★ + 4–5★) ÷ total de avaliações do equipamento × 100.',
+  },
+  {
+    term: 'Ranking polarizado',
+    description:
+      'Lista equipamentos com maior índice de polarização no recorte; o limiar mínimo de avaliações adapta-se (5→3→2→1) para sempre exibir resultados quando possível.',
+  },
+  {
+    term: 'Cartões resumo',
+    description:
+      'Equipamentos distintos, total de avaliações, média geral de estrelas e polarização média do recorte filtrado.',
+  },
+];
+
+export function ratingsConcentrationPanelLegends(): ParameterLegendItem[] {
+  return [
+    HEATMAP_METRIC_LEGENDS.avaliacoes,
+    HEATMAP_EXTENDED_PERIOD_LEGEND,
+    RATINGS_HEATMAP_SERVICE_TYPE_LEGEND,
+    ...RATINGS_HEATMAP_MAP_LEGENDS,
+  ];
+}
+
+/** HU-4.3 — Intensidade de demanda. */
+export const INTENSITY_HEATMAP_SCOPE_LEGEND: ParameterLegendItem = {
+  term: 'Tipo de relato',
+  description: 'Define se entram relatos urbanos, de transporte ou ambos na agregação por zona.',
+};
+
+export const INTENSITY_DEMAND_MAP_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Tempo médio composto',
+    description:
+      'Combina tempo até resolução, primeira resposta e tempo em aberto para relatos da zona.',
+    formula: '50% resolução + 30% primeira resposta + 20% pendente (pesos redistribuídos se alguma parcela faltar).',
+  },
+  {
+    term: 'Score de prioridade',
+    description:
+      'Ranking 0–100 que cruza volume alto com tempo de espera alto — usado na lista abaixo do mapa.',
+    formula: 'Normalização do volume e do tempo médio da zona em relação ao máximo do recorte.',
+  },
+  {
+    term: 'Clique na zona',
+    description: 'Destaca volume, tempo médio, score e percentual resolvido da zona selecionada.',
+  },
+  {
+    term: 'Cartões resumo',
+    description: 'Zonas com dados, total de relatos, tempo médio geral e zona com pior indicador composto.',
+  },
+];
+
+export function intensityDemandPanelLegends(): ParameterLegendItem[] {
+  return [
+    HEATMAP_METRIC_LEGENDS.demanda,
+    HEATMAP_EXTENDED_PERIOD_LEGEND,
+    INTENSITY_HEATMAP_SCOPE_LEGEND,
+    ...INTENSITY_DEMAND_MAP_LEGENDS,
+  ];
+}
+
+/** Tempo médio de espera (avaliações). */
+export const WAIT_TIME_HEATMAP_MAP_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'wait_time_score',
+    description:
+      'Campo preenchido pelo cidadão na avaliação do equipamento (escala 1–5). Valores maiores representam faixas de espera mais longas no app.',
+  },
+  {
+    term: 'Agregação por zona',
+    description:
+      'Cada bolha é o centroide de uma zona (Norte, Sul, etc.) a partir do distrito cadastrado do equipamento.',
+    formula: 'Média aritmética dos wait_time_score das avaliações com o campo preenchido na zona.',
+  },
+  {
+    term: 'Cartões resumo',
+    description:
+      'Total de avaliações com tempo informado, média geral do recorte e zona com maior tempo médio.',
+  },
+];
+
+export function waitTimeHeatmapPanelLegends(): ParameterLegendItem[] {
+  return [
+    HEATMAP_METRIC_LEGENDS.espera,
+    HEATMAP_EXTENDED_PERIOD_LEGEND,
+    ...WAIT_TIME_HEATMAP_MAP_LEGENDS,
+  ];
+}
 
 export function heatmapMetricLabel(metricId: string): string {
   return HEATMAP_METRICS.find((m) => m.id === metricId)?.label ?? metricId;
@@ -593,7 +816,7 @@ export const EXECUTIVE_CROSS_ANALYTICS_LEGENDS: ParameterLegendItem[] = [
 export const URBAN_REPORTS_ANALYTICS_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Análise de relatos urbanos',
   description:
-    'Indicadores e drills sobre volume, sentimento e padrões de relatos urbanos. Para avaliações de equipamento use o menu dedicado; para audiências, Audiências públicas.',
+    'Indicadores e drills sobre volume, sentimento e padrões de relatos urbanos. Use o recorte no topo (período, categoria e status); a aba Território explora zonas sem filtro global de região. Para avaliações de equipamento use o menu dedicado; para audiências, Audiências públicas.',
 };
 
 export const EQUIPMENT_RATINGS_PAGE_LEGEND: ParameterLegendItem = {
@@ -641,7 +864,7 @@ export const PUBLIC_HEARINGS_KPI_LEGENDS = {
 } as const satisfies Record<string, ParameterLegendItem>;
 
 export const REFERRALS_PAGE_LEGEND: ParameterLegendItem = {
-  term: 'Análise de Encaminhamentos',
+  term: 'Análise de encaminhamentos',
   description:
     'Visão unificada do encaminhamento: indicadores do fluxo, filas por comissão temática e por vereador. Para triar e registrar ações em cada protocolo, use Gestão de relatos. Respeita o recorte global de período, região e categoria.',
 };

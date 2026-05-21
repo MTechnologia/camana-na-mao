@@ -97,7 +97,7 @@ export const adminNavSectionsDropdown: NavSection[] = [
           },
           {
             to: '/admin/referrals',
-            label: 'Análise de Encaminhamentos',
+            label: 'Análise de encaminhamentos',
             Icon: Share2,
             requiredAnyPermission: ['reports.read', 'gabinete.view'],
           },
