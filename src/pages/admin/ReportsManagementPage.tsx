@@ -34,7 +34,7 @@ export function ReportsManagementPage() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/referrals?tab=fluxo">
             <ExternalLink className="mr-1.5 h-4 w-4" />
-            Análise de Encaminhamentos
+            Análise de encaminhamentos
           </Link>
         </Button>
       }

@@ -249,6 +249,7 @@ export function filterResponseTimeRecords(
 
   return records.filter((r) => {
     if (zoneFilter && r.zone !== zoneFilter) return false;
+    if (filters.status && r.status !== filters.status) return false;
     if (!allowedCategories) return true;
     const cat = normalizeCategory(r.category);
     const reportType = normalizeCategory(r.reportType ?? '');

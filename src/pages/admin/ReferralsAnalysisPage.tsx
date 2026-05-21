@@ -42,7 +42,7 @@ export function ReferralsAnalysisPage() {
 
   return (
     <PageShell
-      title="Análise de Encaminhamentos"
+      title="Análise de encaminhamentos"
       titleInfo={REFERRALS_PAGE_LEGEND}
       actions={
         <Button variant="default" size="sm" asChild>

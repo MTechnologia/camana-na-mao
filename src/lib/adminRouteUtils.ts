@@ -1,16 +1,20 @@
-/** Rotas do painel que exibem a barra unificada de recorte analítico (RN-ANL-002). */
-const ANALYTICS_CONTEXT_PATHS = [
-  '/admin',
-  '/admin/analytics',
-  '/admin/trends',
-  '/admin/reports-heatmap',
-  '/admin/classification-accuracy',
-  '/paineis',
+/** Rotas que exibem a barra unificada de recorte (RN-ANL-002 / HU-5.2). */
+const UNIFIED_ANALYTICS_BAR_EXACT = ['/admin'] as const;
+
+const UNIFIED_ANALYTICS_BAR_PREFIXES = [
+  '/admin/reports',
+  '/admin/referrals',
+  '/admin/commissions',
 ] as const;
 
 export function usesUnifiedAnalyticsBar(pathname: string): boolean {
   const path = pathname.replace(/\/+$/, '') || '/';
-  return ANALYTICS_CONTEXT_PATHS.some(
+
+  if (UNIFIED_ANALYTICS_BAR_EXACT.some((base) => path === base)) {
+    return true;
+  }
+
+  return UNIFIED_ANALYTICS_BAR_PREFIXES.some(
     (base) => path === base || path.startsWith(`${base}/`),
   );
 }

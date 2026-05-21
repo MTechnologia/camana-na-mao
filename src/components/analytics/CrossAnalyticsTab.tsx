@@ -122,6 +122,7 @@ export function CrossAnalyticsTab({
     const parts: string[] = [];
     if (period !== "ytd") {
       const labels: Record<string, string> = {
+        compare: "Comparar períodos",
         last_7d: "Últimos 7 dias",
         last_30d: "Últimos 30 dias",
         last_90d: "Últimos 90 dias",
