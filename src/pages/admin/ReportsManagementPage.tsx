@@ -24,6 +24,7 @@ export function ReportsManagementPage() {
     setSelectedId,
     updateReport,
     savingId,
+    onTriageCommitted,
   } = useUrbanReportsManagement();
 
   return (
@@ -68,6 +69,10 @@ export function ReportsManagementPage() {
         saving={Boolean(selected && savingId === selected.id)}
         onClose={() => setSelectedId(null)}
         onUpdate={updateReport}
+        onTriageCommitted={async (saved) => {
+          if (!selectedId) return;
+          await onTriageCommitted(selectedId, saved);
+        }}
       />
     </PageShell>
   );

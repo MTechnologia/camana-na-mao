@@ -12,6 +12,7 @@ import type {
   ReportQueueTab,
   UrbanReportRecord,
 } from '@/types/urbanReportManagement';
+import type { TriageRecord } from '@/hooks/useReportTriage';
 
 function manifestToUrbanRecord(m: UnifiedManifest): UrbanReportRecord {
   const u = m.urban_data;
@@ -144,6 +145,20 @@ export function useUrbanReportsManagement() {
     [baseReports, overrides, updateManifestStatus],
   );
 
+  const onTriageCommitted = useCallback(
+    async (reportId: string, saved: TriageRecord) => {
+      if (saved.priority && saved.triageStatus !== 'untriaged') {
+        try {
+          await updateManifestStatus(reportId, 'urban', 'in_progress');
+        } catch {
+          /* toast já exibido por updateManifestStatus */
+        }
+      }
+      void refetch();
+    },
+    [updateManifestStatus, refetch],
+  );
+
   return {
     reports,
     filtered,
@@ -157,6 +172,7 @@ export function useUrbanReportsManagement() {
     setSelectedId,
     updateReport,
     savingId,
+    onTriageCommitted,
     isLoading: loading,
     error: null as string | null,
     period,

@@ -4,39 +4,42 @@ import { Pencil, X, Lock, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReferralDestinationFields } from '@/components/admin/referrals/ReferralDestinationFields';
 import { ReferralRulesEditor } from '@/components/admin/referrals/ReferralRulesEditor';
+import { TriageEditor } from '@/components/admin/triage/TriageEditor';
+import { ReportTimelineTab } from '@/components/admin/triage/ReportTimelineTab';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { useReferralRoutingRules } from '@/contexts/ReferralRoutingRulesContext';
 import { PRIORITY_LABELS, STAGE_LABELS } from '@/lib/urbanReportLabels';
 import { suggestDestinations } from '@/lib/referralDestinations';
 import { useReferralDestinations } from '@/hooks/useReferralDestinations';
+import { useUserRole } from '@/hooks/useUserRole';
+import type { TriageRecord } from '@/hooks/useReportTriage';
 import { pairMatchScore } from '@/lib/referralRoutingEngine';
-import type {
-  ReportPriority,
-  ReportWorkflowStage,
-  UrbanReportRecord,
-} from '@/types/urbanReportManagement';
-
-const selectClass =
-  'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+import type { ReportWorkflowStage, UrbanReportRecord } from '@/types/urbanReportManagement';
 
 type ReportDetailSheetProps = {
   report: UrbanReportRecord | null;
   onClose: () => void;
   onUpdate: (report: UrbanReportRecord) => Promise<void>;
   saving?: boolean;
+  /** Após salvar triagem em `report_triage` (ex.: alinhar `urban_reports.status` e lista). */
+  onTriageCommitted?: (saved: TriageRecord) => void | Promise<void>;
 };
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-export function ReportDetailSheet({ report, onClose, onUpdate, saving = false }: ReportDetailSheetProps) {
+export function ReportDetailSheet({
+  report,
+  onClose,
+  onUpdate,
+  saving = false,
+  onTriageCommitted,
+}: ReportDetailSheetProps) {
   const { rules } = useReferralRoutingRules();
   const { commissions, councilMembers } = useReferralDestinations();
-  const [priority, setPriority] = useState<ReportPriority>('normal');
-  const [triageNote, setTriageNote] = useState('');
+  const { canManageTriage } = useUserRole();
   const [commissionId, setCommissionId] = useState('');
   const [councillorId, setCouncillorId] = useState('');
   const [referralNote, setReferralNote] = useState('');
@@ -67,9 +70,12 @@ export function ReportDetailSheet({ report, onClose, onUpdate, saving = false }:
 
   if (!report) return null;
 
-  const canRefer = report.stage === 'triaged';
   const mustTriageFirst = report.stage === 'awaiting_triage';
-  const showReferralBlock = report.stage === 'triaged' || report.referral;
+  const canRefer =
+    report.stage === 'triaged' ||
+    report.stage === 'in_analysis' ||
+    report.stage === 'referred';
+  const showReferralBlock = canRefer || Boolean(report.referral);
 
   const appendTimeline = (
     r: UrbanReportRecord,
@@ -89,27 +95,6 @@ export function ReportDetailSheet({ report, onClose, onUpdate, saving = false }:
       },
     ],
   });
-
-  const handleTriage = async () => {
-    const updated = appendTimeline(
-      {
-        ...report,
-        stage: 'triaged',
-        priority,
-        triageNote: triageNote.trim() || undefined,
-        triagedAt: nowIso(),
-        triagedBy: 'Gestor CMSP',
-      },
-      'Triagem concluída',
-      `Prioridade ${PRIORITY_LABELS[priority]}${triageNote ? ` · ${triageNote}` : ''}`,
-    );
-    try {
-      await onUpdate(updated);
-      toast.success('Triagem registrada — encaminhamento liberado');
-    } catch {
-      /* toast no hook */
-    }
-  };
 
   const resolveReferralTargets = () => {
     const commission =
@@ -131,7 +116,7 @@ export function ReportDetailSheet({ report, onClose, onUpdate, saving = false }:
     const updated = appendTimeline(
       {
         ...report,
-        stage: report.stage === 'triaged' ? 'referred' : report.stage,
+        stage: 'referred',
         referral: {
           commissionId: commission.id,
           commissionName: commission.name,
@@ -238,44 +223,23 @@ export function ReportDetailSheet({ report, onClose, onUpdate, saving = false }:
             </ol>
           </section>
 
-          {mustTriageFirst ? (
-            <section className="rounded-xl border border-primary/25 bg-accent/40 p-4">
-              <h3 className="text-sm font-semibold text-foreground">Triagem</h3>
+          <section className="rounded-xl border border-primary/25 bg-accent/30 p-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Triagem (HU-10.1)</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Defina prioridade antes de encaminhar à comissão ou vereador.
+                Prioridade P0–P3, responsável e status do funil ficam em{' '}
+                <code className="rounded bg-muted px-1">report_triage</code>. Conclua a triagem para liberar
+                encaminhamento à comissão.
               </p>
-              <div className="mt-3 space-y-3">
-                <div>
-                  <Label htmlFor="triage-priority">Prioridade</Label>
-                  <select
-                    id="triage-priority"
-                    className={selectClass}
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as ReportPriority)}
-                  >
-                    {(Object.keys(PRIORITY_LABELS) as ReportPriority[]).map((p) => (
-                      <option key={p} value={p}>
-                        {PRIORITY_LABELS[p]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="triage-note">Observação da triagem</Label>
-                  <textarea
-                    id="triage-note"
-                    className="mt-1 flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={triageNote}
-                    onChange={(e) => setTriageNote(e.target.value)}
-                    placeholder="Contexto para a comissão…"
-                  />
-                </div>
-                <Button type="button" className="w-full" disabled={saving} onClick={handleTriage}>
-                  Concluir triagem
-                </Button>
-              </div>
-            </section>
-          ) : null}
+            </div>
+            <TriageEditor
+              reportId={report.id}
+              source="urban"
+              canEdit={canManageTriage}
+              onSaved={(saved) => void onTriageCommitted?.(saved)}
+            />
+            <ReportTimelineTab reportId={report.id} source="urban" />
+          </section>
 
           {showReferralBlock ? (
             <section className="rounded-xl border border-border bg-muted/20 p-4">

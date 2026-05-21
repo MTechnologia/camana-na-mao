@@ -38,6 +38,7 @@ import { useReportDetail, type ReportAuditEntry, type ReportComment, type Report
 import { useReportDetailModal, type ReportSource } from "@/contexts/ReportDetailContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
+import { formatIaPriorityPt, formatSentimentPt, formatSeverityBadgePt } from "@/lib/reportDisplayPt";
 import { TriageEditor } from "@/components/admin/triage/TriageEditor";
 import { ReportTimelineTab } from "@/components/admin/triage/ReportTimelineTab";
 import { CommissionReferralDialog } from "@/components/admin/triage/CommissionReferralDialog";
@@ -65,7 +66,8 @@ function severityColorClass(severity: string | null): string {
   const s = (severity ?? "").toLowerCase();
   if (s.includes("crit") || s.includes("crít")) return "bg-destructive text-destructive-foreground";
   if (s.includes("alto") || s === "alta" || s === "high") return "bg-amber-500 text-white";
-  if (s.includes("med") || s === "medium") return "bg-yellow-200 text-yellow-900";
+  if (s.includes("med") || s === "medium" || s === "moderate" || s.includes("moderad"))
+    return "bg-yellow-200 text-yellow-900";
   if (s.includes("bai") || s === "low") return "bg-muted text-muted-foreground";
   return "bg-muted text-muted-foreground";
 }
@@ -113,11 +115,7 @@ export function ReportDetailSheet() {
 
   return (
     <Sheet open={!!opened} onOpenChange={(o) => { if (!o) close(); }}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-2xl flex flex-col p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
+      <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col p-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -125,23 +123,25 @@ export function ReportDetailSheet() {
                 <FileText className="h-4 w-4 shrink-0" />
                 <span className="truncate">{detail?.title || "Carregando…"}</span>
               </SheetTitle>
-              <SheetDescription className="text-xs flex flex-wrap gap-2 items-center mt-1">
-                {detail?.protocolCode && (
-                  <span className="font-mono">#{detail.protocolCode}</span>
-                )}
-                <Badge variant="outline" className="text-[10px]">
-                  {source === "urban" ? "Urbano" : "Transporte"}
-                </Badge>
-                {detail?.status && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {statusLabel(detail.status)}
+              <SheetDescription asChild>
+                <div className="text-xs text-muted-foreground flex flex-wrap gap-2 items-center mt-1">
+                  {detail?.protocolCode && (
+                    <span className="font-mono">#{detail.protocolCode}</span>
+                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {source === "urban" ? "Urbano" : "Transporte"}
                   </Badge>
-                )}
-                {detail?.severity && (
-                  <Badge className={cn("text-[10px]", severityColorClass(detail.severity))}>
-                    {detail.severity}
-                  </Badge>
-                )}
+                  {detail?.status && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {statusLabel(detail.status)}
+                    </Badge>
+                  )}
+                  {detail?.severity && (
+                    <Badge className={cn("text-[10px]", severityColorClass(detail.severity))}>
+                      {formatSeverityBadgePt(detail.severity)}
+                    </Badge>
+                  )}
+                </div>
               </SheetDescription>
             </div>
             <Button
@@ -444,9 +444,9 @@ function AIPanel({
       </div>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-        <DemoField label="Sentimento" value={ai.sentiment} />
+        <DemoField label="Sentimento" value={formatSentimentPt(ai.sentiment)} />
         <DemoField label="Categoria validada" value={ai.category} />
-        <DemoField label="Prioridade" value={ai.priority} />
+        <DemoField label="Prioridade" value={formatIaPriorityPt(ai.priority)} />
         <DemoField
           label="Padrão detectado"
           value={ai.patternDetected !== null ? (ai.patternDetected ? "Sim" : "Não") : null}
@@ -462,17 +462,6 @@ function AIPanel({
             ))}
           </div>
         </div>
-      )}
-
-      {ai.rawClassification && Object.keys(ai.rawClassification).length > 0 && (
-        <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Resposta bruta da classificação IA
-          </summary>
-          <pre className="mt-2 p-2 bg-muted rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
-            {JSON.stringify(ai.rawClassification, null, 2)}
-          </pre>
-        </details>
       )}
 
       {ai.enrichedData && (

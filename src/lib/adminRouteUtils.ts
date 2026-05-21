@@ -3,6 +3,7 @@ const UNIFIED_ANALYTICS_BAR_EXACT = ['/admin'] as const;
 
 const UNIFIED_ANALYTICS_BAR_PREFIXES = [
   '/admin/reports',
+  '/admin/triagem',
   '/admin/referrals',
   '/admin/commissions',
 ] as const;
