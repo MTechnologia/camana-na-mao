@@ -12,7 +12,9 @@ import {
   REGION_FILTER_OPTIONS,
 } from '@/lib/globalFilterOptions';
 import { AdminDesktopSidebarToggle, AdminMobileMenuButton } from '@/components/admin/AdminSidebar';
+import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
 import { UnifiedAnalyticsLiveBadge } from '@/components/admin/UnifiedAnalyticsLiveBadge';
+import { dataExportFiltersFromGlobal } from '@/lib/buildDataExportFilters';
 import { cn } from '@/lib/utils';
 
 const controlClass = cn(
@@ -37,6 +39,7 @@ export function UnifiedAnalyticsContextBar() {
     compareActive,
   } = useGlobalFilters();
 
+  const exportFilters = dataExportFiltersFromGlobal(period, region, category, periodCompare);
   const recorteSummary = globalFilterChipLabels(period, region, category).join(' · ');
   const compareMode = isPeriodCompareMode(period);
   const periodLabel =
@@ -114,7 +117,12 @@ export function UnifiedAnalyticsContextBar() {
               <span className="sr-only sm:not-sr-only sm:ml-1">Redefinir</span>
             </Button>
 
-            <UnifiedAnalyticsLiveBadge className="ml-auto shrink-0" />
+            <DataExportTrigger
+              className="h-8 shrink-0 border-analytics-bar-border bg-analytics-bar-surface text-analytics-bar-control hover:bg-analytics-bar-surface/90"
+              defaultFilters={exportFilters}
+              label="Exportar"
+            />
+            <UnifiedAnalyticsLiveBadge className="shrink-0" />
           </div>
         </div>
 

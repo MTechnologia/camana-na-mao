@@ -5,7 +5,6 @@ import {
   Users,
   AlertTriangle,
   MapPin,
-  Download,
   BarChart3,
   Plus,
   ListOrdered,
@@ -16,7 +15,8 @@ import { KPICard } from '@/components/analytics/KPICard';
 import { ChartCard } from '@/components/analytics/ChartCard';
 import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
 import { HeatmapChart } from '@/components/analytics/HeatmapChart';
-import { ExportDialog } from '@/components/analytics/ExportDialog';
+import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
+import { dataExportFiltersFromDateRange } from '@/lib/buildDataExportFilters';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAnalyticsDashboardSummary } from '@/hooks/useAnalyticsDashboardSummary';
@@ -83,13 +83,16 @@ const filterConfig: FilterConfig<AnalyticsFilters> = {
 
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
-  const { loading: roleLoading, canExportData, canAccessAdvancedAnalytics, canViewDashboards } = useUserRole();
+  const { loading: roleLoading, canAccessAdvancedAnalytics, canViewDashboards } = useUserRole();
   const [filters, setFilters] = useState<AnalyticsFilters>({
     search: '',
     category: '',
     dateRange: undefined,
   });
-  const [showExport, setShowExport] = useState(false);
+  const exportFilters = useMemo(
+    () => dataExportFiltersFromDateRange(filters.dateRange, filters.category || undefined),
+    [filters.dateRange, filters.category],
+  );
 
   const { data: summary, loading: summaryLoading, error: summaryError } = useAnalyticsDashboardSummary({
     from: filters.dateRange?.from,
@@ -208,15 +211,11 @@ const AnalyticsDashboard = () => {
                 Análise avançada
               </Button>
             )}
-            {canExportData && (
-              <Button
-                onClick={() => setShowExport(true)}
-                className="gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Exportar dados
-              </Button>
-            )}
+            <DataExportTrigger
+              defaultFilters={exportFilters}
+              variant="default"
+              label="Exportar dados"
+            />
           </div>
         </div>
 
@@ -374,14 +373,6 @@ const AnalyticsDashboard = () => {
         </ChartCard>
       </div>
 
-      {/* Export Dialog */}
-      <ExportDialog
-        isOpen={showExport}
-        onClose={() => setShowExport(false)}
-        exportType="dashboard"
-        currentFilters={filters}
-        estimatedRows={kpiData.totalReports}
-      />
     </div>
   );
 };

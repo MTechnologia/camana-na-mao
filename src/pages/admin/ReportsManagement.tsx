@@ -9,9 +9,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Search, Download, AlertTriangle, LayoutList, Columns,
+  Search, AlertTriangle, LayoutList, Columns,
   Building2, Bus, Star, MessageSquare
 } from 'lucide-react';
+import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
+import { dataExportFiltersFromReportsManagement } from '@/lib/buildDataExportFilters';
 import { UnifiedReportDrawer } from '@/components/admin/UnifiedReportDrawer';
 import { ManifestCard } from '@/components/admin/ManifestCard';
 import { KanbanBoard } from '@/components/admin/KanbanBoard';
@@ -65,9 +67,20 @@ export default function ReportsManagement() {
     updateManifestCategory,
     deleteManifest,
     deleteBulkManifests,
-    exportToCSV,
     refetch,
   } = useReportsAdmin();
+
+  const { filters: exportFilters, defaultDataset: exportDataset } = useMemo(
+    () =>
+      dataExportFiltersFromReportsManagement({
+        dateRange,
+        categoryFilter,
+        regionFilter,
+        statusFilter,
+        typeFilter,
+      }),
+    [dateRange, categoryFilter, regionFilter, statusFilter, typeFilter],
+  );
 
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [selectedIds, setSelectedIds] = useState<{ id: string; type: ManifestType }[]>([]);
@@ -311,10 +324,12 @@ export default function ReportsManagement() {
 
                 {/* Export - full row on mobile */}
                 <div className="flex items-end col-span-2 sm:col-span-1">
-                  <Button variant="outline" onClick={exportToCSV} className="w-full h-9">
-                    <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Exportar</span>
-                  </Button>
+                  <DataExportTrigger
+                    className="h-9 w-full"
+                    defaultFilters={exportFilters}
+                    defaultDataset={exportDataset ?? 'urban_reports'}
+                    label="Exportar"
+                  />
                 </div>
               </div>
             </div>

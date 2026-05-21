@@ -14,7 +14,10 @@ export type NavFilterContext = {
 
 function canSeeItem(item: NavItem, ctx: NavFilterContext): boolean {
   const { isAdmin, isGestor, roles, permissions } = ctx;
-  const isInstitutionalStaff = isAdmin || isGestor;
+  const isInstitutionalStaff =
+    isAdmin ||
+    isGestor ||
+    roles.some((r) => r === 'assessor' || r === 'vereador');
 
   if (item.adminOnly && !isAdmin) return false;
   if (item.requiresPermission && !permissions[item.requiresPermission]) {

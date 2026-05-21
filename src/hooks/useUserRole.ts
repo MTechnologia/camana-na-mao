@@ -130,13 +130,13 @@ export const useUserRole = () => {
 
   const hasRole = (role: UserRole) => roles.includes(role);
 
-  // RBAC (baseado na matriz de permissões)
-  const canAccessAdvancedAnalytics = isAdmin || isGestor || isAssessor;
-  const canExportData = isAdmin || isGestor;
+  /** Staff institucional — paridade em painéis, análises e exportação (HU-7.1). */
+  const canUseStaffPaineis = isAdmin || isGestor || isAssessor || isVereador;
+
+  const canAccessAdvancedAnalytics = canUseStaffPaineis;
+  const canExportData = canUseStaffPaineis;
 
   const canReferToCouncilMember = isAdmin || isGestor || isCidadaoEngajado;
-  /** Painéis personalizáveis (widgets) — staff institucional. */
-  const canUseStaffPaineis = isAdmin || isGestor || isAssessor || isVereador;
   const canViewDashboards =
     canUseStaffPaineis ||
     isCidadaoEngajado ||
