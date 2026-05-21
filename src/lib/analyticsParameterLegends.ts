@@ -266,8 +266,9 @@ export const CHART_PARAMETER_LEGENDS = {
       description: 'Clique na barra para ver o detalhe do território ou tema, sem mudar os filtros.',
     },
     {
-      term: 'Drill-across',
-      description: 'Troca o tipo de indicador no gráfico mantendo o mesmo recorte.',
+      term: 'Troca de métrica (gráfico territorial)',
+      description:
+        'Altera volume, tempo, sentimento ou padrões no gráfico de região sem mudar o recorte. O drill-across categoria × demografia está na seção de cruzamento abaixo.',
     },
   ],
 } as const satisfies Record<string, ParameterLegendItem[]>;
@@ -563,8 +564,31 @@ export const REPORTS_WORKFLOW_KPI_LEGENDS = {
 export const EXECUTIVE_DASHBOARD_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Dashboard executivo',
   description:
-    'Visão executiva consolidada. Use o recorte no topo para período, região e categoria; a trilha de navegação para aprofundar o território; e os cartões de indicadores para trocar a métrica do gráfico sem perder o recorte ativo.',
+    'Visão executiva consolidada. Use o recorte no topo para período, região e categoria; a trilha de navegação para aprofundar o território; os cartões de indicadores para trocar a métrica do gráfico territorial; e o heatmap de cruzamento para drill-across entre tipo de problema e perfil demográfico.',
 };
+
+export const EXECUTIVE_CROSS_ANALYTICS_LEGENDS: ParameterLegendItem[] = [
+  {
+    term: 'Linha e coluna',
+    description:
+      'Escolha duas dimensões (ex.: Categoria × Gênero). O padrão atende a HU-3.4 — tipo de problema por perfil demográfico.',
+  },
+  {
+    term: 'Célula do heatmap',
+    description:
+      'Cor mais escura = mais relatos naquele cruzamento. Clique para listar os relatos (painel lateral).',
+  },
+  {
+    term: 'Drill-across vs. gráfico territorial',
+    description:
+      'O heatmap cruza dimensões analíticas. O gráfico de barras acima faz drill-down territorial (região → bairro → rua).',
+  },
+  {
+    term: 'Recorte global',
+    description:
+      'Período, região e categoria do topo do dashboard aplicam-se ao heatmap e à lista ao clicar na célula (urbano, transporte e avaliações).',
+  },
+];
 
 export const URBAN_REPORTS_ANALYTICS_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Análise de relatos urbanos',

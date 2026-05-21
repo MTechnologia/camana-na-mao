@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
 import {
   DIMENSIONS,
   type DimensionKey,
   type UnifiedReport,
 } from "@/lib/analyticsDimensions";
+import {
+  applyCrossAnalyticsDateFilters,
+  filterUnifiedReportsByRegion,
+  resolveCrossCategorySlice,
+  shouldFetchEvaluationsForCategory,
+  shouldFetchTransportForCategory,
+  shouldFetchUrbanForCategory,
+} from "@/lib/crossAnalyticsFilters";
 
 /**
  * HU-3.5 — Drill-across N×N entre dimensões analíticas.
  *
- * Carrega os relatos das três fontes (urban_reports, transport_reports,
- * service_ratings) + dados demográficos do autor e expõe uma agregação
- * dinâmica entre duas dimensões escolhidas (linha × coluna).
- *
- * O fetch acontece UMA vez por sessão (cache em estado local). A troca de
- * dimensões re-agrega em memória, sem hit no banco — resposta imediata.
- *
- * Os relatos brutos também são expostos via `getReportsForCell` para que o
- * drill-into da célula possa retornar a lista exata sem nova consulta.
+ * Carrega urbano + transporte + avaliações no recorte global (período, região,
+ * categoria). A troca de dimensões re-agrega em memória; mudança de filtro
+ * recarrega a base.
  */
 
 export interface CrossCellMatrix {
@@ -53,16 +56,28 @@ interface DemoMap {
   age: number | null;
 }
 
-async function fetchUrban(): Promise<Array<Partial<UnifiedReport>>> {
+async function fetchUrban(
+  filters: ReportsAnalyticsFilters,
+): Promise<Array<Partial<UnifiedReport>>> {
+  const slice = resolveCrossCategorySlice(filters.category);
+  if (!shouldFetchUrbanForCategory(slice)) return [];
+
   const out: Array<Partial<UnifiedReport>> = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("urban_reports")
       .select(
         "id, status, severity, neighborhood, latitude, longitude, created_at, ai_classification, user_id",
       )
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    query = applyCrossAnalyticsDateFilters(query, filters);
+    if (!slice.isAll) {
+      query = query.in("category", slice.urbanCategories);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     const rows = (data ?? []) as Array<{
       id: string;
@@ -96,16 +111,32 @@ async function fetchUrban(): Promise<Array<Partial<UnifiedReport>>> {
   return out;
 }
 
-async function fetchTransport(): Promise<Array<Partial<UnifiedReport>>> {
+async function fetchTransport(
+  filters: ReportsAnalyticsFilters,
+): Promise<Array<Partial<UnifiedReport>>> {
+  const slice = resolveCrossCategorySlice(filters.category);
+  if (!shouldFetchTransportForCategory(slice)) return [];
+
   const out: Array<Partial<UnifiedReport>> = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("transport_reports")
       .select(
         "id, status, severity, location, stop_location, ai_sentiment, created_at, user_id",
       )
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    query = applyCrossAnalyticsDateFilters(query, filters);
+    if (!slice.isAll) {
+      const orParts = slice.transportSubcategories.flatMap((sc) => [
+        `report_type.eq.${sc}`,
+        `sub_category.eq.${sc}`,
+      ]);
+      query = query.or(orParts.join(","));
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     const rows = (data ?? []) as Array<{
       id: string;
@@ -137,16 +168,29 @@ async function fetchTransport(): Promise<Array<Partial<UnifiedReport>>> {
   return out;
 }
 
-async function fetchService(): Promise<Array<Partial<UnifiedReport>>> {
+async function fetchService(
+  filters: ReportsAnalyticsFilters,
+): Promise<Array<Partial<UnifiedReport>>> {
+  const slice = resolveCrossCategorySlice(filters.category);
+  if (!shouldFetchEvaluationsForCategory(slice)) return [];
+
   const out: Array<Partial<UnifiedReport>> = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("service_ratings")
       .select(
-        "id, sentiment, created_at, user_id, public_services(district, latitude, longitude)",
+        "id, sentiment, rating_text, created_at, user_id, public_services!inner(district, latitude, longitude, address, service_type, name)",
       )
+      .eq("publication_status", "published")
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    query = applyCrossAnalyticsDateFilters(query, filters);
+    if (!slice.isAll) {
+      query = query.in("public_services.service_type", slice.publicServiceTypes);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     const rows = (data ?? []) as Array<{
       id: string;
@@ -154,16 +198,31 @@ async function fetchService(): Promise<Array<Partial<UnifiedReport>>> {
       created_at: string | null;
       user_id: string | null;
       public_services:
-        | { district: string | null; latitude: number | null; longitude: number | null }
-        | { district: string | null; latitude: number | null; longitude: number | null }[]
+        | {
+            district: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            address: string | null;
+            service_type: string | null;
+            name: string | null;
+          }
+        | {
+            district: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            address: string | null;
+            service_type: string | null;
+            name: string | null;
+          }[]
         | null;
+      rating_text: string | null;
     }>;
     rows.forEach((r) => {
       const svc = Array.isArray(r.public_services) ? r.public_services[0] : r.public_services;
       out.push({
         id: r.id,
         category: "Avaliação",
-        status: null,
+        status: "published",
         severity: null,
         neighborhood: svc?.district ?? null,
         latitude: svc?.latitude ?? null,
@@ -295,26 +354,39 @@ export interface UseCrossDimensionResult {
 export function useCrossDimensionAnalytics(
   rowDim: DimensionKey,
   colDim: DimensionKey,
+  filters: ReportsAnalyticsFilters = {},
 ): UseCrossDimensionResult {
   const [reports, setReports] = useState<UnifiedReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const filterKey = useMemo(
+    () =>
+      [
+        filters.startDate ?? "",
+        filters.endDate ?? "",
+        filters.region ?? "",
+        filters.category ?? "",
+      ].join("|"),
+    [filters.startDate, filters.endDate, filters.region, filters.category],
+  );
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const [urban, transport, service] = await Promise.all([
-        fetchUrban(),
-        fetchTransport(),
-        fetchService(),
+        fetchUrban(filters),
+        fetchTransport(filters),
+        fetchService(filters),
       ]);
       const partial = [...urban, ...transport, ...service];
       const userIds = Array.from(
         new Set(partial.map((r) => r.userId).filter((id): id is string => !!id)),
       );
       const demoMap = await fetchDemographics(userIds);
-      setReports(attachDemographics(partial, demoMap));
+      const merged = attachDemographics(partial, demoMap);
+      setReports(filterUnifiedReportsByRegion(merged, filters.region));
     } catch (err) {
       console.error("[useCrossDimensionAnalytics] fetch error", err);
       setError("Não foi possível carregar dados para cruzamento.");
@@ -322,7 +394,13 @@ export function useCrossDimensionAnalytics(
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [
+    filterKey,
+    filters.startDate,
+    filters.endDate,
+    filters.region,
+    filters.category,
+  ]);
 
   useEffect(() => {
     void fetchAll();

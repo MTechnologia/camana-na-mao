@@ -7,6 +7,8 @@ import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
 import { AdminBreadcrumbs } from '@/components/admin/AnalyticsContextBar';
 import { UnifiedAnalyticsContextBar } from '@/components/admin/UnifiedAnalyticsContextBar';
 import { ReportDrillSheet } from '@/components/admin/analytics/ReportDrillSheet';
+import { ReportDetailSheet } from '@/components/admin/ReportDetailSheet';
+import { ReportDetailProvider } from '@/contexts/ReportDetailContext';
 
 function AdminMain() {
   return (
@@ -19,16 +21,19 @@ function AdminMain() {
 
 export function AdminAppLayout() {
   return (
-    <AnalyticsDrillProvider>
-      <ReferralRoutingRulesProvider>
-        <CustomPanelsProvider>
-          <AdminShell>
-            {USE_UNIFIED_ANALYTICS_CONTEXT_BAR ? <UnifiedAnalyticsContextBar /> : null}
-            <AdminMain />
-          </AdminShell>
-          <ReportDrillSheet />
-        </CustomPanelsProvider>
-      </ReferralRoutingRulesProvider>
-    </AnalyticsDrillProvider>
+    <ReportDetailProvider>
+      <AnalyticsDrillProvider>
+        <ReferralRoutingRulesProvider>
+          <CustomPanelsProvider>
+            <AdminShell>
+              {USE_UNIFIED_ANALYTICS_CONTEXT_BAR ? <UnifiedAnalyticsContextBar /> : null}
+              <AdminMain />
+            </AdminShell>
+            <ReportDrillSheet />
+            <ReportDetailSheet />
+          </CustomPanelsProvider>
+        </ReferralRoutingRulesProvider>
+      </AnalyticsDrillProvider>
+    </ReportDetailProvider>
   );
 }

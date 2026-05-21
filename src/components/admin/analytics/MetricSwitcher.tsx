@@ -12,7 +12,7 @@ export function MetricSwitcher() {
     <div
       className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1"
       role="group"
-      aria-label="Métrica ativa (drill-across)"
+      aria-label="Métrica do gráfico territorial"
     >
       {metrics.map((m) => (
         <button

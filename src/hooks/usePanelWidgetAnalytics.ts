@@ -22,11 +22,15 @@ export function usePanelWidgetAnalytics(widget: PanelWidget) {
 
   const kpis = useMemo(() => buildDrillKpisFromStats(stats, 'overview'), [stats]);
 
-  const chartSeries = (grain: DrillGrain, metric: AnalyticsMetric, activeRegion?: string) =>
-    buildChartSeriesFromStats(stats, grain, metric, activeRegion, resolved.category);
+  const chartSeries = (
+    grain: DrillGrain,
+    metric: AnalyticsMetric,
+    activeRegion?: string,
+    activeDistrict?: string,
+  ) => buildChartSeriesFromStats(stats, grain, metric, activeRegion, activeDistrict);
 
-  const sentimentPolarity = (grain: DrillGrain, activeRegion?: string) =>
-    buildSentimentPolarityFromStats(stats, grain, activeRegion, resolved.category);
+  const sentimentPolarity = (grain: DrillGrain, activeRegion?: string, activeDistrict?: string) =>
+    buildSentimentPolarityFromStats(stats, grain, activeRegion, activeDistrict);
 
   return {
     resolved,

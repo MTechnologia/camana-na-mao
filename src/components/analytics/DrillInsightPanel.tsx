@@ -11,6 +11,7 @@ import {
   Clock,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   ExternalLink,
   Filter
 } from 'lucide-react';
@@ -28,8 +29,12 @@ import { cn } from '@/lib/utils';
 import { DrillInsightState, DrillReport } from '@/hooks/useDrillInsight';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useReportDetailModal } from "@/contexts/ReportDetailContext";
+import {
+  DRILL_THROUGH_PAGE_SIZE,
+  drillThroughTotalPages,
+} from '@/lib/fetchDrillThroughReports';
 
 interface DrillInsightPanelProps {
   state: DrillInsightState;
@@ -49,6 +54,29 @@ export const DrillInsightPanel = ({
   const { open, context, reports, stats, insight, isLoading } = state;
   const { open: openReport } = useReportDetailModal();
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const totalPages = drillThroughTotalPages(reports.length, DRILL_THROUGH_PAGE_SIZE);
+  const pageReports = useMemo(() => {
+    const start = (listPage - 1) * DRILL_THROUGH_PAGE_SIZE;
+    return reports.slice(start, start + DRILL_THROUGH_PAGE_SIZE);
+  }, [reports, listPage]);
+
+  useEffect(() => {
+    if (open) {
+      setListPage(1);
+      setExpandedReport(null);
+    }
+  }, [open, context.label, reports.length]);
+
+  useEffect(() => {
+    if (listPage > totalPages) setListPage(Math.max(1, totalPages));
+  }, [listPage, totalPages]);
+
+  const showListPagination = reports.length > DRILL_THROUGH_PAGE_SIZE;
+  const rangeStart =
+    reports.length === 0 ? 0 : (listPage - 1) * DRILL_THROUGH_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(listPage * DRILL_THROUGH_PAGE_SIZE, reports.length);
 
   const getContextIcon = () => {
     switch (context.type) {
@@ -231,7 +259,7 @@ export const DrillInsightPanel = ({
                 </div>
 
                 <div className="space-y-2">
-                  {reports.slice(0, 20).map((report, index) => (
+                  {pageReports.map((report, index) => (
                     <motion.div
                       key={report.id}
                       initial={{ opacity: 0, x: -10 }}
@@ -249,7 +277,11 @@ export const DrillInsightPanel = ({
                               {report.severity}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
-                              {report.source === 'urban' ? 'Urbano' : 'Transporte'}
+                              {report.source === 'urban'
+                                ? 'Urbano'
+                                : report.source === 'transport'
+                                  ? 'Transporte'
+                                  : 'Avaliação'}
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -274,16 +306,18 @@ export const DrillInsightPanel = ({
                                   <Clock className="w-3 h-3" />
                                   {format(new Date(report.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
                                 </div>
-                                <button
-                                  type="button"
-                                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openReport(report.id, report.source);
-                                  }}
-                                >
-                                  Abrir detalhes do relato →
-                                </button>
+                                {report.source === 'urban' || report.source === 'transport' ? (
+                                  <button
+                                    type="button"
+                                    className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openReport(report.id, report.source);
+                                    }}
+                                  >
+                                    Abrir detalhes do relato →
+                                  </button>
+                                ) : null}
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -296,13 +330,46 @@ export const DrillInsightPanel = ({
                     </motion.div>
                   ))}
 
-                  {reports.length > 20 && (
-                    <div className="text-center py-3">
-                      <Button variant="ghost" size="sm">
-                        Ver mais {reports.length - 20} relatos
-                      </Button>
+                  {showListPagination ? (
+                    <div className="flex flex-col gap-2 border-t border-border pt-3">
+                      <p className="text-center text-xs text-muted-foreground">
+                        Exibindo {rangeStart}–{rangeEnd} de {reports.length}
+                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={listPage <= 1}
+                          onClick={() => {
+                            setListPage((p) => Math.max(1, p - 1));
+                            setExpandedReport(null);
+                          }}
+                        >
+                          <ChevronLeft className="mr-1 h-4 w-4" aria-hidden />
+                          Anterior
+                        </Button>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          Página {listPage} de {totalPages}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={listPage >= totalPages}
+                          onClick={() => {
+                            setListPage((p) => Math.min(totalPages, p + 1));
+                            setExpandedReport(null);
+                          }}
+                        >
+                          Próxima
+                          <ChevronRight className="ml-1 h-4 w-4" aria-hidden />
+                        </Button>
+                      </div>
                     </div>
-                  )}
+                  ) : null}
 
                   {reports.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">

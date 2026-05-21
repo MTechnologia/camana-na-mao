@@ -1,6 +1,13 @@
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
 import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
-import { DISTRICT_LABEL_FALLBACK } from '@/lib/reportsAnalyticsAggregates';
+import {
+  DISTRICT_LABEL_FALLBACK,
+  districtVolumeFromBreakdown,
+  STREET_FALLBACK_ID,
+  STREET_LABEL_FALLBACK,
+  streetRowsForDistrict,
+  territoryLabelsMatch,
+} from '@/lib/reportsAnalyticsAggregates';
 import { bairroParaZona, ZONA_DESCONHECIDA, ZONAS_FILTRO } from '@/lib/regionMapping';
 import { EMPTY_RESPONSE_TIME_DRILL } from '@/lib/responseTimeAggregates';
 import type {
@@ -53,31 +60,42 @@ function volumeKpiFromStats(
   stats: ReportsAnalyticsStats,
   grain: DrillGrain,
   activeRegion?: string,
-  category?: string,
+  activeDistrict?: string,
 ): number {
   if (grain === 'overview') return stats.total;
 
   if (grain === 'region' && activeRegion) {
-    const zoneLabel = regionLabel(activeRegion);
-    return zoneVolumeFromStats(stats, zoneLabel);
+    return zoneVolumeFromStats(stats, regionLabel(activeRegion));
   }
 
-  const cats =
-    category === 'all'
-      ? stats.categories
-      : stats.categories.filter((c) => c.category === category);
-  return cats.reduce((s, c) => s + c.count, 0);
+  if (grain === 'street' && activeRegion && activeDistrict) {
+    const zoneLabel = regionLabel(activeRegion);
+    const rows = streetRowsForDistrict(stats.streetBreakdown ?? [], zoneLabel, activeDistrict);
+    if (rows.length > 0) return rows.reduce((s, r) => s + r.count, 0);
+    return districtVolumeFromBreakdown(stats.neighborhoodBreakdown, zoneLabel, activeDistrict);
+  }
+
+  return stats.total;
 }
 
-function sentimentKpiFromStats(stats: ReportsAnalyticsStats, grain: DrillGrain, activeRegion?: string): number {
+function sentimentKpiFromStats(
+  stats: ReportsAnalyticsStats,
+  grain: DrillGrain,
+  activeRegion?: string,
+  activeDistrict?: string,
+): number {
   const rows =
-    grain === 'region' && activeRegion
-      ? districtRowsForZone(stats, regionLabel(activeRegion)).map((r) => ({
-          region: r.neighborhood,
-          count: r.count,
-          sentiment: 50,
-        }))
-      : stats.demographics.byRegion;
+    grain === 'street' && activeRegion && activeDistrict
+      ? streetRowsForDistrict(stats.streetBreakdown ?? [], regionLabel(activeRegion), activeDistrict).map(
+          (r) => ({ region: r.street, count: r.count, sentiment: 50 }),
+        )
+      : grain === 'region' && activeRegion
+        ? districtRowsForZone(stats, regionLabel(activeRegion)).map((r) => ({
+            region: r.neighborhood,
+            count: r.count,
+            sentiment: 50,
+          }))
+        : stats.demographics.byRegion;
 
   if (rows.length === 0) return 0;
   const totalCount = rows.reduce((s, r) => s + r.count, 0);
@@ -99,19 +117,29 @@ function avgHoursForZoneFromRt(
   return total > 0 ? Math.round((weighted / total) * 10) / 10 : 0;
 }
 
+function avgHoursForDistrictFromRt(
+  rt: NonNullable<ReportsAnalyticsStats['responseTime']>,
+  zoneLabel: string,
+  neighborhood: string,
+): number {
+  const row = rt.byNeighborhood.find(
+    (r) => r.zone === zoneLabel && territoryLabelsMatch(r.neighborhood, neighborhood) && r.count > 0,
+  );
+  return row?.avgHours ?? 0;
+}
+
 function responseTimeKpiFromStats(
   stats: ReportsAnalyticsStats,
   grain: DrillGrain,
   activeRegion?: string,
-  category?: string,
+  activeDistrict?: string,
 ): number {
   const rt = stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL;
+  if (grain === 'street' && activeRegion && activeDistrict) {
+    return avgHoursForDistrictFromRt(rt, regionLabel(activeRegion), activeDistrict);
+  }
   if (grain === 'region' && activeRegion) {
     return avgHoursForZoneFromRt(rt, regionLabel(activeRegion));
-  }
-  if (category && category !== 'all') {
-    const row = rt.byCategory.find((c) => c.category === category);
-    if (row && row.count > 0) return row.avgHours;
   }
   return rt.avgHours;
 }
@@ -120,16 +148,16 @@ export function buildDrillKpisFromStats(
   stats: ReportsAnalyticsStats | null,
   grain: DrillGrain,
   activeRegion?: string,
-  category?: string,
+  activeDistrict?: string,
 ): DrillKpis {
   if (!stats) return EMPTY_KPIS;
 
   const patternsCount = stats.criticality.patterns.length || stats.categories.length;
 
   return {
-    volume: volumeKpiFromStats(stats, grain, activeRegion, category),
-    responseHours: responseTimeKpiFromStats(stats, grain, activeRegion, category),
-    sentimentPct: sentimentKpiFromStats(stats, grain, activeRegion),
+    volume: volumeKpiFromStats(stats, grain, activeRegion, activeDistrict),
+    responseHours: responseTimeKpiFromStats(stats, grain, activeRegion, activeDistrict),
+    sentimentPct: sentimentKpiFromStats(stats, grain, activeRegion, activeDistrict),
     patterns: Math.max(0, patternsCount),
   };
 }
@@ -207,12 +235,17 @@ export function sumChartBarValues(points: ChartBarPoint[]): number {
   return points.reduce((s, p) => s + p.value, 0);
 }
 
+function streetIdFromLabel(label: string): string {
+  if (label === STREET_LABEL_FALLBACK) return STREET_FALLBACK_ID;
+  return label;
+}
+
 export function buildChartSeriesFromStats(
   stats: ReportsAnalyticsStats | null,
   grain: DrillGrain,
   metric: AnalyticsMetric,
   activeRegion?: string,
-  category?: string,
+  activeDistrict?: string,
 ): ChartBarPoint[] {
   if (!stats) return [];
 
@@ -284,38 +317,72 @@ export function buildChartSeriesFromStats(
       .slice(0, 12);
   }
 
-  if (metric === 'response_time') {
-    const rtCats =
-      category === 'all'
-        ? (stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL).byCategory
-        : (stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL).byCategory.filter(
-            (c) => c.category === category,
-          );
-    return rtCats
-      .filter((c) => c.count > 0)
-      .map((c) => ({
-        id: c.category,
-        label: c.category,
-        filterKey: 'category' as const,
-        filterValue: c.category,
-        value: c.avgHours,
+  if (grain === 'street' && activeRegion && activeDistrict) {
+    const zoneLabel = regionLabel(activeRegion);
+    const districtHours = avgHoursForDistrictFromRt(
+      stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL,
+      zoneLabel,
+      activeDistrict,
+    );
+    const rows = streetRowsForDistrict(stats.streetBreakdown ?? [], zoneLabel, activeDistrict);
+
+    if (metric === 'response_time') {
+      if (rows.length === 0 && districtHours > 0) {
+        return [
+          {
+            id: STREET_FALLBACK_ID,
+            label: STREET_LABEL_FALLBACK,
+            filterKey: 'street' as const,
+            filterValue: STREET_FALLBACK_ID,
+            value: districtHours,
+          },
+        ];
+      }
+      return rows
+        .map((r) => ({
+          id: streetIdFromLabel(r.street),
+          label: r.street,
+          filterKey: 'street' as const,
+          filterValue: streetIdFromLabel(r.street),
+          value: districtHours,
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12);
+    }
+
+    if (rows.length === 0) {
+      const fallbackVol = districtVolumeFromBreakdown(
+        stats.neighborhoodBreakdown,
+        zoneLabel,
+        activeDistrict,
+      );
+      if (fallbackVol > 0) {
+        return [
+          {
+            id: STREET_FALLBACK_ID,
+            label: STREET_LABEL_FALLBACK,
+            filterKey: 'street' as const,
+            filterValue: STREET_FALLBACK_ID,
+            value: fallbackVol,
+          },
+        ];
+      }
+      return [];
+    }
+
+    return rows
+      .map((r) => ({
+        id: streetIdFromLabel(r.street),
+        label: r.street,
+        filterKey: 'street' as const,
+        filterValue: streetIdFromLabel(r.street),
+        value: r.count,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 12);
   }
 
-  const cats =
-    category === 'all'
-      ? stats.categories
-      : stats.categories.filter((c) => c.category === category);
-
-  return cats.map((c) => ({
-    id: c.category,
-    label: c.category,
-    filterKey: 'category' as const,
-    filterValue: c.category,
-    value: c.count,
-  }));
+  return [];
 }
 
 function sentimentSlicesFromCounts(positive: number, neutral: number, negative: number): SentimentSlice[] {
@@ -332,7 +399,7 @@ export function buildSentimentPolarityFromStats(
   stats: ReportsAnalyticsStats | null,
   grain: DrillGrain,
   activeRegion?: string,
-  category?: string,
+  activeDistrict?: string,
 ): RegionSentimentBreakdown[] {
   if (!stats) return [];
 
@@ -368,20 +435,26 @@ export function buildSentimentPolarityFromStats(
       .slice(0, 12);
   }
 
-  const cats =
-    category === 'all'
-      ? stats.categories
-      : stats.categories.filter((c) => c.category === category);
+  if (grain === 'street' && activeRegion && activeDistrict) {
+    return streetRowsForDistrict(
+      stats.streetBreakdown ?? [],
+      regionLabel(activeRegion),
+      activeDistrict,
+    )
+      .map((r) => {
+        const pos = Math.round(r.count * 0.4);
+        const neg = Math.round(r.count * 0.25);
+        const neu = Math.max(0, r.count - pos - neg);
+        return {
+          id: streetIdFromLabel(r.street),
+          label: r.street,
+          slices: sentimentSlicesFromCounts(pos, neu, neg),
+        };
+      })
+      .slice(0, 12);
+  }
 
-  return cats.map((c) => ({
-    id: c.category,
-    label: c.category,
-    slices: sentimentSlicesFromCounts(
-      Math.round(c.count * 0.4),
-      Math.round(c.count * 0.35),
-      Math.round(c.count * 0.25),
-    ),
-  }));
+  return [];
 }
 
 export function buildPatternsByRegionFromStats(

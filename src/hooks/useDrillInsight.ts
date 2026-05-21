@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import type { UnifiedReport } from '@/lib/analyticsDimensions';
 import {
   ageGroupLabel,
   genderLabel,
@@ -81,7 +82,7 @@ export interface DrillReport {
   location_address: string | null;
   created_at: string;
   user_id: string;
-  source: 'urban' | 'transport';
+  source: 'urban' | 'transport' | 'evaluation';
   sentiment?: string;
 }
 
@@ -295,6 +296,33 @@ export const useDrillInsight = (baseFilters: ReportsAnalyticsFilters = {}) => {
         user_id: drillStr(r.user_id),
         source: 'urban' as const,
         sentiment: rawSentiment == null || rawSentiment === '' ? undefined : String(rawSentiment),
+      } satisfies DrillReport;
+    });
+  };
+
+  const mapServiceReports = (data: Record<string, unknown>[]): DrillReport[] => {
+    return data.map((r) => {
+      const svcRaw = r.public_services;
+      const svc = Array.isArray(svcRaw) ? svcRaw[0] : svcRaw;
+      const svcObj = svc as {
+        name?: string | null;
+        service_type?: string | null;
+        district?: string | null;
+        address?: string | null;
+      } | null;
+      const label = drillStr(svcObj?.service_type) || drillStr(svcObj?.name) || 'Avaliação';
+      return {
+        id: drillStr(r.id),
+        category: label,
+        description: drillStr(r.rating_text) || label,
+        status: 'Avaliação',
+        severity: '—',
+        location_address:
+          drillStrNullable(svcObj?.address) || drillStrNullable(svcObj?.district),
+        created_at: drillStr(r.created_at),
+        user_id: drillStr(r.user_id),
+        source: 'evaluation' as const,
+        sentiment: drillStrNullable(r.sentiment) ?? undefined,
       } satisfies DrillReport;
     });
   };
@@ -923,24 +951,18 @@ export const useDrillInsight = (baseFilters: ReportsAnalyticsFilters = {}) => {
   }, []);
 
   /**
-   * HU-3.5 — drill-into a partir do heatmap N×N de cruzamento.
-   * Recebe os IDs das duas tabelas de relatos já filtrados pelo CrossAnalyticsTab
-   * (urban + transport). Faz fetch direto desses IDs e popula o painel.
+   * HU-3.5 — drill-into a partir do heatmap N×N (urbano + transporte + avaliações).
    */
-  const searchByCrossDimensions = useCallback(async (
-    rowDim: string,
-    rowValue: string,
+  const searchByCrossCellReports = useCallback(async (
     rowLabel: string,
-    colDim: string,
-    colValue: string,
     colLabel: string,
-    reportIds: string[],
+    cellReports: Array<{ id: string; category: UnifiedReport['category'] }>,
   ) => {
     setState(prev => ({ ...prev, isLoading: true }));
     const ctxLabel = `${rowLabel} × ${colLabel}`;
 
     try {
-      if (reportIds.length === 0) {
+      if (cellReports.length === 0) {
         setState({
           open: true,
           context: { type: 'category', value: ctxLabel, label: ctxLabel },
@@ -952,34 +974,61 @@ export const useDrillInsight = (baseFilters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
-      // Fazemos lookup paralelo nas duas fontes de DrillReport
-      const [{ data: urbanData }, { data: transportData }] = await Promise.all([
-        supabase.from('urban_reports').select('*').in('id', reportIds),
-        supabase.from('transport_reports').select('*').in('id', reportIds),
+      const urbanIds = cellReports.filter((r) => r.category === 'Urbano').map((r) => r.id);
+      const transportIds = cellReports.filter((r) => r.category === 'Transporte').map((r) => r.id);
+      const evaluationIds = cellReports.filter((r) => r.category === 'Avaliação').map((r) => r.id);
+
+      const [urbanRes, transportRes, evalRes] = await Promise.all([
+        urbanIds.length > 0
+          ? supabase.from('urban_reports').select('*').in('id', urbanIds)
+          : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+        transportIds.length > 0
+          ? supabase.from('transport_reports').select('*').in('id', transportIds)
+          : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+        evaluationIds.length > 0
+          ? supabase
+              .from('service_ratings')
+              .select(
+                '*, public_services(name, service_type, district, address, latitude, longitude)',
+              )
+              .in('id', evaluationIds)
+          : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       ]);
 
       const allReports = [
-        ...mapUrbanReports(urbanData || []),
-        ...mapTransportReports(transportData || []),
+        ...mapUrbanReports(urbanRes.data || []),
+        ...mapTransportReports(transportRes.data || []),
+        ...mapServiceReports(evalRes.data || []),
       ];
       const stats = calculateStats(allReports);
       const context: DrillContext = { type: 'category', value: ctxLabel, label: ctxLabel };
-      // Insight com info adicional: quando houver IDs sem retorno (ex: service_ratings),
-      // explicamos a discrepância para o usuário.
-      const missingCount = reportIds.length - allReports.length;
-      const baseInsight = generateInsight(context, stats);
-      const insight = missingCount > 0
-        ? `${baseInsight} ${missingCount} avaliação(ões) de serviço também cruzam este filtro — não aparecem listadas individualmente aqui.`
-        : baseInsight;
-      // metadata extra para depuração futura — não usada na UI agora
-      void rowDim; void rowValue; void colDim; void colValue;
+      const insight = generateInsight(context, stats);
       setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
     } catch (error) {
-      console.error('Error in searchByCrossDimensions:', error);
+      console.error('Error in searchByCrossCellReports:', error);
       toast.error('Erro ao carregar cruzamento');
       setState(prev => ({ ...prev, isLoading: false }));
     }
   }, []);
+
+  const searchByCrossDimensions = useCallback(
+    async (
+      _rowDim: string,
+      _rowValue: string,
+      rowLabel: string,
+      _colDim: string,
+      _colValue: string,
+      colLabel: string,
+      reportIds: string[],
+    ) => {
+      await searchByCrossCellReports(
+        rowLabel,
+        colLabel,
+        reportIds.map((id) => ({ id, category: 'Urbano' as const })),
+      );
+    },
+    [searchByCrossCellReports],
+  );
 
   const close = useCallback(() => {
     setState(prev => ({ ...prev, open: false }));
@@ -1009,6 +1058,7 @@ export const useDrillInsight = (baseFilters: ReportsAnalyticsFilters = {}) => {
     searchByWeekday,
     searchByCrossDemographic,
     searchByCrossDimensions,
+    searchByCrossCellReports,
     close,
     reset,
   };

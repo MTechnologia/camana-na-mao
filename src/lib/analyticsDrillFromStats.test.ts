@@ -50,6 +50,7 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
     },
     volumeByZone: [],
     neighborhoodBreakdown: [],
+    streetBreakdown: [],
     criticality: {
       criticalScore: 0,
       bySeverity: [],
@@ -176,6 +177,26 @@ describe('analyticsDrillFromStats volume parity', () => {
     expect(chart).toHaveLength(2);
     expect(chart.map((b) => b.label)).toEqual(expect.arrayContaining(['Santana', 'Casa Verde']));
     expect(sumChartBarValues(chart)).toBe(3);
+  });
+
+  it('drill por bairro lista logradouros, não categorias (HU-3.1)', () => {
+    const stats = mockStats({
+      neighborhoodBreakdown: [{ neighborhood: 'Santana', zone: 'Zona Norte', count: 4 }],
+      streetBreakdown: [
+        { street: 'Rua Voluntários', neighborhood: 'Santana', zone: 'Zona Norte', count: 2 },
+        { street: 'Av. Cruzeiro do Sul', neighborhood: 'Santana', zone: 'Zona Norte', count: 2 },
+      ],
+      categories: [{ category: 'Mobilidade', count: 99 }],
+    });
+    const chart = buildChartSeriesFromStats(stats, 'street', 'volume', 'north', 'Santana');
+    expect(chart).toHaveLength(2);
+    expect(chart.every((b) => b.filterKey === 'street')).toBe(true);
+    expect(chart.map((b) => b.label)).toEqual(
+      expect.arrayContaining(['Rua Voluntários', 'Av. Cruzeiro do Sul']),
+    );
+    expect(chart.some((b) => b.label === 'Mobilidade')).toBe(false);
+    const kpis = buildDrillKpisFromStats(stats, 'street', 'north', 'Santana');
+    expect(kpis.volume).toBe(4);
   });
 });
 
