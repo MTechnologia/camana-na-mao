@@ -1,4 +1,5 @@
 import type { AudienciasFilters } from '@/hooks/useAudienciasAnalytics';
+import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
 
 /** Converte recorte global (OS-07) em filtros de audiências. */
 export function globalFiltersToAudiencias(
@@ -18,6 +19,7 @@ export function globalFiltersToAudiencias(
     case 'ytd':
       start = new Date(now.getFullYear(), 0, 1);
       break;
+    case PERIOD_COMPARE_VALUE:
     case 'last_30d':
     default:
       start = new Date(now.getTime() - 30 * 86400000);

@@ -31,8 +31,9 @@ USING (has_permission(auth.uid(), 'triage.manage'))
 
 ### `list_triage_assignees() → TABLE(user_id, email, full_name, role)`
 
-**HU-10.1.** Lista usuários que podem ser atribuídos como responsável de
-triagem (admin/gestor/assessor). Exige caller `admin` ou `gestor`.
+**HU-10.1 / HU-11.** Lista usuários que podem ser atribuídos como responsável
+de triagem (admin/gestor/assessor). Exige `triage.manage` **ou**
+`triage.view_kanban` (filtro do kanban para assessores).
 
 ### `list_audit_log_actors() → TABLE(user_id, email, full_name, log_count)`
 

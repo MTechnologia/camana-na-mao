@@ -18,6 +18,7 @@ export { UnifiedFilterBar } from './UnifiedFilterBar';
 export { FilterSheet } from './FilterSheet';
 export { QuickFilterPills } from './QuickFilterPills';
 export { FilterDatePicker } from './FilterDatePicker';
+export { FilterDateRangeFields } from './FilterDateRangeFields';
 
 // Hook is exported from hooks folder
 // import { useFilters } from '@/hooks/useFilters';

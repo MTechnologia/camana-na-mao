@@ -1,0 +1,14 @@
+diff --git a/node_modules/@deck.gl/aggregation-layers/dist/heatmap-layer/heatmap-layer.js b/node_modules/@deck.gl/aggregation-layers/dist/heatmap-layer/heatmap-layer.js
+index 2767469..c189e59 100644
+--- a/node_modules/@deck.gl/aggregation-layers/dist/heatmap-layer/heatmap-layer.js
++++ b/node_modules/@deck.gl/aggregation-layers/dist/heatmap-layer/heatmap-layer.js
+@@ -388,8 +388,7 @@ class HeatmapLayer extends AggregationLayer {
+             radiusPixels,
+             commonBounds,
+             textureWidth: textureSize,
+-            weightsScale,
+-            weightsTexture: weightsTexture
++            weightsScale
+         };
+         const { viewport, devicePixelRatio, coordinateSystem, coordinateOrigin } = moduleSettings;
+         const { modelMatrix } = this.props;

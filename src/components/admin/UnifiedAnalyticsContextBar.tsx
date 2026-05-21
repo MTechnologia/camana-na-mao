@@ -1,15 +1,20 @@
 import { RotateCcw } from 'lucide-react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { PeriodComparePicker } from '@/components/filters/PeriodComparePicker';
 import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Button } from '@/components/ui/button';
 import { FILTER_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
 import {
   CATEGORY_FILTER_OPTIONS,
   globalFilterChipLabels,
+  isPeriodCompareMode,
   PERIOD_FILTER_OPTIONS,
   REGION_FILTER_OPTIONS,
 } from '@/lib/globalFilterOptions';
 import { AdminDesktopSidebarToggle, AdminMobileMenuButton } from '@/components/admin/AdminSidebar';
+import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
+import { UnifiedAnalyticsLiveBadge } from '@/components/admin/UnifiedAnalyticsLiveBadge';
+import { dataExportFiltersFromGlobal } from '@/lib/buildDataExportFilters';
 import { cn } from '@/lib/utils';
 
 const controlClass = cn(
@@ -29,9 +34,16 @@ export function UnifiedAnalyticsContextBar() {
     setRegion,
     setCategory,
     reset,
+    periodCompare,
+    setPeriodCompare,
+    compareActive,
   } = useGlobalFilters();
 
+  const exportFilters = dataExportFiltersFromGlobal(period, region, category, periodCompare);
   const recorteSummary = globalFilterChipLabels(period, region, category).join(' · ');
+  const compareMode = isPeriodCompareMode(period);
+  const periodLabel =
+    PERIOD_FILTER_OPTIONS.find((p) => p.value === period)?.label ?? 'Período';
 
   return (
     <div className="sticky top-0 z-20 border-b border-analytics-bar-border bg-analytics-bar px-4 py-2 shadow-sm md:px-6">
@@ -51,8 +63,15 @@ export function UnifiedAnalyticsContextBar() {
               id="uaf-period"
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className={cn(selectClass, 'max-w-[8.5rem]')}
+              className={cn(
+                selectClass,
+                'shrink-0 pr-7',
+                compareMode
+                  ? 'w-auto min-w-[13.5rem] max-w-[min(100%,17rem)]'
+                  : 'w-auto min-w-[8.25rem] max-w-[11.5rem]',
+              )}
               aria-label="Período"
+              title={periodLabel}
             >
               {PERIOD_FILTER_OPTIONS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -97,12 +116,30 @@ export function UnifiedAnalyticsContextBar() {
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               <span className="sr-only sm:not-sr-only sm:ml-1">Redefinir</span>
             </Button>
+
+            <DataExportTrigger
+              className="h-8 shrink-0 border-analytics-bar-border bg-analytics-bar-surface text-analytics-bar-control hover:bg-analytics-bar-surface/90"
+              defaultFilters={exportFilters}
+              label="Exportar"
+            />
+            <UnifiedAnalyticsLiveBadge className="shrink-0" />
           </div>
         </div>
 
         <p className="truncate text-[11px] text-analytics-bar-muted" title={recorteSummary}>
           {recorteSummary}
+          {compareActive ? ' · Comparação A vs B ativa' : ''}
         </p>
+
+        {compareMode ? (
+          <div className="rounded-lg border border-analytics-bar-border/60 bg-analytics-bar-surface/80 p-3">
+            <PeriodComparePicker
+              value={periodCompare}
+              onChange={setPeriodCompare}
+              compact
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

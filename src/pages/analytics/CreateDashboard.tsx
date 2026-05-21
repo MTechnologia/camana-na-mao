@@ -38,7 +38,8 @@ export default function CreateDashboard() {
   const handleSave = async () => {
     if (!roleLoading && !canCreateDashboards) {
       toast.error('Acesso restrito', {
-        description: 'Criação de dashboards está disponível apenas para Cidadão Engajado, Gestor e Admin.',
+        description:
+          'Criação de dashboards está disponível para Admin, Gestor, Assessor, Vereador e Cidadão Engajado.',
       });
       return;
     }

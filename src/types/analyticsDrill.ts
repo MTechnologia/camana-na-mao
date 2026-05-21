@@ -1,6 +1,6 @@
 export type AnalyticsMetric = 'volume' | 'response_time' | 'sentiment' | 'patterns';
 
-export type DrillGrain = 'overview' | 'region' | 'district';
+export type DrillGrain = 'overview' | 'region' | 'street';
 
 export type DrillCrumb = {
   id: string;
@@ -12,7 +12,7 @@ export type ChartBarPoint = {
   id: string;
   label: string;
   value: number;
-  filterKey: 'region' | 'district' | 'category';
+  filterKey: 'region' | 'district' | 'street' | 'category';
   filterValue: string;
 };
 
@@ -23,11 +23,15 @@ export type DrillKpis = {
   patterns: number;
 };
 
+/** Origem do registro no drill-through (HU-3.6). */
+export type DrillReportSource = 'urban' | 'transport' | 'evaluation';
+
 export type DrillReportRow = {
   id: string;
   title: string;
   status: string;
   createdAt: string;
+  source: DrillReportSource;
 };
 
 export type TimeSeriesPoint = {

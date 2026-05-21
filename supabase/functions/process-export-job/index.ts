@@ -153,10 +153,16 @@ async function getUserRole(
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .in("role", ["admin", "gestor"]);
+    .in("role", ["admin", "gestor", "assessor", "vereador"]);
   if (error || !data) return null;
   if (data.some((r) => r.role === "admin")) return "admin";
-  if (data.some((r) => r.role === "gestor")) return "gestor";
+  if (
+    data.some((r) =>
+      r.role === "gestor" || r.role === "assessor" || r.role === "vereador"
+    )
+  ) {
+    return "gestor";
+  }
   return null;
 }
 
@@ -214,7 +220,7 @@ serve(async (req) => {
         .from("export_jobs")
         .update({
           status: "failed",
-          error: "Usuário não tem role admin/gestor.",
+          error: "Usuário sem perfil staff para exportação.",
           completed_at: new Date().toISOString(),
         })
         .eq("id", job.id);

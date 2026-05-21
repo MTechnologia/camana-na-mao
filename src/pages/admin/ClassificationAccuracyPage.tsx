@@ -41,6 +41,40 @@ export function ClassificationAccuracyPage() {
           </Button>
         </div>
 
+        {!error && !isLoading && summary?.totalPredictions === 0 && (
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="pt-6 space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Nenhuma predição registrada ainda</p>
+              <p>
+                Esta tela mede relatos que gravaram a categoria prevista no envio (
+                <code className="bg-muted px-1 rounded text-xs">report_classification_prediction_log</code>
+                ) e depois foram corrigidos no painel (
+                <code className="bg-muted px-1 rounded text-xs">report_classification_feedback</code>
+                ).
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>
+                  <strong>Novos relatos</strong> via chat (ai-orchestrator) ou formulário manual passam a
+                  registrar predição automaticamente.
+                </li>
+                <li>
+                  <strong>Relatos antigos</strong> não têm log — use o script{' '}
+                  <code className="bg-muted px-1 rounded text-xs">scripts/backfill_classification_prediction_log.sql</code>{' '}
+                  no SQL Editor (homolog) para popular o contador.
+                </li>
+                <li>
+                  Para ver <strong>taxa de acerto</strong>, abra um relato em{' '}
+                  <strong>Gestão de relatos</strong>, altere categoria (urbano) ou tipo (transporte) e salve.
+                </li>
+              </ul>
+              <p className="text-xs">
+                Diagnóstico no banco: <code className="bg-muted px-1 rounded">scripts/diagnose_classification_accuracy.sql</code>
+                . Migration de permissão: <code className="bg-muted px-1 rounded">20260527160000_classification_accuracy_rls.sql</code>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {error && (
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="pt-6 flex items-start gap-3">
@@ -49,8 +83,9 @@ export function ClassificationAccuracyPage() {
                 <p className="font-medium text-destructive">Não foi possível carregar os dados</p>
                 <p className="text-sm text-muted-foreground mt-1">{error}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Confirme se a migração <code className="bg-muted px-1 rounded">report_classification_prediction_log</code>{' '}
-                  foi aplicada e se seu usuário tem perfil admin ou gestor.
+                  Confirme as migrações <code className="bg-muted px-1 rounded">report_classification_prediction_log</code> e{' '}
+                  <code className="bg-muted px-1 rounded">20260527160000_classification_accuracy_rls.sql</code>, e se o usuário tem{' '}
+                  <code className="bg-muted px-1 rounded">analytics.view_advanced</code> ou papel admin/gestor.
                 </p>
               </div>
             </CardContent>

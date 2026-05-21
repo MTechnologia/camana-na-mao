@@ -3,7 +3,9 @@ import type { ChartBarPoint } from '@/types/analyticsDrill';
 import {
   drillThroughResultLimit,
   matchesDistrictBar,
+  matchesStreetBar,
   matchesTerritoryBar,
+  parseStreetBarLabel,
   shouldFetchTransportForCategory,
 } from '@/lib/drillThroughMatchers';
 
@@ -29,6 +31,43 @@ describe('drillThroughMatchers', () => {
     };
     expect(matchesDistrictBar(bar, 'Jardim Esmeralda', null)).toBe(true);
     expect(matchesDistrictBar(bar, null, 'Jardim Esmeralda, São Paulo')).toBe(true);
+  });
+
+  it('logradouro casa com rótulo do gráfico mesmo sem coluna street', () => {
+    const bar: ChartBarPoint = {
+      id: 'av-lineu',
+      label: 'Avenida Lineu de Paula Machado, 1477',
+      value: 2,
+      filterKey: 'street',
+      filterValue: 'Avenida Lineu de Paula Machado, 1477',
+    };
+    expect(
+      matchesStreetBar(
+        bar,
+        'Butantã',
+        'Avenida Lineu de Paula Machado, 1477, São Paulo',
+        null,
+        null,
+        'Butantã',
+      ),
+    ).toBe(true);
+    expect(
+      matchesStreetBar(
+        bar,
+        'Butantã',
+        'Outra Rua, 10, São Paulo',
+        null,
+        null,
+        'Butantã',
+      ),
+    ).toBe(false);
+  });
+
+  it('parseStreetBarLabel separa logradouro e número', () => {
+    expect(parseStreetBarLabel('Avenida Lineu de Paula Machado, 1477')).toEqual({
+      street: 'Avenida Lineu de Paula Machado',
+      number: '1477',
+    });
   });
 
   it('filtro de região usa zona derivada do texto', () => {

@@ -9,10 +9,28 @@ import { cn } from "@/lib/utils";
  * tempo decorrido.
  */
 
+type AdminLiveIndicatorTone = "default" | "analyticsBar";
+
 interface AdminLiveIndicatorProps {
   lastUpdate: Date | null;
   className?: string;
+  /** Contraste para barra global escura (Dashboard, Gestão, Encaminhamentos). */
+  tone?: AdminLiveIndicatorTone;
 }
+
+const toneStyles: Record<
+  AdminLiveIndicatorTone,
+  { root: string; muted: string }
+> = {
+  default: {
+    root: "bg-green-500/10 text-green-700 dark:text-green-400",
+    muted: "text-muted-foreground",
+  },
+  analyticsBar: {
+    root: "bg-white/10 text-analytics-bar-foreground",
+    muted: "text-analytics-bar-foreground/90",
+  },
+};
 
 function formatRelative(date: Date): string {
   const now = Date.now();
@@ -29,7 +47,12 @@ function formatRelative(date: Date): string {
   return `há ${days}d`;
 }
 
-export function AdminLiveIndicator({ lastUpdate, className }: AdminLiveIndicatorProps) {
+export function AdminLiveIndicator({
+  lastUpdate,
+  className,
+  tone = "default",
+}: AdminLiveIndicatorProps) {
+  const styles = toneStyles[tone];
   const [, force] = useState(0);
 
   // Atualiza o texto relativo a cada 5s
@@ -41,7 +64,8 @@ export function AdminLiveIndicator({ lastUpdate, className }: AdminLiveIndicator
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400",
+        "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium",
+        styles.root,
         className,
       )}
       role="status"
@@ -54,7 +78,7 @@ export function AdminLiveIndicator({ lastUpdate, className }: AdminLiveIndicator
       <span>
         Ao vivo
         {lastUpdate && (
-          <span className="ml-1 text-muted-foreground">• atualizado {formatRelative(lastUpdate)}</span>
+          <span className={cn("ml-1", styles.muted)}>• atualizado {formatRelative(lastUpdate)}</span>
         )}
       </span>
     </div>

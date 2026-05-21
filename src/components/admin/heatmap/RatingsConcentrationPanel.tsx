@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { RefreshCw, AlertTriangle, Info, BarChart3 } from 'lucide-react';
+import { RefreshCw, AlertTriangle, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -15,11 +14,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { RatingsBubbleMap } from '@/components/admin/RatingsBubbleMap';
 import { ServiceRatingsDetailSheet } from '@/components/admin/ServiceRatingsDetailSheet';
+import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
+import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
+import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
   useRatingsConcentration,
   type RatingsPeriod,
   type ServiceRatingsAggregate,
 } from '@/hooks/useRatingsConcentration';
+import {
+  HEATMAP_EXTENDED_PERIOD_LEGEND,
+  RATINGS_HEATMAP_SERVICE_TYPE_LEGEND,
+  ratingsConcentrationPanelLegends,
+} from '@/lib/analyticsParameterLegends';
 import { getServiceTypeLabel } from '@/components/icons/serviceTypeIcons';
 
 export function RatingsConcentrationPanel() {
@@ -47,21 +54,24 @@ export function RatingsConcentrationPanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Dados de avaliações de equipamentos —{' '}
-        <Link to="/admin/equipment-ratings" className="text-primary underline-offset-2 hover:underline">
-          abrir gestão operacional
-        </Link>
-        . Relatos urbanos permanecem em Análise / Gestão de relatos urbanos.
-      </p>
-
-      <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Cor da bolha: vermelho (1★) → amarelo (3★) → verde (5★). Tamanho proporcional ao volume.
-          Toque numa bolha para ver comentários e dimensões críticas.
-        </span>
-      </div>
+      <HeatmapPanelIntro
+        intro={
+          <>
+            Avaliações de equipamentos publicadas em São Paulo.{' '}
+            <Link
+              to="/admin/equipment-ratings"
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              Gestão operacional
+            </Link>
+            . Use os parâmetros (<span className="font-medium text-foreground">?</span>) ou a legenda
+            para entender bolhas, cores e polarização.
+          </>
+        }
+        legends={ratingsConcentrationPanelLegends()}
+        tooltipTitle="Parâmetros — concentração de avaliações"
+        ariaLabel="Ver todos os parâmetros do mapa de avaliações"
+      />
 
       {!isLoading && summary.serviceCount > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -80,7 +90,7 @@ export function RatingsConcentrationPanel() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div className="grid flex-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="ratings-period">Período</Label>
+              <HeatmapFilterLabel htmlFor="ratings-period" legend={HEATMAP_EXTENDED_PERIOD_LEGEND} />
               <Select value={period} onValueChange={(v) => setPeriod(v as RatingsPeriod)}>
                 <SelectTrigger id="ratings-period">
                   <SelectValue placeholder="Período" />
@@ -94,7 +104,10 @@ export function RatingsConcentrationPanel() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ratings-type">Tipo de serviço</Label>
+              <HeatmapFilterLabel
+                htmlFor="ratings-type"
+                legend={RATINGS_HEATMAP_SERVICE_TYPE_LEGEND}
+              />
               <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
                 <SelectTrigger id="ratings-type">
                   <SelectValue placeholder="Todos" />
@@ -123,6 +136,8 @@ export function RatingsConcentrationPanel() {
           </div>
         )}
 
+        <HeatmapVisualScale variant="stars" className="mb-3" />
+
         {isLoading && aggregates.length === 0 ? (
           <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
         ) : (
@@ -130,7 +145,7 @@ export function RatingsConcentrationPanel() {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-          <span className="text-muted-foreground">Legenda:</span>
+          <span className="text-muted-foreground">Referência rápida:</span>
           <Badge style={{ backgroundColor: 'hsl(0,75%,45%)', color: 'white' }}>1★ – Ruim</Badge>
           <Badge style={{ backgroundColor: 'hsl(60,75%,45%)', color: 'black' }}>3★ – Médio</Badge>
           <Badge style={{ backgroundColor: 'hsl(120,75%,45%)', color: 'white' }}>5★ – Excelente</Badge>

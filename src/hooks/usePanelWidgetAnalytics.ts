@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 import { buildAnalyticsChartBundle } from '@/lib/analyticsFromStats';
-import { buildChartSeriesFromStats, buildDrillKpisFromStats, buildSentimentPolarityFromStats } from '@/lib/analyticsDrillFromStats';
+import {
+  buildChartSeriesFromStats,
+  buildDrillKpisForRegionFilter,
+  buildSentimentPolarityFromStats,
+} from '@/lib/analyticsDrillFromStats';
 import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useResolvedWidgetFilters } from '@/hooks/useResolvedWidgetFilters';
@@ -20,13 +24,20 @@ export function usePanelWidgetAnalytics(widget: PanelWidget) {
     [stats, resolved.period, resolved.region, resolved.category],
   );
 
-  const kpis = useMemo(() => buildDrillKpisFromStats(stats, 'overview'), [stats]);
+  const kpis = useMemo(
+    () => buildDrillKpisForRegionFilter(stats, resolved.region),
+    [stats, resolved.region],
+  );
 
-  const chartSeries = (grain: DrillGrain, metric: AnalyticsMetric, activeRegion?: string) =>
-    buildChartSeriesFromStats(stats, grain, metric, activeRegion, resolved.category);
+  const chartSeries = (
+    grain: DrillGrain,
+    metric: AnalyticsMetric,
+    activeRegion?: string,
+    activeDistrict?: string,
+  ) => buildChartSeriesFromStats(stats, grain, metric, activeRegion, activeDistrict);
 
-  const sentimentPolarity = (grain: DrillGrain, activeRegion?: string) =>
-    buildSentimentPolarityFromStats(stats, grain, activeRegion, resolved.category);
+  const sentimentPolarity = (grain: DrillGrain, activeRegion?: string, activeDistrict?: string) =>
+    buildSentimentPolarityFromStats(stats, grain, activeRegion, activeDistrict);
 
   return {
     resolved,

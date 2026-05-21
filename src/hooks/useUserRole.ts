@@ -1,6 +1,71 @@
 import { useState, useEffect } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { rolesGrantPermission } from '@/lib/permissions';
 import { withPoolRetry } from '@/lib/supabaseRetry';
+
+/** Erros típicos quando o GoTrue não alcança o servidor (Wi‑Fi, VPN, Supabase fora, CORS). */
+function isLikelyAuthNetworkFailure(err: unknown): boolean {
+  if (err instanceof TypeError) {
+    return /fetch|network|load failed|aborted/i.test(err.message);
+  }
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const m = String((err as { message: string }).message).toLowerCase();
+    return (
+      m.includes('failed to fetch')
+      || m.includes('network error')
+      || m.includes('load failed')
+      || m.includes('fetch')
+      || m.includes('aborted')
+      || m.includes('timeout')
+    );
+  }
+  return false;
+}
+
+/**
+ * `getUser()` valida o JWT no servidor; em falha de rede o cliente ainda pode ter sessão em storage.
+ * Evita TypeError: Failed to fetch derrubar o fluxo de RBAC na montagem / TOKEN_REFRESHED.
+ */
+async function getAuthUserResilient(): Promise<User | null> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!error && user) return user;
+    if (error && isLikelyAuthNetworkFailure(error)) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            '[useUserRole] Auth indisponível (rede). Usando sessão local para carregar perfis.',
+            error.message,
+          );
+        }
+        return session.user;
+      }
+    }
+    if (error && import.meta.env.DEV) {
+      console.warn('[useUserRole] getUser()', error.message);
+    }
+    return user ?? null;
+  } catch (err) {
+    if (isLikelyAuthNetworkFailure(err)) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            '[useUserRole] Auth indisponível (rede). Usando sessão local para carregar perfis.',
+          );
+        }
+        return session.user;
+      }
+      if (import.meta.env.DEV) {
+        console.warn('[useUserRole] Falha de rede ao validar sessão; sem usuário em cache.', err);
+      }
+      return null;
+    }
+    throw err;
+  }
+}
 
 export type UserRole =
   | 'admin'
@@ -59,8 +124,8 @@ export const useUserRole = () => {
 
   const fetchUserRoles = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const user = await getAuthUserResilient();
+
       if (!user) {
         setRoles([]);
         setCouncilMemberId(null);
@@ -121,7 +186,13 @@ export const useUserRole = () => {
       setIsCidadao(userRoles.includes('cidadao'));
       setIsCidadaoEngajado(userRoles.includes('cidadao_engajado'));
     } catch (error) {
-      console.error('Error fetching user roles:', error);
+      if (isLikelyAuthNetworkFailure(error)) {
+        if (import.meta.env.DEV) {
+          console.warn('[useUserRole] Rede ao carregar perfis; tente atualizar a página.', error);
+        }
+      } else {
+        console.error('[useUserRole] Erro ao carregar perfis:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -129,13 +200,18 @@ export const useUserRole = () => {
 
   const hasRole = (role: UserRole) => roles.includes(role);
 
-  // RBAC (baseado na matriz de permissões)
-  const canAccessAdvancedAnalytics = isAdmin || isGestor || isAssessor;
-  const canExportData = isAdmin || isGestor;
+  /** Staff institucional — paridade em painéis, análises e exportação (HU-7.1). */
+  const canUseStaffPaineis = isAdmin || isGestor || isAssessor || isVereador;
+
+  const canAccessAdvancedAnalytics = canUseStaffPaineis;
+  const canExportData = canUseStaffPaineis;
 
   const canReferToCouncilMember = isAdmin || isGestor || isCidadaoEngajado;
-  const canViewDashboards = isAdmin || isGestor || isCidadaoEngajado;
-  const canCreateDashboards = isAdmin || isGestor || isCidadaoEngajado;
+  const canViewDashboards =
+    canUseStaffPaineis ||
+    isCidadaoEngajado ||
+    rolesGrantPermission(roles, 'analytics.view_advanced');
+  const canCreateDashboards = canViewDashboards;
   const canManageDashboards = isAdmin || isGestor;
 
   const canRespondManifests = isAdmin || isGestor;
@@ -164,6 +240,7 @@ export const useUserRole = () => {
     canAccessAdvancedAnalytics,
     canExportData,
     canReferToCouncilMember,
+    canUseStaffPaineis,
     canViewDashboards,
     canCreateDashboards,
     canManageDashboards,

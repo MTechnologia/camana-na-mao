@@ -1,4 +1,8 @@
 import { useMemo } from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { useRegisterAnalyticsLive } from "@/hooks/useRegisterAnalyticsLive";
+import { globalFiltersToReportsAnalytics } from "@/lib/globalFiltersToAnalytics";
+import { regionLabel } from "@/lib/analyticsLabels";
 import { GitMerge, RefreshCw, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,22 +83,64 @@ function adaptMatrixForHeatmap(m: CrossCellMatrix): CrossMatrix {
   };
 }
 
-export function CrossAnalyticsTab() {
+export type CrossAnalyticsTabProps = {
+  /** Namespace dos parâmetros na URL (?exec.row=, ?exec.col=). */
+  urlPrefix?: string;
+  /** Dimensão inicial da linha (HU-3.4: category). */
+  defaultRow?: DimensionKey;
+  /** Dimensão inicial da coluna (HU-3.4: gender). */
+  defaultCol?: DimensionKey;
+};
+
+export function CrossAnalyticsTab({
+  urlPrefix = "cross",
+  defaultRow = "category",
+  defaultCol = "gender",
+}: CrossAnalyticsTabProps = {}) {
   // URL state com 2 dimensões (default Categoria × Gênero — equivalente HU-3.4)
   const [state, setState] = useUrlSyncedState<{ row: DimensionKey; col: DimensionKey }>({
-    prefix: "cross",
-    defaults: { row: "category", col: "gender" },
+    prefix: urlPrefix,
+    defaults: { row: defaultRow, col: defaultCol },
     serializers: {
-      row: dimensionSerializer("category"),
-      col: dimensionSerializer("gender"),
+      row: dimensionSerializer(defaultRow),
+      col: dimensionSerializer(defaultCol),
     },
   });
   const rowDim = state.row;
   const colDim = state.col;
 
-  const { matrix, reports, isLoading, error, refresh, getReportsForCell } =
-    useCrossDimensionAnalytics(rowDim, colDim);
-  const drillInsight = useDrillInsight();
+  const { period, region, category } = useGlobalFilters();
+  const analyticsFilters = useMemo(
+    () => globalFiltersToReportsAnalytics(period, region, category),
+    [period, region, category],
+  );
+
+  const { matrix, reports, isLoading, error, lastUpdate, refresh, getReportsForCell } =
+    useCrossDimensionAnalytics(rowDim, colDim, analyticsFilters);
+  const drillInsight = useDrillInsight(analyticsFilters);
+
+  useRegisterAnalyticsLive(
+    "cross-analytics",
+    { lastUpdate, refresh: () => void refresh() },
+    urlPrefix === "exec",
+  );
+
+  const filterHint = useMemo(() => {
+    const parts: string[] = [];
+    if (period !== "ytd") {
+      const labels: Record<string, string> = {
+        compare: "Comparar períodos",
+        last_7d: "Últimos 7 dias",
+        last_30d: "Últimos 30 dias",
+        last_90d: "Últimos 90 dias",
+        ytd: "Ano corrente",
+      };
+      parts.push(labels[period] ?? period);
+    }
+    if (region !== "all") parts.push(regionLabel(region));
+    if (category !== "all") parts.push(`Categoria: ${category}`);
+    return parts.length > 0 ? parts.join(" · ") : "Mesmo recorte do topo do dashboard";
+  }, [period, region, category]);
 
   const adapted = useMemo(() => adaptMatrixForHeatmap(matrix), [matrix]);
   const rowDef = DIMENSIONS[rowDim];
@@ -114,15 +160,7 @@ export function CrossAnalyticsTab() {
     const colEntry = matrix.colValues.find((c) => c.label === colLabel);
     if (!rowEntry || !colEntry) return;
     const cellReports = getReportsForCell(rowEntry.value, colEntry.value);
-    void drillInsight.searchByCrossDimensions(
-      rowDim,
-      rowEntry.value,
-      rowLabel,
-      colDim,
-      colEntry.value,
-      colLabel,
-      cellReports.map((r) => r.id),
-    );
+    void drillInsight.searchByCrossCellReports(rowLabel, colLabel, cellReports);
   };
 
   return (
@@ -136,7 +174,7 @@ export function CrossAnalyticsTab() {
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             Escolha a dimensão da linha e da coluna. {reports.length.toLocaleString("pt-BR")}{" "}
-            relatos analisados.
+            relatos no recorte ({filterHint}).
           </p>
         </CardHeader>
         <CardContent>

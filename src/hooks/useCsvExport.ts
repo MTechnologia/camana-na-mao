@@ -42,6 +42,8 @@ export interface CsvExportConfig {
     regions?: string[];
     /** Filtro de zona (derivado em memória do bairro/localização). */
     zones?: ZonaVolumeOuDesconhecida[];
+    /** Status do relato (apenas `urban_reports`). */
+    status?: string;
   };
 }
 
@@ -170,6 +172,11 @@ export function useCsvExport(): UseCsvExportResult {
           const regions = config.filters?.regions ?? [];
           if (useRegionsServerSide && regions.length > 0) {
             q = q.in("neighborhood", regions);
+          }
+
+          const status = config.filters?.status;
+          if (useRegionsServerSide && status) {
+            q = q.eq("status", status);
           }
 
           q = q.order(orderColumn, { ascending: orderAsc });

@@ -7,19 +7,19 @@ import { PaineisCriar } from '@/pages/paineis/PaineisCriar';
 import { PaineisDashboard } from '@/pages/paineis/PaineisDashboard';
 
 export function PaineisIndexRoute() {
-  const { isAdmin, isGestor } = useUserRole();
-  if (isAdmin || isGestor) return <PaineisDashboard />;
+  const { canUseStaffPaineis } = useUserRole();
+  if (canUseStaffPaineis) return <PaineisDashboard />;
   return <AnalyticsDashboard />;
 }
 
 export function PaineisAvancadoRoute() {
-  const { isAdmin, isGestor } = useUserRole();
-  if (isAdmin || isGestor) return <PaineisAvancado />;
+  const { canUseStaffPaineis } = useUserRole();
+  if (canUseStaffPaineis) return <PaineisAvancado />;
   return <AdvancedAnalytics />;
 }
 
 export function PaineisCriarRoute() {
-  const { isAdmin, isGestor } = useUserRole();
-  if (isAdmin || isGestor) return <PaineisCriar />;
+  const { canUseStaffPaineis } = useUserRole();
+  if (canUseStaffPaineis) return <PaineisCriar />;
   return <CreateDashboard />;
 }

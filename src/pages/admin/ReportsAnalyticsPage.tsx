@@ -2,7 +2,9 @@ import type React from 'react';
 import { PageShell } from '@/components/ui/PageShell';
 import { URBAN_REPORTS_ANALYTICS_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { UrbanReportsAnalyticsFilterBar } from '@/components/admin/analytics/UrbanReportsAnalyticsFilterBar';
 import { AnalyticsSummaryKpis } from '@/components/admin/analytics/AnalyticsSummaryKpis';
+import { UrbanReportsAnalyticsFiltersProvider } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
 import {
   AiInsightsPanel,
   CorrelationTabPanel,
@@ -32,10 +34,12 @@ const tabPanels: Record<(typeof tabs)[number]['id'], () => React.ReactElement> =
 
 export function ReportsAnalyticsPage() {
   return (
-    <PageShell title="Análise de relatos urbanos" titleInfo={URBAN_REPORTS_ANALYTICS_PAGE_LEGEND}>
-      <AnalyticsSummaryKpis />
+    <UrbanReportsAnalyticsFiltersProvider>
+      <PageShell title="Análise de relatos urbanos" titleInfo={URBAN_REPORTS_ANALYTICS_PAGE_LEGEND}>
+        <UrbanReportsAnalyticsFilterBar />
+        <AnalyticsSummaryKpis />
 
-      <Tabs defaultValue="volume" className="mt-6 w-full">
+        <Tabs defaultValue="volume" className="mt-6 w-full">
         <div className="-mx-1 overflow-x-auto px-1 pb-1">
           <TabsList className="inline-flex h-auto w-max min-w-full flex-nowrap gap-1 p-1 md:w-full md:max-w-full">
             {tabs.map((t) => (
@@ -58,7 +62,8 @@ export function ReportsAnalyticsPage() {
             </TabsContent>
           );
         })}
-      </Tabs>
-    </PageShell>
+        </Tabs>
+      </PageShell>
+    </UrbanReportsAnalyticsFiltersProvider>
   );
 }

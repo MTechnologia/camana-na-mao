@@ -3,6 +3,7 @@ import {
   Bell,
   BookOpen,
   Brain,
+  ClipboardList,
   CalendarDays,
   Download,
   FileText,
@@ -96,8 +97,14 @@ export const adminNavSectionsDropdown: NavSection[] = [
             requiredAnyPermission: ['reports.read'],
           },
           {
+            to: '/admin/triagem',
+            label: 'Kanban de triagem',
+            Icon: ClipboardList,
+            requiredAnyPermission: ['triage.view_kanban'],
+          },
+          {
             to: '/admin/referrals',
-            label: 'Análise de Encaminhamentos',
+            label: 'Análise de encaminhamentos',
             Icon: Share2,
             requiredAnyPermission: ['reports.read', 'gabinete.view'],
           },
@@ -138,7 +145,12 @@ export const adminNavSectionsDropdown: NavSection[] = [
         Icon: Settings2,
         items: [
           { to: '/admin/notifications', label: 'Notificações', Icon: Bell },
-          { to: '/admin/exports', label: 'Exportações de dados', Icon: Download },
+          {
+            to: '/admin/exports',
+            label: 'Exportações de dados',
+            Icon: Download,
+            requiredAnyPermission: ['exports.create', 'exports.view_logs'],
+          },
           {
             to: '/admin/settings/parameters',
             label: 'Parametrização geral',

@@ -412,7 +412,6 @@ const AppContent = () => {
           <Route path="/admin/padroes" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/previsoes" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/anomalias" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/triagem" element={<Navigate to="/admin/reports" replace />} />
           <Route path="/admin/comissions" element={<Navigate to="/admin/commissions" replace />} />
           <Route path="/admin/settings/n8n" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/settings/n8n-monitoring" element={<Navigate to="/admin" replace />} />
@@ -431,6 +430,7 @@ const AppContent = () => {
                 <Route path="classification-accuracy" element={<ClassificationAccuracyPage />} />
                 <Route path="exports" element={<ExportLogsPage />} />
                 <Route path="reports" element={<ReportsManagementPage />} />
+                <Route path="triagem" element={<TriageKanbanPage />} />
                 <Route path="referrals" element={<ReferralsManagementPage />} />
                 <Route path="commissions" element={<CommissionsPage />} />
                 <Route path="equipment-ratings" element={<EquipmentRatingsPage />} />

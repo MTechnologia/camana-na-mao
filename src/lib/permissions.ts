@@ -182,21 +182,21 @@ export const PERMISSIONS: PermissionDefinition[] = [
     label: "Criar exportação",
     description: "Gera CSV/XLSX de relatos e dados.",
     domain: "exports",
-    roles: ["admin", "gestor"],
+    roles: ["admin", "gestor", "assessor", "vereador"],
   },
   {
     key: "exports.schedule",
     label: "Agendar exportação",
     description: "Configura exportações recorrentes (diárias, semanais).",
     domain: "exports",
-    roles: ["admin", "gestor"],
+    roles: ["admin", "gestor", "assessor", "vereador"],
   },
   {
     key: "exports.view_logs",
     label: "Ver logs de exportação",
     description: "Acessa o histórico de exportações executadas.",
     domain: "exports",
-    roles: ["admin", "gestor"],
+    roles: ["admin", "gestor", "assessor", "vereador"],
   },
 
   // === ANALYTICS ===

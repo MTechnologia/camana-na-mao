@@ -10,7 +10,7 @@ export function ReferralRoutingRulesPage() {
       description="Parâmetros da sugestão inteligente de comissão e vereador por tema e carga de fila."
       actions={
         <Button variant="outline" size="sm" asChild>
-          <Link to="/admin/referrals">Análise de Encaminhamentos</Link>
+          <Link to="/admin/referrals">Análise de encaminhamentos</Link>
         </Button>
       }
     >

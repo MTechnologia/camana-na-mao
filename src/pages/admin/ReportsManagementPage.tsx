@@ -24,6 +24,7 @@ export function ReportsManagementPage() {
     setSelectedId,
     updateReport,
     savingId,
+    onTriageCommitted,
   } = useUrbanReportsManagement();
 
   return (
@@ -34,7 +35,7 @@ export function ReportsManagementPage() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/referrals?tab=fluxo">
             <ExternalLink className="mr-1.5 h-4 w-4" />
-            Análise de Encaminhamentos
+            Análise de encaminhamentos
           </Link>
         </Button>
       }
@@ -68,6 +69,10 @@ export function ReportsManagementPage() {
         saving={Boolean(selected && savingId === selected.id)}
         onClose={() => setSelectedId(null)}
         onUpdate={updateReport}
+        onTriageCommitted={async (saved) => {
+          if (!selectedId) return;
+          await onTriageCommitted(selectedId, saved);
+        }}
       />
     </PageShell>
   );

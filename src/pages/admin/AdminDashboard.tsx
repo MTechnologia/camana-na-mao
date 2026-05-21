@@ -6,6 +6,8 @@ import { ExecutiveKpiSection } from '@/components/admin/analytics/ExecutiveKpiSe
 import { MetricSwitcher } from '@/components/admin/analytics/MetricSwitcher';
 import { VolumeByRegionChart } from '@/components/admin/analytics/VolumeByRegionChart';
 import { ExecutiveDashboardCharts } from '@/components/admin/charts/SectionChartPanels';
+import { ExecutiveCrossAnalyticsSection } from '@/components/admin/analytics/ExecutiveCrossAnalyticsSection';
+import { ExecutivePeriodCompareSection } from '@/components/admin/analytics/ExecutivePeriodCompareSection';
 
 export function AdminDashboard() {
   return (
@@ -13,6 +15,8 @@ export function AdminDashboard() {
       <AnalyticsDrillBreadcrumb />
 
       <ExecutiveKpiSection />
+
+      <ExecutivePeriodCompareSection />
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
@@ -26,6 +30,8 @@ export function AdminDashboard() {
       </div>
 
       <ExecutiveDashboardCharts />
+
+      <ExecutiveCrossAnalyticsSection />
 
       <DashboardHelpSection />
     </PageShell>

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { getAnalyticsRealtimeTables } from '@/lib/analyticsRealtimeTables';
 import type { DemographicData } from '@/components/analytics/DemographicsPieChart';
 import type { FunnelStep } from '@/components/analytics/EngagementFunnel';
 import type { TopReport } from '@/components/analytics/TopReportsList';
@@ -24,8 +26,11 @@ import {
   recordsFromTerritoryGeoRows,
   type ResponseTimeDrillStats,
 } from '@/lib/responseTimeAggregates';
+import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
+import { callGetReportsWithDemographics } from '@/lib/reportsDemographicsRpc';
 import {
   buildNeighborhoodBreakdownFromGeoRows,
+  buildStreetBreakdownFromGeoRows,
   buildTimelineFromUrbanReports,
   buildVolumeByZoneFromGeoRows,
   filterGeoRowsByRegion,
@@ -43,6 +48,8 @@ export interface ReportsAnalyticsFilters {
   category?: string;
   severity?: string;
   status?: string;
+  /** Restringe fontes a relatos urbanos (página de análise dedicada). */
+  scope?: 'urban_only';
   region?: string;
   // Demographic filters
   gender?: string;
@@ -113,6 +120,9 @@ export interface ReportsAnalyticsStats {
   /** Bairros/locais por zona — base do drill-down por distrito (volume). */
   neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[];
 
+  /** Logradouros por bairro/zona — drill cidade → região → bairro → rua (HU-3.1). */
+  streetBreakdown: { street: string; neighborhood: string; zone: string; count: number }[];
+
   /** HU-2.2 — tempo médio até resposta/resolução (relatos resolvidos no recorte). */
   responseTime: ResponseTimeDrillStats;
 
@@ -142,6 +152,7 @@ const emptyStats: ReportsAnalyticsStats = {
   categories: [],
   volumeByZone: [],
   neighborhoodBreakdown: [],
+  streetBreakdown: [],
   demographics: {
     byGender: [],
     byRace: [],
@@ -172,6 +183,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const [stats, setStats] = useState<ReportsAnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const isFirstLoadRef = useRef(true);
 
   // Serializar filters para comparação estável
   const filtersKey = JSON.stringify(filters);
@@ -179,7 +192,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const fetchAnalytics = useCallback(async (isMounted: boolean = true) => {
     try {
       if (!isMounted) return;
-      setIsLoading(true);
+      const showSpinner = isFirstLoadRef.current;
+      if (showSpinner) setIsLoading(true);
       setError(null);
 
       // Mapear filtros para o formato do banco
@@ -214,10 +228,21 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       const startDateISO = filters.startDate ? new Date(filters.startDate).toISOString() : null;
       const endDateISO = filters.endDate ? new Date(filters.endDate).toISOString() : null;
 
+      const urbanOnly = filters.scope === 'urban_only';
       const categorySlice = resolveGlobalCategoryFilter(filters.category);
-      const pCategories = categorySlice.isAll ? null : categoryDbValuesForRpc(categorySlice);
+      const pCategories = categorySlice.isAll
+        ? null
+        : urbanOnly
+          ? categorySlice.urbanCategories.length > 0
+            ? categorySlice.urbanCategories
+            : null
+          : categoryDbValuesForRpc(categorySlice);
 
-      if (!categorySlice.isAll && !hasCategoryFilterTargets(categorySlice)) {
+      const hasCategoryTargets = urbanOnly
+        ? categorySlice.isAll || categorySlice.urbanCategories.length > 0
+        : hasCategoryFilterTargets(categorySlice);
+
+      if (!categorySlice.isAll && !hasCategoryTargets) {
         if (isMounted) {
           setStats(emptyStats);
           setIsLoading(false);
@@ -225,16 +250,20 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
-      // Tentar buscar dados demográficos via função segura (SECURITY DEFINER)
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
+      const {
+        data: rpcResult,
+        error: rpcError,
+        statusFilterInRpc,
+      } = await callGetReportsWithDemographics({
         p_gender: mappedGender,
         p_race: mappedRace,
         p_social_class: mappedSocialClass,
         p_age_group: mappedAgeGroup,
-        p_report_type: null,
+        p_report_type: urbanOnly ? 'urban' : null,
         p_start_date: startDateISO,
         p_end_date: endDateISO,
         p_categories: pCategories,
+        p_status: filters.status ?? null,
       });
 
       if (rpcError) {
@@ -248,15 +277,14 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       }
 
       const demographicsFromRpc = rpcResult as Record<string, unknown>;
-      
-      // Usar dados da função segura
-      const total = demographicsFromRpc?.total || 0;
-      const urbanCount = demographicsFromRpc?.urban_count || 0;
-      const transportCount = demographicsFromRpc?.transport_count || 0;
-      const evaluationCount = demographicsFromRpc?.evaluation_count || 0;
-      const critical = demographicsFromRpc?.critical_count || 0;
-      const pending = demographicsFromRpc?.pending_count || 0;
-      const resolved = demographicsFromRpc?.resolved_count || 0;
+
+      let total = Number(demographicsFromRpc?.total) || 0;
+      let urbanCount = Number(demographicsFromRpc?.urban_count) || 0;
+      let transportCount = Number(demographicsFromRpc?.transport_count) || 0;
+      let evaluationCount = Number(demographicsFromRpc?.evaluation_count) || 0;
+      let critical = Number(demographicsFromRpc?.critical_count) || 0;
+      let pending = Number(demographicsFromRpc?.pending_count) || 0;
+      let resolved = Number(demographicsFromRpc?.resolved_count) || 0;
       
       // Processar demographics
       const demoData = demographicsFromRpc?.demographics || {};
@@ -319,7 +347,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         statusData.map((s: { status?: string; count?: number }) => [s.status ?? '', Number(s.count) || 0])
       );
       
-      const byStatus = [
+      let byStatus = [
         { status: 'Pendente', count: statusMap.get('pending') || 0, color: 'hsl(var(--chart-3))' },
         { status: 'Em Análise', count: statusMap.get('in_progress') || 0, color: 'hsl(var(--chart-2))' },
         { status: 'Resolvido', count: statusMap.get('resolved') || 0, color: 'hsl(var(--chart-1))' },
@@ -341,6 +369,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       let patternAlerts: PatternAlert[] = [];
       let volumeByZone: { zone: string; count: number }[] = [];
       let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
+      let streetBreakdown: { street: string; neighborhood: string; zone: string; count: number }[] = [];
 
       let responseTime: ResponseTimeDrillStats = EMPTY_RESPONSE_TIME_DRILL;
 
@@ -350,16 +379,18 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         const includeUrban =
           categorySlice.isAll || categorySlice.urbanCategories.length > 0;
         const includeTransport =
-          categorySlice.isAll || categorySlice.transportSubcategories.length > 0;
+          !urbanOnly &&
+          (categorySlice.isAll || categorySlice.transportSubcategories.length > 0);
         const includeEvaluations =
-          categorySlice.isAll || categorySlice.publicServiceTypes.length > 0;
+          !urbanOnly &&
+          (categorySlice.isAll || categorySlice.publicServiceTypes.length > 0);
 
         if (includeUrban) {
           let urbanQuery = supabase
             .from('urban_reports')
             .select(`
             id, description, category, location_address, status, created_at, updated_at, severity, neighborhood,
-            latitude, longitude,
+            street, street_number, latitude, longitude,
             urban_report_likes(count),
             urban_report_comments(count)
           `)
@@ -374,6 +405,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           }
           if (!categorySlice.isAll) {
             urbanQuery = urbanQuery.in('category', categorySlice.urbanCategories);
+          }
+          if (filters.status) {
+            urbanQuery = urbanQuery.eq('status', filters.status);
           }
 
           const { data: urbanData } = await urbanQuery;
@@ -402,6 +436,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             category: r.category,
             created_at: r.created_at,
             updated_at: r.updated_at ?? null,
+            street: (r.street as string | null) ?? null,
+            street_number: (r.street_number as string | null) ?? null,
           });
         });
 
@@ -499,6 +535,14 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           zone: r.zone,
           count: r.count,
         }));
+        streetBreakdown = buildStreetBreakdownFromGeoRows(
+          filterGeoRowsByRegion(territoryGeoRows, filters.region) as TerritoryGeoRow[],
+        ).map((r) => ({
+          street: r.street,
+          neighborhood: r.neighborhood,
+          zone: r.zone,
+          count: r.count,
+        }));
 
         const territoryForTime = filterGeoRowsByRegion(
           territoryGeoRows,
@@ -527,6 +571,31 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       } catch (err) {
         console.warn('Could not fetch urban reports timeline/patterns', err);
         patternAlerts = patternsFromCategories(categories);
+      }
+
+      // Sem migration p_status no RPC: KPIs e pipeline alinhados à query urban_reports.
+      if (filters.status && !statusFilterInRpc && urbanOnly) {
+        const rows = urbanReports as UrbanReportRow[];
+        const statusCounts = { pending: 0, in_progress: 0, resolved: 0, rejected: 0 };
+        let criticalLocal = 0;
+        for (const row of rows) {
+          const st = normalizeCitizenReportStatus(row.status);
+          statusCounts[st] += 1;
+          if (row.severity === 'critical') criticalLocal += 1;
+        }
+        total = rows.length;
+        urbanCount = total;
+        transportCount = 0;
+        evaluationCount = 0;
+        critical = criticalLocal;
+        pending = statusCounts.pending;
+        resolved = statusCounts.resolved;
+        byStatus = [
+          { status: 'Pendente', count: statusCounts.pending, color: 'hsl(var(--chart-3))' },
+          { status: 'Em Análise', count: statusCounts.in_progress, color: 'hsl(var(--chart-2))' },
+          { status: 'Resolvido', count: statusCounts.resolved, color: 'hsl(var(--chart-1))' },
+          { status: 'Rejeitado', count: statusCounts.rejected, color: 'hsl(var(--chart-5))' },
+        ];
       }
 
       const totalLikes = urbanReports.reduce((sum, r: Record<string, unknown>) => 
@@ -580,6 +649,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           categories,
           volumeByZone,
           neighborhoodBreakdown,
+          streetBreakdown,
           responseTime,
           demographics: {
             byGender,
@@ -606,15 +676,19 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           },
         });
         setError(null);
+        setLastUpdate(new Date());
       }
     } catch (err) {
       console.error('Error fetching analytics:', err);
       if (isMounted) {
         setError('Ocorreu um erro ao carregar os dados. Tente novamente.');
-        setStats(emptyStats);
+        if (isFirstLoadRef.current) setStats(emptyStats);
       }
     } finally {
-      if (isMounted) setIsLoading(false);
+      if (isMounted) {
+        isFirstLoadRef.current = false;
+        setIsLoading(false);
+      }
     }
   }, [filtersKey]);
 
@@ -624,5 +698,18 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     return () => { isMounted = false; };
   }, [filtersKey, fetchAnalytics]);
 
-  return { stats, isLoading, error, refresh: () => fetchAnalytics(true) };
+  const realtimeTables = getAnalyticsRealtimeTables(filters.scope);
+  const { refresh: realtimeRefresh } = useRealtimeRefresh(realtimeTables, () => {
+    void fetchAnalytics(true);
+  });
+
+  return {
+    stats,
+    isLoading,
+    error,
+    lastUpdate,
+    refresh: () => {
+      realtimeRefresh();
+    },
+  };
 };
