@@ -1,6 +1,12 @@
 import { regionLabel } from '@/lib/analyticsLabels';
 import { bairroParaZona } from '@/lib/regionMapping';
-import { DISTRICT_LABEL_FALLBACK } from '@/lib/reportsAnalyticsAggregates';
+import {
+  DISTRICT_LABEL_FALLBACK,
+  STREET_FALLBACK_ID,
+  STREET_LABEL_FALLBACK,
+  streetLabelFromTerritoryRow,
+  territoryLabelsMatch,
+} from '@/lib/reportsAnalyticsAggregates';
 import { WIDGET_THEMES } from '@/lib/widgetThemes';
 import type { ChartBarPoint } from '@/types/analyticsDrill';
 
@@ -23,6 +29,45 @@ export function normalizeDistrictToken(value: string): string {
     .trim()
     .replace(/\s*-\s*$/g, '')
     .toLowerCase();
+}
+
+/** Escapa valor para filtros ilike do PostgREST. */
+export function escapeForIlike(value: string): string {
+  return value.replace(/[%_\\]/g, '\\$&').trim();
+}
+
+function districtMatchCandidates(
+  neighborhood?: string | null,
+  location?: string | null,
+): string[] {
+  const candidates: string[] = [];
+  const nb = neighborhood?.trim().replace(/\s*-\s*$/g, '');
+  if (nb) candidates.push(nb);
+  const loc = location?.trim();
+  if (loc) {
+    for (const part of loc.split(',')) {
+      const piece = part.trim().replace(/\s*-\s*$/g, '');
+      if (piece) candidates.push(piece);
+    }
+    candidates.push(loc);
+  }
+  return candidates;
+}
+
+function barTerritoryTargets(bar: ChartBarPoint): string[] {
+  const targets = [bar.filterValue, bar.label, bar.id].filter(Boolean);
+  return [...new Set(targets)];
+}
+
+export function parseStreetBarLabel(label: string): { street: string; number?: string } {
+  const trimmed = label.trim().replace(/\s*-\s*$/g, '');
+  const commaIdx = trimmed.lastIndexOf(',');
+  if (commaIdx > 0) {
+    const street = trimmed.slice(0, commaIdx).trim();
+    const number = trimmed.slice(commaIdx + 1).trim();
+    if (street && number) return { street, number };
+  }
+  return { street: trimmed };
 }
 
 export function locationText(
@@ -55,17 +100,13 @@ export function matchesDistrictBar(
     return !neighborhood?.trim();
   }
 
-  const targets = new Set([
-    normalizeDistrictToken(bar.filterValue),
-    normalizeDistrictToken(bar.label),
-  ]);
-  const nb = normalizeDistrictToken(neighborhood ?? '');
-  if (nb && targets.has(nb)) return true;
+  const targets = barTerritoryTargets(bar);
+  const candidates = districtMatchCandidates(neighborhood, location);
+  if (candidates.length === 0) return false;
 
-  const locPart = location?.split(',')[0]?.trim();
-  if (locPart && targets.has(normalizeDistrictToken(locPart))) return true;
-
-  return false;
+  return targets.some((target) =>
+    candidates.some((candidate) => territoryLabelsMatch(target, candidate)),
+  );
 }
 
 export function matchesTerritoryBar(
@@ -92,6 +133,69 @@ export function matchesTerritoryBar(
   }
 
   return true;
+}
+
+export function matchesStreetBar(
+  bar: ChartBarPoint,
+  neighborhood?: string | null,
+  location?: string | null,
+  street?: string | null,
+  streetNumber?: string | null,
+  activeDistrict?: string,
+): boolean {
+  if (bar.filterKey !== 'street') return true;
+
+  if (activeDistrict) {
+    const districtBar: ChartBarPoint = {
+      id: activeDistrict,
+      label: activeDistrict,
+      value: 0,
+      filterKey: 'district',
+      filterValue: activeDistrict,
+    };
+    if (!matchesDistrictBar(districtBar, neighborhood, location)) {
+      return false;
+    }
+  }
+
+  if (
+    bar.filterValue === STREET_FALLBACK_ID ||
+    bar.label === STREET_LABEL_FALLBACK
+  ) {
+    return !street?.trim();
+  }
+
+  const reportLabel = streetLabelFromTerritoryRow({
+    neighborhood,
+    location,
+    street,
+    street_number: streetNumber,
+  });
+
+  return barTerritoryTargets(bar).some((target) => territoryLabelsMatch(target, reportLabel));
+}
+
+export function matchesTerritoryBarWithStreet(
+  bar: ChartBarPoint,
+  filtersRegion: string | undefined,
+  neighborhood?: string | null,
+  location?: string | null,
+  lat?: number | null,
+  lng?: number | null,
+  street?: string | null,
+  streetNumber?: string | null,
+  activeDistrict?: string,
+): boolean {
+  if (bar.filterKey === 'street') {
+    const zone = zoneForLocation(neighborhood, location, lat, lng);
+    const zoneFromFilters = filtersRegion ? regionLabel(filtersRegion) : null;
+    if (!matchesStreetBar(bar, neighborhood, location, street, streetNumber, activeDistrict)) {
+      return false;
+    }
+    if (zoneFromFilters) return zone === zoneFromFilters;
+    return true;
+  }
+  return matchesTerritoryBar(bar, filtersRegion, neighborhood, location, lat, lng);
 }
 
 /** Categorias de barra que devem buscar em transport_reports (report_type). */

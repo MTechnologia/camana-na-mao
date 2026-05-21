@@ -14,7 +14,12 @@ import {
   buildChartSeriesFromStats,
   buildDrillKpisFromStats,
 } from '@/lib/analyticsDrillFromStats';
-import { fetchDrillThroughReports } from '@/lib/fetchDrillThroughReports';
+import {
+  DRILL_THROUGH_PAGE_SIZE,
+  drillThroughTotalPages,
+  fetchDrillThroughReports,
+  paginateDrillThroughReports,
+} from '@/lib/fetchDrillThroughReports';
 import { regionLabel } from '@/lib/analyticsLabels';
 import type {
   AnalyticsMetric,
@@ -37,6 +42,12 @@ type AnalyticsDrillContextValue = {
   selectedBar?: ChartBarPoint;
   throughOpen: boolean;
   throughReports: DrillReportRow[];
+  throughReportsPage: DrillReportRow[];
+  throughTotal: number;
+  throughPage: number;
+  throughTotalPages: number;
+  throughPageSize: number;
+  setThroughPage: (page: number) => void;
   throughLoading: boolean;
   drillDown: (point: ChartBarPoint) => void;
   drillUp: (index: number) => void;
@@ -66,7 +77,19 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
   const [selectedBar, setSelectedBar] = useState<ChartBarPoint | undefined>();
   const [throughOpen, setThroughOpen] = useState(false);
   const [throughReports, setThroughReports] = useState<DrillReportRow[]>([]);
+  const [throughTotal, setThroughTotal] = useState(0);
+  const [throughPage, setThroughPage] = useState(1);
   const [throughLoading, setThroughLoading] = useState(false);
+
+  const throughTotalPages = useMemo(
+    () => drillThroughTotalPages(throughTotal),
+    [throughTotal],
+  );
+
+  const throughReportsPage = useMemo(
+    () => paginateDrillThroughReports(throughReports, throughPage),
+    [throughReports, throughPage],
+  );
 
   const resetDrill = useCallback(() => {
     setGrain('overview');
@@ -76,6 +99,8 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
     setSelectedBar(undefined);
     setThroughOpen(false);
     setThroughReports([]);
+    setThroughTotal(0);
+    setThroughPage(1);
   }, []);
 
   useEffect(() => {
@@ -95,32 +120,45 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
   }, [region, grain, activeRegion, resetDrill]);
 
   const kpis = useMemo(
-    () => buildDrillKpisFromStats(stats, grain, activeRegion, category),
-    [stats, grain, activeRegion, category],
+    () => buildDrillKpisFromStats(stats, grain, activeRegion, activeDistrict),
+    [stats, grain, activeRegion, activeDistrict],
   );
 
   const chartData = useMemo(
-    () => buildChartSeriesFromStats(stats, grain, metric, activeRegion, category),
-    [stats, grain, metric, activeRegion, category],
+    () => buildChartSeriesFromStats(stats, grain, metric, activeRegion, activeDistrict),
+    [stats, grain, metric, activeRegion, activeDistrict],
   );
 
   useEffect(() => {
     if (!selectedBar || !throughOpen) {
       setThroughReports([]);
+      setThroughTotal(0);
+      setThroughPage(1);
       return;
     }
     let cancelled = false;
     setThroughLoading(true);
-    void fetchDrillThroughReports(filters, selectedBar).then((rows) => {
-      if (!cancelled) {
-        setThroughReports(rows);
-        setThroughLoading(false);
-      }
-    });
+    setThroughPage(1);
+    void fetchDrillThroughReports(filters, selectedBar, { activeRegion, activeDistrict })
+      .then((result) => {
+        if (!cancelled) {
+          setThroughReports(result.reports);
+          setThroughTotal(result.total);
+          setThroughLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('[AnalyticsDrill] drill-through', err);
+        if (!cancelled) {
+          setThroughReports([]);
+          setThroughTotal(0);
+          setThroughLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [selectedBar, throughOpen, filters]);
+  }, [selectedBar, throughOpen, filters, activeRegion, activeDistrict]);
 
   const drillDown = useCallback(
     (point: ChartBarPoint) => {
@@ -141,17 +179,16 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
 
       if (point.filterKey === 'district') {
         setActiveDistrict(point.filterValue);
-        setGrain('district');
+        setGrain('street');
         setDrillPath((prev) => [
           ...prev.slice(0, 2),
-          { id: `district-${point.filterValue}`, grain: 'district', label: point.label },
+          { id: `district-${point.filterValue}`, grain: 'street', label: point.label },
         ]);
         return;
       }
 
       if (point.filterKey === 'category') {
         setCategory(point.filterValue);
-        setGrain('district');
       }
     },
     [setRegion, setCategory],
@@ -182,6 +219,18 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (crumb.grain === 'street' && crumb.id.startsWith('district-')) {
+        const districtId = crumb.id.replace('district-', '');
+        const regionCrumb = nextPath.find((c) => c.grain === 'region');
+        const regionId = regionCrumb?.id.replace('region-', '') ?? activeRegion;
+        setGrain('street');
+        setActiveRegion(regionId);
+        setActiveDistrict(districtId);
+        if (regionId) setRegion(regionId);
+        setDrillPath(nextPath);
+        return;
+      }
+
       resetDrill();
       setRegion('all');
     },
@@ -201,6 +250,12 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
       selectedBar,
       throughOpen,
       throughReports,
+      throughReportsPage,
+      throughTotal,
+      throughPage,
+      throughTotalPages,
+      throughPageSize: DRILL_THROUGH_PAGE_SIZE,
+      setThroughPage,
       throughLoading,
       drillDown,
       drillUp,
@@ -224,12 +279,17 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
       selectedBar,
       throughOpen,
       throughReports,
+      throughReportsPage,
+      throughTotal,
+      throughPage,
+      throughTotalPages,
       throughLoading,
       drillDown,
       drillUp,
       resetDrill,
       setRegion,
       setCategory,
+      setThroughPage,
     ],
   );
 

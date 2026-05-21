@@ -53,7 +53,19 @@ export type TerritoryGeoRow = GeoReportRow & {
   created_at?: string | null;
   updated_at?: string | null;
   responded_at?: string | null;
+  street?: string | null;
+  street_number?: string | null;
 };
+
+export type StreetBreakdownRow = {
+  street: string;
+  neighborhood: string;
+  zone: ZonaVolumeOuDesconhecida;
+  count: number;
+};
+
+export const STREET_LABEL_FALLBACK = 'Sem logradouro definido';
+export const STREET_FALLBACK_ID = '__sem_logradouro__';
 
 /** Contagem por zona canônica usando coords (prioridade) + texto de localização. */
 export function buildVolumeByZoneFromGeoRows(
@@ -73,6 +85,37 @@ export function buildVolumeByZoneFromGeoRows(
 }
 
 export const DISTRICT_LABEL_FALLBACK = 'Sem bairro definido';
+
+export function normalizeTerritoryLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function territoryLabelsMatch(a: string, b: string): boolean {
+  const left = normalizeTerritoryLabel(a);
+  const right = normalizeTerritoryLabel(b);
+  if (!left || !right) return false;
+  return left === right || left.includes(right) || right.includes(left);
+}
+
+export function streetLabelFromTerritoryRow(row: GeoReportRow & { street?: string | null; street_number?: string | null }): string {
+  const street = row.street?.trim();
+  if (street) {
+    const num = row.street_number?.trim();
+    return num ? `${street}, ${num}` : street;
+  }
+  const loc = row.location?.trim();
+  if (loc) {
+    const part = loc.split(',')[0]?.trim();
+    if (part && part.length > 0 && part.length <= 80) return part;
+  }
+  return STREET_LABEL_FALLBACK;
+}
 
 /** Rótulo de bairro/local para drill-down territorial. */
 export function districtLabelFromGeoRow(row: GeoReportRow): string {
@@ -110,6 +153,53 @@ export function buildNeighborhoodBreakdownFromGeoRows(
       count: v.count,
     }))
     .sort((a, b) => b.count - a.count);
+}
+
+/** Contagem por logradouro dentro de cada bairro/zona. */
+export function buildStreetBreakdownFromGeoRows(rows: TerritoryGeoRow[]): StreetBreakdownRow[] {
+  const map = new Map<string, { neighborhood: string; zone: ZonaVolumeOuDesconhecida; count: number }>();
+
+  for (const row of rows) {
+    if (row.source !== 'urbano') continue;
+    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    const zone = bairroParaZona(text, row.latitude, row.longitude);
+    const neighborhood = districtLabelFromGeoRow(row);
+    const street = streetLabelFromTerritoryRow(row);
+    const key = `${zone}\u0000${neighborhood}\u0000${street}`;
+    const cur = map.get(key) ?? { neighborhood, zone, count: 0 };
+    cur.count += 1;
+    map.set(key, cur);
+  }
+
+  return [...map.entries()]
+    .map(([key, v]) => ({
+      street: key.split('\u0000')[2] ?? STREET_LABEL_FALLBACK,
+      neighborhood: v.neighborhood,
+      zone: v.zone,
+      count: v.count,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export function streetRowsForDistrict(
+  breakdown: StreetBreakdownRow[],
+  zoneLabel: string,
+  neighborhood: string,
+): StreetBreakdownRow[] {
+  return breakdown.filter(
+    (r) => r.zone === zoneLabel && territoryLabelsMatch(r.neighborhood, neighborhood),
+  );
+}
+
+export function districtVolumeFromBreakdown(
+  breakdown: { neighborhood: string; zone: string; count: number }[],
+  zoneLabel: string,
+  neighborhood: string,
+): number {
+  const row = breakdown.find(
+    (r) => r.zone === zoneLabel && territoryLabelsMatch(r.neighborhood, neighborhood),
+  );
+  return row?.count ?? 0;
 }
 
 /** Série para o gráfico "Quatro indicadores no tempo" a partir da timeline real. */

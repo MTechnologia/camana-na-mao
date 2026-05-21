@@ -58,6 +58,7 @@ export function VolumeByRegionChart() {
     grain,
     metric,
     activeRegion,
+    activeDistrict,
     selectedBar,
     drillDown,
     openDrillThrough,
@@ -67,20 +68,20 @@ export function VolumeByRegionChart() {
 
   const sentimentPies = useMemo(() => {
     if (!isSentiment) return [];
-    return buildSentimentPolarityFromStats(stats, grain, activeRegion, category);
-  }, [isSentiment, stats, grain, activeRegion, category]);
+    return buildSentimentPolarityFromStats(stats, grain, activeRegion, activeDistrict);
+  }, [isSentiment, stats, grain, activeRegion, activeDistrict]);
 
   const title = isSentiment
     ? grain === 'overview'
       ? 'Polaridade por região'
       : grain === 'region'
-        ? 'Polaridade por distrito'
-        : 'Polaridade por categoria'
+        ? 'Polaridade por distrito (bairro)'
+        : 'Polaridade por logradouro'
     : grain === 'overview'
       ? 'Volume por região'
       : grain === 'region'
-        ? 'Detalhe por distrito'
-        : 'Distribuição por categoria';
+        ? 'Detalhe por distrito (bairro)'
+        : 'Detalhe por logradouro';
 
   const subtitle = isSentiment
     ? 'Positivo, neutro e negativo (%) · Clique em uma zona para drill-down'
@@ -89,7 +90,6 @@ export function VolumeByRegionChart() {
   const handleSentimentClick = (item: RegionSentimentBreakdown) => {
     if (grain === 'overview') drillDown(toDrillPoint(item, 'region'));
     else if (grain === 'region') drillDown(toDrillPoint(item, 'district'));
-    else drillDown(toDrillPoint(item, 'category'));
   };
 
   return (

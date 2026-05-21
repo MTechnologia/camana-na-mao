@@ -6,6 +6,7 @@ import { ExecutiveKpiSection } from '@/components/admin/analytics/ExecutiveKpiSe
 import { MetricSwitcher } from '@/components/admin/analytics/MetricSwitcher';
 import { VolumeByRegionChart } from '@/components/admin/analytics/VolumeByRegionChart';
 import { ExecutiveDashboardCharts } from '@/components/admin/charts/SectionChartPanels';
+import { ExecutiveCrossAnalyticsSection } from '@/components/admin/analytics/ExecutiveCrossAnalyticsSection';
 
 export function AdminDashboard() {
   return (
@@ -26,6 +27,8 @@ export function AdminDashboard() {
       </div>
 
       <ExecutiveDashboardCharts />
+
+      <ExecutiveCrossAnalyticsSection />
 
       <DashboardHelpSection />
     </PageShell>

@@ -26,6 +26,7 @@ import {
 } from '@/lib/responseTimeAggregates';
 import {
   buildNeighborhoodBreakdownFromGeoRows,
+  buildStreetBreakdownFromGeoRows,
   buildTimelineFromUrbanReports,
   buildVolumeByZoneFromGeoRows,
   filterGeoRowsByRegion,
@@ -113,6 +114,9 @@ export interface ReportsAnalyticsStats {
   /** Bairros/locais por zona — base do drill-down por distrito (volume). */
   neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[];
 
+  /** Logradouros por bairro/zona — drill cidade → região → bairro → rua (HU-3.1). */
+  streetBreakdown: { street: string; neighborhood: string; zone: string; count: number }[];
+
   /** HU-2.2 — tempo médio até resposta/resolução (relatos resolvidos no recorte). */
   responseTime: ResponseTimeDrillStats;
 
@@ -142,6 +146,7 @@ const emptyStats: ReportsAnalyticsStats = {
   categories: [],
   volumeByZone: [],
   neighborhoodBreakdown: [],
+  streetBreakdown: [],
   demographics: {
     byGender: [],
     byRace: [],
@@ -341,6 +346,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       let patternAlerts: PatternAlert[] = [];
       let volumeByZone: { zone: string; count: number }[] = [];
       let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
+      let streetBreakdown: { street: string; neighborhood: string; zone: string; count: number }[] = [];
 
       let responseTime: ResponseTimeDrillStats = EMPTY_RESPONSE_TIME_DRILL;
 
@@ -359,7 +365,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             .from('urban_reports')
             .select(`
             id, description, category, location_address, status, created_at, updated_at, severity, neighborhood,
-            latitude, longitude,
+            street, street_number, latitude, longitude,
             urban_report_likes(count),
             urban_report_comments(count)
           `)
@@ -402,6 +408,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             category: r.category,
             created_at: r.created_at,
             updated_at: r.updated_at ?? null,
+            street: (r.street as string | null) ?? null,
+            street_number: (r.street_number as string | null) ?? null,
           });
         });
 
@@ -499,6 +507,14 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           zone: r.zone,
           count: r.count,
         }));
+        streetBreakdown = buildStreetBreakdownFromGeoRows(
+          filterGeoRowsByRegion(territoryGeoRows, filters.region) as TerritoryGeoRow[],
+        ).map((r) => ({
+          street: r.street,
+          neighborhood: r.neighborhood,
+          zone: r.zone,
+          count: r.count,
+        }));
 
         const territoryForTime = filterGeoRowsByRegion(
           territoryGeoRows,
@@ -580,6 +596,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           categories,
           volumeByZone,
           neighborhoodBreakdown,
+          streetBreakdown,
           responseTime,
           demographics: {
             byGender,

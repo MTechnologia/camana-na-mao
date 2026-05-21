@@ -83,10 +83,11 @@ export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
   const { chartSeries } = usePanelWidgetAnalytics(widget);
   const [grain, setGrain] = useState<DrillGrain>('overview');
   const [activeRegion, setActiveRegion] = useState<string | undefined>();
+  const [activeDistrict, setActiveDistrict] = useState<string | undefined>();
 
   const data = useMemo(
-    () => chartSeries(grain, metric, activeRegion),
-    [chartSeries, grain, metric, activeRegion],
+    () => chartSeries(grain, metric, activeRegion, activeDistrict),
+    [chartSeries, grain, metric, activeRegion, activeDistrict],
   );
 
   const onBarClick = useCallback(
@@ -96,15 +97,18 @@ export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
         setGrain('region');
         setActiveRegion(point.filterValue);
       } else if (grain === 'region' && point.filterKey === 'district') {
-        setGrain('district');
+        setActiveDistrict(point.filterValue);
+        setGrain('street');
       }
     },
     [enableDrill, grain],
   );
 
   const drillUp = () => {
-    if (grain === 'district') setGrain('region');
-    else if (grain === 'region') {
+    if (grain === 'street') {
+      setGrain('region');
+      setActiveDistrict(undefined);
+    } else if (grain === 'region') {
       setGrain('overview');
       setActiveRegion(undefined);
     }

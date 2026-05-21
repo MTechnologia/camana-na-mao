@@ -1,11 +1,17 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import { DISTRICT_LABEL_FALLBACK, STREET_LABEL_FALLBACK } from '@/lib/reportsAnalyticsAggregates';
 import {
-  drillThroughResultLimit,
+  escapeForIlike,
   matchesTerritoryBar,
+  matchesTerritoryBarWithStreet,
+  parseStreetBarLabel,
   shouldFetchEvaluationsForCategory,
   shouldFetchTransportForCategory,
 } from '@/lib/drillThroughMatchers';
+
+/** Relatos exibidos por página no painel drill-through. */
+export const DRILL_THROUGH_PAGE_SIZE = 20;
 import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
 import type { ChartBarPoint, DrillReportRow } from '@/types/analyticsDrill';
 
@@ -47,6 +53,7 @@ function toUrbanRow(r: {
     title: (r.description ?? r.category ?? 'Relato urbano').slice(0, 80),
     status: STATUS_LABELS[r.status ?? ''] ?? r.status ?? '—',
     createdAt: new Date(r.created_at ?? '').toLocaleDateString('pt-BR'),
+    source: 'urban',
     sortKey: r.created_at ?? '',
   };
 }
@@ -67,6 +74,7 @@ function toTransportRow(r: {
     title: (r.description ?? label ?? 'Relato de transporte').slice(0, 80),
     status: STATUS_LABELS[r.status ?? ''] ?? r.status ?? '—',
     createdAt: new Date(r.created_at ?? '').toLocaleDateString('pt-BR'),
+    source: 'transport',
     sortKey: r.created_at ?? '',
   };
 }
@@ -83,14 +91,69 @@ function toEvaluationRow(r: {
     title: (r.rating_text ?? svc?.name ?? svc?.service_type ?? 'Avaliação').slice(0, 80),
     status: 'Avaliação',
     createdAt: new Date(r.created_at ?? '').toLocaleDateString('pt-BR'),
+    source: 'evaluation',
     sortKey: r.created_at ?? '',
   };
+}
+
+export type DrillThroughScope = {
+  activeRegion?: string;
+  activeDistrict?: string;
+};
+
+function territorialFetchLimit(bar: ChartBarPoint): number {
+  if (bar.filterKey === 'street' || bar.filterKey === 'district' || bar.filterKey === 'region') {
+    return 3000;
+  }
+  return 120;
+}
+
+function applyTerritorialUrbanQuery<T extends {
+  or: (filter: string) => T;
+  ilike: (col: string, pattern: string) => T;
+  eq: (col: string, value: string) => T;
+}>(
+  query: T,
+  bar: ChartBarPoint,
+  scope?: DrillThroughScope,
+): T {
+  let q = query;
+
+  const districtName =
+    scope?.activeDistrict ?? (bar.filterKey === 'district' ? bar.filterValue : undefined);
+  // Em nível de rua o bairro é validado no cliente (neighborhood pode estar só no endereço).
+  if (
+    bar.filterKey !== 'street' &&
+    districtName &&
+    districtName !== DISTRICT_LABEL_FALLBACK
+  ) {
+    const pattern = `%${escapeForIlike(districtName)}%`;
+    q = q.or(`neighborhood.ilike.${pattern},location_address.ilike.${pattern}`);
+  }
+
+  if (bar.filterKey === 'street' && bar.label !== STREET_LABEL_FALLBACK) {
+    const { street, number } = parseStreetBarLabel(bar.label);
+    const parts: string[] = [];
+    if (street) {
+      const pattern = `%${escapeForIlike(street)}%`;
+      parts.push(`street.ilike.${pattern}`, `location_address.ilike.${pattern}`);
+    }
+    if (number) {
+      parts.push(`street_number.eq.${number}`);
+    }
+    if (parts.length > 0) {
+      q = q.or(parts.join(','));
+    }
+  }
+
+  return q;
 }
 
 async function fetchUrbanDrillRows(
   filters: ReportsAnalyticsFilters,
   bar: ChartBarPoint,
   categorySlice: ReturnType<typeof resolveGlobalCategoryFilter>,
+  scope?: DrillThroughScope,
 ): Promise<SortableRow[]> {
   if (bar.filterKey === 'category' && shouldFetchTransportForCategory(bar.filterValue)) {
     if (!shouldFetchEvaluationsForCategory(bar.filterValue)) return [];
@@ -99,10 +162,10 @@ async function fetchUrbanDrillRows(
   let query = supabase
     .from('urban_reports')
     .select(
-      'id, description, status, created_at, category, neighborhood, location_address, latitude, longitude',
+      'id, description, status, created_at, category, neighborhood, location_address, street, street_number, latitude, longitude',
     )
     .order('created_at', { ascending: false })
-    .limit(120);
+    .limit(territorialFetchLimit(bar));
 
   query = applyDateFilters(query, filters);
 
@@ -110,6 +173,8 @@ async function fetchUrbanDrillRows(
     query = query.eq('category', bar.filterValue);
   } else if (!categorySlice.isAll && categorySlice.urbanCategories.length > 0) {
     query = query.in('category', categorySlice.urbanCategories);
+  } else if (bar.filterKey === 'street' || bar.filterKey === 'district' || bar.filterKey === 'region') {
+    query = applyTerritorialUrbanQuery(query, bar, scope);
   }
 
   const { data, error } = await query;
@@ -122,13 +187,16 @@ async function fetchUrbanDrillRows(
     .filter((r) =>
       bar.filterKey === 'category'
         ? true
-        : matchesTerritoryBar(
+        : matchesTerritoryBarWithStreet(
             bar,
             filters.region,
             r.neighborhood,
             r.location_address,
             r.latitude,
             r.longitude,
+            r.street,
+            r.street_number,
+            scope?.activeDistrict,
           ),
     )
     .map(toUrbanRow);
@@ -139,6 +207,10 @@ async function fetchTransportDrillRows(
   bar: ChartBarPoint,
   categorySlice: ReturnType<typeof resolveGlobalCategoryFilter>,
 ): Promise<SortableRow[]> {
+  if (bar.filterKey === 'street') {
+    return [];
+  }
+
   const fetchForCategory =
     bar.filterKey === 'category' ||
     (!categorySlice.isAll && categorySlice.transportSubcategories.length > 0);
@@ -147,7 +219,12 @@ async function fetchTransportDrillRows(
     return [];
   }
 
-  if (!fetchForCategory && bar.filterKey !== 'region' && bar.filterKey !== 'district') {
+  if (
+    !fetchForCategory &&
+    bar.filterKey !== 'region' &&
+    bar.filterKey !== 'district' &&
+    bar.filterKey !== 'street'
+  ) {
     return [];
   }
 
@@ -226,14 +303,20 @@ async function fetchEvaluationDrillRows(
   );
 }
 
+export type DrillThroughFetchResult = {
+  reports: DrillReportRow[];
+  total: number;
+};
+
 export async function fetchDrillThroughReports(
   filters: ReportsAnalyticsFilters,
   bar: ChartBarPoint,
-): Promise<DrillReportRow[]> {
+  scope?: DrillThroughScope,
+): Promise<DrillThroughFetchResult> {
   const categorySlice = resolveGlobalCategoryFilter(filters.category);
 
   const [urban, transport, evaluations] = await Promise.all([
-    fetchUrbanDrillRows(filters, bar, categorySlice),
+    fetchUrbanDrillRows(filters, bar, categorySlice, scope),
     fetchTransportDrillRows(filters, bar, categorySlice),
     fetchEvaluationDrillRows(filters, bar),
   ]);
@@ -242,11 +325,28 @@ export async function fetchDrillThroughReports(
     b.sortKey.localeCompare(a.sortKey),
   );
 
-  const limit = drillThroughResultLimit(bar.value);
-  return merged.slice(0, limit).map(({ id, title, status, createdAt }) => ({
+  const reports = merged.map(({ id, title, status, createdAt, source }) => ({
     id,
     title,
     status,
     createdAt,
+    source,
   }));
+
+  return { reports, total: reports.length };
+}
+
+export function paginateDrillThroughReports(
+  reports: DrillReportRow[],
+  page: number,
+  pageSize: number = DRILL_THROUGH_PAGE_SIZE,
+): DrillReportRow[] {
+  const safePage = Math.max(1, page);
+  const start = (safePage - 1) * pageSize;
+  return reports.slice(start, start + pageSize);
+}
+
+export function drillThroughTotalPages(total: number, pageSize: number = DRILL_THROUGH_PAGE_SIZE): number {
+  if (total <= 0) return 1;
+  return Math.ceil(total / pageSize);
 }
