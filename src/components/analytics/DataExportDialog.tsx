@@ -40,6 +40,7 @@ import {
   type ExportRole,
 } from "@/lib/exportFields";
 import { useUserRole } from "@/hooks/useUserRole";
+import { effectiveExportRole as resolveStaffExportRole } from "@/lib/exportStaffRole";
 import {
   useCsvExport,
   CSV_EXPORT_MAX_ROWS,
@@ -53,7 +54,7 @@ import {
 import { useExportJobs } from "@/hooks/useExportJobs";
 import { ScheduleExportDialog } from "@/components/analytics/ScheduleExportDialog";
 import { CalendarClock } from "lucide-react";
-import type { ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
+import type { DataExportDefaultFilters } from "@/lib/buildDataExportFilters";
 
 /** Acima desse limite, vai pro caminho server-side (HU-7.5). */
 const CLIENT_SIDE_THRESHOLD = 50_000;
@@ -76,13 +77,7 @@ export type ExportFormat = "csv" | "xlsx";
 interface DataExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultFilters?: {
-    startDate?: Date | string | null;
-    endDate?: Date | string | null;
-    categories?: string[];
-    regions?: string[];
-    zones?: ZonaVolumeOuDesconhecida[];
-  };
+  defaultFilters?: DataExportDefaultFilters;
   defaultDataset?: ExportDataset;
   defaultFormat?: ExportFormat;
 }
@@ -166,8 +161,13 @@ export function DataExportDialog({
 
   // HU-7.3 — Determina a role efetiva (admin tem precedência sobre gestor)
   // e calcula o cap de linhas dinâmico baseado em role+formato.
-  const { isAdmin, isGestor } = useUserRole();
-  const effectiveRole: ExportRole | null = isAdmin ? "admin" : isGestor ? "gestor" : null;
+  const { isAdmin, isGestor, isAssessor, isVereador } = useUserRole();
+  const effectiveRole: ExportRole | null = resolveStaffExportRole({
+    isAdmin,
+    isGestor,
+    isAssessor,
+    isVereador,
+  });
   const roleCap = getRowCap(effectiveRole, format);
   // Hard cap do client (browser tem que aguentar o conjunto em memória).
   // Acima disso, vai pra Edge Function (HU-7.5).
@@ -348,6 +348,7 @@ export function DataExportDialog({
     if ((f?.categories?.length ?? 0) > 0) chips.push(`${f!.categories!.length} categoria(s)`);
     if ((f?.regions?.length ?? 0) > 0) chips.push(`${f!.regions!.length} bairro(s)`);
     if ((f?.zones?.length ?? 0) > 0) chips.push(`${f!.zones!.length} zona(s)`);
+    if (f?.status) chips.push("Status");
     return chips;
   }, [defaultFilters]);
 

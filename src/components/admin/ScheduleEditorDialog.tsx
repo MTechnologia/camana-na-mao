@@ -36,6 +36,7 @@ import {
 } from "@/lib/exportFields";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { ExportRole } from "@/lib/exportFields";
+import { effectiveExportRole } from "@/lib/exportStaffRole";
 import {
   RELATIVE_PERIOD_OPTIONS,
   formatPeriodPtBr,
@@ -73,8 +74,13 @@ export function ScheduleEditorDialog({
   target,
 }: ScheduleEditorDialogProps) {
   const { schedules, create, update } = useScheduledExports();
-  const { isAdmin, isGestor } = useUserRole();
-  const role: ExportRole | null = isAdmin ? "admin" : isGestor ? "gestor" : null;
+  const { isAdmin, isGestor, isAssessor, isVereador } = useUserRole();
+  const role: ExportRole | null = effectiveExportRole({
+    isAdmin,
+    isGestor,
+    isAssessor,
+    isVereador,
+  });
 
   const isEdit = target !== null;
   const [name, setName] = useState("");

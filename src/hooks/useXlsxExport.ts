@@ -43,6 +43,7 @@ export interface XlsxExportConfig {
     categories?: string[];
     regions?: string[];
     zones?: ZonaVolumeOuDesconhecida[];
+    status?: string;
   };
 }
 
@@ -205,6 +206,10 @@ export function useXlsxExport(): UseXlsxExportResult {
           if (cats.length > 0) q = q.in(categoryColumn, cats);
           if (useRegionsServerSide && regions.length > 0) {
             q = q.in("neighborhood", regions);
+          }
+          const status = config.filters?.status;
+          if (useRegionsServerSide && status) {
+            q = q.eq("status", status);
           }
           q = q.order(orderColumn, { ascending: orderAsc });
           const to = Math.min(

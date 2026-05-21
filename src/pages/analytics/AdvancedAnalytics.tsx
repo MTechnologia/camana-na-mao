@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Plus, Download } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 
 import { ChartCard } from '@/components/analytics/ChartCard';
 import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
-import { ExportDialog } from '@/components/analytics/ExportDialog';
+import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
+import { dataExportFiltersFromDateRange } from '@/lib/buildDataExportFilters';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
@@ -56,7 +57,10 @@ const AdvancedAnalytics = () => {
   const [selectedMetric, setSelectedMetric] = useState('count');
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillPath, setDrillPath] = useState<Array<{ label: string; value: string }>>([]);
-  const [showExport, setShowExport] = useState(false);
+  const exportFilters = useMemo(
+    () => dataExportFiltersFromDateRange(filters.dateRange, filters.category || undefined),
+    [filters.dateRange, filters.category],
+  );
 
   const activeCount = useMemo(() => {
     let count = 0;
@@ -214,10 +218,7 @@ const AdvancedAnalytics = () => {
           <Button variant="outline" onClick={() => navigate('/analytics/dashboards')}>
             Salvar como painel
           </Button>
-          <Button onClick={() => setShowExport(true)} className="gap-2">
-            <Download className="w-4 h-4" />
-            Exportar análise
-          </Button>
+          <DataExportTrigger defaultFilters={exportFilters} label="Exportar dados" />
         </div>
 
         {/* Drill Path Indicator */}
@@ -238,14 +239,6 @@ const AdvancedAnalytics = () => {
         )}
       </div>
 
-      {/* Export Dialog */}
-      <ExportDialog
-        isOpen={showExport}
-        onClose={() => setShowExport(false)}
-        exportType="advanced-analysis"
-        currentFilters={filters}
-        estimatedRows={data.reduce((acc, d) => acc + d.value, 0)}
-      />
     </div>
   );
 };

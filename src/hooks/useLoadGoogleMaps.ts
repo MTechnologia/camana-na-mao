@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { googleMapsScriptUrl, isGoogleMapsScript } from '@/lib/googleMapsLoader';
 
 declare global {
   interface Window {
@@ -9,8 +10,8 @@ declare global {
 
 /**
  * Carrega o script da API Google Maps e sinaliza quando estiver pronto.
+ * Mapas de calor usam deck.gl (@deck.gl/google-maps + HeatmapLayer).
  * Requer VITE_GOOGLE_MAPS_API_KEY no .env.
- * Usa loading=async conforme recomendação do Google para melhor performance.
  */
 export function useLoadGoogleMaps(apiKey: string | undefined) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -25,7 +26,11 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
       return;
     }
 
-    if (window.google?.maps && (typeof window.google.maps.Map === 'function' || typeof (window.google.maps as any).importLibrary === 'function')) {
+    if (
+      window.google?.maps &&
+      (typeof window.google.maps.Map === 'function' ||
+        typeof (window.google.maps as { importLibrary?: unknown }).importLibrary === 'function')
+    ) {
       setIsLoaded(true);
       return;
     }
@@ -33,7 +38,7 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
     const isMapsReady = () =>
       !!window.google?.maps &&
       (typeof window.google.maps.Map === 'function' ||
-        typeof (window.google.maps as any).importLibrary === 'function');
+        typeof (window.google.maps as { importLibrary?: unknown }).importLibrary === 'function');
 
     const waitForMapsReady = (timeoutMs = 5000, intervalMs = 100) =>
       new Promise<boolean>((resolve) => {
@@ -56,8 +61,15 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
         }, intervalMs);
       });
 
-    const existing = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+    const existing = document.querySelector(
+      'script[src*="maps.googleapis.com/maps/api/js"]',
+    ) as HTMLScriptElement | null;
+
     if (existing) {
+      if (!isGoogleMapsScript(existing.getAttribute('src'))) {
+        setError('Script do Google Maps inválido. Recarregue a página.');
+        return;
+      }
       if (isMapsReady()) {
         setIsLoaded(true);
       } else {
@@ -72,8 +84,9 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
       return;
     }
 
-    const callbackName = '__googleMapsCallback';
-    (window as any)[callbackName] = async () => {
+    const callbackName = '__googleMapsCallback' as const;
+
+    window.__googleMapsCallback = async () => {
       if (!mountedRef.current) return;
       const ready = await waitForMapsReady();
       if (!mountedRef.current) return;
@@ -82,7 +95,7 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
     };
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=visualization&callback=${callbackName}`;
+    script.src = googleMapsScriptUrl(apiKey, callbackName);
     script.async = true;
     script.defer = true;
     script.onerror = () => setError('Falha ao carregar Google Maps');
@@ -90,9 +103,7 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
 
     return () => {
       mountedRef.current = false;
-      // Mantém callback como no-op para evitar "callback is not a function"
-      // se o script carregar após unmount
-      (window as any)[callbackName] = () => {};
+      window.__googleMapsCallback = () => {};
     };
   }, [apiKey]);
 

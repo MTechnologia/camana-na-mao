@@ -10,12 +10,19 @@ import { DataExportDialog } from '@/components/analytics/DataExportDialog';
 import { ExportJobsPanel } from '@/components/analytics/ExportJobsPanel';
 import { ScheduleExportDialog } from '@/components/analytics/ScheduleExportDialog';
 import { getDefaultExportScheduleConfig } from '@/lib/exportFields';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Navigate } from 'react-router-dom';
 
 export function ExportLogsPage() {
+  const { canExportData, loading } = useUserRole();
   const [exportOpen, setExportOpen] = useState(false);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const defaultScheduleConfig = useMemo(() => getDefaultExportScheduleConfig(), []);
+
+  if (!loading && !canExportData) {
+    return <Navigate to="/admin" replace />;
+  }
 
   return (
     <PageShell

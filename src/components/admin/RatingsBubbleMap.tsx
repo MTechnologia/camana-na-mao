@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLoadGoogleMaps } from "@/hooks/useLoadGoogleMaps";
 import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
+import {
+  createGoogleHeatmapLayer,
+  heatmapLayerErrorMessage,
+  type GoogleHeatmapLayer,
+} from "@/lib/googleMapsHeatmapLayer";
 import type { ServiceRatingsAggregate } from "@/hooks/useRatingsConcentration";
 
 /**
@@ -14,8 +19,6 @@ import type { ServiceRatingsAggregate } from "@/hooks/useRatingsConcentration";
  */
 
 const SP_CENTER = { lat: -23.5505, lng: -46.6333 };
-
-type HeatmapLayerInstance = { setMap: (map: google.maps.Map | null) => void };
 
 interface RatingsBubbleMapProps {
   aggregates: ServiceRatingsAggregate[];
@@ -46,10 +49,12 @@ export function radiusForCount(count: number): number {
 export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const heatmapRef = useRef<HeatmapLayerInstance | null>(null);
+  const heatmapRef = useRef<GoogleHeatmapLayer | null>(null);
+  const skipMapIdleAfterFirstRef = useRef(false);
   const circlesRef = useRef<google.maps.Circle[]>([]);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [heatmapError, setHeatmapError] = useState<string | null>(null);
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded, error: loadError } = useLoadGoogleMaps(apiKey);
 
@@ -98,6 +103,7 @@ export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps
     return () => {
       cancelled = true;
       setMapReady(false);
+      skipMapIdleAfterFirstRef.current = false;
       heatmapRef.current?.setMap(null);
       heatmapRef.current = null;
       circlesRef.current.forEach((c) => c.setMap(null));
@@ -116,46 +122,32 @@ export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps
     heatmapRef.current = null;
     circlesRef.current.forEach((c) => c.setMap(null));
     circlesRef.current = [];
+    setHeatmapError(null);
 
     if (aggregates.length === 0) return;
 
     let cancelled = false;
     const run = async () => {
       try {
-        const g = window.google.maps as typeof google.maps & {
-          importLibrary?: (name: string) => Promise<{ HeatmapLayer?: new (opts: object) => HeatmapLayerInstance }>;
-        };
-
-        // Heatmap (camada 1)
-        let HeatmapLayerCtor: new (opts: object) => HeatmapLayerInstance;
-        if (typeof g.importLibrary === "function") {
-          const vis = await g.importLibrary("visualization");
-          if (!vis?.HeatmapLayer) throw new Error("HeatmapLayer indisponível");
-          HeatmapLayerCtor = vis.HeatmapLayer;
-        } else {
-          const legacy = (
-            google.maps as typeof google.maps & {
-              visualization?: { HeatmapLayer: new (opts: object) => HeatmapLayerInstance };
-            }
-          ).visualization;
-          if (!legacy?.HeatmapLayer) throw new Error("visualization library não carregada");
-          HeatmapLayerCtor = legacy.HeatmapLayer;
-        }
-
         if (cancelled || !mapInstanceRef.current) return;
 
-        const heatmapData = aggregates.map((a) => ({
-          location: new google.maps.LatLng(a.lat, a.lng),
+        const heatmapPoints = aggregates.map((a) => ({
+          lat: a.lat,
+          lng: a.lng,
           weight: a.count,
         }));
-        const maxW = Math.max(...aggregates.map((a) => a.count), 1);
-        heatmapRef.current = new HeatmapLayerCtor({
-          map: mapInstanceRef.current,
-          data: heatmapData,
+        const hm = await createGoogleHeatmapLayer(mapInstanceRef.current, heatmapPoints, {
           radius: 24,
           opacity: 0.45,
-          maxIntensity: maxW,
+          layerIdSuffix: 'ratings',
+          skipMapIdle: skipMapIdleAfterFirstRef.current,
         });
+        if (cancelled || !mapInstanceRef.current) {
+          hm.setMap(null);
+          return;
+        }
+        heatmapRef.current = hm;
+        skipMapIdleAfterFirstRef.current = true;
 
         // Bolhas (camada 2)
         aggregates.forEach((a) => {
@@ -192,6 +184,7 @@ export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps
         });
       } catch (e) {
         console.error("[RatingsBubbleMap] render falhou:", e);
+        if (!cancelled) setHeatmapError(heatmapLayerErrorMessage(e));
       }
     };
 
@@ -209,10 +202,10 @@ export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps
     );
   }
 
-  if (loadError) {
+  if (loadError || heatmapError) {
     return (
-      <div className="flex h-[min(70vh,560px)] min-h-[400px] items-center justify-center rounded-lg border border-destructive/30 text-sm text-destructive">
-        {loadError}
+      <div className="flex h-[min(70vh,560px)] min-h-[400px] items-center justify-center rounded-lg border border-destructive/30 p-4 text-center text-sm text-destructive">
+        {loadError ?? heatmapError}
       </div>
     );
   }

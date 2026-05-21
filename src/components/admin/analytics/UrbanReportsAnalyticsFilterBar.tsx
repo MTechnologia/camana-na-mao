@@ -1,4 +1,5 @@
 import { RotateCcw } from 'lucide-react';
+import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
 import { AnalyticsLiveBadge } from '@/components/analytics/AnalyticsLiveBadge';
 import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import {
   URBAN_ANALYTICS_PERIOD_OPTIONS,
   URBAN_ANALYTICS_STATUS_OPTIONS,
 } from '@/lib/urbanReportsAnalyticsFilterOptions';
+import { dataExportFiltersFromUrbanAnalytics } from '@/lib/buildDataExportFilters';
 import { cn } from '@/lib/utils';
 
 const selectClass = cn(
@@ -34,6 +36,7 @@ export function UrbanReportsAnalyticsFilterBar() {
   const periodLabel =
     URBAN_ANALYTICS_PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'Período';
   const recorteSummary = chipLabels.join(' · ');
+  const exportFilters = dataExportFiltersFromUrbanAnalytics(period, category, status);
 
   return (
     <div
@@ -92,8 +95,14 @@ export function UrbanReportsAnalyticsFilterBar() {
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             Redefinir
           </Button>
+          <DataExportTrigger
+            className="h-9 shrink-0"
+            defaultFilters={exportFilters}
+            defaultDataset="urban_reports"
+            label="Exportar"
+          />
           <AnalyticsLiveBadge
-            className="ml-auto shrink-0"
+            className="shrink-0"
             lastUpdates={[lastUpdate]}
             onRefresh={refresh}
             refreshing={isLoading}

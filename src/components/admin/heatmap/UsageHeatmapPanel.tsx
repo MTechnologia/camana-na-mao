@@ -109,6 +109,13 @@ export function UsageHeatmapPanel() {
           <AdminReportsHeatmap points={data?.points ?? []} />
         )}
 
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-muted-foreground">Referência rápida:</span>
+          <Badge style={{ backgroundColor: 'hsl(221, 83%, 40%)', color: 'white' }}>Menor densidade</Badge>
+          <Badge style={{ backgroundColor: 'hsl(78, 70%, 42%)', color: 'black' }}>Intermediária</Badge>
+          <Badge style={{ backgroundColor: 'hsl(0, 72%, 48%)', color: 'white' }}>Maior densidade</Badge>
+        </div>
+
         {data && (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-muted-foreground">
