@@ -35,22 +35,30 @@ export function ReportsDataTable({
   rows,
   selectedId,
   onSelect,
+  embedded = false,
 }: {
   rows: UrbanReportRecord[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Dentro de um bloco único da página — sem card externo duplicado. */
+  embedded?: boolean;
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
+      <div
+        className={
+          embedded
+            ? 'px-6 py-12 text-center text-sm text-muted-foreground'
+            : 'rounded-xl border border-dashed border-border bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground'
+        }
+      >
         Nenhum relato neste recorte. Ajuste os filtros globais ou troque de aba.
       </div>
     );
   }
 
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="overflow-x-auto">
+  const table = (
+    <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -107,7 +115,14 @@ export function ReportsDataTable({
             })}
           </tbody>
         </table>
-      </div>
+    </div>
+  );
+
+  if (embedded) return table;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      {table}
     </div>
   );
 }

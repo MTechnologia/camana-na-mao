@@ -1,10 +1,13 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AdminMobileMenuButton } from '@/components/admin/AdminSidebar';
+import {
+  AdminDesktopSidebarToggle,
+  AdminMobileMenuButton,
+} from '@/components/admin/AdminSidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
@@ -16,6 +19,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { NotificationDropdown } from './NotificationDropdown';
+import { AdminAnalyticsFilters } from './AdminAnalyticsFilters';
+import {
+  adminBarActionsGroupClass,
+  adminBarAnalyticsNavButtonClass,
+  adminBarGhostActionClass,
+  adminBarNavButtonClass,
+} from './adminHeaderStyles';
 
 const routeNames: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -33,9 +43,7 @@ const routeNames: Record<string, string> = {
   '/admin/reports': 'Gestão de Relatos',
   '/admin/referrals': 'Encaminhamentos',
   '/admin/commissions': 'Comissões (encaminhamento)',
-  // HU-12 — auditoria
   '/admin/audit-logs': 'Logs de Auditoria',
-  // HU-9 — analytics avançadas
   '/admin/trends': 'Tendência temporal',
   '/admin/reports-heatmap': 'Mapa de calor',
   '/admin/avaliacoes-polarizacao': 'Polarização de avaliações',
@@ -44,14 +52,10 @@ const routeNames: Record<string, string> = {
   '/admin/padroes': 'Padrões da IA',
   '/admin/previsoes': 'Previsões',
   '/admin/anomalias': 'Anomalias',
-  // HU-10 — triagem
   '/admin/triagem': 'Triagem',
-  // HU-11 — permissões
   '/admin/permissions': 'Permissões',
-  // HU-8 — agendamentos
   '/admin/configuracoes': 'Configurações',
   '/admin/configuracoes/agendamentos': 'Agendamentos',
-  // Demais admin pages
   '/admin/audit-logs/': 'Logs de Auditoria',
   '/admin/service-corrections': 'Correções de equipamentos',
   '/admin/settings': 'Configurações',
@@ -59,20 +63,92 @@ const routeNames: Record<string, string> = {
 };
 
 interface AdminHeaderProps {
+  /** Exibe filtros de recorte analítico (período, região, categoria). */
+  showAnalyticsFilters?: boolean;
   hideMobileMenu?: boolean;
   hideBreadcrumbs?: boolean;
 }
 
-export const AdminHeader = ({
-  hideMobileMenu = false,
-  hideBreadcrumbs = false,
-}: AdminHeaderProps) => {
-  const isMobile = useIsMobile();
-  const location = useLocation();
+function AdminHeaderActions() {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { signOut } = useAuth();
-  
+
+  return (
+    <div className={adminBarActionsGroupClass}>
+      <NotificationDropdown triggerClassName={adminBarGhostActionClass} />
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-9 w-9', adminBarGhostActionClass)}
+            aria-label="Menu da conta"
+          >
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={profile?.avatar_url || undefined} />
+              <AvatarFallback className="bg-analytics-bar-surface text-analytics-bar-control">
+                {profile?.full_name?.charAt(0) || 'A'}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>
+            <div>
+              <p className="font-medium">{profile?.full_name}</p>
+              <p className="text-xs text-muted-foreground">{profile?.phone}</p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => navigate('/perfil')}>Perfil</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/admin/settings/accessibility')}>
+            Configurações
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => signOut()}
+          >
+            Sair
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function AdminHeaderNavControls({
+  hideMobileMenu,
+  analyticsMode = false,
+}: {
+  hideMobileMenu: boolean;
+  analyticsMode?: boolean;
+}) {
+  const navClass = analyticsMode ? adminBarAnalyticsNavButtonClass : adminBarNavButtonClass;
+
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      {!hideMobileMenu && <AdminMobileMenuButton className={navClass} />}
+      <AdminDesktopSidebarToggle className={navClass} />
+    </div>
+  );
+}
+
+function AdminHeaderDivider() {
+  return (
+    <div
+      className="hidden h-8 w-px shrink-0 bg-analytics-bar-border/60 sm:block"
+      aria-hidden
+    />
+  );
+}
+
+function AdminHeaderBreadcrumbs() {
+  const isMobile = useIsMobile();
+  const location = useLocation();
+
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const breadcrumbs = pathSegments.map((_, index) => {
     const path = '/' + pathSegments.slice(0, index + 1).join('/');
@@ -82,91 +158,96 @@ export const AdminHeader = ({
     };
   });
 
-  // Truncate breadcrumbs on mobile
-  const displayBreadcrumbs = isMobile 
-    ? [breadcrumbs[breadcrumbs.length - 1]] 
-    : breadcrumbs;
+  if (breadcrumbs.length === 0) return null;
 
+  const currentPage = breadcrumbs[breadcrumbs.length - 1];
+  const trail = isMobile ? [currentPage] : breadcrumbs;
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col justify-center">
+      {isMobile && (
+        <p className="truncate text-base font-semibold leading-tight text-analytics-bar-foreground sm:hidden">
+          {currentPage.name}
+        </p>
+      )}
+
+      <nav aria-label="Localização no painel" className="min-w-0">
+        <ol
+          className={cn(
+            'flex min-w-0 flex-wrap items-center gap-1 text-sm text-analytics-bar-muted',
+            isMobile && 'hidden sm:flex',
+          )}
+        >
+          {trail.map((crumb, index) => {
+            const isLast = index === trail.length - 1;
+
+            return (
+              <li key={crumb.path} className="flex min-w-0 max-w-full items-center gap-1">
+                {index > 0 && (
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                )}
+                {isLast ? (
+                  <span
+                    className="truncate font-medium text-analytics-bar-foreground"
+                    aria-current="page"
+                  >
+                    {crumb.name}
+                  </span>
+                ) : (
+                  <Link
+                    to={crumb.path}
+                    className="truncate hover:text-analytics-bar-foreground hover:underline"
+                  >
+                    {crumb.name}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+    </div>
+  );
+}
+
+export const AdminHeader = ({
+  showAnalyticsFilters = false,
+  hideMobileMenu = false,
+  hideBreadcrumbs = false,
+}: AdminHeaderProps) => {
+  const location = useLocation();
   const pathNorm = location.pathname.replace(/\/+$/, '') || '/';
   const hideHeaderDivider = pathNorm.startsWith('/admin/docs');
 
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 bg-analytics-bar px-4 py-3 text-analytics-bar-foreground backdrop-blur-sm md:px-6 md:py-4',
-        !hideHeaderDivider && 'border-b border-analytics-bar-border',
+        'sticky top-0 z-40 bg-analytics-bar backdrop-blur-sm',
+        showAnalyticsFilters ? 'text-white' : 'text-analytics-bar-foreground',
+        !hideHeaderDivider && 'border-b shadow-sm',
+        showAnalyticsFilters ? 'border-white/10 shadow-black/10' : 'border-analytics-bar-border',
         hideHeaderDivider && 'border-b-0 shadow-none',
       )}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          {isMobile && !hideMobileMenu && (
-            <AdminMobileMenuButton className="shrink-0 text-analytics-bar-foreground hover:bg-analytics-bar-surface/20" />
-          )}
-
-          {!hideBreadcrumbs && (
-          <div className="flex items-center gap-2 overflow-hidden text-sm text-analytics-bar-muted">
-            {displayBreadcrumbs.map((crumb, index) => (
-              <div key={crumb.path} className="flex items-center gap-2 truncate">
-                {index > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                <span className={cn(
-                  "truncate",
-                  index === displayBreadcrumbs.length - 1
-                    ? 'font-medium text-analytics-bar-foreground'
-                    : ''
-                )}>
-                  {crumb.name}
-                </span>
-              </div>
-            ))}
+      <div className={cn('px-3 sm:px-4 md:px-5', showAnalyticsFilters && 'lg:px-6')}>
+        {showAnalyticsFilters ? (
+          <div className="flex min-w-0 items-center gap-2 py-2 sm:gap-2.5 md:py-2">
+            <AdminHeaderNavControls hideMobileMenu={false} analyticsMode />
+            <AdminAnalyticsFilters />
           </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-          <NotificationDropdown />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2 px-2">
-                {!isMobile && (
-                  <div className="text-right hidden md:block">
-                    <p className="text-sm font-medium text-analytics-bar-foreground">{profile?.full_name}</p>
-                    <p className="text-xs text-analytics-bar-muted">Administrador</p>
-                  </div>
-                )}
-                <Avatar className="h-8 w-8 md:h-9 md:w-9">
-                  <AvatarImage src={profile?.avatar_url || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {profile?.full_name?.charAt(0) || 'A'}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div>
-                  <p className="font-medium">{profile?.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{profile?.phone}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/perfil')}>
-                Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/admin/settings/accessibility')}>
-                Configurações
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => signOut()}
-              >
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2 py-2.5 sm:gap-3 md:py-3">
+            <AdminHeaderNavControls hideMobileMenu={hideMobileMenu} />
+            {!hideBreadcrumbs && (
+              <>
+                <AdminHeaderDivider />
+                <AdminHeaderBreadcrumbs />
+              </>
+            )}
+            {!hideBreadcrumbs ? null : <div className="min-w-0 flex-1" aria-hidden />}
+            <AdminHeaderActions />
+          </div>
+        )}
       </div>
     </header>
   );

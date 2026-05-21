@@ -13,10 +13,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, Check, ExternalLink, AlertTriangle, Users, FileText, Bus, Building2 } from 'lucide-react';
 import { getNotificationType } from '@/constants/notificationTypes';
+import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const NotificationDropdown = () => {
+type NotificationDropdownProps = {
+  triggerClassName?: string;
+};
+
+export const NotificationDropdown = ({ triggerClassName }: NotificationDropdownProps) => {
   const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [open, setOpen] = useState(false);
@@ -57,7 +62,7 @@ export const NotificationDropdown = () => {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className={cn('relative h-9 w-9', triggerClassName)}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 

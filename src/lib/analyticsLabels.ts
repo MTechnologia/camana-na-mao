@@ -23,6 +23,17 @@ export function metricLabel(metric: AnalyticsMetric): string {
   return map[metric];
 }
 
+/** Rótulo curto para cartões e controles compactos. */
+export function metricShortLabel(metric: AnalyticsMetric): string {
+  const map: Record<AnalyticsMetric, string> = {
+    volume: 'Volume',
+    response_time: 'Tempo de resposta',
+    sentiment: 'Sentimento',
+    patterns: 'Padrões',
+  };
+  return map[metric];
+}
+
 export function formatKpiValue(metric: AnalyticsMetric, kpis: DrillKpis): string {
   switch (metric) {
     case 'volume':

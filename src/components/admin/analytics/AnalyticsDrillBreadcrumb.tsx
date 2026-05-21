@@ -1,4 +1,4 @@
-import { ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronRight, RotateCcw, X } from 'lucide-react';
 import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
 import { metricLabel } from '@/lib/analyticsLabels';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
@@ -6,12 +6,61 @@ import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
 import { labelForCategory, labelForPeriod } from '@/lib/globalFilterOptions';
 import { cn } from '@/lib/utils';
 
-export function AnalyticsDrillBreadcrumb() {
+type AnalyticsDrillBreadcrumbProps = {
+  /** Barra mínima: só aparece com drill territorial ativo. */
+  variant?: 'default' | 'compact';
+};
+
+export function AnalyticsDrillBreadcrumb({ variant = 'default' }: AnalyticsDrillBreadcrumbProps) {
   const { drillPath, drillUp, clearDrill, metric, grain } = useAnalyticsDrill();
   const { period, region, category } = useGlobalFilters();
 
   const hasActiveRecorte =
     drillPath.length > 1 || grain !== 'overview' || region !== 'all' || category !== 'all';
+
+  if (variant === 'compact' && !hasActiveRecorte) {
+    return null;
+  }
+
+  if (variant === 'compact') {
+    return (
+      <div
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm"
+        role="status"
+        aria-live="polite"
+      >
+        <nav aria-label="Nível do território" className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+          {drillPath.map((crumb, i) => (
+            <span key={crumb.id} className="flex items-center gap-1">
+              {i > 0 ? (
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden />
+              ) : null}
+              {i === drillPath.length - 1 ? (
+                <span className="font-medium text-foreground">{crumb.label}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="rounded-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => drillUp(i)}
+                >
+                  {crumb.label}
+                </button>
+              )}
+            </span>
+          ))}
+        </nav>
+        <button
+          type="button"
+          onClick={clearDrill}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Limpar drill e voltar à visão geral"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+          Limpar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:flex-row sm:items-stretch">

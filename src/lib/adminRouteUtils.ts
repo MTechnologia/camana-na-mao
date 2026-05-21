@@ -5,6 +5,8 @@ const ANALYTICS_CONTEXT_PATHS = [
   '/admin/trends',
   '/admin/reports-heatmap',
   '/admin/classification-accuracy',
+  '/admin/reports',
+  '/admin/referrals',
   '/paineis',
 ] as const;
 
