@@ -4,9 +4,9 @@ import { AdminProviders } from '@/components/admin/AdminProviders';
 import { PageSkeleton } from '@/components/skeletons/PageSkeleton';
 import { useUserRole } from '@/hooks/useUserRole';
 
-/** Gestor/admin: shell PO; cidadão: apenas o conteúdo da rota. */
+/** Staff institucional: shell admin PO; demais: conteúdo da rota sem sidebar. */
 export function PaineisLayout() {
-  const { isAdmin, isGestor, loading } = useUserRole();
+  const { canUseStaffPaineis, loading } = useUserRole();
 
   if (loading) {
     return (
@@ -16,7 +16,7 @@ export function PaineisLayout() {
     );
   }
 
-  if (isAdmin || isGestor) {
+  if (canUseStaffPaineis) {
     return (
       <AdminProviders>
         <AdminAppLayout />

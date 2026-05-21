@@ -12,6 +12,7 @@ import {
   REGION_FILTER_OPTIONS,
 } from '@/lib/globalFilterOptions';
 import { AdminDesktopSidebarToggle, AdminMobileMenuButton } from '@/components/admin/AdminSidebar';
+import { UnifiedAnalyticsLiveBadge } from '@/components/admin/UnifiedAnalyticsLiveBadge';
 import { cn } from '@/lib/utils';
 
 const controlClass = cn(
@@ -112,6 +113,8 @@ export function UnifiedAnalyticsContextBar() {
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               <span className="sr-only sm:not-sr-only sm:ml-1">Redefinir</span>
             </Button>
+
+            <UnifiedAnalyticsLiveBadge className="ml-auto shrink-0" />
           </div>
         </div>
 

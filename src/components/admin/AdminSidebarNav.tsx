@@ -109,21 +109,15 @@ function SidebarNavGroup({
     return (
       <ul className="space-y-1">
         {group.items.map((item) => (
-          <li key={item.to} className="relative">
+          <li key={item.to}>
             <SidebarNavItem
               to={item.to}
               end={navItemRequiresExactMatch(item, group.items)}
               label={item.label}
-              icon={group.Icon}
+              icon={item.Icon}
               collapsed
               onNavigate={onNavigate}
             />
-            {routeActive && (
-              <span
-                className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sidebar-primary"
-                aria-hidden
-              />
-            )}
           </li>
         ))}
       </ul>

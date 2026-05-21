@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { buildDrillKpisFromStats } from '@/lib/analyticsDrillFromStats';
 import { formatKpiValue, metricLabel } from '@/lib/analyticsLabels';
 import { KPI_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
@@ -10,8 +9,7 @@ import { KpiCard } from '@/components/ui/KpiCard';
 const metrics: AnalyticsMetric[] = ['volume', 'response_time', 'sentiment', 'patterns'];
 
 export function AnalyticsSummaryKpis() {
-  const { filters } = useUrbanReportsAnalyticsFilters();
-  const { stats } = useReportsAnalytics(filters);
+  const { stats } = useUrbanReportsAnalyticsFilters();
   const kpis = useMemo(() => buildDrillKpisFromStats(stats, 'overview'), [stats]);
 
   return (

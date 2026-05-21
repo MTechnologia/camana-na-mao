@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
+import { ANALYTICS_REALTIME_FULL } from "@/lib/analyticsRealtimeTables";
 import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
 import {
   DIMENSIONS,
@@ -346,6 +348,7 @@ export interface UseCrossDimensionResult {
   reports: UnifiedReport[];
   isLoading: boolean;
   error: string | null;
+  lastUpdate: Date | null;
   refresh: () => Promise<void>;
   /** Retorna os relatos que casam com `(rowValue, colValue)` para drill-into. */
   getReportsForCell: (rowValue: string, colValue: string) => UnifiedReport[];
@@ -359,6 +362,8 @@ export function useCrossDimensionAnalytics(
   const [reports, setReports] = useState<UnifiedReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const isFirstLoadRef = useRef(true);
 
   const filterKey = useMemo(
     () =>
@@ -372,7 +377,8 @@ export function useCrossDimensionAnalytics(
   );
 
   const fetchAll = useCallback(async () => {
-    setIsLoading(true);
+    const showSpinner = isFirstLoadRef.current;
+    if (showSpinner) setIsLoading(true);
     setError(null);
     try {
       const [urban, transport, service] = await Promise.all([
@@ -387,11 +393,13 @@ export function useCrossDimensionAnalytics(
       const demoMap = await fetchDemographics(userIds);
       const merged = attachDemographics(partial, demoMap);
       setReports(filterUnifiedReportsByRegion(merged, filters.region));
+      setLastUpdate(new Date());
     } catch (err) {
       console.error("[useCrossDimensionAnalytics] fetch error", err);
       setError("Não foi possível carregar dados para cruzamento.");
-      setReports([]);
+      if (isFirstLoadRef.current) setReports([]);
     } finally {
+      isFirstLoadRef.current = false;
       setIsLoading(false);
     }
   }, [
@@ -405,6 +413,8 @@ export function useCrossDimensionAnalytics(
   useEffect(() => {
     void fetchAll();
   }, [fetchAll]);
+
+  useRealtimeRefresh(ANALYTICS_REALTIME_FULL, fetchAll);
 
   const matrix = useMemo(
     () => (reports.length ? buildMatrix(reports, rowDim, colDim) : EMPTY_MATRIX),
@@ -422,7 +432,15 @@ export function useCrossDimensionAnalytics(
     [reports, rowDim, colDim],
   );
 
-  return { matrix, reports, isLoading, error, refresh: fetchAll, getReportsForCell };
+  return {
+    matrix,
+    reports,
+    isLoading,
+    error,
+    lastUpdate,
+    refresh: fetchAll,
+    getReportsForCell,
+  };
 }
 
 // Helpers exportados para teste

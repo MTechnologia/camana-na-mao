@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { ANALYTICS_REALTIME_FULL } from '@/lib/analyticsRealtimeTables';
 
 export type ManifestType = 'urban' | 'transport' | 'evaluation' | 'feedback';
 
@@ -138,6 +140,8 @@ interface UseReportsAdminReturn {
   deleteBulkManifests: (ids: { id: string; type: ManifestType }[]) => Promise<void>;
   exportToCSV: () => void;
   refetch: () => void;
+  /** HU-5.3 — última sincronização da lista/KPIs. */
+  lastDataUpdate: Date | null;
 }
 
 // Projeção mínima para lista (campos necessários para ManifestCard)
@@ -163,6 +167,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
   });
   const [kpisLoading, setKpisLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [lastDataUpdate, setLastDataUpdate] = useState<Date | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -253,6 +258,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           pending: 0,
         },
       });
+      setLastDataUpdate(new Date());
     } catch (error) {
       console.error('Error fetching KPIs:', error);
     } finally {
@@ -488,6 +494,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       setManifests(paginated);
       // Corrigir totalCount para incluir feedback
       setTotalCount(urbanCount + feedbackCount + transportCount + evaluationCount);
+      setLastDataUpdate(new Date());
     } catch (error) {
       console.error('Error fetching manifests:', error);
       toast.error('Erro ao carregar relatos');
@@ -830,37 +837,12 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     fetchManifests();
   }, [fetchKPIs, fetchManifests]);
 
-  useEffect(() => {
-    const urbanChannel = supabase
-      .channel('urban-reports-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'urban_reports' }, () => {
-        fetchManifests();
-        fetchKPIs();
-      })
-      .subscribe();
-
-    const transportChannel = supabase
-      .channel('transport-reports-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_reports' }, () => {
-        fetchManifests();
-        fetchKPIs();
-      })
-      .subscribe();
-
-    const ratingsChannel = supabase
-      .channel('ratings-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_ratings' }, () => {
-        fetchManifests();
-        fetchKPIs();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(urbanChannel);
-      supabase.removeChannel(transportChannel);
-      supabase.removeChannel(ratingsChannel);
-    };
+  const refreshAll = useCallback(() => {
+    void fetchManifests();
+    void fetchKPIs();
   }, [fetchManifests, fetchKPIs]);
+
+  useRealtimeRefresh(ANALYTICS_REALTIME_FULL, refreshAll);
 
   return {
     manifests,
@@ -894,5 +876,6 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     deleteBulkManifests,
     exportToCSV,
     refetch: fetchManifests,
+    lastDataUpdate,
   };
 };

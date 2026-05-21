@@ -121,8 +121,8 @@ const AnalyticsDashboard = () => {
       <div className="min-h-screen bg-gray-50 pt-[60px] max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-bold mb-2">Acesso restrito</h1>
         <p className="text-muted-foreground">
-          Dashboards públicos e analíticos estão disponíveis apenas para <strong>Cidadão Engajado</strong>,{' '}
-          <strong>Gestor</strong> e <strong>Admin</strong>.
+          Dashboards analíticos estão disponíveis para <strong>Admin</strong>, <strong>Gestor</strong>,{' '}
+          <strong>Assessor</strong>, <strong>Vereador</strong> e <strong>Cidadão Engajado</strong>.
         </p>
       </div>
     );

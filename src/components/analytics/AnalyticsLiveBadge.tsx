@@ -22,6 +22,7 @@ interface AnalyticsLiveBadgeProps {
   /** Quando true, mostra a animação de "girando" no botão de refresh. */
   refreshing?: boolean;
   className?: string;
+  indicatorTone?: "default" | "analyticsBar";
 }
 
 export function AnalyticsLiveBadge({
@@ -29,6 +30,7 @@ export function AnalyticsLiveBadge({
   onRefresh,
   refreshing,
   className,
+  indicatorTone = "default",
 }: AnalyticsLiveBadgeProps) {
   const mostRecent = useMemo(() => {
     let latest: Date | null = null;
@@ -40,14 +42,18 @@ export function AnalyticsLiveBadge({
 
   return (
     <div className={cn("inline-flex items-center gap-2", className)}>
-      <AdminLiveIndicator lastUpdate={mostRecent} />
+      <AdminLiveIndicator lastUpdate={mostRecent} tone={indicatorTone} />
       {onRefresh && (
         <Button
           variant="ghost"
           size="sm"
           onClick={onRefresh}
           disabled={refreshing}
-          className="h-7 w-7 p-0"
+          className={cn(
+            "h-7 w-7 p-0",
+            indicatorTone === "analyticsBar" &&
+              "text-analytics-bar-foreground hover:bg-white/10 hover:text-analytics-bar-foreground",
+          )}
           aria-label="Recarregar dados agora"
           title="Recarregar dados agora"
         >

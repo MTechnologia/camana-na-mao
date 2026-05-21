@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
 
 export interface Referral {
   id: string;
@@ -40,6 +42,7 @@ export const useReferralsAdmin = () => {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [lastDataUpdate, setLastDataUpdate] = useState<Date | null>(null);
   const [kpis, setKpis] = useState<ReferralKPIs>({
     total: 0,
     pending: 0,
@@ -81,6 +84,7 @@ export const useReferralsAdmin = () => {
         acknowledged: acknowledged || 0,
         resolved: resolved || 0,
       });
+      setLastDataUpdate(new Date());
     } catch (error) {
       console.error('Error fetching KPIs:', error);
     }
@@ -117,6 +121,7 @@ export const useReferralsAdmin = () => {
 
       setReferrals(data || []);
       setTotalCount(count || 0);
+      setLastDataUpdate(new Date());
     } catch (error) {
       console.error('Error fetching referrals:', error);
       toast({
@@ -225,6 +230,17 @@ export const useReferralsAdmin = () => {
     fetchReferrals();
     fetchKPIs();
   }, [fetchReferrals, fetchKPIs]);
+
+  const refreshAll = useCallback(() => {
+    void fetchReferrals();
+    void fetchKPIs();
+  }, [fetchReferrals, fetchKPIs]);
+
+  useRealtimeRefresh(['council_member_referrals'], refreshAll);
+  useRegisterAnalyticsLive('referrals-admin', {
+    lastUpdate: lastDataUpdate,
+    refresh: refreshAll,
+  });
 
   const totalPages = Math.ceil(totalCount / pageSize);
 

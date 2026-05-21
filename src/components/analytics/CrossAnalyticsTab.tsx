@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { useRegisterAnalyticsLive } from "@/hooks/useRegisterAnalyticsLive";
 import { globalFiltersToReportsAnalytics } from "@/lib/globalFiltersToAnalytics";
 import { regionLabel } from "@/lib/analyticsLabels";
 import { GitMerge, RefreshCw, ArrowLeftRight } from "lucide-react";
@@ -114,9 +115,15 @@ export function CrossAnalyticsTab({
     [period, region, category],
   );
 
-  const { matrix, reports, isLoading, error, refresh, getReportsForCell } =
+  const { matrix, reports, isLoading, error, lastUpdate, refresh, getReportsForCell } =
     useCrossDimensionAnalytics(rowDim, colDim, analyticsFilters);
   const drillInsight = useDrillInsight(analyticsFilters);
+
+  useRegisterAnalyticsLive(
+    "cross-analytics",
+    { lastUpdate, refresh: () => void refresh() },
+    urlPrefix === "exec",
+  );
 
   const filterHint = useMemo(() => {
     const parts: string[] = [];

@@ -6,7 +6,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import {
+  useReportsAnalytics,
+  type ReportsAnalyticsFilters,
+  type ReportsAnalyticsStats,
+} from '@/hooks/useReportsAnalytics';
 import { urbanReportsFiltersToReportsAnalytics } from '@/lib/urbanReportsFiltersToAnalytics';
 import { urbanAnalyticsFilterChipLabels } from '@/lib/urbanReportsAnalyticsFilterOptions';
 
@@ -25,6 +29,11 @@ const defaults: UrbanReportsAnalyticsFiltersState = {
 type Ctx = UrbanReportsAnalyticsFiltersState & {
   filters: ReportsAnalyticsFilters;
   chipLabels: string[];
+  stats: ReportsAnalyticsStats | null;
+  isLoading: boolean;
+  error: string | null;
+  lastUpdate: Date | null;
+  refresh: () => void;
   setPeriod: (v: string) => void;
   setCategory: (v: string) => void;
   setStatus: (v: string) => void;
@@ -44,20 +53,42 @@ export function UrbanReportsAnalyticsFiltersProvider({ children }: { children: R
     setStatus(defaults.status);
   }, []);
 
-  const value = useMemo<Ctx>(() => {
-    const filters = urbanReportsFiltersToReportsAnalytics(period, category, status);
-    return {
+  const filters = useMemo(
+    () => urbanReportsFiltersToReportsAnalytics(period, category, status),
+    [period, category, status],
+  );
+  const { stats, isLoading, error, lastUpdate, refresh } = useReportsAnalytics(filters);
+
+  const value = useMemo<Ctx>(
+    () => ({
       period,
       category,
       status,
       filters,
       chipLabels: urbanAnalyticsFilterChipLabels(period, category, status),
+      stats,
+      isLoading,
+      error,
+      lastUpdate,
+      refresh,
       setPeriod,
       setCategory,
       setStatus,
       reset,
-    };
-  }, [period, category, status, reset]);
+    }),
+    [
+      period,
+      category,
+      status,
+      filters,
+      stats,
+      isLoading,
+      error,
+      lastUpdate,
+      refresh,
+      reset,
+    ],
+  );
 
   return (
     <UrbanReportsAnalyticsFiltersContext.Provider value={value}>

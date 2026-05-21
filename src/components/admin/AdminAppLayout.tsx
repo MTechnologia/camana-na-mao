@@ -1,5 +1,8 @@
+import type { ReactNode } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnalyticsDrillProvider } from '@/contexts/AnalyticsDrillContext';
+import { AnalyticsLiveProvider } from '@/contexts/AnalyticsLiveContext';
+import { GlobalReportsAnalyticsProvider } from '@/contexts/GlobalReportsAnalyticsContext';
 import { CustomPanelsProvider } from '@/contexts/CustomPanelsContext';
 import { ReferralRoutingRulesProvider } from '@/contexts/ReferralRoutingRulesContext';
 import { AdminShell } from '@/components/admin/AdminSidebar';
@@ -20,6 +23,18 @@ function AdminMain() {
   );
 }
 
+function normalizeAdminPath(pathname: string): string {
+  return pathname.replace(/\/+$/, '') || '/';
+}
+
+function ConditionalGlobalAnalytics({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  const path = normalizeAdminPath(pathname);
+  const enabled = usesUnifiedAnalyticsBar(path) || path === '/admin';
+  if (!enabled) return <>{children}</>;
+  return <GlobalReportsAnalyticsProvider>{children}</GlobalReportsAnalyticsProvider>;
+}
+
 export function AdminAppLayout() {
   const { pathname } = useLocation();
   const showUnifiedBar =
@@ -27,18 +42,22 @@ export function AdminAppLayout() {
 
   return (
     <ReportDetailProvider>
-      <AnalyticsDrillProvider>
-        <ReferralRoutingRulesProvider>
-          <CustomPanelsProvider>
-            <AdminShell>
-              {showUnifiedBar ? <UnifiedAnalyticsContextBar /> : null}
-              <AdminMain />
-            </AdminShell>
-            <ReportDrillSheet />
-            <ReportDetailSheet />
-          </CustomPanelsProvider>
-        </ReferralRoutingRulesProvider>
-      </AnalyticsDrillProvider>
+      <AnalyticsLiveProvider>
+        <ConditionalGlobalAnalytics>
+          <AnalyticsDrillProvider>
+            <ReferralRoutingRulesProvider>
+              <CustomPanelsProvider>
+                <AdminShell>
+                  {showUnifiedBar ? <UnifiedAnalyticsContextBar /> : null}
+                  <AdminMain />
+                </AdminShell>
+                <ReportDrillSheet />
+                <ReportDetailSheet />
+              </CustomPanelsProvider>
+            </ReferralRoutingRulesProvider>
+          </AnalyticsDrillProvider>
+        </ConditionalGlobalAnalytics>
+      </AnalyticsLiveProvider>
     </ReportDetailProvider>
   );
 }

@@ -31,7 +31,6 @@ import { SENTIMENT_POLARITY_PREPEND_SECTION } from '@/lib/analyticsParameterLege
 import { CHART_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
 import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import { buildAiInsightsFromStats } from '@/lib/reportsAnalyticsAggregates';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
 import { useMemo } from 'react';
 
@@ -151,7 +150,10 @@ export function VolumeTabPanel() {
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {volumeByCategory.map((entry, i) => (
-                  <Cell key={entry.id} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  <Cell
+                    key={entry.id ?? entry.label ?? i}
+                    fill={CHART_COLORS[i % CHART_COLORS.length]}
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -187,7 +189,10 @@ export function VolumeTabPanel() {
               />
               <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                 {statusBreakdown.map((entry, i) => (
-                  <Cell key={entry.id} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  <Cell
+                    key={entry.label ?? i}
+                    fill={CHART_COLORS[i % CHART_COLORS.length]}
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -429,8 +434,7 @@ const AI_INSIGHT_KIND_LABELS: Record<string, string> = {
 
 export function AiInsightsPanel() {
   const { topPatterns, kpis, isLoading } = useAnalyticsChartData();
-  const { filters } = useUrbanReportsAnalyticsFilters();
-  const { stats } = useReportsAnalytics(filters);
+  const { stats } = useUrbanReportsAnalyticsFilters();
   const insights = useMemo(() => buildAiInsightsFromStats(stats), [stats]);
   const top = topPatterns[0];
 

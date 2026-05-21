@@ -8,7 +8,12 @@ import type {
   TerritoryIntensity,
   TimeSeriesPoint,
 } from '@/types/analyticsDrill';
-import { buildDrillKpisFromStats, buildCorrelationFromStats, buildPatternsByRegionFromStats, buildSentimentPolarityFromStats } from '@/lib/analyticsDrillFromStats';
+import {
+  buildDrillKpisForRegionFilter,
+  buildCorrelationFromStats,
+  buildPatternsByRegionFromStats,
+  buildSentimentPolarityFromStats,
+} from '@/lib/analyticsDrillFromStats';
 import { formatTimelineDayLabel } from '@/lib/reportsAnalyticsAggregates';
 
 const emptyKpis: DrillKpis = {
@@ -25,7 +30,7 @@ export function buildAnalyticsChartBundle(
   region: string,
   category: string,
 ) {
-  const kpis: DrillKpis = stats ? buildDrillKpisFromStats(stats, 'overview') : emptyKpis;
+  const kpis: DrillKpis = stats ? buildDrillKpisForRegionFilter(stats, region) : emptyKpis;
 
   const resolvedRatio =
     stats && stats.total > 0 ? stats.resolved / stats.total : 0;
@@ -66,6 +71,7 @@ export function buildAnalyticsChartBundle(
 
   const statusBreakdown = stats?.byStatus?.length
     ? stats.byStatus.map((s) => ({
+        id: s.status,
         label: s.status,
         value: s.count,
       }))

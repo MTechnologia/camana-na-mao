@@ -11,9 +11,7 @@ import {
 } from 'recharts';
 import { ExternalLink } from 'lucide-react';
 import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
+import { useGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
 import { buildSentimentPolarityFromStats } from '@/lib/analyticsDrillFromStats';
 import { metricLabel } from '@/lib/analyticsLabels';
 import type { ChartBarPoint, RegionSentimentBreakdown } from '@/types/analyticsDrill';
@@ -46,12 +44,7 @@ function toDrillPoint(item: RegionSentimentBreakdown, filterKey: ChartBarPoint['
 }
 
 export function VolumeByRegionChart() {
-  const { period, region, category } = useGlobalFilters();
-  const filters = useMemo(
-    () => globalFiltersToReportsAnalytics(period, region, category),
-    [period, region, category],
-  );
-  const { stats } = useReportsAnalytics(filters);
+  const { stats } = useGlobalReportsAnalytics();
 
   const {
     chartData,

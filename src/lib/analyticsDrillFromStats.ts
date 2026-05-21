@@ -144,6 +144,17 @@ function responseTimeKpiFromStats(
   return rt.avgHours;
 }
 
+/** KPIs alinhados ao filtro de região (overview = total do RPC; região = volume territorial). */
+export function buildDrillKpisForRegionFilter(
+  stats: ReportsAnalyticsStats | null,
+  region: string,
+): DrillKpis {
+  if (!region || region === 'all') {
+    return buildDrillKpisFromStats(stats, 'overview');
+  }
+  return buildDrillKpisFromStats(stats, 'region', region);
+}
+
 export function buildDrillKpisFromStats(
   stats: ReportsAnalyticsStats | null,
   grain: DrillGrain,

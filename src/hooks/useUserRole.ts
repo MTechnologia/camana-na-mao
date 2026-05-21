@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { rolesGrantPermission } from '@/lib/permissions';
 import { withPoolRetry } from '@/lib/supabaseRetry';
 
 export type UserRole =
@@ -134,8 +135,13 @@ export const useUserRole = () => {
   const canExportData = isAdmin || isGestor;
 
   const canReferToCouncilMember = isAdmin || isGestor || isCidadaoEngajado;
-  const canViewDashboards = isAdmin || isGestor || isCidadaoEngajado;
-  const canCreateDashboards = isAdmin || isGestor || isCidadaoEngajado;
+  /** Painéis personalizáveis (widgets) — staff institucional. */
+  const canUseStaffPaineis = isAdmin || isGestor || isAssessor || isVereador;
+  const canViewDashboards =
+    canUseStaffPaineis ||
+    isCidadaoEngajado ||
+    rolesGrantPermission(roles, 'analytics.view_advanced');
+  const canCreateDashboards = canViewDashboards;
   const canManageDashboards = isAdmin || isGestor;
 
   const canRespondManifests = isAdmin || isGestor;
@@ -164,6 +170,7 @@ export const useUserRole = () => {
     canAccessAdvancedAnalytics,
     canExportData,
     canReferToCouncilMember,
+    canUseStaffPaineis,
     canViewDashboards,
     canCreateDashboards,
     canManageDashboards,

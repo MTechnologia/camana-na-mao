@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { getAnalyticsRealtimeTables } from '@/lib/analyticsRealtimeTables';
 import type { DemographicData } from '@/components/analytics/DemographicsPieChart';
 import type { FunnelStep } from '@/components/analytics/EngagementFunnel';
 import type { TopReport } from '@/components/analytics/TopReportsList';
@@ -181,6 +183,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const [stats, setStats] = useState<ReportsAnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const isFirstLoadRef = useRef(true);
 
   // Serializar filters para comparação estável
   const filtersKey = JSON.stringify(filters);
@@ -188,7 +192,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const fetchAnalytics = useCallback(async (isMounted: boolean = true) => {
     try {
       if (!isMounted) return;
-      setIsLoading(true);
+      const showSpinner = isFirstLoadRef.current;
+      if (showSpinner) setIsLoading(true);
       setError(null);
 
       // Mapear filtros para o formato do banco
@@ -671,15 +676,19 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           },
         });
         setError(null);
+        setLastUpdate(new Date());
       }
     } catch (err) {
       console.error('Error fetching analytics:', err);
       if (isMounted) {
         setError('Ocorreu um erro ao carregar os dados. Tente novamente.');
-        setStats(emptyStats);
+        if (isFirstLoadRef.current) setStats(emptyStats);
       }
     } finally {
-      if (isMounted) setIsLoading(false);
+      if (isMounted) {
+        isFirstLoadRef.current = false;
+        setIsLoading(false);
+      }
     }
   }, [filtersKey]);
 
@@ -689,5 +698,18 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     return () => { isMounted = false; };
   }, [filtersKey, fetchAnalytics]);
 
-  return { stats, isLoading, error, refresh: () => fetchAnalytics(true) };
+  const realtimeTables = getAnalyticsRealtimeTables(filters.scope);
+  const { refresh: realtimeRefresh } = useRealtimeRefresh(realtimeTables, () => {
+    void fetchAnalytics(true);
+  });
+
+  return {
+    stats,
+    isLoading,
+    error,
+    lastUpdate,
+    refresh: () => {
+      realtimeRefresh();
+    },
+  };
 };
