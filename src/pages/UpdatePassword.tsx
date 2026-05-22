@@ -253,7 +253,7 @@ const UpdatePassword = () => {
           Criar nova senha
         </h1>
         <p className="text-gray-600 mt-4">
-          Digite sua nova senha abaixo. Use as mesmas regras do cadastro (8+ caracteres, maiúscula, minúscula, número e caractere especial).
+          Digite sua nova senha abaixo, respeitando as regras indicadas.
         </p>
       </div>
 
