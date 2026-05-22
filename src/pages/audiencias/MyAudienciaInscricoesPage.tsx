@@ -8,12 +8,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { tituloHistoricoAudiencia } from "@/lib/audienciaDisplay";
+import {
+  PERFIL_INSCRICOES_AUDIENCIAS_BACK,
+  withAudienciaFrom,
+} from "@/lib/audienciaNavigation";
 
 interface AudienciaRef {
   id: string;
   titulo: string;
   data: string;
   status?: string;
+  comissao?: string | null;
+  descricao?: string | null;
+  tema?: string | null;
 }
 
 interface InscricaoLembrete {
@@ -47,13 +55,13 @@ export default function MyAudienciaInscricoesPage() {
       const [resInsc, resPart] = await Promise.all([
         supabase
           .from("audiencia_inscricoes")
-          .select("id, created_at, audiencia:audiencias(id, titulo, data, status)")
+          .select("id, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
           .from("audiencia_participacoes")
-          .select("id, tipo, created_at, audiencia:audiencias(id, titulo, data, status)")
+          .select("id, tipo, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(50),
@@ -114,11 +122,11 @@ export default function MyAudienciaInscricoesPage() {
           </div>
         ) : (
           <>
-            {/* Participações (videoconferência/escrito) — o que o usuário mais quer confirmar */}
+            {/* Histórico de participações (videoconferência / manifestação escrita) */}
             <section>
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-3">
                 <Video className="h-5 w-5" />
-                Participações (videoconferência / escrito)
+                Histórico de Participações - Videoconferências e Manifestações
               </h2>
               {participacoes.length === 0 ? (
                 <Card>
@@ -134,7 +142,12 @@ export default function MyAudienciaInscricoesPage() {
                       <Card
                         key={p.id}
                         className="cursor-pointer hover:shadow-md transition-all"
-                        onClick={() => aud?.id && navigate(`/audiencias/${aud.id}`)}
+                        onClick={() =>
+                          aud?.id &&
+                          navigate(`/audiencias/${aud.id}`, {
+                            state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                          })
+                        }
                       >
                         <CardContent className="p-4 flex items-start gap-3">
                           <div className="rounded-full bg-primary/10 p-2 shrink-0">
@@ -145,7 +158,9 @@ export default function MyAudienciaInscricoesPage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground truncate">{aud?.titulo || "Audiência"}</p>
+                            <p className="font-medium text-foreground line-clamp-4 break-words leading-snug">
+                              {tituloHistoricoAudiencia(aud)}
+                            </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {tipoLabel(p.tipo)} · {aud?.data ? formatData(aud.data) : "—"}
                             </p>
@@ -192,14 +207,21 @@ export default function MyAudienciaInscricoesPage() {
                       <Card
                         key={r.id}
                         className="cursor-pointer hover:shadow-md transition-all"
-                        onClick={() => aud?.id && navigate(`/audiencias/${aud.id}`)}
+                        onClick={() =>
+                          aud?.id &&
+                          navigate(`/audiencias/${aud.id}`, {
+                            state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                          })
+                        }
                       >
                         <CardContent className="p-4 flex items-start gap-3">
                           <div className="rounded-full bg-muted p-2 shrink-0">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground truncate">{aud?.titulo || "Audiência"}</p>
+                            <p className="font-medium text-foreground line-clamp-4 break-words leading-snug">
+                              {tituloHistoricoAudiencia(aud)}
+                            </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {aud?.data ? formatData(aud.data) : "—"}
                             </p>

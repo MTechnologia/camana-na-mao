@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
 import { updatePasswordSchema, validatePasswordPolicy } from "@/lib/validations";
+import { isInsideNativeApp } from "@/lib/nativeBridge";
+import { formatAuthErrorForUser } from "@/lib/authErrorMessages";
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
@@ -149,11 +151,6 @@ const UpdatePassword = () => {
 
       setSuccess(true);
       toast.success("Senha alterada com sucesso!");
-      
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        navigate("/login");
-      }, 2000);
     } catch (error: unknown) {
       console.error('Error updating password:', error);
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
@@ -162,12 +159,12 @@ const UpdatePassword = () => {
           toast.error(e.message ?? 'Erro');
         });
       } else {
-        const msg = err.message ?? '';
-        if (msg.includes('session')) {
+        const msg = err.message ?? "";
+        if (msg.toLowerCase().includes("session")) {
           toast.error("Sessão expirada. Solicite um novo link de recuperação.");
           setTimeout(() => navigate("/reset-password"), 2000);
         } else {
-          toast.error(msg || "Erro ao alterar senha");
+          toast.error(formatAuthErrorForUser(error, "Erro ao alterar senha"));
         }
       }
     } finally {
@@ -193,16 +190,22 @@ const UpdatePassword = () => {
   }
 
   if (success) {
+    const inNativeApp = isInsideNativeApp();
+
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
         <div className="px-6 pt-8 pb-6">
-          <button
-            onClick={() => navigate("/login")}
-            className="-ml-2 text-foreground hover:text-primary transition-colors"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={24} strokeWidth={2} />
-          </button>
+          {inNativeApp ? (
+            <div className="h-6" aria-hidden />
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="-ml-2 text-foreground hover:text-primary transition-colors"
+              aria-label="Voltar"
+            >
+              <ChevronLeft size={24} strokeWidth={2} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12">
@@ -210,21 +213,21 @@ const UpdatePassword = () => {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Check className="text-green-600" size={32} />
             </div>
-            
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Senha Alterada!
-            </h1>
-            
-            <p className="text-gray-600 mb-8">
-              Sua senha foi alterada com sucesso! Faça login com sua nova senha para continuar.
+
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Senha atualizada</h1>
+
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              Sua senha foi atualizada. Volte ao aplicativo e realize novamente a tentativa de Login.
             </p>
 
-            <Button
-              onClick={() => navigate("/login")}
-              className="w-full h-12 bg-gray-900 text-white hover:bg-gray-800 rounded-xl"
-            >
-              Ir para Login
-            </Button>
+            {inNativeApp && (
+              <Button
+                onClick={() => navigate("/login")}
+                className="w-full h-12 bg-gray-900 text-white hover:bg-gray-800 rounded-xl"
+              >
+                Fazer login
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -247,11 +250,10 @@ const UpdatePassword = () => {
       {/* Header Text */}
       <div className="px-6 pb-6">
         <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-          Criar nova<br />
-          senha
+          Criar nova senha
         </h1>
         <p className="text-gray-600 mt-4">
-          Digite sua nova senha abaixo. Use as mesmas regras do cadastro (8+ caracteres, maiúscula, minúscula, número e caractere especial).
+          Digite sua nova senha abaixo, respeitando as regras indicadas.
         </p>
       </div>
 

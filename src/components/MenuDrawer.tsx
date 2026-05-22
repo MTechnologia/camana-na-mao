@@ -19,6 +19,7 @@ import {
   MapPin,
   CalendarCheck,
   Bookmark,
+  Heart,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -78,7 +79,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     {
       id: 2.25,
       label: "Meus Favoritos",
-      icon: Bookmark,
+      icon: Heart,
       route: "/servicos/favoritos",
     },
     {

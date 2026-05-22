@@ -27,7 +27,23 @@ export function resolvePasswordRecoveryRedirectBase(input: RecoveryEmailLinkInpu
   throw new Error("Unable to resolve password recovery redirect base URL");
 }
 
+const MOBILE_RECOVERY_SCHEME = "camaranaomao://nova-senha";
+
+function tryNormalizeMobileRecoveryBase(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "camaranaomao:") return null;
+    if (url.hostname === "nova-senha") return MOBILE_RECOVERY_SCHEME;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function tryNormalizeAppBase(raw: string): string | null {
+  const mobile = tryNormalizeMobileRecoveryBase(raw);
+  if (mobile) return mobile;
+
   try {
     const url = new URL(raw);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;

@@ -109,6 +109,27 @@ export function tituloCardAudiencia(
   return tituloParaExibicao(titulo, descricao, tema);
 }
 
+/** Título para listas de histórico (inscrições / participações no perfil). */
+export function tituloHistoricoAudiencia(
+  audiencia:
+    | {
+        comissao?: string | null;
+        titulo: string;
+        descricao?: string | null;
+        tema?: string | null;
+      }
+    | null
+    | undefined,
+): string {
+  if (!audiencia) return "Audiência";
+  return tituloCardAudiencia(
+    audiencia.comissao ?? null,
+    audiencia.titulo,
+    audiencia.descricao ?? null,
+    audiencia.tema ?? "",
+  );
+}
+
 /**
  * Descrição formatada para a página de detalhes: padrão do site oficial.
  * - Remove prefixos redundantes e a seção "Convidados:" (exibida separadamente pela coluna convidados).
