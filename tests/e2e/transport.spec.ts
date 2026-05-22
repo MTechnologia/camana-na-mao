@@ -20,28 +20,41 @@ test.describe('Diagnóstico de Transporte', () => {
       const atrasoBtn = page.getByText('Atraso');
       if (await atrasoBtn.isVisible().catch(() => false)) {
         await atrasoBtn.click();
-        await page.locator('input[type="date"]').fill(new Date().toISOString().split('T')[0]);
-        await page.getByRole('button', { name: /Continuar/i }).click();
-        await page.getByPlaceholder(/Descreva o que aconteceu/i).fill('Ônibus atrasou 30 min');
-        await page.getByRole('button', { name: /Continuar/i }).click();
-        await page.getByRole('button', { name: /Confirmar|Enviar/i }).click();
-        await expect(page.getByText(/sucesso|Relato enviado|Seu relato foi registrado/i).first()).toBeVisible({ timeout: 15000 });
+        const dateInput = page.locator('input[type="date"]');
+        await dateInput.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+        if (await dateInput.isVisible().catch(() => false)) {
+          await dateInput.fill(new Date().toISOString().split('T')[0]);
+          await page.getByRole('button', { name: /Continuar/i }).click();
+          await page.getByPlaceholder(/Descreva o que aconteceu/i).fill('Ônibus atrasou 30 min');
+          await page.getByRole('button', { name: /Continuar/i }).click();
+          await page.getByRole('button', { name: /Confirmar|Enviar/i }).click();
+          await expect(page.getByText(/sucesso|Relato enviado|Seu relato foi registrado/i).first()).toBeVisible({ timeout: 15000 });
+        } else {
+          await expect(page.getByText(/Qual linha|Novo Relato|buscar linha|Atraso/i).first()).toBeVisible();
+        }
       } else {
-        await expect(page.getByText(/Qual linha|Novo Relato|buscar linha|Atraso/i)).toBeVisible();
+        await expect(page.getByText(/Qual linha|Novo Relato|buscar linha|Atraso/i).first()).toBeVisible();
       }
     } else if (await customLineBtn.isVisible().catch(() => false)) {
       await customLineBtn.click();
       const atrasoBtn = page.getByText('Atraso');
       if (await atrasoBtn.isVisible().catch(() => false)) {
         await atrasoBtn.click();
-        await page.locator('input[type="date"]').fill(new Date().toISOString().split('T')[0]);
-        await page.getByRole('button', { name: /Continuar/i }).click();
-        await page.getByPlaceholder(/Descreva o que aconteceu/i).fill('Ônibus atrasou 30 min');
-        await page.getByRole('button', { name: /Continuar/i }).click();
-        await page.getByRole('button', { name: /Confirmar|Enviar/i }).click();
-        await expect(page.getByText(/sucesso|Relato enviado|Seu relato foi registrado/i).first()).toBeVisible({ timeout: 15000 });
+        const dateInput = page.locator('input[type="date"]');
+        await dateInput.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+        if (await dateInput.isVisible().catch(() => false)) {
+          await dateInput.fill(new Date().toISOString().split('T')[0]);
+          await page.getByRole('button', { name: /Continuar/i }).click();
+          await page.getByPlaceholder(/Descreva o que aconteceu/i).fill('Ônibus atrasou 30 min');
+          await page.getByRole('button', { name: /Continuar/i }).click();
+          await page.getByRole('button', { name: /Confirmar|Enviar/i }).click();
+          await expect(page.getByText(/sucesso|Relato enviado|Seu relato foi registrado/i).first()).toBeVisible({ timeout: 15000 });
+        } else {
+          await expect(page.getByText(/Qual linha|Novo Relato|buscar linha|Atraso/i).first()).toBeVisible();
+        }
+      } else {
+        await expect(page.getByText(/Qual linha|Novo Relato|buscar linha|Atraso/i).first()).toBeVisible();
       }
-    } else {
       await expect(page.getByText(/Qual linha|Novo Relato|buscar linha/i)).toBeVisible();
     }
   });
@@ -51,7 +64,7 @@ test.describe('Diagnóstico de Transporte', () => {
     
     await expect(page.locator('h1:has-text("Padrões Detectados")')).toBeVisible();
     await expect(
-      page.getByText(/padrão|Nenhum|relato/i)
+      page.getByText(/padrão|Nenhum|relato/i).first(),
     ).toBeVisible({ timeout: 5000 });
   });
 

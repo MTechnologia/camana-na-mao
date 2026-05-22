@@ -169,15 +169,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
       
-      // Register audit log for login
+      // Register audit log for login (best-effort: RLS/indisponibilidade não deve quebrar o login)
       if (data.user) {
-        await supabase.from('audit_logs').insert({
-          user_id: data.user.id,
-          action: 'login',
-          entity_type: 'session',
-          metadata: { email },
-          user_agent: navigator.userAgent
-        });
+        try {
+          await supabase.from('audit_logs').insert({
+            user_id: data.user.id,
+            action: 'login',
+            entity_type: 'session',
+            metadata: { email },
+            user_agent: navigator.userAgent
+          });
+        } catch {
+          // ignore
+        }
       }
       
       toast.success("Login realizado com sucesso!");
@@ -191,19 +195,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = useCallback(async () => {
     try {
-      // Register audit log for logout before signing out
+      // Register audit log for logout before signing out (best-effort)
       if (user) {
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          action: 'logout',
-          entity_type: 'session',
-          user_agent: navigator.userAgent
-        });
+        try {
+          await supabase.from('audit_logs').insert({
+            user_id: user.id,
+            action: 'logout',
+            entity_type: 'session',
+            user_agent: navigator.userAgent
+          });
+        } catch {
+          // ignore
+        }
       }
       
       await supabase.auth.signOut();
       toast.success("Logout realizado com sucesso!");
-      navigate('/login');
+      navigate("/welcome");
     } catch (error: unknown) {
       const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao fazer logout");

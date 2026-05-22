@@ -42,6 +42,8 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
+    /** Cold start + deps; evita ERR_CONNECTION_REFUSED se o Vite demorar a subir */
+    timeout: 180_000,
     env: {
       ...process.env,
       // E2E deve ser determinístico e não depender de integrações externas (ex.: Google Maps).

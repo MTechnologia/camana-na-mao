@@ -11,6 +11,17 @@ HU-13.1 — Cobertura de integração das jornadas críticas do admin.
 | `triagem.spec.ts` | Kanban, edição de triagem, timeline (HU-10) |
 | `exportacao.spec.ts` | Export CSV/XLSX no analytics e audit-logs (HU-7, HU-12) |
 | `rbac.spec.ts` | Bloqueio de rotas admin-only, visibilidade da sidebar (HU-11) |
+| `evaluation.spec.ts` | Chat `/avaliar/:id`, nota multi-dimensional ou estrelas únicas, comentário e sucesso |
+| `evaluation-conversational.spec.ts` | Fluxo a partir de “serviços próximos” → avaliar serviço → mesmo picker |
+| `urban.spec.ts` | Relatos urbanos via chat (depende de `ai-orchestrator` no ambiente) |
+
+### Specs que dependem da Edge `ai-orchestrator`
+
+Os fluxos de **avaliação** e parte do **urbano** só avançam quando a IA devolve a UI de estrelas/dimensões (marcadores `[MULTI_DIMENSION_RATING_PICKER]` / `[RATING_PICKER]` na resposta do modelo). O helper espera o **fim do SSE** (`waitForAssistantReplyFinished`: campo de mensagem voltando a ficar habilitado) e só então procura o picker — evita timeout enquanto o texto ainda está a ser gerado.
+
+Se a função falhar (rede, quota, credenciais) **ou** o modelo omitir o marcador do picker, `waitForRatingInteraction` expira e o teste é **ignorado** (`test.skip`) com mensagem explícita. Login no Supabase Dashboard **não** substitui deploy/credenciais da Edge nem garante conformidade do LLM com o prompt.
+
+**Dica:** com dois ficheiros de avaliação a correr em paralelo, a Edge pode ir mais devagar — use `--workers=1` (exemplo em **Como rodar** abaixo).
 
 ## Setup inicial
 
@@ -28,6 +39,8 @@ E2E_ASSESSOR_PASSWORD=senha-assessor-e2e
 E2E_CIDADAO_EMAIL=cidadao.e2e@camaranamao.test
 E2E_CIDADAO_PASSWORD=senha-cidadao-e2e
 ```
+
+Para um setup mínimo com **uma só conta** de admin, basta `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` no `.env.e2e.local`: o helper `login(page, "admin")` reutiliza esse par quando `E2E_ADMIN_*` não está definido. Os testes RBAC que exigem **gestor** ou **cidadão** distintos são ignorados (`test.skip`) se `E2E_GESTOR_*` / `E2E_CIDADAO_*` não existirem.
 
 ### 2. Criar contas no Supabase de teste
 
@@ -47,6 +60,12 @@ ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role;
 
 ```bash
 npx playwright install chromium
+```
+
+Para **avaliação** + **urban** + **orchestrator**, duas suites em paralelo podem disputar a mesma Edge; se houver `skip` intermitente, rode com um worker:
+
+```bash
+npx playwright test tests/e2e/evaluation.spec.ts tests/e2e/evaluation-conversational.spec.ts tests/e2e/urban.spec.ts --project=chromium --workers=1
 ```
 
 ## Como rodar

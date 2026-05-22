@@ -27,7 +27,7 @@ test.describe("Analytics — Drill-downs", () => {
 
   test("Territorial: drill zona → bairro → rua", async ({ page }) => {
     // Abre aba Territorial.
-    const tab = page.getByRole("tab", { name: /territorial/i });
+    const tab = page.getByRole("tab", { name: /território|territorial/i });
     await tab.click();
 
     // Aguarda lista de zonas aparecer.
@@ -45,29 +45,25 @@ test.describe("Analytics — Drill-downs", () => {
     }
   });
 
-  test("Drill-down multi-dimensional: troca de dimensões", async ({ page }) => {
-    const tab = page.getByRole("tab", { name: /drill[- ]?down|multi/i });
-    if (!(await tab.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, "Tab de Drill-down não está disponível neste ambiente");
-      return;
-    }
+  test("Correlação: dispersão Volume × tempo de resposta", async ({ page }) => {
+    const tab = page.getByRole("tab", { name: /^Correlação$/i });
     await tab.click();
-
-    // Pelo menos um dropdown de dimensão deve aparecer.
-    const dropdown = page.locator('[role="combobox"], select').first();
-    await expect(dropdown).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Volume × tempo de resposta/i).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    const chart = page.locator("svg.recharts-surface, .recharts-wrapper svg").first();
+    await expect(chart).toBeVisible({ timeout: 15_000 });
   });
 
-  test("Cruzamentos: heatmap aparece", async ({ page }) => {
-    const tab = page.getByRole("tab", { name: /cruzamento|cruzamentos|heatmap/i });
-    if (!(await tab.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, "Tab Cruzamentos não disponível");
+  test("Padrões: painel de padrões recorrentes renderiza", async ({ page }) => {
+    const tab = page.getByRole("tab", { name: /^Padrões$/i });
+    await tab.click();
+    await expect(page.getByText(/Padrões recorrentes/i).first()).toBeVisible({ timeout: 15_000 });
+    const emptyState = page.getByText(/Nenhum padrão ou categoria recorrente no recorte/i);
+    if (await emptyState.isVisible().catch(() => false)) {
       return;
     }
-    await tab.click();
-    // Heatmap deve renderizar alguma matriz/células.
-    await expect(page.locator("body")).toContainText(
-      /heatmap|matriz|categoria|dimensão|dimensao/i,
-    );
+    const chart = page.locator("svg.recharts-surface, .recharts-wrapper svg").first();
+    await expect(chart).toBeVisible({ timeout: 15_000 });
   });
 });
