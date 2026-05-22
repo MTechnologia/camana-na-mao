@@ -776,6 +776,10 @@ const ChatMessageBubble = ({
       sim: 'Sim',
       não: 'Não',
       nao: 'Não',
+      /** Afetação (urbano) — mesmos tokens de [QUICK_REPLY:somente eu,toda a rua,bairro todo] */
+      'somente eu': 'Somente eu',
+      'toda a rua': 'Toda a rua',
+      'bairro todo': 'Bairro todo',
       registrar: 'Registrar',
       novo_relato: 'Registrar novo relato',
       confirmar: 'Confirmar',
@@ -1730,7 +1734,7 @@ const ChatMessageBubble = ({
                       : "sm"
                   }
                   disabled={disabled}
-                  onClick={() => !disabled && onSendMessage?.(btn.value)}
+                  onClick={() => !disabled && onSendMessage?.(btn.label)}
                   className={cn(
                     "rounded-lg",
                     (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
