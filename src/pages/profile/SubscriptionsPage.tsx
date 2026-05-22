@@ -605,7 +605,7 @@ export default function SubscriptionsPage() {
                 <section>
                   <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-3">
                     <Video className="h-5 w-5" />
-                    Participações (videoconferência / escrito)
+                    Histórico de Participações - Videoconferências e Manifestações
                   </h2>
                   {participacoesAudiencia.length === 0 ? (
                     <Card>
