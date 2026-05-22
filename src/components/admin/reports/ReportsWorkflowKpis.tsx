@@ -1,6 +1,4 @@
-import { ParameterInfoTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Card } from '@/components/ui/card';
-import { REPORTS_WORKFLOW_KPI_LEGENDS } from '@/lib/analyticsParameterLegends';
 import type { ReportQueueTab } from '@/types/urbanReportManagement';
 import { cn } from '@/lib/utils';
 
@@ -13,21 +11,15 @@ export function ReportsWorkflowKpis({
   queueTab: ReportQueueTab;
   onSelectTab: (tab: ReportQueueTab) => void;
 }) {
-  const items: {
-    tab: ReportQueueTab;
-    label: string;
-    value: number;
-    legend: keyof typeof REPORTS_WORKFLOW_KPI_LEGENDS;
-  }[] = [
-    { tab: 'triage', label: 'Aguardando triagem', value: counts.awaiting_triage, legend: 'awaitingTriage' },
-    { tab: 'tracking', label: 'Triados (sem envio)', value: counts.triaged, legend: 'triaged' },
+  const items: { tab: ReportQueueTab; label: string; value: number }[] = [
+    { tab: 'triage', label: 'Aguardando triagem', value: counts.awaiting_triage },
+    { tab: 'tracking', label: 'Triados (sem envio)', value: counts.triaged },
     {
       tab: 'referrals',
       label: 'Em encaminhamento',
       value: counts.referred + counts.in_analysis,
-      legend: 'inReferral',
     },
-    { tab: 'all', label: 'Concluídos', value: counts.resolved, legend: 'resolved' },
+    { tab: 'all', label: 'Concluídos', value: counts.resolved },
   ];
 
   return (
@@ -54,13 +46,7 @@ export function ReportsWorkflowKpis({
                     aria-hidden
                   />
                 ) : null}
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
-                  <ParameterInfoTrigger
-                    item={REPORTS_WORKFLOW_KPI_LEGENDS[item.legend]}
-                    stopPropagation
-                  />
-                </div>
+                <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
                 <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
                   {item.value.toLocaleString('pt-BR')}
                 </p>

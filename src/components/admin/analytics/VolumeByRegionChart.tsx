@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
 import {
   Bar,
   BarChart,
@@ -12,8 +13,6 @@ import {
 import { ExternalLink } from 'lucide-react';
 import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { buildSentimentPolarityFromStats } from '@/lib/analyticsDrillFromStats';
 import { metricLabel } from '@/lib/analyticsLabels';
 import { cn } from '@/lib/utils';
@@ -56,12 +55,8 @@ export function VolumeByRegionChart({
   variant = 'default',
 }: VolumeByRegionChartProps) {
   const isExecutive = variant === 'executive';
-  const { period, region, category } = useGlobalFilters();
-  const filters = useMemo(
-    () => globalFiltersToReportsAnalytics(period, region, category),
-    [period, region, category],
-  );
-  const { stats } = useReportsAnalytics(filters);
+  const { region, category } = useGlobalFilters();
+  const { stats } = useGlobalReportsAnalytics();
 
   const {
     chartData,

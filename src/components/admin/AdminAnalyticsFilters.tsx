@@ -17,12 +17,12 @@ export function AdminAnalyticsFilters() {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:items-center md:gap-3 lg:gap-4">
       <div className="flex shrink-0 items-center gap-1.5 md:pr-1">
-        <h2 className="text-sm font-semibold leading-none text-white">Recorte</h2>
+        <h2 className="text-sm font-semibold leading-none text-sidebar-foreground">Recorte</h2>
         <ParameterInfoListTrigger
           items={FILTER_PARAMETER_LEGENDS}
           tooltipTitle="Recorte e parâmetros"
-          ariaLabel="Ajuda sobre o recorte analítico"
-          className="h-5 w-5 shrink-0 border-white/35 bg-white/15 text-[11px] text-white hover:border-white/55 hover:bg-white/25 hover:text-white"
+          ariaLabel="Informações sobre o recorte analítico"
+          className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground"
         />
       </div>
 
@@ -59,8 +59,8 @@ export function AdminAnalyticsFilters() {
         variant="ghost"
         size="sm"
         className={cn(
-          'h-9 w-full shrink-0 border border-white/25 bg-white/5 px-3 text-white sm:w-auto',
-          'hover:border-white/40 hover:bg-white/12 hover:text-white',
+          'h-9 w-full shrink-0 border border-sidebar-border bg-sidebar-accent/50 px-3 text-sidebar-foreground sm:w-auto',
+          'hover:bg-sidebar-accent hover:text-sidebar-foreground',
           'md:ml-auto',
         )}
         onClick={reset}

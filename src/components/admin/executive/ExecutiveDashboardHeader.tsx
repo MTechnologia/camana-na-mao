@@ -1,13 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Bell } from 'lucide-react';
 import { AdminLiveIndicator } from '@/components/admin/AdminLiveIndicator';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Button } from '@/components/ui/button';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import {
-  EXECUTIVE_DASHBOARD_PAGE_LEGEND,
-  EXECUTIVE_KPI_LEGENDS_LIST,
-} from '@/lib/analyticsParameterLegends';
 
 export function ExecutiveDashboardHeader() {
   const { lastRecalcAt } = useGlobalFilters();
@@ -19,17 +14,9 @@ export function ExecutiveDashboardHeader() {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             Câmara na Mão · Gestão
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
-              Visão executiva
-            </h1>
-            <ParameterInfoListTrigger
-              items={[EXECUTIVE_DASHBOARD_PAGE_LEGEND, ...EXECUTIVE_KPI_LEGENDS_LIST]}
-              tooltipTitle="Sobre esta visão"
-              ariaLabel="Ajuda sobre a visão executiva e indicadores"
-              className="h-5 w-5 shrink-0 text-[11px]"
-            />
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.65rem]">
+            Visão executiva
+          </h1>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 lg:pt-1">

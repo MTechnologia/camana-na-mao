@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { PlatformContentCard } from '@/components/admin/platform/PlatformContentCard';
 import { SettingsLayout } from '@/components/admin/settings/SettingsLayout';
 import { useConfigEnvironment } from '@/contexts/ConfigEnvironmentContext';
 import { Badge } from '@/components/ui/badge';
@@ -8,11 +9,8 @@ export function SystemParametersPage() {
   const { config, environmentLabel } = useConfigEnvironment();
 
   return (
-    <SettingsLayout
-      title="Parametrização geral"
-      description="Parâmetros de negócio por ambiente (produção e homologação), com validação no backend."
-    >
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <SettingsLayout title="Parametrização geral">
+      <PlatformContentCard title="Parâmetros do ambiente" bodyClassName="p-0">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>
@@ -59,7 +57,7 @@ export function SystemParametersPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </PlatformContentCard>
     </SettingsLayout>
   );
 }

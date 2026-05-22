@@ -9,13 +9,14 @@ import {
   ReferralsChartSection,
 } from '@/components/admin/charts/SectionChartPanels';
 import { ReferralsKpiStrip } from '@/components/admin/urban-reports/ReferralsKpiStrip';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
 import { UrbanReportsExploreLinks } from '@/components/admin/urban-reports/UrbanReportsExploreLinks';
+import { REFERRALS_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { UrbanReportsPageHeader } from '@/components/admin/urban-reports/UrbanReportsPageHeader';
 import { UrbanReportsSubNav } from '@/components/admin/urban-reports/UrbanReportsSubNav';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { REFERRALS_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { useReferralsAdmin } from '@/hooks/useReferralsAdmin';
 import { useReferralDestinations } from '@/hooks/useReferralDestinations';
 import { cn } from '@/lib/utils';
@@ -49,8 +50,6 @@ export function ReferralsAnalysisPage() {
     <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
       <UrbanReportsPageHeader
         title="Análise de encaminhamentos"
-        legends={REFERRALS_PAGE_LEGENDS}
-        ariaLabel="Ajuda sobre análise de encaminhamentos"
         actions={
           <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
             <Link to="/admin/reports">
@@ -116,7 +115,12 @@ export function ReferralsAnalysisPage() {
         </Tabs>
       </section>
 
-      <UrbanReportsExploreLinks />
+      <PageUsageGuideFooter
+        items={REFERRALS_PAGE_LEGENDS}
+        pageName="Análise de encaminhamentos"
+      >
+        <UrbanReportsExploreLinks />
+      </PageUsageGuideFooter>
     </div>
   );
 }

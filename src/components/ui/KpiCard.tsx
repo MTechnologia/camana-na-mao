@@ -8,7 +8,7 @@ type KpiCardProps = {
   value: string;
   hint?: string;
   parameter?: ParameterLegendItem;
-  /** Exibe o botão de ajuda (?) no cartão. */
+  /** Exibe o botão de ajuda no cartão (use em gráficos via ChartParametersHelp). */
   showParameter?: boolean;
   stopParameterPropagation?: boolean;
   compact?: boolean;
@@ -22,7 +22,7 @@ export function KpiCard({
   value,
   hint,
   parameter,
-  showParameter = true,
+  showParameter = false,
   stopParameterPropagation,
   compact = false,
   className,

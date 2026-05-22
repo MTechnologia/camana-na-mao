@@ -3,12 +3,13 @@ import { Pencil } from 'lucide-react';
 import { PanelCanvas } from '@/components/panels/PanelCanvas';
 import { PanelSelector } from '@/components/panels/PanelSelector';
 import { PaineisAdvancedChartSection } from '@/components/admin/charts/SectionChartPanels';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
 import { PaineisExploreLinks } from '@/components/admin/paineis-page/PaineisExploreLinks';
+import { PAINEIS_AVANCADO_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { PaineisPageHeader } from '@/components/admin/paineis-page/PaineisPageHeader';
 import { PaineisSubNav } from '@/components/admin/paineis-page/PaineisSubNav';
 import { PaineisSummaryStrip } from '@/components/admin/paineis-page/PaineisSummaryStrip';
 import { Button } from '@/components/ui/button';
-import { PAINEIS_AVANCADO_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { useCustomPanels } from '@/contexts/CustomPanelsContext';
 
 export function PaineisAvancado() {
@@ -18,8 +19,6 @@ export function PaineisAvancado() {
     <div className="flex w-full min-w-0 flex-col gap-6 lg:gap-8">
       <PaineisPageHeader
         title="Modo foco"
-        legends={PAINEIS_AVANCADO_PAGE_LEGENDS}
-        ariaLabel="Ajuda sobre o modo foco de painéis"
         actions={
           activePanel ? (
             <Button variant="outline" size="sm" className="gap-1.5 shadow-sm" asChild>
@@ -58,7 +57,9 @@ export function PaineisAvancado() {
 
       <PaineisAdvancedChartSection />
 
-      <PaineisExploreLinks />
+      <PageUsageGuideFooter items={PAINEIS_AVANCADO_PAGE_LEGENDS} pageName="Modo foco">
+        <PaineisExploreLinks />
+      </PageUsageGuideFooter>
     </div>
   );
 }

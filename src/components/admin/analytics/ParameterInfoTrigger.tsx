@@ -1,4 +1,5 @@
 import { forwardRef, type ComponentPropsWithoutRef, type MouseEvent, type PointerEvent } from 'react';
+import { Info } from 'lucide-react';
 import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import {
   Tooltip,
@@ -33,9 +34,9 @@ const InfoTriggerButton = forwardRef<HTMLButtonElement, InfoButtonProps>(
         ref={ref}
         type={type}
         className={cn(
-          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
-          'border border-muted-foreground/35 bg-background text-[10px] font-semibold leading-none text-muted-foreground',
-          'transition-colors hover:border-primary/50 hover:bg-accent hover:text-primary',
+          'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md',
+          'text-muted-foreground/70 transition-colors',
+          'hover:bg-muted/80 hover:text-foreground',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
           className,
         )}
@@ -54,6 +55,7 @@ type ParameterInfoTriggerProps = {
   stopPropagation?: boolean;
 };
 
+/** Ajuda pontual (ícone ℹ️) — use só em métricas ou filtros onde o cálculo não é óbvio. */
 export function ParameterInfoTrigger({
   item,
   className,
@@ -68,11 +70,11 @@ export function ParameterInfoTrigger({
       <TooltipTrigger asChild>
         <InfoTriggerButton
           className={className}
-          aria-label={`Parâmetros: ${item.term}`}
+          aria-label={`Informação: ${item.term}`}
           onClick={stopIfNeeded}
           onPointerDown={stopIfNeeded}
         >
-          ?
+          <Info className="h-3.5 w-3.5" aria-hidden />
         </InfoTriggerButton>
       </TooltipTrigger>
       <TooltipContent
@@ -93,9 +95,10 @@ type ParameterInfoListTriggerProps = {
   tooltipTitle?: string;
 };
 
+/** Lista de legendas — preferir `ChartParametersHelp` (botão P) em gráficos. */
 export function ParameterInfoListTrigger({
   items,
-  ariaLabel = 'Parâmetros dos indicadores',
+  ariaLabel = 'Informações sobre indicadores',
   className,
   tooltipTitle = 'Indicadores analisados',
 }: ParameterInfoListTriggerProps) {
@@ -105,7 +108,7 @@ export function ParameterInfoListTrigger({
     <Tooltip>
       <TooltipTrigger asChild>
         <InfoTriggerButton className={className} aria-label={ariaLabel}>
-          ?
+          <Info className="h-3.5 w-3.5" aria-hidden />
         </InfoTriggerButton>
       </TooltipTrigger>
       <TooltipContent

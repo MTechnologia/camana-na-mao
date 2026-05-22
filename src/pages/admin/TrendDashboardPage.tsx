@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
 import { TrendsExploreLinks } from '@/components/admin/trends/TrendsExploreLinks';
+import { TRENDS_PAGE_LEGENDS } from '@/lib/analyticsParameterLegends';
 import { TrendsLocalFilters } from '@/components/admin/trends/TrendsLocalFilters';
 import { TrendsMainChart } from '@/components/admin/trends/TrendsMainChart';
 import { TrendsPageHeader } from '@/components/admin/trends/TrendsPageHeader';
@@ -61,7 +63,9 @@ export function TrendDashboardPage() {
         startAt={data?.start_at}
       />
 
-      <TrendsExploreLinks />
+      <PageUsageGuideFooter items={TRENDS_PAGE_LEGENDS} pageName="Tendências temporais">
+        <TrendsExploreLinks />
+      </PageUsageGuideFooter>
     </div>
   );
 }

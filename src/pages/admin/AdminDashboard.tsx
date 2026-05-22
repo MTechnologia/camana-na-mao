@@ -3,6 +3,11 @@ import { ExecutiveDashboardHeader } from '@/components/admin/executive/Executive
 import { ExecutiveExploreLinks } from '@/components/admin/executive/ExecutiveExploreLinks';
 import { ExecutiveKpiStrip } from '@/components/admin/executive/ExecutiveKpiStrip';
 import { ExecutiveTerritoryNav } from '@/components/admin/executive/ExecutiveTerritoryNav';
+import { PageUsageGuideFooter } from '@/components/admin/guide/PageUsageGuideFooter';
+import {
+  EXECUTIVE_DASHBOARD_PAGE_LEGENDS,
+  EXECUTIVE_HOMOLOGATION_LEGENDS,
+} from '@/lib/analyticsParameterLegends';
 
 /**
  * Home do gestor — leitura executiva em três camadas:
@@ -19,7 +24,13 @@ export function AdminDashboard() {
 
       <ExecutiveChartSection />
 
-      <ExecutiveExploreLinks />
+      <PageUsageGuideFooter
+        items={EXECUTIVE_DASHBOARD_PAGE_LEGENDS}
+        homologationItems={EXECUTIVE_HOMOLOGATION_LEGENDS}
+        pageName="Visão executiva"
+      >
+        <ExecutiveExploreLinks />
+      </PageUsageGuideFooter>
     </div>
   );
 }

@@ -12,6 +12,8 @@ const inputClass =
 type ReferralRulesEditorProps = {
   /** Formulário compacto para o painel lateral do relato. */
   compact?: boolean;
+  /** Página dedicada de configuração (um único card, sem card pai). */
+  surface?: 'panel' | 'page';
   /** Inicia expandido (útil no detalhe do relato). */
   defaultExpanded?: boolean;
   onSaved?: () => void;
@@ -19,11 +21,13 @@ type ReferralRulesEditorProps = {
 
 export function ReferralRulesEditor({
   compact = false,
+  surface = 'panel',
   defaultExpanded = false,
   onSaved,
 }: ReferralRulesEditorProps) {
+  const isPage = surface === 'page';
   const { rules, updateRules, resetRules, environmentKey } = useReferralRoutingRules();
-  const [expanded, setExpanded] = useState(defaultExpanded || !compact);
+  const [expanded, setExpanded] = useState(defaultExpanded || !compact || isPage);
 
   const setBoolean = (key: keyof ReferralRoutingRules, value: boolean) => {
     updateRules({ [key]: value });
@@ -44,30 +48,39 @@ export function ReferralRulesEditor({
     : 'Sugestão desativada — listas sem ordenação por afinidade';
 
   return (
-    <div className="rounded-lg border border-border bg-card/80">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm"
-        onClick={() => compact && setExpanded((v) => !v)}
-        aria-expanded={expanded}
-      >
-        <span>
-          <span className="font-semibold text-foreground">Regras de encaminhamento</span>
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+      {isPage ? (
+        <div className="border-b border-border/80 bg-muted/30 px-4 py-3 md:px-5">
+          <p className="text-sm font-semibold text-foreground">Regras de encaminhamento</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{summary}</p>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm"
+          onClick={() => compact && setExpanded((v) => !v)}
+          aria-expanded={expanded}
+        >
+          <span>
+            <span className="font-semibold text-foreground">Regras de encaminhamento</span>
+            {compact ? (
+              <span className="mt-0.5 block text-xs text-muted-foreground">{summary}</span>
+            ) : null}
+          </span>
           {compact ? (
-            <span className="mt-0.5 block text-xs text-muted-foreground">{summary}</span>
+            expanded ? (
+              <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )
           ) : null}
-        </span>
-        {compact ? (
-          expanded ? (
-            <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )
-        ) : null}
-      </button>
+        </button>
+      )}
 
       {expanded ? (
-        <div className={`space-y-4 border-t border-border px-3 py-3 ${compact ? '' : 'pt-4'}`}>
+        <div
+          className={`space-y-4 px-4 py-4 md:px-5 ${!isPage && !compact ? 'border-t border-border' : ''} ${compact && !isPage ? 'px-3 py-3' : ''}`}
+        >
           {!compact ? (
             <p className="text-sm text-muted-foreground">
               Definem como comissões e vereadores são ordenados e como o % de afinidade é calculado

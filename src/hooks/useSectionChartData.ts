@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
+import { useGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
+import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import {
   buildVolumeSeriesFromStats,
   fetchSectionChartExtras,
@@ -32,11 +32,7 @@ const emptyExtras = {
 /** Gráficos de seção do painel admin — dados reais (Supabase + analytics). */
 export function useSectionChartData() {
   const { period, region, category } = useGlobalFilters();
-  const filters = useMemo(
-    () => globalFiltersToReportsAnalytics(period, region, category),
-    [period, region, category],
-  );
-  const { stats } = useReportsAnalytics(filters);
+  const { stats, lastUpdate } = useGlobalReportsAnalytics();
   const [extras, setExtras] = useState(emptyExtras);
 
   useEffect(() => {
@@ -47,10 +43,16 @@ export function useSectionChartData() {
     return () => {
       cancelled = true;
     };
-  }, [period, region, category]);
+  }, [period, region, category, lastUpdate]);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const metricTrends =
+      extras.metricTrends.length > 0
+        ? extras.metricTrends
+        : buildMetricTrendsFromStats(stats);
+
+    return {
+      ...extras,
       volumeTimeSeries: buildVolumeSeriesFromStats(stats),
       volumeByCategory: (stats?.categories ?? []).map((c) => ({
         label: c.category,
@@ -64,18 +66,7 @@ export function useSectionChartData() {
         label: r.region,
         value: r.count,
       })),
-      metricTrends:
-        extras.metricTrends.length > 0
-          ? extras.metricTrends
-          : buildVolumeSeriesFromStats(stats).map((p) => ({
-              label: p.label,
-              volume: Number(p.volume),
-              response: 0,
-              sentiment: stats?.demographics?.byRegion?.[0]?.sentiment ?? 50,
-              patterns: stats?.criticality?.patterns?.length ?? 0,
-            })),
-      ...extras,
-    }),
-    [stats, extras],
-  );
+      metricTrends,
+    };
+  }, [stats, extras]);
 }

@@ -48,7 +48,7 @@ export function AdminAnalyticsFilterSelect({
       <label
         htmlFor={id}
         className={cn(
-          'shrink-0 text-[11px] font-medium tracking-wide text-white/80',
+          'shrink-0 text-[11px] font-medium tracking-wide text-sidebar-foreground/80',
           compact && 'md:w-[4.5rem] md:text-right',
         )}
       >

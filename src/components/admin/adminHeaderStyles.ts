@@ -5,9 +5,18 @@ export const adminBarNavButtonClass = cn(
   'text-analytics-bar-foreground hover:bg-analytics-bar-surface/20 hover:text-analytics-bar-foreground',
 );
 
-/** Botões de menu na barra de recorte analítico (texto claro sobre fundo vermelho). */
+/** Botões de menu na barra de recorte (mesma cor do sidebar). */
 export const adminBarAnalyticsNavButtonClass = cn(
-  'text-white hover:bg-white/15 hover:text-white',
+  'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+);
+
+export const adminBarSidebarActionsGroupClass = cn(
+  'flex shrink-0 items-center gap-0.5 rounded-lg p-0.5',
+  'bg-sidebar-accent/40 ring-1 ring-inset ring-sidebar-border',
+);
+
+export const adminBarSidebarGhostActionClass = cn(
+  'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
 );
 
 export const adminBarSelectTriggerClass = cn(
