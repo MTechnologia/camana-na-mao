@@ -14,6 +14,9 @@ import { expect, type Page } from "@playwright/test";
  *   E2E_CIDADAO_EMAIL=...
  *   E2E_CIDADAO_PASSWORD=...
  *
+ * Compatível com `.env.e2e.example`: se `E2E_ADMIN_*` não estiver definido, o role **admin**
+ * usa `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` (mesmo par usado por `e2eLogin()` nos outros specs).
+ *
  * As contas devem existir no Supabase de teste com os roles correspondentes
  * em `user_roles`. Veja `tests/e2e/README.md` para setup inicial.
  */
@@ -29,11 +32,17 @@ function getCredentials(role: E2ERole): { email: string; password: string } {
     cidadao: { emailKey: "E2E_CIDADAO_EMAIL", pwKey: "E2E_CIDADAO_PASSWORD" },
   };
   const { emailKey, pwKey } = map[role];
-  const email = env[emailKey];
-  const password = env[pwKey];
+  const email =
+    env[emailKey] ?? (role === "admin" ? env.E2E_TEST_EMAIL : undefined);
+  const password =
+    env[pwKey] ?? (role === "admin" ? env.E2E_TEST_PASSWORD : undefined);
   if (!email || !password) {
+    const adminFallbackHint =
+      role === "admin"
+        ? " (ou E2E_TEST_EMAIL / E2E_TEST_PASSWORD, como em .env.e2e.example)"
+        : "";
     throw new Error(
-      `Credenciais ${role} ausentes. Defina ${emailKey} e ${pwKey} em .env.e2e.local`,
+      `Credenciais ${role} ausentes. Defina ${emailKey} e ${pwKey}${adminFallbackHint} em .env.e2e.local`,
     );
   }
   return { email, password };
@@ -46,11 +55,11 @@ function getCredentials(role: E2ERole): { email: string; password: string } {
 export async function login(page: Page, role: E2ERole): Promise<void> {
   const { email, password } = getCredentials(role);
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/senha/i).fill(password);
-  await page.getByRole("button", { name: /entrar/i }).click();
-  // Aguarda redirecionamento de pós-login (home ou onboarding).
-  await page.waitForURL(/\/(|onboarding)$/, { timeout: 15_000 });
+  await page.getByPlaceholder("Email").fill(email);
+  await page.getByPlaceholder("Senha").fill(password);
+  await page.getByRole("button", { name: /Continuar|Entrando/i }).click();
+  // Pós-login: home, onboarding ou welcome (fluxo varia por confirmação de e-mail / primeiro acesso)
+  await page.waitForURL(/\/(|onboarding|welcome)$/, { timeout: 15_000 });
 }
 
 /**

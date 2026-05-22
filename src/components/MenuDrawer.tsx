@@ -50,7 +50,6 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate("/login");
       onClose();
     } catch (error) {
       console.error("Erro ao fazer logout:", error);

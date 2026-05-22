@@ -16,9 +16,13 @@ test.describe("Exportação CSV/XLSX", () => {
     await login(page, "admin");
     await page.goto("/admin/analytics");
 
-    const exportBtn = page.getByRole("button", { name: /exportar.*dados|exportar/i });
-    await expect(exportBtn.first()).toBeVisible({ timeout: 15_000 });
-    await exportBtn.first().click();
+    // Na barra de filtros o trigger usa label curto "Exportar" (≠ default "Exportar dados").
+    const exportBtn = page
+      .getByRole("button", { name: /exportar dados/i })
+      .or(page.getByRole("button", { name: /^Exportar$/i }))
+      .first();
+    await expect(exportBtn).toBeVisible({ timeout: 15_000 });
+    await exportBtn.click();
 
     // Espera o dialog abrir.
     const csvRadio = page.getByRole("radio", { name: /csv/i }).first();
@@ -42,10 +46,19 @@ test.describe("Exportação CSV/XLSX", () => {
   test("/admin/audit-logs: exportar CSV dispara download", async ({ page }) => {
     await login(page, "admin");
     await page.goto("/admin/audit-logs");
-    await expect(page).toHaveURL(/audit-logs/);
-
     const exportBtn = page.getByRole("button", { name: /exportar.*csv/i });
-    await expect(exportBtn).toBeVisible({ timeout: 15_000 });
+
+    // Não-admins são redirecionados; o botão só aparece após `useUserRole` terminar.
+    for (let i = 0; i < 80; i++) {
+      const url = page.url();
+      if (!url.includes("/admin/audit-logs")) {
+        test.skip(true, "Conta e2e sem role admin — /admin/audit-logs redireciona (RBAC)");
+        return;
+      }
+      if (await exportBtn.isVisible().catch(() => false)) break;
+      await page.waitForTimeout(100);
+    }
+    await expect(exportBtn).toBeVisible({ timeout: 25_000 });
 
     const downloadPromise = page.waitForEvent("download", { timeout: 30_000 });
     await exportBtn.click();

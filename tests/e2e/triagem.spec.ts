@@ -18,8 +18,11 @@ test.describe("Triagem — fluxo ponta a ponta", () => {
   });
 
   test("kanban /admin/triagem renderiza 4 colunas", async ({ page }) => {
-    await expect(page.locator("text=/A triar/i")).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator("text=/Triado|Em andamento|Resolvido/i").first()).toBeVisible();
+    const board = page.getByTestId("triage-kanban-root");
+    await expect(board.getByRole("heading", { name: /^A triar$/i })).toBeVisible({ timeout: 15_000 });
+    await expect(
+      board.getByRole("heading", { name: /^(Triado|Em andamento|Resolvido)$/i }).first(),
+    ).toBeVisible();
   });
 
   test("KPIs do kanban aparecem", async ({ page }) => {
@@ -33,7 +36,8 @@ test.describe("Triagem — fluxo ponta a ponta", () => {
 
     // Após filtro inválido, todas as colunas devem mostrar zero / mensagem de vazio.
     await page.waitForTimeout(500);
-    const cards = await page
+    const board = page.getByTestId("triage-kanban-root");
+    const cards = await board
       .locator('[class*="card"]')
       .filter({ has: page.locator("text=/P0|P1|P2|P3/") })
       .count();
