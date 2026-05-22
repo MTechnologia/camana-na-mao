@@ -330,7 +330,9 @@ export default function SubscriptionsPage() {
       <div className="pt-[70px] px-4 max-w-2xl mx-auto space-y-8">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            Gerencie alertas de serviços e transporte e veja audiências recomendadas conforme seus interesses no perfil.
+            Gerencie alertas (notificações) sobre serviços e linhas de transporte nas quais você se inscreveu.
+            Também veja seu histórico de participações e recomendações sobre próximas audiências com base em seus
+            interesses.
           </p>
         </div>
         <Tabs
