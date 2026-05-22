@@ -271,7 +271,7 @@ const Register = () => {
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 1: return { main: "Olá!", sub: "crie sua\nconta aqui" };
+      case 1: return { main: "Olá!", sub: "Seja bem vindo a Câmara na Mão - Crie sua conta aqui" };
       case 2: return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
       case 3: return { main: "Onde você", sub: "mora?" };
       case 4: return { main: "Por fim,", sub: "seus interesses" };
