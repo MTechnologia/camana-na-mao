@@ -9,6 +9,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { tituloHistoricoAudiencia } from "@/lib/audienciaDisplay";
+import {
+  PERFIL_INSCRICOES_AUDIENCIAS_BACK,
+  withAudienciaFrom,
+} from "@/lib/audienciaNavigation";
 
 interface AudienciaRef {
   id: string;
@@ -138,7 +142,12 @@ export default function MyAudienciaInscricoesPage() {
                       <Card
                         key={p.id}
                         className="cursor-pointer hover:shadow-md transition-all"
-                        onClick={() => aud?.id && navigate(`/audiencias/${aud.id}`)}
+                        onClick={() =>
+                          aud?.id &&
+                          navigate(`/audiencias/${aud.id}`, {
+                            state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                          })
+                        }
                       >
                         <CardContent className="p-4 flex items-start gap-3">
                           <div className="rounded-full bg-primary/10 p-2 shrink-0">
@@ -198,7 +207,12 @@ export default function MyAudienciaInscricoesPage() {
                       <Card
                         key={r.id}
                         className="cursor-pointer hover:shadow-md transition-all"
-                        onClick={() => aud?.id && navigate(`/audiencias/${aud.id}`)}
+                        onClick={() =>
+                          aud?.id &&
+                          navigate(`/audiencias/${aud.id}`, {
+                            state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                          })
+                        }
                       >
                         <CardContent className="p-4 flex items-start gap-3">
                           <div className="rounded-full bg-muted p-2 shrink-0">

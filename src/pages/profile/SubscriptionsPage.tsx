@@ -36,6 +36,10 @@ import {
 } from "@/lib/interestAudienciaMapping";
 import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 import { tituloHistoricoAudiencia } from "@/lib/audienciaDisplay";
+import {
+  PERFIL_INSCRICOES_AUDIENCIAS_BACK,
+  withAudienciaFrom,
+} from "@/lib/audienciaNavigation";
 
 type AudienciaRef = {
   id: string;
@@ -625,7 +629,12 @@ export default function SubscriptionsPage() {
                           <Card
                             key={participacao.id}
                             className="cursor-pointer hover:shadow-md transition-all"
-                            onClick={() => audiencia?.id && navigate(`/audiencias/${audiencia.id}`)}
+                            onClick={() =>
+                              audiencia?.id &&
+                              navigate(`/audiencias/${audiencia.id}`, {
+                                state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                              })
+                            }
                           >
                             <CardContent className="p-4 flex items-start gap-3">
                               <div className="rounded-full bg-primary/10 p-2 shrink-0">
@@ -693,7 +702,12 @@ export default function SubscriptionsPage() {
                           <Card
                             key={lembrete.id}
                             className="cursor-pointer hover:shadow-md transition-all"
-                            onClick={() => audiencia?.id && navigate(`/audiencias/${audiencia.id}`)}
+                            onClick={() =>
+                              audiencia?.id &&
+                              navigate(`/audiencias/${audiencia.id}`, {
+                                state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                              })
+                            }
                           >
                             <CardContent className="p-4 flex items-start gap-3">
                               <div className="rounded-full bg-muted p-2 shrink-0">
