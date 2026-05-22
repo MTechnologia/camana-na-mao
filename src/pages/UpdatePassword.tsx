@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
 import { updatePasswordSchema, validatePasswordPolicy } from "@/lib/validations";
 import { isInsideNativeApp } from "@/lib/nativeBridge";
+import { formatAuthErrorForUser } from "@/lib/authErrorMessages";
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
@@ -158,12 +159,12 @@ const UpdatePassword = () => {
           toast.error(e.message ?? 'Erro');
         });
       } else {
-        const msg = err.message ?? '';
-        if (msg.includes('session')) {
+        const msg = err.message ?? "";
+        if (msg.toLowerCase().includes("session")) {
           toast.error("Sessão expirada. Solicite um novo link de recuperação.");
           setTimeout(() => navigate("/reset-password"), 2000);
         } else {
-          toast.error(msg || "Erro ao alterar senha");
+          toast.error(formatAuthErrorForUser(error, "Erro ao alterar senha"));
         }
       }
     } finally {

@@ -10,44 +10,12 @@ import {
   markEmailConfirmationPending,
 } from "@/lib/emailConfirmationGuard";
 import { getAuthRedirectUrl, getPasswordRecoveryRedirectUrl } from "@/lib/authRedirect";
-
-const getErrorMessage = (e: unknown): string =>
-  e instanceof Error ? e.message : (typeof e === 'object' && e !== null && 'message' in e)
-    ? String((e as { message: unknown }).message) : '';
-
-const translateError = (message: string): string => {
-  const translations: Record<string, string> = {
-    "Invalid login credentials": "E-mail ou senha incorretos",
-    "Email not confirmed": "E-mail não confirmado. Verifique sua caixa de entrada",
-    "Email confirmation pending": "Confirme seu e-mail antes de acessar o app",
-    "User already registered": "Este e-mail já está cadastrado",
-    "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
-    "Invalid email": "E-mail inválido",
-    "Email rate limit exceeded": "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo",
-    "Signup requires a valid password": "Senha inválida",
-    "Unable to validate email address": "Não foi possível validar o e-mail",
-    "signup_disabled": "Cadastro desabilitado pelo administrador",
-    "email_exists": "Este e-mail já está cadastrado",
-  };
-  const normalized = message.trim();
-  if (translations[normalized]) return translations[normalized];
-  if (normalized.toLowerCase().includes("password should contain at least one character of each")) {
-    return "A senha deve ter pelo menos 8 caracteres, incluindo letra maiúscula, letra minúscula, número e caractere especial.";
-  }
-  // Supabase pode enviar "email rate limit exceeded" com outra capitalização
-  if (normalized.toLowerCase().includes("email rate limit") || normalized.toLowerCase().includes("rate limit exceeded")) {
-    return "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo";
-  }
-  // Send Email Hook (Edge send-email) → SendGrid falhou; Supabase devolve texto com "hook" + código HTTP
-  if (
-    normalized.toLowerCase().includes("unexpected status code returned from hook") ||
-    (normalized.toLowerCase().includes("hook") &&
-      (normalized.includes("502") || normalized.includes("500") || normalized.includes("503")))
-  ) {
-    return "Não foi possível enviar o e-mail de recuperação (serviço de envio indisponível ou remetente não validado). Tente de novo em alguns minutos ou fale com o suporte.";
-  }
-  return message;
-};
+import {
+  formatAuthErrorForUser,
+  getAuthErrorCode,
+  getAuthErrorMessage,
+  translateAuthError,
+} from "@/lib/authErrorMessages";
 
 interface AuthContextType {
   user: User | null;
@@ -140,14 +108,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       return { data: { user: data.user }, error: null };
     } catch (error: unknown) {
-      const msg = getErrorMessage(error);
+      const msg = getAuthErrorMessage(error);
       const isEmailExists = (msg.trim() === "User already registered" || msg.trim() === "email_exists");
       // Só loga erros inesperados em dev (evita ruído quando e-mail já cadastrado)
       if ((import.meta.env.DEV || import.meta.env.MODE === "development") && !isEmailExists) {
         const err = error as { message?: string; status?: number };
         console.warn("[Auth] signUp error:", { message: err?.message, status: err?.status });
       }
-      const translatedMessage = translateError(msg);
+      const translatedMessage = translateAuthError(msg, getAuthErrorCode(error));
       toast.error(translatedMessage || "Erro ao criar conta");
       if (isEmailExists) {
         toast.info("Faça login na tela de entrada ou use «Esqueci a senha» para redefinir.");
@@ -187,7 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Login realizado com sucesso!");
       return { error: null };
     } catch (error: unknown) {
-      const translatedMessage = translateError(getErrorMessage(error));
+      const translatedMessage = formatAuthErrorForUser(error);
       toast.error(translatedMessage || "Erro ao fazer login");
       return { error };
     }
@@ -213,7 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Logout realizado com sucesso!");
       navigate("/welcome");
     } catch (error: unknown) {
-      const translatedMessage = translateError(getErrorMessage(error));
+      const translatedMessage = formatAuthErrorForUser(error);
       toast.error(translatedMessage || "Erro ao fazer logout");
     }
   }, [user, navigate]);
@@ -231,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("E-mail de recuperação enviado!");
       return { error: null };
     } catch (error: unknown) {
-      const translatedMessage = translateError(getErrorMessage(error));
+      const translatedMessage = formatAuthErrorForUser(error);
       toast.error(translatedMessage || "Erro ao enviar e-mail");
       return { error };
     }
@@ -253,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("E-mail de confirmação reenviado!");
       return { error: null };
     } catch (error: unknown) {
-      const translatedMessage = translateError(getErrorMessage(error));
+      const translatedMessage = formatAuthErrorForUser(error);
       toast.error(translatedMessage || "Erro ao reenviar confirmação");
       return { error: error as Error };
     }
