@@ -195,7 +195,7 @@ export const adminNavSectionsDropdown: NavSection[] = [
             requiredAnyPermission: ['reports.read', 'gabinete.view'],
           },
           { to: '/admin/users', label: 'Usuários e perfis', Icon: Users, adminOnly: true },
-          { to: '/admin/audit-logs', label: 'Auditoria', Icon: ScrollText, adminOnly: true },
+          { to: '/admin/audit-logs', label: 'Logs de Auditoria', Icon: ScrollText, adminOnly: true },
           {
             to: '/admin/service-corrections',
             label: 'Correções de equipamentos',

@@ -104,7 +104,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   docs: 'Documentação',
   overview: 'Visão geral',
   users: 'Usuários',
-  'audit-logs': 'Auditoria',
+  'audit-logs': 'Logs de Auditoria',
   'service-corrections': 'Correções',
   settings: 'Configurações',
   ai: 'IA — versionamento',

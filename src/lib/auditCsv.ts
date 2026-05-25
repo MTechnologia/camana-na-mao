@@ -33,6 +33,20 @@ export const AUDIT_CSV_COLUMNS: Array<keyof AuditCsvRow> = [
   "new_values",
 ];
 
+export const AUDIT_COLUMN_LABELS: Record<keyof AuditCsvRow, string> = {
+  data_hora: "Data/Hora",
+  user_id: "ID do usuário",
+  usuario: "Usuário",
+  email: "E-mail",
+  acao: "Ação",
+  entidade: "Entidade",
+  entidade_id: "ID da entidade",
+  ip: "IP",
+  user_agent: "User-Agent",
+  old_values: "Valores anteriores",
+  new_values: "Valores novos",
+};
+
 /** Escape RFC-4180: aspas duplas + envolver em aspas se contiver `,` `"` `;` ou newline. */
 export function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -44,10 +58,13 @@ export function csvEscape(value: unknown): string {
 }
 
 /** Serializa um array de linhas em CSV (com BOM UTF-8 para Excel). */
-export function rowsToCsv(rows: AuditCsvRow[]): string {
-  const header = AUDIT_CSV_COLUMNS.join(",");
+export function rowsToCsv(
+  rows: AuditCsvRow[],
+  columns: Array<keyof AuditCsvRow> = AUDIT_CSV_COLUMNS,
+): string {
+  const header = columns.map((col) => AUDIT_COLUMN_LABELS[col]).join(",");
   const body = rows
-    .map((r) => AUDIT_CSV_COLUMNS.map((col) => csvEscape(r[col])).join(","))
+    .map((r) => columns.map((col) => csvEscape(r[col])).join(","))
     .join("\n");
   return "﻿" + header + "\n" + body;
 }

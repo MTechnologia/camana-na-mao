@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
+import { usesGlobalReportsAnalytics, usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
 
 describe('usesUnifiedAnalyticsBar', () => {
   it('exibe barra no dashboard executivo e nas rotas de gestão/encaminhamentos', () => {
@@ -18,5 +18,21 @@ describe('usesUnifiedAnalyticsBar', () => {
     expect(usesUnifiedAnalyticsBar('/admin/classification-accuracy')).toBe(false);
     expect(usesUnifiedAnalyticsBar('/admin/notifications')).toBe(false);
     expect(usesUnifiedAnalyticsBar('/paineis')).toBe(false);
+  });
+});
+
+describe('usesGlobalReportsAnalytics', () => {
+  it('ativa provider nas rotas de analytics unificado e nas seções com gráficos', () => {
+    expect(usesGlobalReportsAnalytics('/admin')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/reports')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/exports')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/notifications')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/docs/overview')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/settings/accessibility')).toBe(true);
+  });
+
+  it('não ativa provider em rotas admin sem gráficos de seção', () => {
+    expect(usesGlobalReportsAnalytics('/admin/analytics')).toBe(false);
+    expect(usesGlobalReportsAnalytics('/admin/users')).toBe(false);
   });
 });

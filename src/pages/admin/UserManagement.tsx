@@ -52,7 +52,18 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function UserManagement({ embedded }: { embedded?: boolean } = {}) {
-  const { users, loading, searchTerm, setSearchTerm, roleFilter, setRoleFilter, updateUserRoles, deleteUser, refetch } = useAdminUsers();
+  const {
+    users,
+    vereadorSlotsByCouncilId,
+    loading,
+    searchTerm,
+    setSearchTerm,
+    roleFilter,
+    setRoleFilter,
+    updateUserRoles,
+    deleteUser,
+    refetch,
+  } = useAdminUsers();
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
   const [userToSuspend, setUserToSuspend] = useState<AdminUser | null>(null);
@@ -188,13 +199,15 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                 header: 'Ações',
                 accessor: (user) => (
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedUser(user)}
-                    >
-                      Editar Perfil
-                    </Button>
+                    <PermissionGate permission="users.update_role">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedUser(user)}
+                      >
+                        Editar Perfil
+                      </Button>
+                    </PermissionGate>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -270,14 +283,16 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setSelectedUser(user)}
-                  >
-                    Editar Perfil
-                  </Button>
+                  <PermissionGate permission="users.update_role">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      Editar Perfil
+                    </Button>
+                  </PermissionGate>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -298,6 +313,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
             open={!!selectedUser}
             onClose={() => setSelectedUser(null)}
             onUpdateRoles={updateUserRoles}
+            vereadorSlotsByCouncilId={vereadorSlotsByCouncilId}
           />
         )}
 
