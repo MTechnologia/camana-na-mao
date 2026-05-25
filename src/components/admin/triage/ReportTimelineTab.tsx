@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
+  Building2,
   CheckCircle2,
   Clock,
   Edit3,
@@ -26,6 +27,9 @@ import {
 import {
   useReportTriage,
 } from "@/hooks/useReportTriage";
+import {
+  fetchActiveLegislativeCommissions,
+} from "@/lib/reportCommissionReferrals";
 import { TRIAGE_PRIORITIES, TRIAGE_STATUSES } from "@/lib/triage";
 import type { ReportSource } from "@/contexts/ReportDetailContext";
 
@@ -76,7 +80,7 @@ function eventLabel(event: ReportStatusEvent): string {
       return "Triagem iniciada";
     case "assigned": {
       const to = data?.to as string | null;
-      return to ? "Responsável atribuído" : "Responsável removido";
+      return to ? "Comissão responsável definida" : "Comissão responsável removida";
     }
     case "prioritized": {
       const to = data?.to as string | null;
@@ -126,6 +130,25 @@ export function ReportTimelineTab({
 
   const isLoading = loadingTriage || loadingEvents || loadingReferrals;
 
+  const [commissionNameById, setCommissionNameById] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const list = await fetchActiveLegislativeCommissions();
+        setCommissionNameById(new Map(list.map((c) => [c.commissionId, c.name])));
+      } catch (err) {
+        console.error("[ReportTimelineTab] commissions", err);
+      }
+    })();
+  }, []);
+
+  const responsibleCommissionLabel = triage?.responsibleCommissionId
+    ? commissionNameById.get(triage.responsibleCommissionId) ?? "Comissão"
+    : null;
+
   const sortedEvents = useMemo(
     () =>
       [...events].sort((a, b) =>
@@ -166,14 +189,14 @@ export function ReportTimelineTab({
               {TRIAGE_PRIORITIES[triage.priority].label}
             </Badge>
           )}
-          {triage?.assigneeId ? (
-            <Badge variant="outline" className="text-xs">
-              <UserCheck className="h-3 w-3 mr-1" />
-              Atribuído
+          {responsibleCommissionLabel ? (
+            <Badge variant="outline" className="text-xs max-w-full">
+              <Building2 className="h-3 w-3 mr-1 shrink-0" />
+              <span className="truncate">{responsibleCommissionLabel}</span>
             </Badge>
           ) : (
             <Badge variant="outline" className="text-xs text-muted-foreground">
-              Sem responsável
+              Sem comissão
             </Badge>
           )}
         </div>

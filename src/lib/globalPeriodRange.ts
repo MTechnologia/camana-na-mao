@@ -1,4 +1,6 @@
+import type { DateRangeValue } from '@/components/filters/types';
 import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
+import { isCompleteDateRange } from '@/lib/dateRangeUtils';
 
 export type GlobalPeriodKey =
   | 'last_7d'
@@ -53,4 +55,41 @@ export function dateRangeToIsoDates(range: DateRangeBounds): { startDate: string
     startDate: toLocalDateString(range.from),
     endDate: toLocalDateString(range.to),
   };
+}
+
+/** Atalhos de período usados por tendências, mapas de calor e RPCs legadas (`7d`, `30d`, …). */
+export type AnalyticsShortcutPeriod = '7d' | '30d' | '90d' | '12m';
+
+export function globalPeriodToShortcutPeriod(
+  period: string,
+  periodCompare?: { periodA?: DateRangeValue } | null,
+): AnalyticsShortcutPeriod {
+  if (period === PERIOD_COMPARE_VALUE && isCompleteDateRange(periodCompare?.periodA)) {
+    return '30d';
+  }
+  switch (period) {
+    case 'last_7d':
+      return '7d';
+    case 'last_30d':
+      return '30d';
+    case 'last_90d':
+      return '90d';
+    case 'ytd':
+      return '12m';
+    default:
+      return '30d';
+  }
+}
+
+/** Períodos dos painéis de calor que não oferecem atalho de 7 dias. */
+export type HeatmapExtendedPeriod = '30d' | '90d' | '12m';
+
+export function globalPeriodToHeatmapExtendedPeriod(
+  period: string,
+  periodCompare?: { periodA?: DateRangeValue } | null,
+): HeatmapExtendedPeriod {
+  const shortcut = globalPeriodToShortcutPeriod(period, periodCompare);
+  if (shortcut === '90d') return '90d';
+  if (shortcut === '12m') return '12m';
+  return '30d';
 }

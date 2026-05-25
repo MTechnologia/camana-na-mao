@@ -2,7 +2,6 @@ import type React from 'react';
 import { PageShell } from '@/components/ui/PageShell';
 import { URBAN_REPORTS_ANALYTICS_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UrbanReportsAnalyticsFilterBar } from '@/components/admin/analytics/UrbanReportsAnalyticsFilterBar';
 import { AnalyticsSummaryKpis } from '@/components/admin/analytics/AnalyticsSummaryKpis';
 import { UrbanReportsAnalyticsFiltersProvider } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
 import {
@@ -36,7 +35,6 @@ export function ReportsAnalyticsPage() {
   return (
     <UrbanReportsAnalyticsFiltersProvider>
       <PageShell title="Análise de relatos urbanos" titleInfo={URBAN_REPORTS_ANALYTICS_PAGE_LEGEND}>
-        <UrbanReportsAnalyticsFilterBar />
         <AnalyticsSummaryKpis />
 
         <Tabs defaultValue="volume" className="mt-6 w-full">
