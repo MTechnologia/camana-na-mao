@@ -178,7 +178,14 @@ export function FrontendWebView() {
 
         if (parsedUrl.protocol === `${APP_SCHEME}:`) {
           const base = normalizedActive || DEFAULT_WEB_URL.trim();
-          const target = new URL('/login', base);
+          const host = parsedUrl.hostname;
+          const appPath =
+            host === 'nova-senha'
+              ? '/nova-senha'
+              : host === 'auth'
+                ? `/auth${parsedUrl.pathname || '/callback'}`
+                : '/login';
+          const target = new URL(appPath, base);
           target.search = parsedUrl.search;
           target.hash = parsedUrl.hash;
           setDraftUrl(target.href);

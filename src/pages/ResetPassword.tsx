@@ -31,7 +31,9 @@ const ResetPassword = () => {
 
       if (!error) {
         setEmailSent(true);
-        toast.success("Link enviado! Verifique sua caixa de entrada e também a pasta de spam.");
+        toast.success(
+          `Enviamos um link de recuperação de senha para o e-mail ${email}. Verifique sua caixa de entrada e caixa de spam.`,
+        );
       }
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }> };
@@ -67,14 +69,13 @@ const ResetPassword = () => {
             </div>
             
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Email Enviado!
+              E-mail Enviado
             </h1>
             
-            <p className="text-gray-600 mb-8">
-              Enviamos um link de recuperação para <strong>{email}</strong>.
-              Verifique sua <strong>caixa de entrada</strong> e também a pasta de{" "}
-              <strong>spam ou lixo eletrônico</strong> — é comum o e-mail ir para lá.
-              Siga as instruções no link para redefinir sua senha.
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              Enviamos um link de recuperação de senha para o e-mail{" "}
+              <strong>{email}</strong>. Verifique sua caixa de entrada e caixa de spam
+              (lixo eletrônico) e siga as instruções no e-mail.
             </p>
 
             <Button

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText, Bell, CheckCircle2, CircleOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   extrairEmailDeMaisInformacoes,
   observacaoParaDetalheAudiencia,
 } from "@/lib/audienciaDisplay";
+import { readAudienciaBackPath } from "@/lib/audienciaNavigation";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
@@ -92,6 +93,8 @@ const CMSP_MAPS_URL =
 const AudienciaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backTo = readAudienciaBackPath(location.state);
   const { user } = useAuth();
   const presencialRef = useRef<HTMLDivElement>(null);
   const [audiencia, setAudiencia] = useState<Audiencia | null>(null);
@@ -151,7 +154,7 @@ const AudienciaDetailPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <PageHeader title="Carregando..." backTo="/audiencias" />
+        <PageHeader title="Carregando..." backTo={backTo} />
         <div className="pt-[60px] p-6 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -162,10 +165,10 @@ const AudienciaDetailPage = () => {
   if (!audiencia) {
     return (
       <div className="min-h-screen bg-background">
-        <PageHeader title="Audiência não encontrada" backTo="/audiencias" />
+        <PageHeader title="Audiência não encontrada" backTo={backTo} />
         <div className="pt-[60px] p-6 text-center">
           <p className="text-muted-foreground mb-4">A audiência solicitada não foi encontrada.</p>
-          <Button onClick={() => navigate("/audiencias")}>Voltar para audiências</Button>
+          <Button onClick={() => navigate(backTo)}>Voltar</Button>
         </div>
       </div>
     );
@@ -233,7 +236,7 @@ const AudienciaDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <PageHeader title={tituloExibicao} backTo="/audiencias" />
+      <PageHeader title={tituloExibicao} backTo={backTo} />
       
       <div className="pt-[60px] p-6 space-y-6">
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
@@ -618,7 +621,9 @@ const AudienciaDetailPage = () => {
                   </div>
                 ) : (
                   <Button
-                    onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                    onClick={() =>
+                      navigate(`/audiencias/${id}/participar?tipo=videoconferencia`, { state: location.state })
+                    }
                     className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     <User className="h-4 w-4 shrink-0" />
@@ -628,7 +633,9 @@ const AudienciaDetailPage = () => {
               ) : null}
               <Button
                 variant="outline"
-                onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
+                onClick={() =>
+                  navigate(`/audiencias/${id}/participar?tipo=escrito`, { state: location.state })
+                }
                 className="w-full gap-2 border-primary text-primary hover:bg-primary/10"
               >
                 <FileText className="h-4 w-4 shrink-0" />
@@ -644,7 +651,7 @@ const AudienciaDetailPage = () => {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full border-border text-foreground hover:bg-muted/50">
+          <Button variant="outline" onClick={() => navigate(backTo)} className="w-full border-border text-foreground hover:bg-muted/50">
             Voltar
           </Button>
         </div>

@@ -90,7 +90,7 @@ const Register = () => {
     if (password.length === 0) return { strength: 0, label: "" };
     const metRequirements = passwordRequirements.filter((requirement) => requirement.test(password)).length;
     if (metRequirements < 3) return { strength: 33, label: "Fraca", color: "bg-red-500" };
-    if (metRequirements < passwordRequirements.length) return { strength: 66, label: "MÃ©dia", color: "bg-yellow-500" };
+    if (metRequirements < passwordRequirements.length) return { strength: 66, label: "Média", color: "bg-yellow-500" };
     return { strength: 100, label: "Forte", color: "bg-green-500" };
   };
 
@@ -118,7 +118,7 @@ const Register = () => {
       });
 
       if (!formData.acceptedTerms || !formData.acceptedPrivacy) {
-        toast.error("VocÃª precisa aceitar os termos de uso e a polÃ­tica de privacidade para continuar");
+        toast.error("Você precisa aceitar os termos de uso e a política de privacidade para continuar");
         return;
       }
 
@@ -151,11 +151,11 @@ const Register = () => {
       return;
     }
     if (!formData.gender?.trim()) {
-      toast.error("Selecione o gÃªnero.");
+      toast.error("Selecione o gênero.");
       return;
     }
     if (!formData.race?.trim()) {
-      toast.error("Selecione raÃ§a/cor.");
+      toast.error("Selecione raça/cor.");
       return;
     }
     if (!formData.incomeRange?.trim()) {
@@ -168,7 +168,7 @@ const Register = () => {
   const handleLocationContinue = () => {
     const hasCompleteAddress = !!(formData.cep && formData.neighborhood && formData.number?.trim());
     if (!hasCompleteAddress) {
-      toast.info("VocÃª pode concluir agora e cadastrar o endereÃ§o depois em Perfil > EndereÃ§o.");
+      toast.info("Você pode concluir agora e cadastrar o endereço depois em Perfil > Endereço.");
     }
     setCurrentStep(4);
   };
@@ -188,7 +188,7 @@ const Register = () => {
     }
 
     if (!formData.birthDate?.trim() || !formData.gender?.trim() || !formData.race?.trim() || !formData.incomeRange?.trim()) {
-      toast.error("Preencha todos os campos da etapa Sobre vocÃª.");
+      toast.error("Preencha todos os campos da etapa Sobre você.");
       return;
     }
 
@@ -200,7 +200,7 @@ const Register = () => {
     setLoading(true);
     try {
       if (!supabaseAnonKey || !supabaseUrl) {
-        toast.error("ConfiguraÃ§Ã£o do app incompleta. Tente novamente ou contate o suporte.");
+        toast.error("Configuração do app incompleta. Tente novamente ou contate o suporte.");
         setLoading(false);
         return;
       }
@@ -217,17 +217,17 @@ const Register = () => {
         number: formData.number.trim(),
         complement: formData.complement?.trim() || null,
         neighborhood: formData.neighborhood,
-        city: formData.city || "SÃ£o Paulo",
+        city: formData.city || "São Paulo",
         state: formData.state || "SP",
         interests: formData.interests,
       };
 
-      // Token: preferir sessÃ£o (atualizada), depois anon key (produÃ§Ã£o pode nÃ£o ter env no build)
+      // Token: preferir sessão (atualizada), depois anon key (produção pode não ter env no build)
       await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? supabaseAnonKey;
       if (!token) {
-        toast.error("SessÃ£o expirada. FaÃ§a login novamente e complete o cadastro em Perfil.");
+        toast.error("Sessão expirada. Faça login novamente e complete o cadastro em Perfil.");
         return;
       }
 
@@ -243,7 +243,7 @@ const Register = () => {
       const data = (await res.json().catch(() => ({}))) as { error?: string; details?: string };
       if (!res.ok) {
         console.error("complete-registration error:", res.status, data);
-        toast.error(data?.details || data?.error || "NÃ£o foi possÃ­vel concluir o cadastro. Tente novamente.");
+        toast.error(data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.");
         return;
       }
       if (data?.error) {
@@ -251,7 +251,7 @@ const Register = () => {
         return;
       }
 
-      toast.success("Cadastro concluÃ­do! FaÃ§a login para acessar o app.");
+      toast.success("Cadastro concluído! Faça login para acessar o app.");
       await signOut();
       navigate("/login", { replace: true });
     } catch (error: unknown) {
@@ -271,9 +271,9 @@ const Register = () => {
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 1: return { main: "OlÃ¡!", sub: "crie sua\nconta aqui" };
-      case 2: return { main: "Conta criada!", sub: "Agora, conte mais\nsobre vocÃª" };
-      case 3: return { main: "Onde vocÃª", sub: "mora?" };
+      case 1: return { main: "Olá!", sub: "Seja bem vindo a Câmara na Mão - Crie sua conta aqui" };
+      case 2: return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
+      case 3: return { main: "Onde você", sub: "mora?" };
       case 4: return { main: "Por fim,", sub: "seus interesses" };
       default: return { main: "", sub: "" };
     }
@@ -314,7 +314,7 @@ const Register = () => {
       <div className="flex-1 bg-background rounded-t-[32px] px-6 pt-6 pb-8 overflow-y-auto">
         {currentStep === 1 && (
           <>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Vamos comeÃ§ar</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Vamos começar</h2>
             <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">
@@ -348,8 +348,8 @@ const Register = () => {
                     }`}
                   >
                     {emailFieldValid
-                      ? "E-mail com formato vÃ¡lido"
-                      : "Informe um e-mail vÃ¡lido com domÃ­nio reconhecÃ­vel"}
+                      ? "E-mail com formato válido"
+                      : "Informe um e-mail válido com domínio reconhecível"}
                   </p>
                 )}
               </div>
@@ -429,7 +429,7 @@ const Register = () => {
                   </button>
                 </div>
                 {formData.confirmPassword.length > 0 && !passwordsMatch && (
-                  <p className="text-xs text-destructive mt-1">As senhas nÃ£o coincidem.</p>
+                  <p className="text-xs text-destructive mt-1">As senhas não coincidem.</p>
                 )}
               </div>
               <div className="space-y-3 pt-2">
@@ -473,7 +473,7 @@ const Register = () => {
                       className="text-primary underline hover:text-primary/80"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      polÃ­tica de privacidade
+                      política de privacidade
                     </Link>
                   </label>
                 </div>
@@ -538,7 +538,7 @@ const Register = () => {
         {/* Login Link - only show on first two steps */}
         {currentStep === 1 && (
           <p className="text-center text-sm text-muted-foreground mt-6">
-            JÃ¡ tem uma conta?{" "}
+            Já tem uma conta?{" "}
             <Link to="/login" className="text-foreground font-semibold">
               Fazer login
             </Link>

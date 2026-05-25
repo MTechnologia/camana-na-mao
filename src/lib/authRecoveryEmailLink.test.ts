@@ -11,6 +11,21 @@ describe("authRecoveryEmailLink", () => {
     ).toBe("https://camara-na-mao.example.run.app/nova-senha");
   });
 
+  it("aceita redirect_to com deep link do app (camaranaomao)", () => {
+    expect(
+      resolvePasswordRecoveryRedirectBase({
+        redirect_to: "camaranaomao://nova-senha",
+        site_url: "https://web.example.com",
+      }),
+    ).toBe("camaranaomao://nova-senha");
+
+    const link = buildRecoveryEmailActionUrl({
+      token_hash: "th_mobile",
+      redirect_to: "camaranaomao://nova-senha",
+    });
+    expect(link).toBe("camaranaomao://nova-senha?token_hash=th_mobile&type=recovery");
+  });
+
   it("monta link único com token_hash e type=recovery", () => {
     const link = buildRecoveryEmailActionUrl({
       token_hash: "th_abc",

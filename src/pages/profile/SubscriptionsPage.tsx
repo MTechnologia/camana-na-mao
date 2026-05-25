@@ -35,12 +35,20 @@ import {
   interestCategoriesToSearchTerms,
 } from "@/lib/interestAudienciaMapping";
 import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
+import { tituloHistoricoAudiencia } from "@/lib/audienciaDisplay";
+import {
+  PERFIL_INSCRICOES_AUDIENCIAS_BACK,
+  withAudienciaFrom,
+} from "@/lib/audienciaNavigation";
 
 type AudienciaRef = {
   id: string;
   titulo: string;
   data: string;
   status?: string;
+  comissao?: string | null;
+  descricao?: string | null;
+  tema?: string | null;
 };
 
 type InscricaoLembrete = {
@@ -244,13 +252,13 @@ export default function SubscriptionsPage() {
       const [resInsc, resPart] = await Promise.all([
         supabase
           .from("audiencia_inscricoes")
-          .select("id, created_at, audiencia:audiencias(id, titulo, data, status)")
+          .select("id, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
           .from("audiencia_participacoes")
-          .select("id, tipo, created_at, audiencia:audiencias(id, titulo, data, status)")
+          .select("id, tipo, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(50),
@@ -322,7 +330,9 @@ export default function SubscriptionsPage() {
       <div className="pt-[70px] px-4 max-w-2xl mx-auto space-y-8">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            Gerencie alertas de serviços e transporte e veja audiências recomendadas conforme seus interesses no perfil.
+            Gerencie alertas (notificações) sobre serviços e linhas de transporte nas quais você se inscreveu.
+            Também veja seu histórico de participações e recomendações sobre próximas audiências com base em seus
+            interesses.
           </p>
         </div>
         <Tabs
@@ -605,7 +615,7 @@ export default function SubscriptionsPage() {
                 <section>
                   <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-3">
                     <Video className="h-5 w-5" />
-                    Participações (videoconferência / escrito)
+                    Histórico de Participações - Videoconferências e Manifestações
                   </h2>
                   {participacoesAudiencia.length === 0 ? (
                     <Card>
@@ -621,7 +631,12 @@ export default function SubscriptionsPage() {
                           <Card
                             key={participacao.id}
                             className="cursor-pointer hover:shadow-md transition-all"
-                            onClick={() => audiencia?.id && navigate(`/audiencias/${audiencia.id}`)}
+                            onClick={() =>
+                              audiencia?.id &&
+                              navigate(`/audiencias/${audiencia.id}`, {
+                                state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                              })
+                            }
                           >
                             <CardContent className="p-4 flex items-start gap-3">
                               <div className="rounded-full bg-primary/10 p-2 shrink-0">
@@ -632,7 +647,9 @@ export default function SubscriptionsPage() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-foreground truncate">{audiencia?.titulo || "Audiência"}</p>
+                                <p className="font-medium text-foreground line-clamp-4 break-words leading-snug">
+                                  {tituloHistoricoAudiencia(audiencia)}
+                                </p>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {tipoLabel(participacao.tipo)} · {audiencia?.data ? formatData(audiencia.data) : "—"}
                                 </p>
@@ -687,14 +704,21 @@ export default function SubscriptionsPage() {
                           <Card
                             key={lembrete.id}
                             className="cursor-pointer hover:shadow-md transition-all"
-                            onClick={() => audiencia?.id && navigate(`/audiencias/${audiencia.id}`)}
+                            onClick={() =>
+                              audiencia?.id &&
+                              navigate(`/audiencias/${audiencia.id}`, {
+                                state: withAudienciaFrom(PERFIL_INSCRICOES_AUDIENCIAS_BACK),
+                              })
+                            }
                           >
                             <CardContent className="p-4 flex items-start gap-3">
                               <div className="rounded-full bg-muted p-2 shrink-0">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-foreground truncate">{audiencia?.titulo || "Audiência"}</p>
+                                <p className="font-medium text-foreground line-clamp-4 break-words leading-snug">
+                                  {tituloHistoricoAudiencia(audiencia)}
+                                </p>
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {audiencia?.data ? formatData(audiencia.data) : "—"}
                                 </p>

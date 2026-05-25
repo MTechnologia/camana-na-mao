@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bookmark } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { SimulatedMap } from './SimulatedMap';
 import type { MapFocusOnService } from './GoogleMapView';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -50,7 +50,7 @@ function MapFavoritesButton() {
   return (
     <Button variant="secondary" size="sm" className="shadow-sm gap-2" asChild>
       <Link to="/servicos/favoritos" aria-label="Ir para Meus Favoritos">
-        <Bookmark className="h-4 w-4 shrink-0" aria-hidden />
+        <Heart className="h-4 w-4 shrink-0" aria-hidden />
         Meus Favoritos
       </Link>
     </Button>

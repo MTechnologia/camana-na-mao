@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { User, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
 import { formatAudienciaApCode } from "@/lib/audienciaDisplay";
+import { readAudienciaBackPath } from "@/lib/audienciaNavigation";
 
 const BAIRROS_SP = [
   "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
@@ -40,6 +41,12 @@ function formatPhoneBr(value: string): string {
 const ParticipacaoPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnState = location.state;
+  const backToList = readAudienciaBackPath(returnState);
+  const backToDetailPath = id ? `/audiencias/${id}` : backToList;
+  const goBackToDetail = () => navigate(backToDetailPath, { state: returnState });
+  const goBackToList = () => navigate(backToList);
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get("tipo") as "videoconferencia" | "escrito" | null;
   const { user } = useAuth();
@@ -142,7 +149,7 @@ const ParticipacaoPage = () => {
   if (audienciaLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <PageHeader title="Quero participar" backTo={`/audiencias/${id}`} />
+        <PageHeader title="Quero participar" onBack={goBackToDetail} />
         <div className="pt-[60px] p-6 text-center">
           <p className="text-muted-foreground">Carregando audiência...</p>
         </div>
@@ -153,21 +160,19 @@ const ParticipacaoPage = () => {
   if (!audienciaTitle) {
     return (
       <div className="min-h-screen bg-background">
-        <PageHeader title="Audiência não encontrada" backTo="/audiencias" />
+        <PageHeader title="Audiência não encontrada" backTo={backToList} />
         <div className="pt-[60px] p-6 text-center">
           <p className="text-muted-foreground mb-4">A audiência solicitada não foi encontrada.</p>
-          <Button onClick={() => navigate("/audiencias")}>Voltar para audiências</Button>
+          <Button onClick={goBackToList}>Voltar</Button>
         </div>
       </div>
     );
   }
 
-  const backToDetail = `/audiencias/${id}`;
-
   if (tipo === "videoconferencia" && !permiteVideoconferencia) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <PageHeader title="Participação" backTo={backToDetail} />
+        <PageHeader title="Participação" onBack={goBackToDetail} />
         <div className="pt-[60px] p-6 max-w-lg mx-auto space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
             Esta audiência está prevista como <strong className="text-foreground">participação presencial</strong> no local,
@@ -178,10 +183,15 @@ const ParticipacaoPage = () => {
             transmissão online.
           </p>
           <div className="flex flex-col gap-2 pt-2">
-            <Button onClick={() => navigate(`${backToDetail}/participar?tipo=escrito`)} className="w-full">
+            <Button
+              onClick={() =>
+                navigate(`${backToDetailPath}/participar?tipo=escrito`, { state: returnState })
+              }
+              className="w-full"
+            >
               Manifestação por escrito
             </Button>
-            <Button variant="outline" onClick={() => navigate(backToDetail)} className="w-full">
+            <Button variant="outline" onClick={goBackToDetail} className="w-full">
               Voltar ao detalhe da audiência
             </Button>
           </div>
@@ -194,7 +204,7 @@ const ParticipacaoPage = () => {
   if (!tipo || (tipo !== "videoconferencia" && tipo !== "escrito")) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <PageHeader title="Quero participar" backTo={`/audiencias/${id}`} />
+        <PageHeader title="Quero participar" onBack={goBackToDetail} />
         <div className="pt-[60px] p-6 space-y-6">
           <p className="text-sm text-muted-foreground">Para:</p>
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
@@ -221,7 +231,9 @@ const ParticipacaoPage = () => {
             ) : null}
             <Button
               variant="outline"
-              onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
+              onClick={() =>
+                navigate(`/audiencias/${id}/participar?tipo=escrito`, { state: returnState })
+              }
               className="w-full border-primary text-primary hover:bg-primary/10 h-auto py-4"
             >
               <FileText className="h-5 w-5 mr-2 shrink-0" />
@@ -377,7 +389,7 @@ const ParticipacaoPage = () => {
   if (step === 3) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <PageHeader title={tipo === "escrito" ? "Manifestação enviada" : "Inscrição realizada"} backTo={backToDetail} />
+        <PageHeader title={tipo === "escrito" ? "Manifestação enviada" : "Inscrição realizada"} onBack={goBackToDetail} />
         <div className="pt-[60px] p-6 max-w-lg mx-auto space-y-6">
           <div className="rounded-lg bg-green-600 text-white text-center py-4 px-4">
             <p className="font-bold text-lg uppercase tracking-wide">
@@ -430,7 +442,7 @@ const ParticipacaoPage = () => {
               {nome} ({email} | {telefone.replace(/\D/g, "")})
             </p>
           </div>
-          <Button onClick={() => navigate("/audiencias")} className="w-full">
+          <Button onClick={goBackToList} className="w-full">
             Ver outras audiências
           </Button>
         </div>
@@ -463,7 +475,7 @@ const ParticipacaoPage = () => {
       };
       return (
         <div className="min-h-screen bg-background pb-20">
-          <PageHeader title="Quero participar" backTo={backToDetail} />
+          <PageHeader title="Quero participar" onBack={goBackToDetail} />
           <div className="pt-[60px] p-6 space-y-6 flex flex-col items-center">
             <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
@@ -471,7 +483,7 @@ const ParticipacaoPage = () => {
             </div>
             <p className="text-sm text-muted-foreground text-center">Você já realizou a inscrição para manifestar-se durante a videoconferência.</p>
             <div className="flex flex-col gap-2 w-full max-w-xs">
-              <Button variant="outline" onClick={() => navigate(backToDetail)} className="w-full border-border text-foreground hover:bg-muted/50">Voltar aos detalhes da audiência</Button>
+              <Button variant="outline" onClick={() => goBackToDetail()} className="w-full border-border text-foreground hover:bg-muted/50">Voltar aos detalhes da audiência</Button>
               <Button
                 variant="outline"
                 onClick={handleCancelarInscricao}
@@ -487,7 +499,7 @@ const ParticipacaoPage = () => {
     }
     return (
       <div className="min-h-screen bg-background pb-20">
-        <PageHeader title="Quero participar" backTo={backToDetail} />
+        <PageHeader title="Quero participar" onBack={goBackToDetail} />
         <div className="pt-[60px] p-6 space-y-6">
           <p className="text-sm text-muted-foreground">Para:</p>
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
@@ -561,7 +573,7 @@ const ParticipacaoPage = () => {
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => navigate(backToDetail)} className="flex-1">Voltar</Button>
+                <Button variant="outline" onClick={() => goBackToDetail()} className="flex-1">Voltar</Button>
                 <Button onClick={submitVideoconferencia} disabled={isLoading} className="flex-1 bg-primary">
                   {isLoading ? "Enviando..." : "INSCREVA-SE!"}
                 </Button>
@@ -576,7 +588,7 @@ const ParticipacaoPage = () => {
   // ——— Formulário MANIFESTAÇÃO ESCRITA ———
   return (
     <div className="min-h-screen bg-background pb-20">
-      <PageHeader title="Manifestação por escrito" backTo={backToDetail} />
+      <PageHeader title="Manifestação por escrito" onBack={goBackToDetail} />
       <div className="pt-[60px] p-6 space-y-6">
         <div className="bg-primary text-primary-foreground rounded-t-lg p-4 flex items-center gap-3">
           <FileText className="h-6 w-6 shrink-0" />
