@@ -3,27 +3,22 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useState,
   type ReactNode,
 } from 'react';
+import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { globalFilterChipLabels } from '@/lib/globalFilterOptions';
+import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
 import {
   useReportsAnalytics,
   type ReportsAnalyticsFilters,
   type ReportsAnalyticsStats,
 } from '@/hooks/useReportsAnalytics';
-import { urbanReportsFiltersToReportsAnalytics } from '@/lib/urbanReportsFiltersToAnalytics';
-import { urbanAnalyticsFilterChipLabels } from '@/lib/urbanReportsAnalyticsFilterOptions';
+import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
 
 export type UrbanReportsAnalyticsFiltersState = {
   period: string;
+  region: string;
   category: string;
-  status: string;
-};
-
-const defaults: UrbanReportsAnalyticsFiltersState = {
-  period: 'last_30d',
-  category: 'all',
-  status: 'all',
 };
 
 type Ctx = UrbanReportsAnalyticsFiltersState & {
@@ -34,59 +29,59 @@ type Ctx = UrbanReportsAnalyticsFiltersState & {
   error: string | null;
   lastUpdate: Date | null;
   refresh: () => void;
-  setPeriod: (v: string) => void;
-  setCategory: (v: string) => void;
-  setStatus: (v: string) => void;
   reset: () => void;
 };
 
 const UrbanReportsAnalyticsFiltersContext = createContext<Ctx | null>(null);
 
 export function UrbanReportsAnalyticsFiltersProvider({ children }: { children: ReactNode }) {
-  const [period, setPeriod] = useState(defaults.period);
-  const [category, setCategory] = useState(defaults.category);
-  const [status, setStatus] = useState(defaults.status);
-
-  const reset = useCallback(() => {
-    setPeriod(defaults.period);
-    setCategory(defaults.category);
-    setStatus(defaults.status);
-  }, []);
+  const {
+    period,
+    region,
+    category,
+    periodCompare,
+    reset: resetGlobal,
+  } = useGlobalFilters();
 
   const filters = useMemo(
-    () => urbanReportsFiltersToReportsAnalytics(period, category, status),
-    [period, category, status],
+    () => ({
+      ...globalFiltersToReportsAnalytics(period, region, category, {
+        periodA: periodCompare.periodA,
+      }),
+      scope: 'urban_only' as const,
+    }),
+    [period, region, category, periodCompare.periodA],
   );
+
   const { stats, isLoading, error, lastUpdate, refresh } = useReportsAnalytics(filters);
+
+  useRegisterAnalyticsLive('urban-reports-analytics', { lastUpdate, refresh });
 
   const value = useMemo<Ctx>(
     () => ({
       period,
+      region,
       category,
-      status,
       filters,
-      chipLabels: urbanAnalyticsFilterChipLabels(period, category, status),
+      chipLabels: globalFilterChipLabels(period, region, category),
       stats,
       isLoading,
       error,
       lastUpdate,
       refresh,
-      setPeriod,
-      setCategory,
-      setStatus,
-      reset,
+      reset: resetGlobal,
     }),
     [
       period,
+      region,
       category,
-      status,
       filters,
       stats,
       isLoading,
       error,
       lastUpdate,
       refresh,
-      reset,
+      resetGlobal,
     ],
   );
 

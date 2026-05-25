@@ -139,6 +139,7 @@ interface TriageRow {
   report_id: string;
   priority: TriagePriority | null;
   assignee_id: string | null;
+  responsible_commission_id: string | null;
   triaged_by: string | null;
   triage_status: TriageStatus;
   notes: string | null;
@@ -268,7 +269,7 @@ export function useTriageKanban(
         );
       };
       const triageSelect =
-        "id, source_table, report_id, priority, assignee_id, triaged_by, triage_status, notes, updated_at";
+        "id, source_table, report_id, priority, assignee_id, responsible_commission_id, triaged_by, triage_status, notes, updated_at";
 
       let urbanRows: UrbanRow[] = [];
       let transportRows: TransportRow[] = [];
@@ -389,19 +390,15 @@ export function useTriageKanban(
         triageByKey.set(reportCommissionKey(t.source_table, t.report_id), t);
       }
 
-      const assigneeIds = Array.from(
-        new Set(
-          triageRows.flatMap((t: TriageRow) =>
-            [t.assignee_id, t.triaged_by].filter(Boolean) as string[],
-          ),
-        ),
+      const triagedByIds = Array.from(
+        new Set(triageRows.map((t: TriageRow) => t.triaged_by).filter(Boolean) as string[]),
       );
       const nameByUser = new Map<string, string>();
-      if (assigneeIds.length > 0) {
+      if (triagedByIds.length > 0) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, full_name")
-          .in("id", assigneeIds);
+          .in("id", triagedByIds);
         for (const p of (profs ?? []) as Array<{ id: string; full_name: string | null }>) {
           if (p.full_name) nameByUser.set(p.id, p.full_name);
         }
@@ -410,6 +407,29 @@ export function useTriageKanban(
       const urbanIds = urbanRows.map((r) => r.id);
       const transportIds = transportRows.map((r) => r.id);
       const commissionByKey = await loadLatestCommissionByReportKey(urbanIds, transportIds);
+
+      const commissionIdSet = new Set<string>();
+      for (const t of triageRows) {
+        if (t.responsible_commission_id) commissionIdSet.add(t.responsible_commission_id);
+      }
+      for (const ref of commissionByKey.values()) {
+        commissionIdSet.add(ref.commissionId);
+      }
+      const nameByCommission = new Map<string, string>();
+      if (commissionIdSet.size > 0) {
+        const { data: commRows } = await supabase
+          .from("legislative_commissions")
+          .select("id, name, code")
+          .in("id", [...commissionIdSet]);
+        for (const c of (commRows ?? []) as Array<{
+          id: string;
+          name: string | null;
+          code: string | null;
+        }>) {
+          const label = c.name?.trim() || c.code?.trim() || "Comissão";
+          nameByCommission.set(c.id, label);
+        }
+      }
 
       const all: KanbanItem[] = [];
 
@@ -429,6 +449,7 @@ export function useTriageKanban(
             r.updated_at ?? r.created_at,
             t,
             nameByUser,
+            nameByCommission,
             commissionByKey.get(reportCommissionKey("urban_reports", r.id)),
           ),
         );
@@ -449,6 +470,7 @@ export function useTriageKanban(
             r.updated_at ?? r.created_at,
             t,
             nameByUser,
+            nameByCommission,
             commissionByKey.get(reportCommissionKey("transport_reports", r.id)),
           ),
         );
@@ -533,8 +555,18 @@ function buildItem(
   updatedAt: string,
   triage: TriageRow | undefined,
   nameByUser: Map<string, string>,
+  nameByCommission: Map<string, string>,
   commission?: ReportCommissionRef,
 ): KanbanItem {
+  const triageCommission = triage?.responsible_commission_id
+    ? {
+        commissionId: triage.responsible_commission_id,
+        commissionName:
+          nameByCommission.get(triage.responsible_commission_id) ?? "Comissão",
+      }
+    : undefined;
+  const effectiveCommission = triageCommission ?? commission;
+
   return {
     reportId,
     source,
@@ -547,18 +579,14 @@ function buildItem(
     updatedAt,
     triageId: triage?.id ?? null,
     priority: effectiveReportTriagePriority(triage?.priority, n8nPriority, severity),
-    assigneeId: triage?.assignee_id ?? null,
-    assigneeName: (() => {
-      if (triage?.assignee_id) return nameByUser.get(triage.assignee_id) ?? null;
-      if (triage?.triaged_by) return nameByUser.get(triage.triaged_by) ?? null;
-      return null;
-    })(),
+    assigneeId: triage?.responsible_commission_id ?? triage?.assignee_id ?? null,
+    assigneeName: effectiveCommission?.commissionName ?? null,
     triagedByName: triage?.triaged_by
       ? nameByUser.get(triage.triaged_by) ?? null
       : null,
     triagedById: triage?.triaged_by ?? null,
-    commissionId: commission?.commissionId ?? null,
-    commissionName: commission?.commissionName ?? null,
+    commissionId: effectiveCommission?.commissionId ?? null,
+    commissionName: effectiveCommission?.commissionName ?? null,
     triageStatus: triage?.triage_status ?? "untriaged",
     triageNotes: triage?.notes ?? null,
     triageUpdatedAt: triage?.updated_at ?? null,

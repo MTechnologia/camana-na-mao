@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useGlobalHeatmapExtendedPeriod } from '@/hooks/useGlobalHeatmapExtendedPeriod';
 import { RefreshCw, AlertTriangle, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -19,18 +20,16 @@ import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro'
 import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
   useRatingsConcentration,
-  type RatingsPeriod,
   type ServiceRatingsAggregate,
 } from '@/hooks/useRatingsConcentration';
 import {
-  HEATMAP_EXTENDED_PERIOD_LEGEND,
   RATINGS_HEATMAP_SERVICE_TYPE_LEGEND,
   ratingsConcentrationPanelLegends,
 } from '@/lib/analyticsParameterLegends';
 import { getServiceTypeLabel } from '@/components/icons/serviceTypeIcons';
 
 export function RatingsConcentrationPanel() {
-  const [period, setPeriod] = useState<RatingsPeriod>('90d');
+  const period = useGlobalHeatmapExtendedPeriod();
   const [serviceTypeFilter, setServiceTypeFilter] = useState<string>('all');
   const [selected, setSelected] = useState<ServiceRatingsAggregate | null>(null);
 
@@ -88,21 +87,7 @@ export function RatingsConcentrationPanel() {
 
       <Card className="p-4 md:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="grid flex-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <HeatmapFilterLabel htmlFor="ratings-period" legend={HEATMAP_EXTENDED_PERIOD_LEGEND} />
-              <Select value={period} onValueChange={(v) => setPeriod(v as RatingsPeriod)}>
-                <SelectTrigger id="ratings-period">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                  <SelectItem value="all">Tudo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid flex-1 gap-4 md:max-w-md">
             <div className="space-y-2">
               <HeatmapFilterLabel
                 htmlFor="ratings-type"

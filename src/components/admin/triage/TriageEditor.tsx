@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Save, UserCircle2 } from "lucide-react";
+import { Building2, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,24 +23,22 @@ import {
 } from "@/lib/triage";
 import {
   useReportTriage,
-  useTriageAssignees,
   type TriageRecord,
 } from "@/hooks/useReportTriage";
+import {
+  fetchActiveLegislativeCommissions,
+  type LegislativeCommissionOption,
+} from "@/lib/reportCommissionReferrals";
 import type { ReportSource } from "@/contexts/ReportDetailContext";
 
 /**
- * HU-10.1 — Editor de triagem embarcado no ReportDetailSheet.
- *
- * Mostra 4 botões de prioridade, select de responsável (admin/gestor/assessor),
- * select de status do funil e textarea de observação interna. Salva via upsert.
+ * HU-10.1 — Editor de triagem: prioridade, comissão responsável e status do funil.
  */
 
 interface TriageEditorProps {
   reportId: string;
   source: ReportSource;
-  /** Permite ocultar quando o usuário não tem permissão (admin/gestor). */
   canEdit?: boolean;
-  /** Chamado após persistência bem-sucedida em `report_triage` (ex.: alinhar lista de gestão). */
   onSaved?: (record: TriageRecord) => void;
 }
 
@@ -48,24 +46,38 @@ const UNASSIGNED_VALUE = "__unassigned__";
 
 export function TriageEditor({ reportId, source, canEdit = true, onSaved }: TriageEditorProps) {
   const { triage, isLoading, error, upsert } = useReportTriage(reportId, source);
-  const { assignees, isLoading: loadingAssignees } = useTriageAssignees();
+  const [commissions, setCommissions] = useState<LegislativeCommissionOption[]>([]);
+  const [loadingCommissions, setLoadingCommissions] = useState(true);
 
   const [priority, setPriority] = useState<TriagePriority | null>(null);
-  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [responsibleCommissionId, setResponsibleCommissionId] = useState<string | null>(null);
   const [status, setStatus] = useState<TriageStatus>("untriaged");
   const [notes, setNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
-  // Sincroniza estado quando o triage do servidor muda.
+  useEffect(() => {
+    void (async () => {
+      setLoadingCommissions(true);
+      try {
+        const list = await fetchActiveLegislativeCommissions();
+        setCommissions(list);
+      } catch (err) {
+        console.error("[TriageEditor] commissions", err);
+      } finally {
+        setLoadingCommissions(false);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (triage) {
       setPriority(triage.priority);
-      setAssigneeId(triage.assigneeId);
+      setResponsibleCommissionId(triage.responsibleCommissionId);
       setStatus(triage.triageStatus);
       setNotes(triage.notes ?? "");
     } else {
       setPriority(null);
-      setAssigneeId(null);
+      setResponsibleCommissionId(null);
       setStatus("untriaged");
       setNotes("");
     }
@@ -73,7 +85,7 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
 
   const dirty =
     (triage?.priority ?? null) !== priority
-    || (triage?.assigneeId ?? null) !== assigneeId
+    || (triage?.responsibleCommissionId ?? null) !== responsibleCommissionId
     || (triage?.triageStatus ?? "untriaged") !== status
     || (triage?.notes ?? "") !== notes;
 
@@ -82,7 +94,8 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
     try {
       const saved = await upsert({
         priority,
-        assigneeId,
+        responsibleCommissionId,
+        assigneeId: null,
         triageStatus: status,
         notes: notes.trim() || null,
       });
@@ -117,7 +130,7 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
           )}
         </h3>
         <p className="text-xs text-muted-foreground">
-          Defina prioridade, responsável e status para guiar o tratamento.
+          Defina prioridade, comissão responsável e status para guiar o tratamento.
         </p>
       </div>
 
@@ -125,7 +138,6 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
         <p className="text-xs text-destructive">{error}</p>
       )}
 
-      {/* Prioridade — 4 botões */}
       <div>
         <label className="text-xs font-medium text-muted-foreground">
           Prioridade
@@ -158,33 +170,34 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
         </div>
       </div>
 
-      {/* Responsável */}
       <div>
         <label className="text-xs font-medium text-muted-foreground">
-          Responsável
+          Comissão responsável
         </label>
         <Select
-          value={assigneeId ?? UNASSIGNED_VALUE}
+          value={responsibleCommissionId ?? UNASSIGNED_VALUE}
           onValueChange={(v) =>
-            setAssigneeId(v === UNASSIGNED_VALUE ? null : v)
+            setResponsibleCommissionId(v === UNASSIGNED_VALUE ? null : v)
           }
-          disabled={saving || loadingAssignees}
+          disabled={saving || loadingCommissions}
         >
           <SelectTrigger className="mt-1">
-            <SelectValue placeholder="Selecione um responsável" />
+            <SelectValue placeholder="Selecione a comissão" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={UNASSIGNED_VALUE}>
-              <span className="text-muted-foreground">Sem responsável</span>
+              <span className="text-muted-foreground">Sem comissão</span>
             </SelectItem>
-            {assignees.map((a) => (
-              <SelectItem key={a.userId} value={a.userId}>
+            {commissions.map((c) => (
+              <SelectItem key={c.commissionId} value={c.commissionId}>
                 <span className="flex items-center gap-2">
-                  <UserCircle2 className="h-3 w-3 text-muted-foreground" />
-                  {a.fullName}
-                  <Badge variant="outline" className="text-[9px] h-3.5">
-                    {a.role}
-                  </Badge>
+                  <Building2 className="h-3 w-3 text-muted-foreground" />
+                  {c.name}
+                  {c.code ? (
+                    <span className="text-muted-foreground text-[10px]">
+                      ({c.code})
+                    </span>
+                  ) : null}
                 </span>
               </SelectItem>
             ))}
@@ -192,7 +205,6 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
         </Select>
       </div>
 
-      {/* Status */}
       <div>
         <label className="text-xs font-medium text-muted-foreground">
           Status do funil
@@ -218,7 +230,6 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
         </p>
       </div>
 
-      {/* Notas */}
       <div>
         <label className="text-xs font-medium text-muted-foreground">
           Nota interna (opcional)
