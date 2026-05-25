@@ -41,10 +41,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { rowsToCsv, type AuditCsvRow } from "@/lib/auditCsv";
-import { downloadCsv } from "@/lib/csvSerialize";
-import { useToast } from "@/hooks/use-toast";
 import { usePerformanceMark } from "@/hooks/usePerformanceMark";
+import { AuditExportDialog } from "@/components/admin/audit/AuditExportDialog";
+import {
+  AUDIT_ACTION_OPTIONS,
+  AUDIT_FILTER_ALL,
+  buildAuditLogQueryFilters,
+  type AuditExportFilterState,
+  type AuditRangePreset,
+} from "@/lib/auditExportFilters";
 
 /**
  * HU-12.2 — Trilha de auditoria com filtros completos.
@@ -57,11 +62,9 @@ import { usePerformanceMark } from "@/hooks/usePerformanceMark";
  *
  * UX:
  *   - Clicar em linha abre Sheet com diff old vs new (HU-12.2)
- *   - Botão Exportar CSV gera arquivo com o filtro aplicado
+ *   - Botão Exportar CSV abre modal para escolher filtros e colunas
  *   - Badge "Imutável" no header reforça compliance (HU-12.3)
  */
-
-type RangePreset = "24h" | "7d" | "30d" | "custom" | "all";
 
 interface AuditLogRow {
   id: string;
@@ -77,40 +80,6 @@ interface AuditLogRow {
   created_at: string;
 }
 
-const ALL_VALUE = "__all__";
-
-const ACTION_OPTIONS = [
-  { value: ALL_VALUE, label: "Todas as ações" },
-  { value: "login", label: "Login" },
-  { value: "logout", label: "Logout" },
-  { value: "create", label: "Criar" },
-  { value: "update", label: "Atualizar" },
-  { value: "delete", label: "Deletar" },
-  { value: "export", label: "Exportar" },
-  { value: "role_changed", label: "Mudança de papel" },
-  { value: "triage_changed", label: "Triagem alterada" },
-  { value: "commission_referral_changed", label: "Encaminhamento alterado" },
-  { value: "anomaly_changed", label: "Anomalia alterada" },
-  { value: "user_suspension_changed", label: "Suspensão de usuário" },
-];
-
-function rangeForPreset(preset: RangePreset): {
-  start?: Date;
-  end?: Date;
-} {
-  const now = new Date();
-  if (preset === "24h") {
-    return { start: new Date(now.getTime() - 24 * 60 * 60 * 1000), end: now };
-  }
-  if (preset === "7d") {
-    return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), end: now };
-  }
-  if (preset === "30d") {
-    return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), end: now };
-  }
-  return {};
-}
-
 function fmtDateTime(iso: string): string {
   try {
     return format(new Date(iso), "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
@@ -123,7 +92,6 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
   const { getAllLogs, getActors } = useAuditLog();
-  const { toast } = useToast();
 
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [actors, setActors] = useState<
@@ -132,13 +100,14 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [actionFilter, setActionFilter] = useState<string>(ALL_VALUE);
-  const [entityFilter, setEntityFilter] = useState<string>(ALL_VALUE);
-  const [userFilter, setUserFilter] = useState<string>(ALL_VALUE);
-  const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
+  const [actionFilter, setActionFilter] = useState<string>(AUDIT_FILTER_ALL);
+  const [entityFilter, setEntityFilter] = useState<string>(AUDIT_FILTER_ALL);
+  const [userFilter, setUserFilter] = useState<string>(AUDIT_FILTER_ALL);
+  const [rangePreset, setRangePreset] = useState<AuditRangePreset>("7d");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selected, setSelected] = useState<AuditLogRow | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // HU-13.2 — Mede tempo de carga inicial da página (SLA 3s).
   usePerformanceMark("audit_logs_load", !isLoading);
@@ -155,35 +124,28 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const exportFilters = useMemo<AuditExportFilterState>(
+    () => ({
+      searchTerm,
+      actionFilter,
+      entityFilter,
+      userFilter,
+      rangePreset,
+      customStart,
+      customEnd,
+    }),
+    [searchTerm, actionFilter, entityFilter, userFilter, rangePreset, customStart, customEnd],
+  );
+
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
-    const filters: Record<string, unknown> = { limit: 500 };
-
-    if (actionFilter !== ALL_VALUE) filters.action = actionFilter;
-    if (entityFilter !== ALL_VALUE) filters.entityType = entityFilter;
-    if (userFilter !== ALL_VALUE) filters.userId = userFilter;
-
-    if (rangePreset === "custom") {
-      if (customStart) filters.startDate = new Date(customStart);
-      if (customEnd) filters.endDate = new Date(`${customEnd}T23:59:59`);
-    } else if (rangePreset !== "all") {
-      const { start, end } = rangeForPreset(rangePreset);
-      if (start) filters.startDate = start;
-      if (end) filters.endDate = end;
-    }
-
-    const data = (await getAllLogs(filters)) as unknown as AuditLogRow[];
+    const data = (await getAllLogs(
+      buildAuditLogQueryFilters(exportFilters),
+    )) as unknown as AuditLogRow[];
     setLogs(data ?? []);
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    actionFilter,
-    entityFilter,
-    userFilter,
-    rangePreset,
-    customStart,
-    customEnd,
-  ]);
+  }, [exportFilters]);
 
   useEffect(() => {
     void loadActors();
@@ -214,44 +176,6 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
     [logs],
   );
 
-  const exportLogs = () => {
-    const rows: AuditCsvRow[] = filteredLogs.map((log) => {
-      const actor = log.user_id ? actorById.get(log.user_id) : null;
-      return {
-        data_hora: fmtDateTime(log.created_at),
-        user_id: log.user_id ?? "",
-        usuario: actor?.fullName ?? "",
-        email: actor?.email ?? "",
-        acao: log.action,
-        entidade: log.entity_type,
-        entidade_id: log.entity_id ?? "",
-        ip: log.ip_address ?? "",
-        user_agent: log.user_agent ?? "",
-        old_values: log.old_values ?? null,
-        new_values: log.new_values ?? null,
-      };
-    });
-
-    // Usa o mesmo helper `downloadCsv` que é usado em /admin/analytics.
-    // Em PWA standalone (Android instalado), o helper abre o CSV em uma
-    // nova aba para que o user salve via menu nativo. Em desktop, baixa
-    // direto.
-    const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
-    downloadCsv(rowsToCsv(rows), filename);
-
-    const isStandalonePwa =
-      typeof window !== "undefined" &&
-      (window.matchMedia?.("(display-mode: standalone)").matches ||
-        (navigator as Navigator & { standalone?: boolean }).standalone === true);
-
-    toast({
-      title: isStandalonePwa ? "CSV aberto em nova aba" : "Download iniciado",
-      description: isStandalonePwa
-        ? `${filteredLogs.length} registros — use o menu do navegador para salvar.`
-        : `${filteredLogs.length} registros exportados.`,
-    });
-  };
-
   if (roleLoading) {
     return (
       <AdminPageShell embedded={embedded}>
@@ -280,7 +204,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               após 12 meses).
             </p>
           </div>
-          <Button onClick={exportLogs} className="gap-2" variant="outline">
+          <Button onClick={() => setExportOpen(true)} className="gap-2" variant="outline">
             <Download className="w-4 h-4" />
             Exportar CSV
           </Button>
@@ -299,7 +223,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               />
             </div>
 
-            <Select value={rangePreset} onValueChange={(v) => setRangePreset(v as RangePreset)}>
+            <Select value={rangePreset} onValueChange={(v) => setRangePreset(v as AuditRangePreset)}>
               <SelectTrigger className="w-full lg:w-[180px]">
                 <CalendarIcon className="w-3.5 h-3.5 mr-1" />
                 <SelectValue />
@@ -319,7 +243,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
                 <SelectValue placeholder="Usuário" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>Todos os usuários</SelectItem>
+                <SelectItem value={AUDIT_FILTER_ALL}>Todos os usuários</SelectItem>
                 {actors.map((a) => (
                   <SelectItem key={a.userId} value={a.userId}>
                     {a.fullName} ({a.logCount})
@@ -336,7 +260,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
                 <SelectValue placeholder="Ação" />
               </SelectTrigger>
               <SelectContent>
-                {ACTION_OPTIONS.map((opt) => (
+                {AUDIT_ACTION_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>
@@ -349,7 +273,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
                 <SelectValue placeholder="Entidade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>Todas as entidades</SelectItem>
+                <SelectItem value={AUDIT_FILTER_ALL}>Todas as entidades</SelectItem>
                 {entityTypes.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type}
@@ -454,6 +378,14 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
         log={selected}
         onOpenChange={(o) => !o && setSelected(null)}
         actor={selected?.user_id ? actorById.get(selected.user_id) ?? null : null}
+      />
+
+      <AuditExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        defaultFilters={exportFilters}
+        actors={actors}
+        entityTypes={entityTypes}
       />
     </AdminPageShell>
   );

@@ -9,7 +9,7 @@ import { AdminShell } from '@/components/admin/AdminSidebar';
 import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
 import { AdminBreadcrumbs } from '@/components/admin/AnalyticsContextBar';
 import { UnifiedAnalyticsContextBar } from '@/components/admin/UnifiedAnalyticsContextBar';
-import { usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
+import { usesGlobalReportsAnalytics, usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
 import { ReportDrillSheet } from '@/components/admin/analytics/ReportDrillSheet';
 import { ReportDetailSheet } from '@/components/admin/ReportDetailSheet';
 import { ReportDetailProvider } from '@/contexts/ReportDetailContext';
@@ -30,7 +30,7 @@ function normalizeAdminPath(pathname: string): string {
 function ConditionalGlobalAnalytics({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const path = normalizeAdminPath(pathname);
-  const enabled = usesUnifiedAnalyticsBar(path) || path === '/admin';
+  const enabled = usesGlobalReportsAnalytics(path);
   if (!enabled) return <>{children}</>;
   return <GlobalReportsAnalyticsProvider>{children}</GlobalReportsAnalyticsProvider>;
 }

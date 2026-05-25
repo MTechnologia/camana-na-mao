@@ -45,6 +45,12 @@ Exige `admin`. Usada no select de filtro da UI de auditoria.
 **HU-11.1.** Helper interno da edge `invite-user`. Apaga role antigo e
 insere novo. Exige `users.invite` no caller.
 
+### `update_user_role(_target_user_id uuid, _role app_role, _council_member_id text DEFAULT NULL) → void`
+
+**HU-11.** Altera papel e vínculo de gabinete (vereador/assessor) de forma
+atômica. Exige `users.update_role`. Não permite auto-alteração. Valida slot
+único de vereador por `council_member_id`.
+
 ### `suspend_user(_target_id uuid, _reason text DEFAULT NULL) → void`
 
 **HU-11.1.** Suspende conta (seta `profiles.suspended_at`). Exige

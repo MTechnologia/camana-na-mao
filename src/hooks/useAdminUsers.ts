@@ -20,6 +20,23 @@ const normalizeSingleRole = (roles: UserRole[]): UserRole[] => {
   return normalized ? [normalized] : [];
 };
 
+const VEREADOR_SLOT_TAKEN = 'VEREADOR_SLOT_TAKEN';
+
+const isUniqueViolation = (error: unknown): boolean => {
+  const err = error as { code?: string; status?: number };
+  return err?.code === '23505' || err?.status === 409;
+};
+
+const buildVereadorSlotsByCouncilId = (users: AdminUser[]): Map<string, string> => {
+  const slots = new Map<string, string>();
+  for (const user of users) {
+    if (user.council_member_role === 'vereador' && user.council_member_id) {
+      slots.set(user.council_member_id, user.full_name);
+    }
+  }
+  return slots;
+};
+
 export interface AdminUser {
   id: string;
   full_name: string;
@@ -109,16 +126,35 @@ export const useAdminUsers = () => {
     fetchUsers();
   }, []);
 
+  const assertVereadorSlotAvailable = async (
+    councilMemberId: string,
+    userId: string,
+  ) => {
+    const { data: existingLink, error } = await supabase
+      .from('vereador_user_links')
+      .select('user_id')
+      .eq('council_member_id', councilMemberId)
+      .eq('role', 'vereador')
+      .neq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (existingLink) {
+      throw new Error(VEREADOR_SLOT_TAKEN);
+    }
+  };
+
   const updateUserRoles = async (
     userId: string,
     newRole: UserRole | null,
     councilMemberId?: string | null,
   ) => {
+    const currentUser = users.find(u => u.id === userId);
+    const oldRoles = currentUser?.roles || [];
+    const oldCouncilMemberId = currentUser?.council_member_id ?? null;
+    const oldCouncilMemberRole = currentUser?.council_member_role ?? null;
+
     try {
-      // Get old roles for audit log
-      const currentUser = users.find(u => u.id === userId);
-      const oldRoles = currentUser?.roles || [];
-      const oldCouncilMemberId = currentUser?.council_member_id ?? null;
       const gabineteRole = newRole === 'vereador' || newRole === 'assessor'
         ? newRole
         : null;
@@ -126,48 +162,22 @@ export const useAdminUsers = () => {
       if (gabineteRole && !councilMemberId) {
         throw new Error('Selecione o vereador vinculado para este usuário.');
       }
-      
-      // Delete existing roles
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
 
-      if (deleteError) throw deleteError;
-
-      // Insert new roles
-      if (newRole) {
-        const { error: insertError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: userId,
-            role: newRole,
-          });
-
-        if (insertError) throw insertError;
+      if (!newRole) {
+        throw new Error('Selecione um perfil para continuar.');
       }
 
-      if (gabineteRole && councilMemberId) {
-        const { error: upsertLinkError } = await supabase
-          .from('vereador_user_links')
-          .upsert(
-            {
-              user_id: userId,
-              council_member_id: councilMemberId,
-              role: gabineteRole,
-            },
-            { onConflict: 'user_id' },
-          );
-
-        if (upsertLinkError) throw upsertLinkError;
-      } else {
-        const { error: deleteLinkError } = await supabase
-          .from('vereador_user_links')
-          .delete()
-          .eq('user_id', userId);
-
-        if (deleteLinkError) throw deleteLinkError;
+      if (gabineteRole === 'vereador' && councilMemberId) {
+        await assertVereadorSlotAvailable(councilMemberId, userId);
       }
+
+      const { error: rpcError } = await supabase.rpc('update_user_role', {
+        _target_user_id: userId,
+        _role: newRole,
+        _council_member_id: gabineteRole ? councilMemberId ?? null : null,
+      });
+
+      if (rpcError) throw rpcError;
 
       // Register audit log
       const { data: { user } } = await supabase.auth.getUser();
@@ -187,7 +197,24 @@ export const useAdminUsers = () => {
       await fetchUsers();
     } catch (error: unknown) {
       console.error('Error updating roles:', error);
+
       const err = error as { code?: string; message?: string };
+      const message = err?.message ?? '';
+
+      if (message === VEREADOR_SLOT_TAKEN || message.includes('vereador slot already taken') || isUniqueViolation(error)) {
+        toast.error(
+          'Este vereador já possui um usuário vinculado com perfil Vereador. Escolha outro gabinete ou altere o vínculo existente.',
+        );
+        throw error;
+      }
+      if (err?.code === '42501' || message.includes('permission denied: users.update_role')) {
+        toast.error('Sem permissão para alterar perfis. Apenas administradores podem fazer essa alteração.');
+        throw error;
+      }
+      if (message.includes('cannot change your own role')) {
+        toast.error('Você não pode alterar o seu próprio perfil por aqui.');
+        throw error;
+      }
       if (err?.code === '23503') {
         toast.error('Usuário não encontrado (pode ter sido excluído). Atualize a lista.');
         await fetchUsers();
@@ -248,8 +275,11 @@ export const useAdminUsers = () => {
     return matchesSearch && matchesRole;
   });
 
+  const vereadorSlotsByCouncilId = buildVereadorSlotsByCouncilId(users);
+
   return {
     users: filteredUsers,
+    vereadorSlotsByCouncilId,
     loading,
     searchTerm,
     setSearchTerm,
