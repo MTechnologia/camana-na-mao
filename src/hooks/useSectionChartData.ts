@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
 import { useOptionalGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
 import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import {
@@ -31,7 +32,7 @@ const emptyExtras = {
 
 /** Gráficos de seção do painel admin — dados reais (Supabase + analytics). */
 export function useSectionChartData() {
-  const { period, region, category } = useGlobalFilters();
+  const { period, region, category, periodCompare, compareActive } = useGlobalFilters();
   const globalAnalytics = useOptionalGlobalReportsAnalytics();
   const stats = globalAnalytics?.stats ?? null;
   const lastUpdate = globalAnalytics?.lastUpdate ?? null;
@@ -39,13 +40,17 @@ export function useSectionChartData() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchSectionChartExtras(period, region, category).then((data) => {
+    const periodCompareInput =
+      period === PERIOD_COMPARE_VALUE && compareActive
+        ? { periodA: periodCompare.periodA }
+        : undefined;
+    void fetchSectionChartExtras(period, region, category, periodCompareInput).then((data) => {
       if (!cancelled) setExtras(data);
     });
     return () => {
       cancelled = true;
     };
-  }, [period, region, category, lastUpdate]);
+  }, [period, region, category, periodCompare.periodA, compareActive, lastUpdate]);
 
   return useMemo(() => {
     const metricTrends =
