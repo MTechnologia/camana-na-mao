@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { ANALYTICS_REALTIME_FULL } from '@/lib/analyticsRealtimeTables';
+import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
+import { urbanReportMatchesGlobalRegion } from '@/lib/urbanReportRegion';
 
 export type ManifestType = 'urban' | 'transport' | 'evaluation' | 'feedback';
 
@@ -38,6 +40,8 @@ export interface UnifiedManifest {
     street_number: string | null;
     cep: string | null;
     neighborhood: string | null;
+    latitude: number | null;
+    longitude: number | null;
     reference_point: string | null;
     // Impact assessment fields
     risk_level: string | null;
@@ -144,13 +148,20 @@ interface UseReportsAdminReturn {
   lastDataUpdate: Date | null;
 }
 
-// Projeção mínima para lista (campos necessários para ManifestCard)
-const URBAN_LIST_FIELDS = 'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,user_id,protocol_code';
+// Projeção mínima para lista (campos necessários para ManifestCard + zona)
+const URBAN_LIST_FIELDS =
+  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code,n8n_priority';
 const TRANSPORT_LIST_FIELDS = 'id,report_type,description,severity,status,created_at,updated_at,location,user_id,line_id,occurrence_date,occurrence_time,protocol_code,responded_at';
 const EVALUATION_LIST_FIELDS =
   'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous,publication_status';
 
-export const useReportsAdmin = (): UseReportsAdminReturn => {
+export type UseReportsAdminOptions = {
+  /** Gestão de relatos: busca até N itens sem paginar na UI (filtros globais). */
+  fetchCap?: number;
+};
+
+export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdminReturn => {
+  const fetchCap = options?.fetchCap;
   const [manifests, setManifests] = useState<UnifiedManifest[]>([]);
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<ManifestKPIs>({
@@ -269,9 +280,13 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
   const fetchManifests = useCallback(async () => {
     setLoading(true);
     try {
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      const fetchLimit = pageSize * 3; // Overfetch para merge
+      const from = fetchCap ? 0 : (page - 1) * pageSize;
+      const to = fetchCap ? fetchCap - 1 : from + pageSize - 1;
+      const baseLimit = fetchCap ?? pageSize * 3;
+      const fetchLimit = regionFilter !== 'all' ? baseLimit * 3 : baseLimit;
+      const categorySlice = resolveGlobalCategoryFilter(
+        categoryFilter === 'all' ? 'all' : categoryFilter,
+      );
 
       // Preparar queries em paralelo
       const queries: Promise<{ data?: unknown[]; error?: Error; count?: number }>[] = [];
@@ -282,8 +297,11 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         let urbanQuery = supabase.from('urban_reports').select(URBAN_LIST_FIELDS, { count: 'exact' }).neq('category', 'feedback_camara');
         if (statusFilter !== 'all') urbanQuery = urbanQuery.eq('status', statusFilter);
         if (severityFilter !== 'all') urbanQuery = urbanQuery.eq('severity', severityFilter);
-        if (categoryFilter !== 'all') urbanQuery = urbanQuery.eq('category', categoryFilter);
-        if (regionFilter !== 'all') urbanQuery = urbanQuery.eq('neighborhood', regionFilter);
+        if (!categorySlice.isAll && categorySlice.urbanCategories.length > 0) {
+          urbanQuery = urbanQuery.in('category', categorySlice.urbanCategories);
+        } else if (categoryFilter !== 'all') {
+          urbanQuery = urbanQuery.eq('category', categoryFilter);
+        }
         if (debouncedSearchTerm) urbanQuery = urbanQuery.or(`description.ilike.%${debouncedSearchTerm}%,location_address.ilike.%${debouncedSearchTerm}%,category.ilike.%${debouncedSearchTerm}%`);
         if (dateRange.from) urbanQuery = urbanQuery.gte('created_at', dateRange.from.toISOString());
         if (dateRange.to) urbanQuery = urbanQuery.lte('created_at', dateRange.to.toISOString());
@@ -353,6 +371,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
             updated_at: r.updated_at,
             location: r.location_address,
             author: null,
+            n8n_priority: (r.n8n_priority as string | null) ?? null,
             urban_data: {
               category: r.category,
               subcategory: r.subcategory,
@@ -367,6 +386,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               street_number: null,
               cep: null,
               neighborhood: r.neighborhood,
+              latitude: r.latitude as number | null,
+              longitude: r.longitude as number | null,
               reference_point: null,
               risk_level: null,
               risk_types: null,
@@ -467,9 +488,27 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         }
       });
 
-      // Sort e paginate
-      const sorted = allManifests.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      const paginated = sorted.slice(from, to + 1);
+      let filteredManifests = allManifests;
+      if (regionFilter !== 'all') {
+        filteredManifests = filteredManifests.filter((m) => {
+          if (m.type !== 'urban' || !m.urban_data) return m.type !== 'urban';
+          const u = m.urban_data;
+          return urbanReportMatchesGlobalRegion(
+            {
+              locationAddress: m.location,
+              neighborhood: u.neighborhood,
+              latitude: u.latitude,
+              longitude: u.longitude,
+            },
+            regionFilter,
+          );
+        });
+      }
+
+      const sorted = filteredManifests.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      const paginated = fetchCap ? sorted.slice(0, fetchCap) : sorted.slice(from, to + 1);
 
       // Buscar profiles apenas para os itens paginados
       const userIds = [...new Set(paginated.map(m => {
@@ -501,7 +540,18 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearchTerm, statusFilter, severityFilter, typeFilter, categoryFilter, regionFilter, dateRange]);
+  }, [
+    page,
+    pageSize,
+    fetchCap,
+    debouncedSearchTerm,
+    statusFilter,
+    severityFilter,
+    typeFilter,
+    categoryFilter,
+    regionFilter,
+    dateRange,
+  ]);
 
   const updateManifestStatus = useCallback(async (id: string, type: ManifestType, newStatus: string) => {
     if (type === 'evaluation') {

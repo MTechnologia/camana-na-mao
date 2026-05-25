@@ -1,7 +1,8 @@
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { PRIORITY_LABELS, STAGE_LABELS } from '@/lib/urbanReportLabels';
-import type { ReportPriority, ReportWorkflowStage, UrbanReportRecord } from '@/types/urbanReportManagement';
+import { STAGE_LABELS } from '@/lib/urbanReportLabels';
+import { TRIAGE_PRIORITIES } from '@/lib/triage';
+import type { ReportWorkflowStage, UrbanReportRecord } from '@/types/urbanReportManagement';
 import { cn } from '@/lib/utils';
 
 const STAGE_VARIANT: Record<
@@ -13,13 +14,6 @@ const STAGE_VARIANT: Record<
   referred: 'default',
   in_analysis: 'outline',
   resolved: 'secondary',
-};
-
-const PRIORITY_CLASS: Record<ReportPriority, string> = {
-  urgent: 'border-destructive/40 bg-destructive/10 text-destructive',
-  high: 'border-primary/30 bg-primary/10 text-primary',
-  normal: 'border-border bg-muted/50 text-foreground',
-  low: 'border-border bg-muted/30 text-muted-foreground',
 };
 
 function formatDate(iso: string) {
@@ -58,6 +52,7 @@ export function ReportsDataTable({
               <th className="px-4 py-3 font-medium">Relato</th>
               <th className="px-4 py-3 font-medium">Prioridade</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Responsável</th>
               <th className="px-4 py-3 font-medium">Região</th>
               <th className="px-4 py-3 font-medium">Atualizado</th>
               <th className="px-4 py-3 font-medium" />
@@ -66,9 +61,10 @@ export function ReportsDataTable({
           <tbody>
             {rows.map((r) => {
               const active = r.id === selectedId;
+              const rowKey = r.councilReferralId ?? r.id;
               return (
                 <tr
-                  key={r.id}
+                  key={rowKey}
                   className={cn(
                     'cursor-pointer border-b border-border transition-colors hover:bg-muted/40',
                     active && 'bg-primary/5',
@@ -81,21 +77,39 @@ export function ReportsDataTable({
                     <p className="truncate text-xs text-muted-foreground">{r.category}</p>
                   </td>
                   <td className="px-4 py-3">
-                    {r.priority ? (
+                    {r.triagePriority ? (
                       <span
                         className={cn(
-                          'inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase',
-                          PRIORITY_CLASS[r.priority],
+                          'inline-flex rounded-md border-none px-2 py-0.5 text-[10px] font-semibold',
+                          TRIAGE_PRIORITIES[r.triagePriority].bgClass,
+                          TRIAGE_PRIORITIES[r.triagePriority].colorClass,
                         )}
                       >
-                        {PRIORITY_LABELS[r.priority]}
+                        {r.triagePriority}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={STAGE_VARIANT[r.stage]}>{STAGE_LABELS[r.stage]}</Badge>
+                    <div className="flex flex-col gap-0.5">
+                      <Badge variant={STAGE_VARIANT[r.stage]} className="w-fit">
+                        {STAGE_LABELS[r.stage]}
+                      </Badge>
+                      {r.councilReferralStatusLabel ? (
+                        <span className="text-[10px] text-muted-foreground">
+                          {r.councilReferralStatusLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="max-w-[160px] px-4 py-3 text-muted-foreground">
+                    <span
+                      className="line-clamp-2 text-xs"
+                      title={r.councilMemberName ?? r.responsibleName ?? undefined}
+                    >
+                      {r.councilMemberName ?? r.responsibleName ?? '—'}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.region}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(r.updatedAt)}</td>

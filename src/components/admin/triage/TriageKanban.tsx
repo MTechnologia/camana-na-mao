@@ -14,9 +14,9 @@ import {
   AlertCircle,
   Calendar,
   ChevronRight,
+  Building2,
   GripVertical,
   Hash,
-  User2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -260,9 +260,12 @@ function TriageCard({ item, dragHandleProps, dragging }: TriageCardProps) {
           <p className="text-xs font-medium line-clamp-2 mb-1">{item.title}</p>
 
           <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1 truncate">
-              <User2 className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{item.assigneeName ?? "—"}</span>
+            <span
+              className="flex items-center gap-1 truncate"
+              title={item.commissionName ? `Comissão: ${item.commissionName}` : "Sem comissão"}
+            >
+              <Building2 className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{item.commissionName ?? "—"}</span>
             </span>
             <span
               className={cn(

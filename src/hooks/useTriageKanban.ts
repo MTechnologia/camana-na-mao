@@ -2,6 +2,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 import type { TriagePriority, TriageStatus } from "@/lib/triage";
+import {
+  loadLatestCommissionByReportKey,
+  reportCommissionKey,
+  type ReportCommissionRef,
+} from "@/lib/reportCommissionReferrals";
+import { effectiveReportTriagePriority } from "@/lib/triagePriority";
+import {
+  applyKanbanDateRange,
+  applyKanbanTransportCategory,
+  applyKanbanUrbanCategory,
+  KANBAN_FETCH_CAP,
+  kanbanHasGlobalRecorte,
+  kanbanTransportRowMatchesRegion,
+  kanbanUrbanRowMatchesRegion,
+  kanbanWantsTransportSource,
+  kanbanWantsUrbanSource,
+  type KanbanGlobalRecorte,
+} from "@/lib/triageKanbanGlobalFilters";
 
 /**
  * HU-10.3 — Vista agregada para o kanban de triagem.
@@ -13,15 +31,20 @@ import type { TriagePriority, TriageStatus } from "@/lib/triage";
  * Triagem: sem filtro de responsável, carrega os N relatos abertos mais recentes
  * e busca `report_triage` só para esses IDs (evita `.limit(500)` solto no triage,
  * que omitia linhas e deixava `assignee_id` sempre null no card).
- * Com filtro de responsável, busca triagens em que a pessoa é `assignee_id`
- * **ou** (sem responsável formal) `triaged_by` — o drag no kanban só preenchia
- * `triaged_by`, então o filtro precisa considerar os dois.
+ * Com filtro de comissão, restringe a relatos com encaminhamento temático
+ * (`report_commission_referrals`) para a(s) comissão(ões) selecionada(s).
+ * No card, exibe a comissão do encaminhamento mais recente.
  *
  * Prioridade no card e no filtro: `report_triage.priority` quando existir;
  * senão infere P0–P3 de `n8n_priority` e de `severity` (relatos sem triagem formal).
  */
 
-const TABLES_REALTIME = ["urban_reports", "transport_reports", "report_triage"] as const;
+const TABLES_REALTIME = [
+  "urban_reports",
+  "transport_reports",
+  "report_triage",
+  "report_commission_referrals",
+] as const;
 
 export type KanbanReportSource = "urban" | "transport";
 
@@ -41,6 +64,9 @@ export interface KanbanItem {
   priority: TriagePriority | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  /** Comissão temática vinculada (encaminhamento mais recente). */
+  commissionId: string | null;
+  commissionName: string | null;
   /** Nome de quem registrou a triagem (pode diferir do responsável formal). */
   triagedByName: string | null;
   /** Quem registrou a triagem (primeiro save / arraste no kanban). */
@@ -51,16 +77,22 @@ export interface KanbanItem {
   daysSinceTriageUpdate: number;
 }
 
-export interface KanbanFilters {
+export interface KanbanFilters extends KanbanGlobalRecorte {
   /** Filtra por prioridade (vazio = todas). */
   priorities?: TriagePriority[];
-  /** Filtra por responsável (user_id) (vazio = todos). */
-  assigneeIds?: string[];
+  /** Filtra por comissão temática (vazio = todas). */
+  commissionIds?: string[];
   /** Filtra por fonte (urban/transport). */
   sources?: KanbanReportSource[];
   /** Busca textual por título/protocolo. */
   search?: string;
 }
+
+const URBAN_KANBAN_FIELDS =
+  "id, protocol_code, description, category, status, severity, n8n_priority, created_at, updated_at, location_address, neighborhood, latitude, longitude";
+
+const TRANSPORT_KANBAN_FIELDS =
+  "id, protocol_code, description, report_type, status, severity, n8n_priority, created_at, updated_at, location, stop_name";
 
 export interface UseTriageKanbanResult {
   itemsByStatus: Record<TriageStatus, KanbanItem[]>;
@@ -81,6 +113,10 @@ interface UrbanRow {
   n8n_priority: string | null;
   created_at: string;
   updated_at: string | null;
+  location_address: string | null;
+  neighborhood: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface TransportRow {
@@ -93,6 +129,8 @@ interface TransportRow {
   n8n_priority: string | null;
   created_at: string;
   updated_at: string | null;
+  location: string | null;
+  stop_name: string | null;
 }
 
 interface TriageRow {
@@ -118,58 +156,6 @@ function daysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function isTriagePriority(v: unknown): v is TriagePriority {
-  return v === "P0" || v === "P1" || v === "P2" || v === "P3";
-}
-
-function normKey(s: string): string {
-  return stripDiacritics(s.toLowerCase().trim());
-}
-
-function stripDiacritics(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-/** Mapeia textos do n8n / legado (`critica`, `urgente`, …) para P0–P3. */
-function inferPriorityFromN8n(n8n: string | null | undefined): TriagePriority | null {
-  if (!n8n) return null;
-  const s = normKey(n8n);
-  if (!s) return null;
-  if (/\bp0\b/.test(s) || s.includes("critica") || s.includes("critico") || s.includes("critical")) {
-    return "P0";
-  }
-  if (/\bp1\b/.test(s) || s.includes("urgente") || s.includes("alta") || s.includes("high")) {
-    return "P1";
-  }
-  if (/\bp2\b/.test(s) || s.includes("normal") || s.includes("media") || s.includes("moderate") || s.includes("medio")) {
-    return "P2";
-  }
-  if (/\bp3\b/.test(s) || s.includes("baixa") || s.includes("low")) {
-    return "P3";
-  }
-  return null;
-}
-
-function inferPriorityFromSeverity(sev: string | null | undefined): TriagePriority | null {
-  if (!sev) return null;
-  const s = normKey(sev);
-  if (!s) return null;
-  if (s.includes("crit")) return "P0";
-  if (s.includes("alto") || s.includes("high") || s === "alta") return "P1";
-  if (s.includes("med") || s.includes("moder")) return "P2";
-  if (s.includes("baix") || s.includes("low")) return "P3";
-  return null;
-}
-
-function effectiveKanbanPriority(
-  triagePriority: TriagePriority | null | undefined,
-  n8nPriority: string | null | undefined,
-  severity: string | null | undefined,
-): TriagePriority | null {
-  if (isTriagePriority(triagePriority)) return triagePriority;
-  return inferPriorityFromN8n(n8nPriority) ?? inferPriorityFromSeverity(severity);
-}
-
 export function useTriageKanban(
   filters: KanbanFilters = {},
 ): UseTriageKanbanResult {
@@ -182,21 +168,105 @@ export function useTriageKanban(
     () =>
       JSON.stringify({
         p: filters.priorities ?? [],
-        a: filters.assigneeIds ?? [],
+        c: filters.commissionIds ?? [],
         s: filters.sources ?? [],
         q: filters.search ?? "",
+        gf: filters.createdFrom?.toISOString() ?? null,
+        gt: filters.createdTo?.toISOString() ?? null,
+        gr: filters.globalRegion ?? "all",
+        gc: filters.globalCategory ?? "all",
       }),
-    [filters.priorities, filters.assigneeIds, filters.sources, filters.search],
+    [
+      filters.priorities,
+      filters.commissionIds,
+      filters.sources,
+      filters.search,
+      filters.createdFrom,
+      filters.createdTo,
+      filters.globalRegion,
+      filters.globalCategory,
+    ],
   );
 
   const fetchData = useCallback(async () => {
     setError(null);
     try {
-      const wantsUrban = !filters.sources || filters.sources.includes("urban");
-      const wantsTransport =
-        !filters.sources || filters.sources.includes("transport");
+      const globalRecorte: KanbanGlobalRecorte = {
+        createdFrom: filters.createdFrom,
+        createdTo: filters.createdTo,
+        globalRegion: filters.globalRegion,
+        globalCategory: filters.globalCategory,
+      };
+      const fetchLimit = kanbanHasGlobalRecorte(globalRecorte) ? KANBAN_FETCH_CAP : 200;
 
-      const assigneeIdsFilter = (filters.assigneeIds ?? []).filter(Boolean);
+      const wantsUrban = kanbanWantsUrbanSource(filters.sources, filters.globalCategory);
+      const wantsTransport = kanbanWantsTransportSource(filters.sources, filters.globalCategory);
+
+      const commissionIdsFilter = (filters.commissionIds ?? []).filter(Boolean);
+
+      const fetchUrbanByIds = async (ids: string[]) => {
+        if (ids.length === 0) return [] as UrbanRow[];
+        let q = supabase
+          .from("urban_reports")
+          .select(URBAN_KANBAN_FIELDS)
+          .in("id", ids)
+          .not("status", "in", "(closed,rejected)");
+        q = applyKanbanDateRange(q, globalRecorte);
+        q = applyKanbanUrbanCategory(q, filters.globalCategory);
+        const { data, error } = await q;
+        if (error) throw error;
+        return ((data ?? []) as UrbanRow[]).filter((r) =>
+          kanbanUrbanRowMatchesRegion(r, filters.globalRegion),
+        );
+      };
+
+      const fetchTransportByIds = async (ids: string[]) => {
+        if (ids.length === 0) return [] as TransportRow[];
+        let q = supabase
+          .from("transport_reports")
+          .select(TRANSPORT_KANBAN_FIELDS)
+          .in("id", ids)
+          .not("status", "in", "(closed,rejected)");
+        q = applyKanbanDateRange(q, globalRecorte);
+        q = applyKanbanTransportCategory(q, filters.globalCategory);
+        const { data, error } = await q;
+        if (error) throw error;
+        return ((data ?? []) as TransportRow[]).filter((r) =>
+          kanbanTransportRowMatchesRegion(r, filters.globalRegion),
+        );
+      };
+
+      const fetchUrbanOpen = async () => {
+        let q = supabase
+          .from("urban_reports")
+          .select(URBAN_KANBAN_FIELDS)
+          .not("status", "in", "(closed,rejected)")
+          .order("created_at", { ascending: false })
+          .limit(fetchLimit);
+        q = applyKanbanDateRange(q, globalRecorte);
+        q = applyKanbanUrbanCategory(q, filters.globalCategory);
+        const { data, error } = await q;
+        if (error) throw error;
+        return ((data ?? []) as UrbanRow[]).filter((r) =>
+          kanbanUrbanRowMatchesRegion(r, filters.globalRegion),
+        );
+      };
+
+      const fetchTransportOpen = async () => {
+        let q = supabase
+          .from("transport_reports")
+          .select(TRANSPORT_KANBAN_FIELDS)
+          .not("status", "in", "(closed,rejected)")
+          .order("created_at", { ascending: false })
+          .limit(fetchLimit);
+        q = applyKanbanDateRange(q, globalRecorte);
+        q = applyKanbanTransportCategory(q, filters.globalCategory);
+        const { data, error } = await q;
+        if (error) throw error;
+        return ((data ?? []) as TransportRow[]).filter((r) =>
+          kanbanTransportRowMatchesRegion(r, filters.globalRegion),
+        );
+      };
       const triageSelect =
         "id, source_table, report_id, priority, assignee_id, triaged_by, triage_status, notes, updated_at";
 
@@ -204,129 +274,86 @@ export function useTriageKanban(
       let transportRows: TransportRow[] = [];
       let triageRows: TriageRow[] = [];
 
-      if (assigneeIdsFilter.length > 0) {
-        const [byAssigneeRes, byTriagerRes] = await Promise.all([
-          supabase
-            .from("report_triage")
-            .select(triageSelect)
-            .in("assignee_id", assigneeIdsFilter)
-            .order("updated_at", { ascending: false })
-            .limit(400),
-          supabase
-            .from("report_triage")
-            .select(triageSelect)
-            .is("assignee_id", null)
-            .in("triaged_by", assigneeIdsFilter)
-            .order("updated_at", { ascending: false })
-            .limit(400),
-        ]);
+      if (commissionIdsFilter.length > 0) {
+        const { data: refRows, error: refErr } = await supabase
+          .from("report_commission_referrals")
+          .select("source_table, report_id, commission_id, referred_at")
+          .in("commission_id", commissionIdsFilter)
+          .order("referred_at", { ascending: false })
+          .limit(800);
+        if (refErr) throw refErr;
 
-        if (byAssigneeRes.error) throw byAssigneeRes.error;
-        if (byTriagerRes.error) throw byTriagerRes.error;
-
-        const merged = new Map<string, TriageRow>();
-        for (const row of [
-          ...((byAssigneeRes.data ?? []) as TriageRow[]),
-          ...((byTriagerRes.data ?? []) as TriageRow[]),
-        ]) {
-          const key = `${row.source_table}|${row.report_id}`;
-          const prev = merged.get(key);
-          if (
-            !prev
-            || new Date(row.updated_at).getTime() >= new Date(prev.updated_at).getTime()
-          ) {
-            merged.set(key, row);
-          }
+        const keysByReport = new Map<
+          string,
+          { source_table: "urban_reports" | "transport_reports"; report_id: string }
+        >();
+        for (const row of (refRows ?? []) as Array<{
+          source_table: "urban_reports" | "transport_reports";
+          report_id: string;
+        }>) {
+          const key = reportCommissionKey(row.source_table, row.report_id);
+          if (!keysByReport.has(key)) keysByReport.set(key, row);
         }
 
-        let triList = Array.from(merged.values());
-        triList.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-        triList = triList.slice(0, 400);
-
+        let refList = [...keysByReport.values()];
         if (filters.sources && filters.sources.length > 0) {
-          triList = triList.filter((t) =>
-            t.source_table === "urban_reports" ? wantsUrban : wantsTransport,
+          refList = refList.filter((r) =>
+            r.source_table === "urban_reports" ? wantsUrban : wantsTransport,
           );
         }
 
         const urbanIds = [
           ...new Set(
-            triList
-              .filter((t) => t.source_table === "urban_reports")
-              .map((t) => t.report_id),
+            refList
+              .filter((r) => r.source_table === "urban_reports")
+              .map((r) => r.report_id),
           ),
         ];
         const transportIds = [
           ...new Set(
-            triList
-              .filter((t) => t.source_table === "transport_reports")
-              .map((t) => t.report_id),
+            refList
+              .filter((r) => r.source_table === "transport_reports")
+              .map((r) => r.report_id),
           ),
         ];
 
-        const [urbanRes, transportRes] = await Promise.all([
-          wantsUrban && urbanIds.length > 0
-            ? supabase
-                .from("urban_reports")
-                .select(
-                  "id, protocol_code, description, category, status, severity, n8n_priority, created_at, updated_at",
-                )
-                .in("id", urbanIds)
-                .not("status", "in", "(closed,rejected)")
-            : Promise.resolve({ data: [] as UrbanRow[], error: null }),
-          wantsTransport && transportIds.length > 0
-            ? supabase
-                .from("transport_reports")
-                .select(
-                  "id, protocol_code, description, report_type, status, severity, n8n_priority, created_at, updated_at",
-                )
-                .in("id", transportIds)
-                .not("status", "in", "(closed,rejected)")
-            : Promise.resolve({ data: [] as TransportRow[], error: null }),
+        [urbanRows, transportRows] = await Promise.all([
+          wantsUrban ? fetchUrbanByIds(urbanIds) : Promise.resolve([] as UrbanRow[]),
+          wantsTransport ? fetchTransportByIds(transportIds) : Promise.resolve([] as TransportRow[]),
         ]);
-
-        if (urbanRes.error) throw urbanRes.error;
-        if (transportRes.error) throw transportRes.error;
-
-        urbanRows = (urbanRes.data ?? []) as UrbanRow[];
-        transportRows = (transportRes.data ?? []) as TransportRow[];
 
         const urbanIdSet = new Set(urbanRows.map((r) => r.id));
         const transportIdSet = new Set(transportRows.map((r) => r.id));
-        triageRows = triList.filter(
-          (t) =>
-            (t.source_table === "urban_reports" && urbanIdSet.has(t.report_id))
-            || (t.source_table === "transport_reports" && transportIdSet.has(t.report_id)),
-        );
-      } else {
-        const [urbanRes, transportRes] = await Promise.all([
-          wantsUrban
+
+        const [uTri, tTri] = await Promise.all([
+          wantsUrban && urbanIds.length > 0
             ? supabase
-                .from("urban_reports")
-                .select(
-                  "id, protocol_code, description, category, status, severity, n8n_priority, created_at, updated_at",
-                )
-                .not("status", "in", "(closed,rejected)")
-                .order("created_at", { ascending: false })
-                .limit(200)
-            : Promise.resolve({ data: [] as UrbanRow[], error: null }),
-          wantsTransport
+                .from("report_triage")
+                .select(triageSelect)
+                .eq("source_table", "urban_reports")
+                .in("report_id", urbanIds)
+            : Promise.resolve({ data: [], error: null }),
+          wantsTransport && transportIds.length > 0
             ? supabase
-                .from("transport_reports")
-                .select(
-                  "id, protocol_code, description, report_type, status, severity, n8n_priority, created_at, updated_at",
-                )
-                .not("status", "in", "(closed,rejected)")
-                .order("created_at", { ascending: false })
-                .limit(200)
-            : Promise.resolve({ data: [] as TransportRow[], error: null }),
+                .from("report_triage")
+                .select(triageSelect)
+                .eq("source_table", "transport_reports")
+                .in("report_id", transportIds)
+            : Promise.resolve({ data: [], error: null }),
         ]);
 
-        if (urbanRes.error) throw urbanRes.error;
-        if (transportRes.error) throw transportRes.error;
+        if (uTri.error) throw uTri.error;
+        if (tTri.error) throw tTri.error;
 
-        urbanRows = (urbanRes.data ?? []) as UrbanRow[];
-        transportRows = (transportRes.data ?? []) as TransportRow[];
+        triageRows = [
+          ...((uTri.data ?? []) as TriageRow[]).filter((t) => urbanIdSet.has(t.report_id)),
+          ...((tTri.data ?? []) as TriageRow[]).filter((t) => transportIdSet.has(t.report_id)),
+        ];
+      } else {
+        [urbanRows, transportRows] = await Promise.all([
+          wantsUrban ? fetchUrbanOpen() : Promise.resolve([] as UrbanRow[]),
+          wantsTransport ? fetchTransportOpen() : Promise.resolve([] as TransportRow[]),
+        ]);
 
         const urbanIds = urbanRows.map((r) => r.id);
         const transportIds = transportRows.map((r) => r.id);
@@ -359,7 +386,7 @@ export function useTriageKanban(
 
       const triageByKey = new Map<string, TriageRow>();
       for (const t of triageRows) {
-        triageByKey.set(`${t.source_table}|${t.report_id}`, t);
+        triageByKey.set(reportCommissionKey(t.source_table, t.report_id), t);
       }
 
       const assigneeIds = Array.from(
@@ -380,10 +407,14 @@ export function useTriageKanban(
         }
       }
 
+      const urbanIds = urbanRows.map((r) => r.id);
+      const transportIds = transportRows.map((r) => r.id);
+      const commissionByKey = await loadLatestCommissionByReportKey(urbanIds, transportIds);
+
       const all: KanbanItem[] = [];
 
       for (const r of urbanRows) {
-        const t = triageByKey.get(`urban_reports|${r.id}`);
+        const t = triageByKey.get(reportCommissionKey("urban_reports", r.id));
         all.push(
           buildItem(
             "urban",
@@ -398,11 +429,12 @@ export function useTriageKanban(
             r.updated_at ?? r.created_at,
             t,
             nameByUser,
+            commissionByKey.get(reportCommissionKey("urban_reports", r.id)),
           ),
         );
       }
       for (const r of transportRows) {
-        const t = triageByKey.get(`transport_reports|${r.id}`);
+        const t = triageByKey.get(reportCommissionKey("transport_reports", r.id));
         all.push(
           buildItem(
             "transport",
@@ -417,6 +449,7 @@ export function useTriageKanban(
             r.updated_at ?? r.created_at,
             t,
             nameByUser,
+            commissionByKey.get(reportCommissionKey("transport_reports", r.id)),
           ),
         );
       }
@@ -427,17 +460,13 @@ export function useTriageKanban(
         if (filters.priorities && filters.priorities.length > 0) {
           if (!it.priority || !filters.priorities.includes(it.priority)) return false;
         }
-        if (filters.assigneeIds && filters.assigneeIds.length > 0) {
-          const wanted = new Set(
-            filters.assigneeIds.map((id) => id.toLowerCase()),
-          );
-          const match = (uid: string | null) =>
-            Boolean(uid && wanted.has(uid.toLowerCase()));
-          if (!match(it.assigneeId) && !match(it.triagedById)) return false;
+        if (filters.commissionIds && filters.commissionIds.length > 0) {
+          const wanted = new Set(filters.commissionIds);
+          if (!it.commissionId || !wanted.has(it.commissionId)) return false;
         }
         if (q) {
           const hay =
-            `${it.title} ${it.protocolCode ?? ""} ${it.assigneeName ?? ""} ${it.triagedByName ?? ""}`.toLowerCase();
+            `${it.title} ${it.protocolCode ?? ""} ${it.commissionName ?? ""}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -504,6 +533,7 @@ function buildItem(
   updatedAt: string,
   triage: TriageRow | undefined,
   nameByUser: Map<string, string>,
+  commission?: ReportCommissionRef,
 ): KanbanItem {
   return {
     reportId,
@@ -516,7 +546,7 @@ function buildItem(
     createdAt,
     updatedAt,
     triageId: triage?.id ?? null,
-    priority: effectiveKanbanPriority(triage?.priority, n8nPriority, severity),
+    priority: effectiveReportTriagePriority(triage?.priority, n8nPriority, severity),
     assigneeId: triage?.assignee_id ?? null,
     assigneeName: (() => {
       if (triage?.assignee_id) return nameByUser.get(triage.assignee_id) ?? null;
@@ -527,6 +557,8 @@ function buildItem(
       ? nameByUser.get(triage.triaged_by) ?? null
       : null,
     triagedById: triage?.triaged_by ?? null,
+    commissionId: commission?.commissionId ?? null,
+    commissionName: commission?.commissionName ?? null,
     triageStatus: triage?.triage_status ?? "untriaged",
     triageNotes: triage?.notes ?? null,
     triageUpdatedAt: triage?.updated_at ?? null,
