@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { useGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
+import { useOptionalGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
 import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import {
   buildVolumeSeriesFromStats,
@@ -32,7 +32,9 @@ const emptyExtras = {
 /** Gráficos de seção do painel admin — dados reais (Supabase + analytics). */
 export function useSectionChartData() {
   const { period, region, category } = useGlobalFilters();
-  const { stats, lastUpdate } = useGlobalReportsAnalytics();
+  const globalAnalytics = useOptionalGlobalReportsAnalytics();
+  const stats = globalAnalytics?.stats ?? null;
+  const lastUpdate = globalAnalytics?.lastUpdate ?? null;
   const [extras, setExtras] = useState(emptyExtras);
 
   useEffect(() => {

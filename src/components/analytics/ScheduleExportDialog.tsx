@@ -158,8 +158,8 @@ export function ScheduleExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+        <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 text-left">
           <DialogTitle>Agendar exportação</DialogTitle>
           <DialogDescription>
             Vamos rodar este export periodicamente e salvar o arquivo no seu painel
@@ -167,7 +167,7 @@ export function ScheduleExportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="schedule-name">Nome do agendamento</Label>
             <Input
@@ -376,7 +376,7 @@ export function ScheduleExportDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancelar
           </Button>

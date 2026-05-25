@@ -24,6 +24,7 @@ interface UserRoleModalProps {
   open: boolean;
   onClose: () => void;
   onUpdateRoles: (userId: string, role: UserRole | null, councilMemberId?: string | null) => Promise<void>;
+  vereadorSlotsByCouncilId?: Map<string, string>;
 }
 
 const availableRoles: Array<{ value: UserRole; label: string; description: string; color: string }> = [
@@ -35,7 +36,7 @@ const availableRoles: Array<{ value: UserRole; label: string; description: strin
   { value: 'cidadao', label: 'Cidadão', description: 'Acesso público padrão', color: 'bg-gray-500' },
 ];
 
-export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleModalProps) => {
+export const UserRoleModal = ({ user, open, onClose, onUpdateRoles, vereadorSlotsByCouncilId }: UserRoleModalProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(user.roles[0] ?? null);
   const [selectedCouncilMemberId, setSelectedCouncilMemberId] = useState<string>(user.council_member_id ?? '');
   const [loading, setLoading] = useState(false);
@@ -132,15 +133,32 @@ export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleMo
                   <SelectValue placeholder="Selecione o vereador responsável" />
                 </SelectTrigger>
                 <SelectContent>
-                  {vereadores.map((vereador) => (
-                    <SelectItem key={vereador.id} value={vereador.id}>
-                      {vereador.name} {vereador.party ? `(${vereador.party})` : ''}
-                    </SelectItem>
-                  ))}
+                  {vereadores.map((vereador) => {
+                    const occupiedBy = vereadorSlotsByCouncilId?.get(vereador.id);
+                    const isCurrentUserSlot =
+                      user.council_member_role === 'vereador' &&
+                      user.council_member_id === vereador.id;
+                    const vereadorSlotTaken =
+                      selectedRole === 'vereador' && !!occupiedBy && !isCurrentUserSlot;
+
+                    return (
+                      <SelectItem
+                        key={vereador.id}
+                        value={vereador.id}
+                        disabled={vereadorSlotTaken}
+                      >
+                        {vereador.name} {vereador.party ? `(${vereador.party})` : ''}
+                        {vereadorSlotTaken ? ` — já vinculado a ${occupiedBy}` : ''}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 Esse vínculo define quais encaminhamentos e manifestações o gabinete poderá visualizar.
+                {selectedRole === 'vereador' && (
+                  <> Cada vereador aceita apenas um usuário com perfil Vereador.</>
+                )}
               </p>
             </div>
           )}
