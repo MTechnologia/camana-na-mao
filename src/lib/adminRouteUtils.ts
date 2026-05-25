@@ -6,16 +6,28 @@ const UNIFIED_ANALYTICS_BAR_PREFIXES = [
   '/admin/triagem',
   '/admin/referrals',
   '/admin/commissions',
+  '/admin/analytics',
+  '/admin/trends',
+  '/admin/reports-heatmap',
+  '/admin/equipment-ratings',
+  '/admin/public-hearings',
 ] as const;
+
+const PAINELS_PREFIXES = ['/paineis'] as const;
 
 /** Rotas com gráficos de seção que reutilizam analytics globais (filtros + stats). */
 const GLOBAL_ANALYTICS_PREFIXES = [
   ...UNIFIED_ANALYTICS_BAR_PREFIXES,
+  ...PAINELS_PREFIXES,
   '/admin/exports',
   '/admin/notifications',
   '/admin/docs',
   '/admin/settings',
 ] as const;
+
+function matchesPathPrefix(path: string, bases: readonly string[]): boolean {
+  return bases.some((base) => path === base || path.startsWith(`${base}/`));
+}
 
 export function usesUnifiedAnalyticsBar(pathname: string): boolean {
   const path = pathname.replace(/\/+$/, '') || '/';
@@ -24,8 +36,9 @@ export function usesUnifiedAnalyticsBar(pathname: string): boolean {
     return true;
   }
 
-  return UNIFIED_ANALYTICS_BAR_PREFIXES.some(
-    (base) => path === base || path.startsWith(`${base}/`),
+  return (
+    matchesPathPrefix(path, UNIFIED_ANALYTICS_BAR_PREFIXES)
+    || matchesPathPrefix(path, PAINELS_PREFIXES)
   );
 }
 
@@ -36,7 +49,5 @@ export function usesGlobalReportsAnalytics(pathname: string): boolean {
     return true;
   }
 
-  return GLOBAL_ANALYTICS_PREFIXES.some(
-    (base) => path === base || path.startsWith(`${base}/`),
-  );
+  return matchesPathPrefix(path, GLOBAL_ANALYTICS_PREFIXES);
 }

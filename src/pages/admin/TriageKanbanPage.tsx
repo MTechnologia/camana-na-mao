@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
+import { Link, useSearchParams } from "react-router-dom";
+import { parseCommissionIdsFromSearchParams } from "@/lib/commissionFilterNavigation";
 import {
   AlertCircle,
   AlertTriangle,
   ChevronDown,
   Inbox,
   Search,
-  UserX,
+  Building2,
 } from "lucide-react";
 import { PageShell } from "@/components/ui/PageShell";
 import { Button } from "@/components/ui/button";
@@ -42,11 +46,11 @@ import { cn } from "@/lib/utils";
  * HU-10.3 — Página /admin/triagem.
  *
  * Kanban estilo de triagem dos relatos abertos. KPIs no topo,
- * filtros (prioridades, responsáveis, fontes — multi-seleção), busca, board com 4 colunas,
+ * filtros (prioridades, comissões, fontes — multi-seleção), busca, board com 4 colunas,
  * drill-through para o ReportDetailSheet.
  */
 
-type AssigneeCatalogEntry = { userId: string; fullName: string };
+type CommissionCatalogEntry = { commissionId: string; name: string; code: string | null };
 
 const SOURCE_OPTIONS: { id: KanbanReportSource; label: string }[] = [
   { id: "urban", label: "Urbano" },
@@ -64,26 +68,61 @@ function sortSources(ids: KanbanReportSource[]): KanbanReportSource[] {
 }
 
 export default function TriageKanbanPage() {
+  const [searchParams] = useSearchParams();
+  const { period, region, category, periodCompare, compareActive } = useGlobalFilters();
+
   /** Vazio = todas as prioridades. */
   const [selectedPriorities, setSelectedPriorities] = useState<TriagePriority[]>([]);
-  /** Vazio = sem filtro (todos os responsáveis). */
-  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
-  const [assigneeCatalog, setAssigneeCatalog] = useState<AssigneeCatalogEntry[]>([]);
+  /** Vazio = sem filtro (todas as comissões). */
+  const [selectedCommissionIds, setSelectedCommissionIds] = useState<string[]>(() =>
+    parseCommissionIdsFromSearchParams(searchParams),
+  );
+
+  useEffect(() => {
+    const fromUrl = parseCommissionIdsFromSearchParams(searchParams);
+    if (fromUrl.length === 0) return;
+    setSelectedCommissionIds(fromUrl);
+  }, [searchParams]);
+  const [commissionCatalog, setCommissionCatalog] = useState<CommissionCatalogEntry[]>([]);
   const [priorityPopoverOpen, setPriorityPopoverOpen] = useState(false);
-  const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
+  const [commissionPopoverOpen, setCommissionPopoverOpen] = useState(false);
   const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);
   /** Vazio = todas as fontes. */
   const [selectedSources, setSelectedSources] = useState<KanbanReportSource[]>([]);
   const [search, setSearch] = useState("");
 
+  const globalRecorte = useMemo(() => {
+    if (
+      period === PERIOD_COMPARE_VALUE
+      && compareActive
+      && periodCompare.periodA?.from
+      && periodCompare.periodA?.to
+    ) {
+      return {
+        createdFrom: periodCompare.periodA.from,
+        createdTo: periodCompare.periodA.to,
+        globalRegion: region,
+        globalCategory: category,
+      };
+    }
+    const { from, to } = globalPeriodKeyToDateRange(period);
+    return {
+      createdFrom: from,
+      createdTo: to,
+      globalRegion: region,
+      globalCategory: category,
+    };
+  }, [period, region, category, periodCompare.periodA, compareActive]);
+
   const filters = useMemo(
     () => ({
+      ...globalRecorte,
       priorities: selectedPriorities.length === 0 ? undefined : selectedPriorities,
-      assigneeIds: selectedAssigneeIds.length === 0 ? undefined : selectedAssigneeIds,
+      commissionIds: selectedCommissionIds.length === 0 ? undefined : selectedCommissionIds,
       sources: selectedSources.length === 0 ? undefined : selectedSources,
       search,
     }),
-    [selectedPriorities, selectedAssigneeIds, selectedSources, search],
+    [globalRecorte, selectedPriorities, selectedCommissionIds, selectedSources, search],
   );
 
   const {
@@ -95,33 +134,52 @@ export default function TriageKanbanPage() {
     refresh,
   } = useTriageKanban(filters);
 
-  /** Acumula nomes já vistos no board para o popover não “encolher” quando há filtro ativo. */
   useEffect(() => {
-    setAssigneeCatalog((prev) => {
-      const map = new Map(prev.map((e) => [e.userId, e.fullName]));
+    void (async () => {
+      const { data, error } = await supabase
+        .from("legislative_commissions")
+        .select("id, name, code")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+      if (error) {
+        console.error("[TriageKanbanPage] commissions catalog", error);
+        return;
+      }
+      setCommissionCatalog(
+        (data ?? []).map((row) => ({
+          commissionId: row.id,
+          name: row.name,
+          code: row.code ?? null,
+        })),
+      );
+    })();
+  }, []);
+
+  /** Inclui comissões já vistas nos cards para o filtro não encolher com filtro ativo. */
+  useEffect(() => {
+    setCommissionCatalog((prev) => {
+      const map = new Map(prev.map((e) => [e.commissionId, e]));
       for (const col of Object.values(itemsByStatus)) {
         for (const it of col) {
-          if (it.assigneeId) {
-            const label =
-              it.assigneeName?.trim() || map.get(it.assigneeId) || "Responsável";
-            map.set(it.assigneeId, label);
-          }
-          if (it.triagedById) {
-            const label =
-              it.triagedByName?.trim() || map.get(it.triagedById) || "Triagem";
-            map.set(it.triagedById, label);
+          if (it.commissionId && it.commissionName) {
+            const existing = map.get(it.commissionId);
+            map.set(it.commissionId, {
+              commissionId: it.commissionId,
+              name: it.commissionName,
+              code: existing?.code ?? null,
+            });
           }
         }
       }
-      return [...map.entries()]
-        .map(([userId, fullName]) => ({ userId, fullName }))
-        .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
+      return [...map.values()].sort((a, b) =>
+        a.name.localeCompare(b.name, "pt-BR"),
+      );
     });
   }, [itemsByStatus]);
 
-  const selectedAssigneeSet = useMemo(
-    () => new Set(selectedAssigneeIds.map((id) => id.toLowerCase())),
-    [selectedAssigneeIds],
+  const selectedCommissionSet = useMemo(
+    () => new Set(selectedCommissionIds),
+    [selectedCommissionIds],
   );
 
   const selectedPrioritySet = useMemo(() => new Set(selectedPriorities), [selectedPriorities]);
@@ -142,22 +200,27 @@ export default function TriageKanbanPage() {
     return `${selectedSources.length} fontes`;
   }, [selectedSources]);
 
-  const assigneeTriggerLabel = useMemo(() => {
-    if (selectedAssigneeIds.length === 0) return "Todos os responsáveis";
-    if (selectedAssigneeIds.length === 1) {
-      const id = selectedAssigneeIds[0];
-      const entry = assigneeCatalog.find((e) => e.userId === id);
-      return entry?.fullName ?? "1 responsável";
+  const commissionTriggerLabel = useMemo(() => {
+    if (selectedCommissionIds.length === 0) return "Todas as comissões";
+    if (selectedCommissionIds.length === 1) {
+      const id = selectedCommissionIds[0];
+      const entry = commissionCatalog.find((e) => e.commissionId === id);
+      return entry?.name ?? "1 comissão";
     }
-    return `${selectedAssigneeIds.length} responsáveis`;
-  }, [selectedAssigneeIds, assigneeCatalog]);
+    return `${selectedCommissionIds.length} comissões`;
+  }, [selectedCommissionIds, commissionCatalog]);
 
-  const toggleAssignee = (userId: string) => {
-    setSelectedAssigneeIds((prev) => {
-      const lower = userId.toLowerCase();
-      const exists = prev.some((id) => id.toLowerCase() === lower);
-      const next = exists ? prev.filter((id) => id.toLowerCase() !== lower) : [...prev, userId];
-      return next.sort((a, b) => a.localeCompare(b));
+  const toggleCommission = (commissionId: string) => {
+    setSelectedCommissionIds((prev) => {
+      const exists = prev.includes(commissionId);
+      const next = exists
+        ? prev.filter((id) => id !== commissionId)
+        : [...prev, commissionId];
+      return next.sort((a, b) => {
+        const nameA = commissionCatalog.find((c) => c.commissionId === a)?.name ?? a;
+        const nameB = commissionCatalog.find((c) => c.commissionId === b)?.name ?? b;
+        return nameA.localeCompare(nameB, "pt-BR");
+      });
     });
   };
 
@@ -175,7 +238,7 @@ export default function TriageKanbanPage() {
     });
   };
 
-  const clearAssigneeFilter = () => setSelectedAssigneeIds([]);
+  const clearCommissionFilter = () => setSelectedCommissionIds([]);
   const clearPriorityFilter = () => setSelectedPriorities([]);
   const clearSourceFilter = () => setSelectedSources([]);
 
@@ -188,9 +251,9 @@ export default function TriageKanbanPage() {
     const p0Open = all.filter(
       (i) => i.priority === "P0" && i.triageStatus !== "resolved" && i.triageStatus !== "closed",
     ).length;
-    const noAssignee = all.filter(
+    const noCommission = all.filter(
       (i) =>
-        !i.assigneeId
+        !i.commissionId
         && i.triageStatus !== "resolved"
         && i.triageStatus !== "closed",
     ).length;
@@ -200,7 +263,7 @@ export default function TriageKanbanPage() {
         && i.triageStatus !== "resolved"
         && i.triageStatus !== "closed",
     ).length;
-    return { untriaged, p0Open, noAssignee, stale };
+    return { untriaged, p0Open, noCommission, stale };
   }, [itemsByStatus]);
 
   const moveTo = async (item: KanbanItem, targetStatus: TriageStatus) => {
@@ -251,7 +314,7 @@ export default function TriageKanbanPage() {
   return (
     <PageShell
       title="Triagem de relatos"
-      titleInfo="Quadro kanban — prioridade, responsável e status do funil (HU-10.3). Clique em um card para abrir o detalhe completo."
+      titleInfo="Quadro kanban — prioridade, comissão temática e status do funil (HU-10.3). Clique em um card para abrir o detalhe completo."
       actions={
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/reports">Gestão de relatos</Link>
@@ -261,7 +324,7 @@ export default function TriageKanbanPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Atribua prioridade e responsável, avance o status conforme o ciclo de vida do atendimento.
+            Atribua prioridade e comissão responsável, avance o status conforme o ciclo de vida do atendimento.
             Os dados vêm de <code className="rounded bg-muted px-1 text-xs">report_triage</code> e dos relatos
             urbanos/transporte.
           </p>
@@ -298,10 +361,11 @@ export default function TriageKanbanPage() {
             className={stats.p0Open > 0 ? "border-destructive/40" : undefined}
           />
           <KPICard
-            title="Sem responsável"
-            value={stats.noAssignee}
-            icon={UserX}
-            className={stats.noAssignee > 0 ? "border-amber-500/30" : undefined}
+            title="Sem comissão"
+            subtitle="Sem encaminhamento temático"
+            value={stats.noCommission}
+            icon={Building2}
+            className={stats.noCommission > 0 ? "border-amber-500/30" : undefined}
           />
           <KPICard
             title="Estagnados (≥7d)"
@@ -316,7 +380,7 @@ export default function TriageKanbanPage() {
           <div className="relative flex-1 max-w-md">
             <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar título, protocolo, responsável..."
+              placeholder="Buscar título, protocolo, comissão..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8"
@@ -385,58 +449,61 @@ export default function TriageKanbanPage() {
               )}
             </PopoverContent>
           </Popover>
-          <Popover open={assigneePopoverOpen} onOpenChange={setAssigneePopoverOpen}>
+          <Popover open={commissionPopoverOpen} onOpenChange={setCommissionPopoverOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
                 className={cn(
                   "w-[200px] justify-between gap-1 font-normal",
-                  selectedAssigneeIds.length > 0 && "border-primary/60",
+                  selectedCommissionIds.length > 0 && "border-primary/60",
                 )}
-                aria-label="Filtrar por responsável ou quem triou"
+                aria-label="Filtrar por comissão temática"
               >
-                <span className="truncate text-left">{assigneeTriggerLabel}</span>
+                <span className="truncate text-left">{commissionTriggerLabel}</span>
                 <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-72 p-0" align="start">
+            <PopoverContent className="w-80 p-0" align="start">
               <div className="border-b border-border px-3 py-2">
-                <p className="text-xs font-medium text-foreground">Responsável / triagem</p>
+                <p className="text-xs font-medium text-foreground">Comissão temática</p>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Marque uma ou mais pessoas. Relatos em que ela é responsável ou registrou a triagem.
+                  Marque uma ou mais comissões. Exibe relatos encaminhados a elas.
                 </p>
               </div>
               <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                {assigneeCatalog.length === 0 ? (
+                {commissionCatalog.length === 0 ? (
                   <p className="text-xs text-muted-foreground px-2 py-3 text-center">
-                    Nenhum nome nesta carga ainda.
+                    Nenhuma comissão cadastrada.
                   </p>
                 ) : (
-                  assigneeCatalog.map((a) => {
-                    const checked = selectedAssigneeSet.has(a.userId.toLowerCase());
+                  commissionCatalog.map((c) => {
+                    const checked = selectedCommissionSet.has(c.commissionId);
                     return (
                       <label
-                        key={a.userId}
+                        key={c.commissionId}
                         className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted/80"
                       >
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => {
                             if (v === "indeterminate") return;
-                            if (Boolean(v) !== checked) toggleAssignee(a.userId);
+                            if (Boolean(v) !== checked) toggleCommission(c.commissionId);
                           }}
-                          aria-labelledby={`assignee-opt-${a.userId}`}
+                          aria-labelledby={`commission-opt-${c.commissionId}`}
                         />
-                        <span id={`assignee-opt-${a.userId}`} className="truncate">
-                          {a.fullName}
+                        <span id={`commission-opt-${c.commissionId}`} className="truncate">
+                          {c.name}
+                          {c.code ? (
+                            <span className="text-muted-foreground"> ({c.code})</span>
+                          ) : null}
                         </span>
                       </label>
                     );
                   })
                 )}
               </div>
-              {selectedAssigneeIds.length > 0 && (
+              {selectedCommissionIds.length > 0 && (
                 <div className="border-t border-border p-2">
                   <Button
                     type="button"
@@ -444,11 +511,11 @@ export default function TriageKanbanPage() {
                     size="sm"
                     className="h-8 w-full text-xs"
                     onClick={() => {
-                      clearAssigneeFilter();
-                      setAssigneePopoverOpen(false);
+                      clearCommissionFilter();
+                      setCommissionPopoverOpen(false);
                     }}
                   >
-                    Limpar filtro (mostrar todos)
+                    Limpar filtro (todas)
                   </Button>
                 </div>
               )}

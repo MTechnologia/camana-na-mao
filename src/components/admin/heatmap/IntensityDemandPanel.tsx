@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useGlobalHeatmapExtendedPeriod } from '@/hooks/useGlobalHeatmapExtendedPeriod';
 import { Activity, Clock, AlertTriangle, RefreshCw, MapPinned } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import {
@@ -17,12 +18,10 @@ import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro'
 import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
   useIntensityDemand,
-  type IntensityPeriod,
   type IntensityScope,
   type ZoneIntensity,
 } from '@/hooks/useIntensityDemand';
 import {
-  HEATMAP_EXTENDED_PERIOD_LEGEND,
   INTENSITY_HEATMAP_SCOPE_LEGEND,
   intensityDemandPanelLegends,
 } from '@/lib/analyticsParameterLegends';
@@ -38,7 +37,7 @@ type Props = {
 };
 
 export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
-  const [period, setPeriod] = useState<IntensityPeriod>('90d');
+  const period = useGlobalHeatmapExtendedPeriod();
   const [scope, setScope] = useState<IntensityScope>('all');
   const [selected, setSelected] = useState<ZoneIntensity | null>(null);
 
@@ -74,21 +73,7 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
 
       <Card className="p-4 md:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="grid flex-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <HeatmapFilterLabel htmlFor="intensity-period" legend={HEATMAP_EXTENDED_PERIOD_LEGEND} />
-              <Select value={period} onValueChange={(v) => setPeriod(v as IntensityPeriod)}>
-                <SelectTrigger id="intensity-period">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                  <SelectItem value="all">Tudo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid flex-1 gap-4 md:max-w-md">
             <div className="space-y-2">
               <HeatmapFilterLabel htmlFor="intensity-scope" legend={INTENSITY_HEATMAP_SCOPE_LEGEND} />
               <Select value={scope} onValueChange={(v) => setScope(v as IntensityScope)}>

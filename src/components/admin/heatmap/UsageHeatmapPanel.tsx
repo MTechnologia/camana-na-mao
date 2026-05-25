@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useGlobalShortcutPeriod } from '@/hooks/useGlobalShortcutPeriod';
 import { Card } from '@/components/ui/card';
 import {
   Select,
@@ -16,11 +17,9 @@ import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro'
 import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
   useUsageHeatmap,
-  type UsageHeatmapPeriod,
   type UsageHeatmapTypeFilter,
 } from '@/hooks/useUsageHeatmap';
 import {
-  USAGE_HEATMAP_PERIOD_LEGEND,
   USAGE_HEATMAP_SOURCE_FILTER_LEGEND,
   usageHeatmapPanelLegends,
 } from '@/lib/analyticsParameterLegends';
@@ -28,7 +27,7 @@ import { RefreshCw, AlertTriangle } from 'lucide-react';
 
 export function UsageHeatmapPanel() {
   const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>('all_usage');
-  const [period, setPeriod] = useState<UsageHeatmapPeriod>('30d');
+  const period = useGlobalShortcutPeriod();
 
   const { data, isLoading, error, refresh } = useUsageHeatmap({ typeFilter, period });
   const breakdown = data?.breakdown;
@@ -50,7 +49,7 @@ export function UsageHeatmapPanel() {
 
       <Card className="p-4 md:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="grid flex-1 gap-4 sm:grid-cols-2">
+          <div className="grid flex-1 gap-4 sm:max-w-md">
             <div className="space-y-2">
               <HeatmapFilterLabel
                 htmlFor="heatmap-type"
@@ -70,20 +69,6 @@ export function UsageHeatmapPanel() {
                   <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
                   <SelectItem value="visits">Visitas a equipamentos públicos</SelectItem>
                   <SelectItem value="transport">Relatos de transporte (por zona)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <HeatmapFilterLabel htmlFor="heatmap-period" legend={USAGE_HEATMAP_PERIOD_LEGEND} />
-              <Select value={period} onValueChange={(v) => setPeriod(v as UsageHeatmapPeriod)}>
-                <SelectTrigger id="heatmap-period">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
                 </SelectContent>
               </Select>
             </div>

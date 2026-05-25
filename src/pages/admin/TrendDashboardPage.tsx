@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useGlobalShortcutPeriod } from '@/hooks/useGlobalShortcutPeriod';
 import { PageShell } from '@/components/ui/PageShell';
 import { RN_ANL_003_TRENDS_LEGEND } from '@/lib/analyticsParameterLegends';
 import { Card } from '@/components/ui/card';
@@ -15,7 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TrendCategoryLineChart } from '@/components/admin/TrendCategoryLineChart';
 import {
   useReportsTrend,
-  type ReportsTrendPeriod,
   type ReportsTrendTypeFilter,
 } from '@/hooks/useReportsTrend';
 import { useTransportLines } from '@/hooks/useTransportLines';
@@ -25,7 +25,7 @@ import { LineChart as LineChartIcon, RefreshCw, AlertTriangle } from 'lucide-rea
 export function TrendDashboardPage() {
   const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>('all');
   const [lineId, setLineId] = useState<string | null>(null);
-  const [period, setPeriod] = useState<ReportsTrendPeriod>('30d');
+  const period = useGlobalShortcutPeriod();
 
   const { lines, loading: linesLoading } = useTransportLines();
   const { data, isLoading, error, refresh } = useReportsTrend({
@@ -52,7 +52,7 @@ export function TrendDashboardPage() {
         </div>
 
         <Card className="p-4 md:p-6">
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="mb-6 grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="trend-type">Tipo</Label>
               <Select
@@ -96,21 +96,6 @@ export function TrendDashboardPage() {
               {!lineFilterVisible && (
                 <p className="text-xs text-muted-foreground">Aplica-se a relatos de transporte.</p>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="trend-period">Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as ReportsTrendPeriod)}>
-                <SelectTrigger id="trend-period">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 

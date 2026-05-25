@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useGlobalHeatmapExtendedPeriod } from '@/hooks/useGlobalHeatmapExtendedPeriod';
 import { Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import {
@@ -13,12 +14,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { IntensityDemandMap, colorForWait } from '@/components/admin/IntensityDemandMap';
 import type { ZoneIntensity } from '@/hooks/useIntensityDemand';
-import { useWaitTimeByZone, type WaitTimePeriod } from '@/hooks/useWaitTimeByZone';
-import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
+import { useWaitTimeByZone } from '@/hooks/useWaitTimeByZone';
 import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
 import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
 import {
-  HEATMAP_EXTENDED_PERIOD_LEGEND,
   waitTimeHeatmapPanelLegends,
 } from '@/lib/analyticsParameterLegends';
 
@@ -28,7 +27,7 @@ function scoreToHours(score: number): number {
 }
 
 export function WaitTimeHeatmapPanel() {
-  const [period, setPeriod] = useState<WaitTimePeriod>('90d');
+  const period = useGlobalHeatmapExtendedPeriod();
   const { zones, summary, isLoading, error, refresh } = useWaitTimeByZone({ period });
 
   const mapZones: ZoneIntensity[] = useMemo(
@@ -84,21 +83,7 @@ export function WaitTimeHeatmapPanel() {
       )}
 
       <Card className="p-4 md:p-6">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-2">
-            <HeatmapFilterLabel htmlFor="wait-period" legend={HEATMAP_EXTENDED_PERIOD_LEGEND} />
-            <Select value={period} onValueChange={(v) => setPeriod(v as WaitTimePeriod)}>
-              <SelectTrigger id="wait-period" className="w-full max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                <SelectItem value="all">Tudo</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="mb-4 flex flex-wrap items-end justify-end gap-3">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Atualizar

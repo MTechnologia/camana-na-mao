@@ -1,4 +1,7 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { parseGlobalFiltersFromSearchParams } from '@/lib/commissionFilterNavigation';
 import { ExternalLink } from 'lucide-react';
 import { ReportDetailSheet } from '@/components/admin/reports/ReportDetailSheet';
 import { ReportsDataTable } from '@/components/admin/reports/ReportsDataTable';
@@ -12,6 +15,16 @@ import { useUrbanReportsManagement } from '@/hooks/useUrbanReportsManagement';
 import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
 
 export function ReportsManagementPage() {
+  const [searchParams] = useSearchParams();
+  const { setPeriod, setRegion, setCategory } = useGlobalFilters();
+
+  useEffect(() => {
+    const fromUrl = parseGlobalFiltersFromSearchParams(searchParams);
+    if (fromUrl.period) setPeriod(fromUrl.period);
+    if (fromUrl.region) setRegion(fromUrl.region);
+    if (fromUrl.category) setCategory(fromUrl.category);
+  }, [searchParams, setPeriod, setRegion, setCategory]);
+
   const {
     filtered,
     counts,
@@ -25,6 +38,19 @@ export function ReportsManagementPage() {
     updateReport,
     savingId,
     onTriageCommitted,
+    responsibleCatalog,
+    selectedResponsibleIds,
+    responsiblePopoverOpen,
+    setResponsiblePopoverOpen,
+    toggleResponsible,
+    clearResponsibleFilter,
+    selectedPriorities,
+    priorityPopoverOpen,
+    setPriorityPopoverOpen,
+    togglePriority,
+    clearPriorityFilter,
+    councilReferralFilterLabel,
+    councilReferralStats,
   } = useUrbanReportsManagement();
 
   return (
@@ -54,7 +80,30 @@ export function ReportsManagementPage() {
         search={search}
         onSearchChange={setSearch}
         resultCount={filtered.length}
+        responsibleCatalog={responsibleCatalog}
+        selectedResponsibleIds={selectedResponsibleIds}
+        responsiblePopoverOpen={responsiblePopoverOpen}
+        onResponsiblePopoverOpenChange={setResponsiblePopoverOpen}
+        onToggleResponsible={toggleResponsible}
+        onClearResponsibleFilter={clearResponsibleFilter}
+        selectedPriorities={selectedPriorities}
+        priorityPopoverOpen={priorityPopoverOpen}
+        onPriorityPopoverOpenChange={setPriorityPopoverOpen}
+        onTogglePriority={togglePriority}
+        onClearPriorityFilter={clearPriorityFilter}
+        councilReferralFilterLabel={councilReferralFilterLabel}
+        councilReferralStats={councilReferralStats}
       />
+
+      {councilReferralStats && councilReferralStats.nonUrban > 0 ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+          {councilReferralStats.nonUrban} encaminhamento
+          {councilReferralStats.nonUrban === 1 ? '' : 's'} pendente
+          {councilReferralStats.nonUrban === 1 ? ' é' : 's são'} de transporte ou avaliação de
+          serviço — não aparecem nesta fila urbana. O total de {councilReferralStats.referralTotal}{' '}
+          bate com a análise de encaminhamentos.
+        </p>
+      ) : null}
 
       <ReportsDataTable
         rows={filtered}

@@ -6,11 +6,14 @@ export function ReferralDestinationsTable({
   description,
   destinations,
   nameColumnLabel,
+  onDestinationClick,
 }: {
   title: string;
   description: string;
   destinations: ReferralDestination[];
   nameColumnLabel: string;
+  /** Abre fila operacional (ex.: Gestão de relatos) para a comissão. */
+  onDestinationClick?: (destination: ReferralDestination) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -28,7 +31,27 @@ export function ReferralDestinationsTable({
         </thead>
         <tbody>
           {destinations.map((d) => (
-            <tr key={d.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+            <tr
+              key={d.id}
+              className={
+                onDestinationClick
+                  ? 'cursor-pointer border-b border-border last:border-0 hover:bg-muted/40'
+                  : 'border-b border-border last:border-0 hover:bg-muted/30'
+              }
+              onClick={onDestinationClick ? () => onDestinationClick(d) : undefined}
+              onKeyDown={
+                onDestinationClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onDestinationClick(d);
+                      }
+                    }
+                  : undefined
+              }
+              tabIndex={onDestinationClick ? 0 : undefined}
+              role={onDestinationClick ? 'button' : undefined}
+            >
               <td className="px-4 py-3 font-medium text-foreground">{d.name}</td>
               <td className="px-4 py-3">
                 <div className="flex flex-wrap gap-1">

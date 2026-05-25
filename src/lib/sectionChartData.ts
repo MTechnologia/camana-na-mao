@@ -1,7 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
 import type { LabeledValue, SeriesPoint } from '@/lib/chartTypes';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
+import {
+  globalFiltersToReportsAnalytics,
+  type PeriodCompareFilterInput,
+} from '@/lib/globalFiltersToAnalytics';
+import { fetchFilteredCouncilMemberReferrals } from '@/lib/referralsGlobalFilters';
 import { fetchCouncilMemberDestinations, fetchThematicCommissions } from '@/lib/referralDestinations';
 import { bairroParaZona } from '@/lib/regionMapping';
 
@@ -28,8 +32,8 @@ const REFERRAL_STATUS_LABELS: Record<string, string> = {
   resolved: 'Resolvidos',
 };
 
-function dateRangeFromFilters(period: string) {
-  const f = globalFiltersToReportsAnalytics(period, 'all', 'all');
+function dateRangeFromFilters(period: string, periodCompare?: PeriodCompareFilterInput | null) {
+  const f = globalFiltersToReportsAnalytics(period, 'all', 'all', periodCompare ?? undefined);
   return { start: f.startDate, end: f.endDate };
 }
 
@@ -60,6 +64,7 @@ export async function fetchSectionChartExtras(
   period: string,
   region: string,
   category: string,
+  periodCompare?: PeriodCompareFilterInput | null,
 ): Promise<{
   classificationByCategory: LabeledValue[];
   classificationTrend: LabeledValue[];
@@ -80,13 +85,12 @@ export async function fetchSectionChartExtras(
   heatmapByTerritory: (metric: string) => LabeledValue[];
   metricTrends: SeriesPoint[];
 }> {
-  const { start, end } = dateRangeFromFilters(period);
+  const { start, end } = dateRangeFromFilters(period, periodCompare);
   const startIso = start ? `${start}T00:00:00` : undefined;
   const endIso = end ? `${end}T23:59:59` : undefined;
 
   const [
     accuracyRes,
-    referralsRes,
     exportRes,
     scheduledExportRes,
     auditRes,
@@ -100,11 +104,6 @@ export async function fetchSectionChartExtras(
     council,
   ] = await Promise.all([
     supabase.from('v_classification_accuracy_by_source').select('*'),
-    supabase
-      .from('council_member_referrals')
-      .select('status, created_at, resolved_at')
-      .gte('created_at', startIso ?? '1970-01-01')
-      .lte('created_at', endIso ?? '2099-12-31'),
     supabase
       .from('export_logs')
       .select('format, created_at')
@@ -155,7 +154,12 @@ export async function fetchSectionChartExtras(
     value: Math.round(Number(r.category_accuracy_pct ?? 0)),
   }));
 
-  const referrals = referralsRes.data ?? [];
+  const referrals = await fetchFilteredCouncilMemberReferrals(
+    period,
+    region,
+    category,
+    periodCompare,
+  );
   const referralFunnel: LabeledValue[] = ['pending', 'sent', 'acknowledged', 'resolved'].map(
     (status) => ({
       label: REFERRAL_STATUS_LABELS[status] ?? status,

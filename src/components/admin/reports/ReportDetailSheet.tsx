@@ -227,7 +227,7 @@ export function ReportDetailSheet({
             <div>
               <h3 className="text-sm font-semibold text-foreground">Triagem (HU-10.1)</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Prioridade P0–P3, responsável e status do funil ficam em{' '}
+                Prioridade P0–P3, comissão responsável e status do funil ficam em{' '}
                 <code className="rounded bg-muted px-1">report_triage</code>. Conclua a triagem para liberar
                 encaminhamento à comissão.
               </p>

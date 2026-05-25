@@ -11,13 +11,21 @@ describe('usesUnifiedAnalyticsBar', () => {
     expect(usesUnifiedAnalyticsBar('/admin/commissions')).toBe(true);
   });
 
+  it('exibe barra nas rotas analíticas e em /paineis', () => {
+    expect(usesUnifiedAnalyticsBar('/admin/analytics')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/admin/trends')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/admin/reports-heatmap')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/admin/equipment-ratings')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/admin/public-hearings')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/paineis')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/paineis/avancado')).toBe(true);
+    expect(usesUnifiedAnalyticsBar('/paineis/criar/abc')).toBe(true);
+  });
+
   it('não exibe barra em outras rotas admin', () => {
-    expect(usesUnifiedAnalyticsBar('/admin/analytics')).toBe(false);
-    expect(usesUnifiedAnalyticsBar('/admin/trends')).toBe(false);
-    expect(usesUnifiedAnalyticsBar('/admin/reports-heatmap')).toBe(false);
     expect(usesUnifiedAnalyticsBar('/admin/classification-accuracy')).toBe(false);
     expect(usesUnifiedAnalyticsBar('/admin/notifications')).toBe(false);
-    expect(usesUnifiedAnalyticsBar('/paineis')).toBe(false);
+    expect(usesUnifiedAnalyticsBar('/admin/users')).toBe(false);
   });
 });
 
@@ -31,8 +39,18 @@ describe('usesGlobalReportsAnalytics', () => {
     expect(usesGlobalReportsAnalytics('/admin/settings/accessibility')).toBe(true);
   });
 
+  it('ativa provider nas rotas analíticas e em /paineis', () => {
+    expect(usesGlobalReportsAnalytics('/admin/analytics')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/trends')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/reports-heatmap')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/equipment-ratings')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/admin/public-hearings')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/paineis')).toBe(true);
+    expect(usesGlobalReportsAnalytics('/paineis/criar')).toBe(true);
+  });
+
   it('não ativa provider em rotas admin sem gráficos de seção', () => {
-    expect(usesGlobalReportsAnalytics('/admin/analytics')).toBe(false);
     expect(usesGlobalReportsAnalytics('/admin/users')).toBe(false);
+    expect(usesGlobalReportsAnalytics('/admin/classification-accuracy')).toBe(false);
   });
 });

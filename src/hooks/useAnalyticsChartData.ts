@@ -3,11 +3,12 @@ import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalytic
 import { buildAnalyticsChartBundle } from '@/lib/analyticsFromStats';
 /** Dados dos gráficos da análise de relatos urbanos — API real + derivados para formatos PO. */
 export function useAnalyticsChartData() {
-  const { period, category, stats, isLoading, error } = useUrbanReportsAnalyticsFilters();
+  const { period, region, category, stats, isLoading, error } =
+    useUrbanReportsAnalyticsFilters();
 
   const chartData = useMemo(
-    () => buildAnalyticsChartBundle(stats, period, 'all', category),
-    [stats, period, category],
+    () => buildAnalyticsChartBundle(stats, period, region, category),
+    [stats, period, region, category],
   );
 
   return {

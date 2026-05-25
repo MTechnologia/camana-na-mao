@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
+import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
+import {
+  computeCouncilReferralKpis,
+  fetchFilteredCouncilMemberReferrals,
+} from '@/lib/referralsGlobalFilters';
 
 export interface Referral {
   id: string;
@@ -34,6 +40,7 @@ interface ReferralKPIs {
 }
 
 export const useReferralsAdmin = () => {
+  const { period, region, category, periodCompare, compareActive } = useGlobalFilters();
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,44 +58,28 @@ export const useReferralsAdmin = () => {
     resolved: 0,
   });
 
+  const periodCompareInput = useCallback(
+    () =>
+      period === PERIOD_COMPARE_VALUE && compareActive
+        ? { periodA: periodCompare.periodA }
+        : undefined,
+    [period, compareActive, periodCompare.periodA],
+  );
+
   const fetchKPIs = useCallback(async () => {
     try {
-      const { count: total } = await supabase
-        .from('council_member_referrals')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: pending } = await supabase
-        .from('council_member_referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
-      const { count: sent } = await supabase
-        .from('council_member_referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'sent');
-
-      const { count: acknowledged } = await supabase
-        .from('council_member_referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'acknowledged');
-
-      const { count: resolved } = await supabase
-        .from('council_member_referrals')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'resolved');
-
-      setKpis({
-        total: total || 0,
-        pending: pending || 0,
-        sent: sent || 0,
-        acknowledged: acknowledged || 0,
-        resolved: resolved || 0,
-      });
+      const rows = await fetchFilteredCouncilMemberReferrals(
+        period,
+        region,
+        category,
+        periodCompareInput(),
+      );
+      setKpis(computeCouncilReferralKpis(rows));
       setLastDataUpdate(new Date());
     } catch (error) {
       console.error('Error fetching KPIs:', error);
     }
-  }, []);
+  }, [period, region, category, periodCompareInput]);
 
   const fetchReferrals = useCallback(async () => {
     setLoading(true);

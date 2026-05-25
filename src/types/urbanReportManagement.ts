@@ -1,3 +1,5 @@
+import type { TriagePriority } from '@/lib/triage';
+
 export type ReportWorkflowStage =
   | 'awaiting_triage'
   | 'triaged'
@@ -37,6 +39,16 @@ export type UrbanReportRecord = {
   district: string;
   stage: ReportWorkflowStage;
   priority?: ReportPriority;
+  /** Prioridade P0–P3 (triagem formal ou inferida — igual ao kanban). */
+  triagePriority?: TriagePriority | null;
+  /** Responsável na triagem (comissão temática do encaminhamento mais recente). */
+  responsibleId?: string | null;
+  responsibleName?: string | null;
+  /** Drill-down do funil de encaminhamentos a vereador. */
+  councilReferralId?: string;
+  councilReferralStatus?: string;
+  councilReferralStatusLabel?: string;
+  councilMemberName?: string;
   createdAt: string;
   updatedAt: string;
   triagedAt?: string;
