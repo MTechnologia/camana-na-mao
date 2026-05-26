@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { STAGE_LABELS } from '@/lib/urbanReportLabels';
@@ -29,10 +30,12 @@ export function ReportsDataTable({
   rows,
   selectedId,
   onSelect,
+  footer,
 }: {
   rows: UrbanReportRecord[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  footer?: ReactNode;
 }) {
   if (rows.length === 0) {
     return (
@@ -112,8 +115,17 @@ export function ReportsDataTable({
                           : r.responsibleName ?? r.councilMemberName ?? undefined
                       }
                     >
-                      {r.responsibleName ?? r.councilMemberName ?? '—'}
+                      {r.responsibleName ?? '—'}
                     </span>
+                    {r.responsibleName && r.councilMemberName ? (
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground/80">
+                        {r.councilMemberName}
+                      </span>
+                    ) : !r.responsibleName && r.councilMemberName ? (
+                      <span className="mt-0.5 block truncate text-[10px] text-muted-foreground/80">
+                        {r.councilMemberName}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.region}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{formatDate(r.updatedAt)}</td>
@@ -126,6 +138,7 @@ export function ReportsDataTable({
           </tbody>
         </table>
       </div>
+      {footer}
     </div>
   );
 }

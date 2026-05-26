@@ -3,6 +3,9 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { rolesGrantPermission } from '@/lib/permissions';
 import { withPoolRetry } from '@/lib/supabaseRetry';
+import { withTimeout } from '@/lib/promiseTimeout';
+
+const ROLE_FETCH_TIMEOUT_MS = 12_000;
 
 /** Erros típicos quando o GoTrue não alcança o servidor (Wi‑Fi, VPN, Supabase fora, CORS). */
 function isLikelyAuthNetworkFailure(err: unknown): boolean {
@@ -118,6 +121,7 @@ export const useUserRole = () => {
         setIsCidadao(false);
         setIsCidadaoEngajado(false);
         setPermissionKeys(new Set());
+        setLoading(false);
       }
     });
 
@@ -126,20 +130,27 @@ export const useUserRole = () => {
 
   const fetchUserRoles = async () => {
     try {
-      const user = await getAuthUserResilient();
-
-      if (!user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         setRoles([]);
         setCouncilMemberId(null);
         setPermissionKeys(new Set());
-        setLoading(false);
+        setIsAdmin(false);
+        setIsGestor(false);
+        setIsVereador(false);
+        setIsAssessor(false);
+        setIsCidadao(false);
+        setIsCidadaoEngajado(false);
         return;
       }
+
+      const user = (await getAuthUserResilient()) ?? session.user;
 
       let userRoles: UserRole[] = [];
 
       // Prefer direct table read (fast + typed), but fall back to RPC if RLS blocks it.
-      const [{ data, error }, { data: gabineteLink, error: gabineteError }] = await Promise.all([
+      const [{ data, error }, { data: gabineteLink, error: gabineteError }] = await withTimeout(
+        Promise.all([
         withPoolRetry(
           () =>
             supabase
@@ -153,7 +164,10 @@ export const useUserRole = () => {
           .select('council_member_id')
           .eq('user_id', user.id)
           .maybeSingle(),
-      ]);
+        ]),
+        ROLE_FETCH_TIMEOUT_MS,
+        'ROLE_FETCH_TIMEOUT',
+      );
 
       if (!error) {
         userRoles = (data || []).map((r) => r.role as UserRole);
@@ -183,13 +197,17 @@ export const useUserRole = () => {
       
       setRoles(userRoles);
 
-      const { data: permRows, error: permErr } = await withPoolRetry(
-        () =>
-          supabase
-            .from('role_permissions')
-            .select('permission_key')
-            .in('role', userRoles),
-        { retries: 1, baseDelayMs: 700 },
+      const { data: permRows, error: permErr } = await withTimeout(
+        withPoolRetry(
+          () =>
+            supabase
+              .from('role_permissions')
+              .select('permission_key')
+              .in('role', userRoles),
+          { retries: 1, baseDelayMs: 700 },
+        ),
+        ROLE_FETCH_TIMEOUT_MS,
+        'ROLE_FETCH_TIMEOUT',
       );
       if (permErr) {
         console.warn('[useUserRole] role_permissions', permErr);

@@ -66,7 +66,12 @@ export function ReportDetailSheet({
     setReferralNote(report.referral?.note ?? '');
     setCommissionId(report.referral?.commissionId ?? '');
     setCouncillorId(report.referral?.councillorId ?? '');
-  }, [report?.id, report?.referral?.commissionId, report?.referral?.councillorId]);
+  }, [
+    report?.id,
+    report?.referral?.commissionId,
+    report?.referral?.councillorId,
+    report?.referral?.commissionName,
+  ]);
 
   if (!report) return null;
 
@@ -118,6 +123,7 @@ export function ReportDetailSheet({
         ...report,
         stage: 'referred',
         referral: {
+          councilReferralId: report.referral?.councilReferralId,
           commissionId: commission.id,
           commissionName: commission.name,
           councillorId: councillor.id,
@@ -237,6 +243,11 @@ export function ReportDetailSheet({
               source="urban"
               canEdit={canManageTriage}
               onSaved={(saved) => void onTriageCommitted?.(saved)}
+              referralSyncToken={
+                report.referral
+                  ? `${report.referral.commissionId}:${report.referral.councillorId}:${report.updatedAt}`
+                  : null
+              }
             />
             <ReportTimelineTab reportId={report.id} source="urban" />
           </section>

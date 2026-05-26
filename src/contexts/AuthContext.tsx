@@ -16,6 +16,9 @@ import {
   getAuthErrorMessage,
   translateAuthError,
 } from "@/lib/authErrorMessages";
+import { withTimeout } from "@/lib/promiseTimeout";
+
+const AUTH_INIT_TIMEOUT_MS = 8_000;
 
 interface AuthContextType {
   user: User | null;
@@ -55,17 +58,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email_confirmed_at && hasEmailConfirmationCallback()) {
-        clearEmailConfirmationPending(session.user.email);
-      }
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    let cancelled = false;
 
-    return () => subscription.unsubscribe();
+    void (async () => {
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          AUTH_INIT_TIMEOUT_MS,
+          'AUTH_SESSION_TIMEOUT',
+        );
+        if (cancelled) return;
+        if (session?.user?.email_confirmed_at && hasEmailConfirmationCallback()) {
+          clearEmailConfirmationPending(session.user.email);
+        }
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch (err) {
+        if (cancelled) return;
+        if (import.meta.env.DEV) {
+          console.warn('[Auth] Sessão inicial indisponível (rede/timeout).', err);
+        }
+        setSession(null);
+        setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone: string) => {
@@ -130,10 +153,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Email confirmation pending");
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+        AUTH_INIT_TIMEOUT_MS,
+        'AUTH_SIGNIN_TIMEOUT',
+      );
 
       if (error) throw error;
       
@@ -177,12 +201,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
-      await supabase.auth.signOut();
+      try {
+        await withTimeout(
+          supabase.auth.signOut({ scope: 'global' }),
+          AUTH_INIT_TIMEOUT_MS,
+          'AUTH_SIGNOUT_TIMEOUT',
+        );
+      } catch {
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+      setSession(null);
+      setUser(null);
       toast.success("Logout realizado com sucesso!");
       navigate("/welcome");
     } catch (error: unknown) {
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      setSession(null);
+      setUser(null);
       const translatedMessage = formatAuthErrorForUser(error);
       toast.error(translatedMessage || "Erro ao fazer logout");
+      navigate("/welcome");
     }
   }, [user, navigate]);
 

@@ -58,6 +58,17 @@ export function translateAuthError(message: string, code?: string): string {
   ) {
     return "Não foi possível enviar o e-mail de recuperação (serviço de envio indisponível ou remetente não validado). Tente de novo em alguns minutos ou fale com o suporte.";
   }
+  if (
+    lower.includes("failed to fetch")
+    || lower.includes("network error")
+    || lower.includes("load failed")
+    || lower.includes("connection timed out")
+    || lower.includes("err_connection")
+    || lower.includes("auth_session_timeout")
+    || code === "AUTH_NETWORK_UNAVAILABLE"
+  ) {
+    return "Não foi possível conectar ao servidor de autenticação. Verifique sua internet, VPN ou firewall e tente novamente em alguns minutos.";
+  }
 
   return message;
 }

@@ -12,6 +12,7 @@ interface CommissionReferralRow {
   report_id: string;
   commission_id: string;
   referred_at: string;
+  updated_at: string;
   legislative_commissions: { name: string | null; code: string | null } | null;
 };
 
@@ -27,24 +28,20 @@ export async function loadLatestCommissionByReportKey(
   urbanIds: string[],
   transportIds: string[],
 ): Promise<Map<string, ReportCommissionRef>> {
-  type Acc = ReportCommissionRef & { referredAt: string };
-  const acc = new Map<string, Acc>();
+  const acc = new Map<string, ReportCommissionRef>();
 
   const mergeRows = (rows: CommissionReferralRow[]) => {
     for (const row of rows) {
       const key = reportCommissionKey(row.source_table, row.report_id);
-      const prev = acc.get(key);
-      if (!prev || row.referred_at >= prev.referredAt) {
-        const name =
-          row.legislative_commissions?.name?.trim()
-          || row.legislative_commissions?.code?.trim()
-          || 'Comissão';
-        acc.set(key, {
-          commissionId: row.commission_id,
-          commissionName: name,
-          referredAt: row.referred_at,
-        });
-      }
+      if (acc.has(key)) continue;
+      const name =
+        row.legislative_commissions?.name?.trim()
+        || row.legislative_commissions?.code?.trim()
+        || 'Comissão';
+      acc.set(key, {
+        commissionId: row.commission_id,
+        commissionName: name,
+      });
     }
   };
 
@@ -52,10 +49,11 @@ export async function loadLatestCommissionByReportKey(
     const { data, error } = await supabase
       .from('report_commission_referrals')
       .select(
-        'source_table, report_id, commission_id, referred_at, legislative_commissions(name, code)',
+        'source_table, report_id, commission_id, referred_at, updated_at, legislative_commissions(name, code)',
       )
       .eq('source_table', 'urban_reports')
       .in('report_id', urbanIds)
+      .order('updated_at', { ascending: false })
       .order('referred_at', { ascending: false });
     if (error) throw error;
     mergeRows((data ?? []) as CommissionReferralRow[]);
@@ -65,23 +63,17 @@ export async function loadLatestCommissionByReportKey(
     const { data, error } = await supabase
       .from('report_commission_referrals')
       .select(
-        'source_table, report_id, commission_id, referred_at, legislative_commissions(name, code)',
+        'source_table, report_id, commission_id, referred_at, updated_at, legislative_commissions(name, code)',
       )
       .eq('source_table', 'transport_reports')
       .in('report_id', transportIds)
+      .order('updated_at', { ascending: false })
       .order('referred_at', { ascending: false });
     if (error) throw error;
     mergeRows((data ?? []) as CommissionReferralRow[]);
   }
 
-  const out = new Map<string, ReportCommissionRef>();
-  for (const [key, value] of acc) {
-    out.set(key, {
-      commissionId: value.commissionId,
-      commissionName: value.commissionName,
-    });
-  }
-  return out;
+  return acc;
 }
 
 export type LegislativeCommissionOption = {
