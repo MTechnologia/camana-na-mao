@@ -7,6 +7,7 @@ import {
   sumChartBarValues,
   unallocatedVolumeFromStats,
 } from '@/lib/analyticsDrillFromStats';
+import { countRecurringThemesFromCategories } from '@/lib/reportsAnalyticsAggregates';
 import { EMPTY_RESPONSE_TIME_DRILL } from '@/lib/responseTimeAggregates';
 
 function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnalyticsStats {
@@ -58,6 +59,9 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
       patterns: [{ id: '1', title: 'Padrão A', count: 3 } as never],
       criticalPendingReports: [],
     },
+    territoryPatterns: [],
+    neighborhoodBreakdown: [],
+    streetBreakdown: [],
     responseTime: EMPTY_RESPONSE_TIME_DRILL,
     ...overrides,
   };
@@ -95,6 +99,31 @@ describe('analyticsDrillFromStats volume parity', () => {
     const stats = mockStats();
     const kpis = buildDrillKpisFromStats(stats, 'overview');
     expect(kpis.volume).toBe(36);
+  });
+
+  it('KPI de padrões conta temas recorrentes nas categorias do recorte', () => {
+    const stats = mockStats({
+      categories: [
+        { category: 'lixo', count: 4 },
+        { category: 'via_publica', count: 1 },
+        { category: 'iluminacao', count: 3 },
+      ],
+      criticality: {
+        criticalScore: 0,
+        bySeverity: [],
+        patterns: Array.from({ length: 10 }, (_, i) => ({
+          id: `p${i}`,
+          type: 'frequency' as const,
+          severity: 'info' as const,
+          title: `Tema ${i}`,
+          description: '',
+          suggestedAction: '',
+        })),
+        criticalPendingReports: [],
+      },
+    });
+    expect(countRecurringThemesFromCategories(stats.categories)).toBe(2);
+    expect(buildDrillKpisFromStats(stats, 'overview').patterns).toBe(2);
   });
 
   it('buildDrillKpisForRegionFilter usa volume da zona, não o total do RPC', () => {

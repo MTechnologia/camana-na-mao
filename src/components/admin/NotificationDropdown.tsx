@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, Check, ExternalLink, AlertTriangle, Users, FileText, Bus, Building2 } from 'lucide-react';
 import { getNotificationType } from '@/constants/notificationTypes';
+import { handleNotificationNavigation } from '@/lib/handleNotificationNavigation';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -29,9 +30,7 @@ export const NotificationDropdown = () => {
       markAsRead(notification.id);
     }
     setOpen(false);
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
+    void handleNotificationNavigation(notification, navigate);
   };
 
   const formatCount = (count: number) => {
