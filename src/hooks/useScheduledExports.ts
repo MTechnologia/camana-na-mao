@@ -13,6 +13,13 @@ import type { RelativePeriodKind } from "@/lib/relativePeriod";
  */
 
 const TABLE = "scheduled_exports" as const;
+const APP_ORIGIN_FILTER_KEY = "__app_origin";
+
+function withAppOrigin(filters: Record<string, unknown>): Record<string, unknown> {
+  if (typeof window === "undefined" || !window.location?.origin) return filters;
+  if (typeof filters[APP_ORIGIN_FILTER_KEY] === "string") return filters;
+  return { ...filters, [APP_ORIGIN_FILTER_KEY]: window.location.origin };
+}
 
 export type Recurrence = "daily" | "weekly" | "monthly";
 
@@ -197,7 +204,7 @@ export function useScheduledExports(): UseScheduledExportsResult {
             format: input.format,
             fields: input.fieldIds,
             order_by: input.orderBy,
-            filters: input.filters ?? {},
+            filters: withAppOrigin((input.filters ?? {}) as Record<string, unknown>),
             include_summary: input.includeSummary ?? false,
             recurrence: input.recurrence,
             run_hour: input.runHour,
