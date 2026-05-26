@@ -250,7 +250,9 @@ export function useScheduledExports(): UseScheduledExportsResult {
       if (patch.enabled !== undefined) dbPatch.enabled = patch.enabled;
       if (patch.fields !== undefined) dbPatch.fields = patch.fields;
       if (patch.orderBy !== undefined) dbPatch.order_by = patch.orderBy;
-      if (patch.filters !== undefined) dbPatch.filters = patch.filters;
+      if (patch.filters !== undefined) {
+        dbPatch.filters = withAppOrigin(patch.filters as Record<string, unknown>);
+      }
       if (patch.includeSummary !== undefined) dbPatch.include_summary = patch.includeSummary;
       if (patch.periodKind !== undefined) dbPatch.period_kind = patch.periodKind;
       if (patch.periodRelative !== undefined) dbPatch.period_relative = patch.periodRelative;

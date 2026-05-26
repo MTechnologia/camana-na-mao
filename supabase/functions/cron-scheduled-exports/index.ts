@@ -11,9 +11,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+declare const EdgeRuntime: {
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 interface ScheduledExportRow {
@@ -108,9 +113,56 @@ function resolveRelativePeriod(
   return { startDate: start.toISOString(), endDate: end.toISOString() };
 }
 
+async function invokeProcessExportJob(
+  supabaseUrl: string,
+  jobId: string,
+): Promise<{ ok: boolean; status: number; body: string }> {
+  const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
+  const gatewayKey =
+    Deno.env.get("SUPABASE_ANON_KEY")?.trim() ||
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() ||
+    "";
+
+  if (!cronSecret && !gatewayKey) {
+    throw new Error(
+      "Sem credenciais para invocar process-export-job (CRON_SECRET ou chave Supabase)",
+    );
+  }
+
+  const invokeUrl = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/process-export-job`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (cronSecret) headers["X-Cron-Secret"] = cronSecret;
+  if (gatewayKey) {
+    headers["Authorization"] = `Bearer ${gatewayKey}`;
+    headers["apikey"] = gatewayKey;
+  }
+
+  const res = await fetch(invokeUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ jobId }),
+  });
+  const body = await res.text();
+  if (!res.ok) {
+    console.error(`[cron] process-export-job/${jobId} HTTP ${res.status}:`, body);
+  }
+  return { ok: res.ok, status: res.status, body };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
+  const headerSecret = req.headers.get("x-cron-secret")?.trim();
+  if (cronSecret && headerSecret !== cronSecret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -178,18 +230,18 @@ serve(async (req) => {
         if (jobErr) throw jobErr;
         const jobId = (jobIns as { id: string }).id;
 
-        // 3) Dispara process-export-job (fire-and-forget). O cron edge function
-        //    pode ter timeout curto; não esperamos a conclusão.
-        const invokeUrl = `${supabaseUrl}/functions/v1/process-export-job`;
-        fetch(invokeUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceRoleKey}`,
-          },
-          body: JSON.stringify({ jobId }),
-        }).catch((e) =>
-          console.error(`[cron] falha ao invocar process-export-job/${jobId}:`, e),
+        // 3) Dispara process-export-job em background (waitUntil evita cancelamento
+        //    do fetch quando o handler retorna; diferente do fire-and-forget nu).
+        EdgeRuntime.waitUntil(
+          invokeProcessExportJob(supabaseUrl, jobId).then((result) => {
+            if (!result.ok) {
+              console.error(
+                `[cron] process-export-job/${jobId} falhou:`,
+                result.status,
+                result.body.slice(0, 300),
+              );
+            }
+          }),
         );
 
         // 4) Atualiza last_run_at + recalcula next_run_at via SQL function.
@@ -221,8 +273,41 @@ serve(async (req) => {
       }
     }
 
+    // 5) Recupera jobs agendados presos em pending (ex.: fetch fire-and-forget antigo).
+    const staleBefore = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { data: staleJobs } = await supabase
+      .from("export_jobs")
+      .select("id")
+      .eq("status", "pending")
+      .eq("source", "scheduled")
+      .lt("created_at", staleBefore)
+      .order("created_at", { ascending: true })
+      .limit(20);
+
+    const reprocessed: string[] = [];
+    for (const row of staleJobs ?? []) {
+      const jobId = (row as { id: string }).id;
+      EdgeRuntime.waitUntil(
+        invokeProcessExportJob(supabaseUrl, jobId).then((result) => {
+          if (!result.ok) {
+            console.error(
+              `[cron] reprocess pending/${jobId} falhou:`,
+              result.status,
+              result.body.slice(0, 300),
+            );
+          }
+        }),
+      );
+      reprocessed.push(jobId);
+    }
+
     return new Response(
-      JSON.stringify({ ok: true, processed: processed.length, items: processed }),
+      JSON.stringify({
+        ok: true,
+        processed: processed.length,
+        items: processed,
+        reprocessed,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
