@@ -1,0 +1,20 @@
+{
+  "description": "Horários em formatos informais",
+  "cases": [
+    { "id": "time_8h", "input": "8h", "expect": "08:00" },
+    { "id": "time_8h15", "input": "8h15", "expect": "08:15" },
+    { "id": "time_0815", "input": "0815", "expect": "08:15" },
+    { "id": "time_7h5", "input": "7h5", "expect": "07:05" },
+    { "id": "time_meio_dia", "input": "meio dia", "expect": "12:00" },
+    { "id": "time_meia_noite", "input": "meia noite", "expect": "00:00" },
+    { "id": "time_as_19", "input": "às 19:45", "expect": "19:45" },
+    { "id": "time_23h59", "input": "23h59", "expect": "23:59" },
+    { "id": "time_linha_not_time", "input": "Linha informada (fora da lista): 1233", "expect": null },
+    { "id": "time_9h30", "input": "9h30", "expect": "09:30" },
+    { "id": "time_6h", "input": "6h", "expect": "06:00" },
+    { "id": "time_10h45", "input": "10h45", "expect": "10:45" },
+    { "id": "time_meio_dia_hifen", "input": "meio-dia", "expect": "12:00" },
+    { "id": "time_17h", "input": "17h", "expect": "17:00" },
+    { "id": "time_as_8h", "input": "às 8h", "expect": "08:00" }
+  ]
+}

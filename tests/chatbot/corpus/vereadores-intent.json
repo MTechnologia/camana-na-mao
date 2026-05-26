@@ -1,0 +1,16 @@
+{
+  "journey": "vereadores",
+  "description": "Vereadores e Câmara (não avaliação de serviço)",
+  "cases": [
+    { "id": "vereadores_lista", "input": "quero saber sobre os vereadores" },
+    { "id": "vereadores_perfil", "input": "vereadores da minha regiao" },
+    { "id": "vereadores_falar", "input": "como posso falar com meu vereador" },
+    { "id": "vereadores_gastos", "input": "onde ta os gastos dos vereadores" },
+    { "id": "vereadores_bairro", "input": "vereadores do meu bairro" },
+    { "id": "vereadores_typo", "input": "quem sao os vereadores da cidade" },
+    { "id": "vereadores_mandato", "input": "vereadores da minha regiao" },
+    { "id": "vereadores_comissoes", "input": "quem me representa na camara" },
+    { "id": "vereadores_contato", "input": "contato do vereador do meu bairro" },
+    { "id": "vereadores_projeto", "input": "quero saber sobre os vereadores da cidade" }
+  ]
+}

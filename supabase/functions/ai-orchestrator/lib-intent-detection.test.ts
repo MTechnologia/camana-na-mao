@@ -27,6 +27,78 @@ Deno.test("isBusInformationalQuery: reconhece consulta Olho Vivo", () => {
   assertEquals(isBusInformationalQuery("Quando passa o ônibus 875A no ponto?"), true);
 });
 
+Deno.test("isBusInformationalQuery: tempo real, parada e sentido (não é relato)", () => {
+  assertEquals(isBusInformationalQuery("onibus 509 tempo real no ponto"), true);
+  assertEquals(isBusInformationalQuery("horario da parada do onibus 875"), true);
+  assertEquals(isBusInformationalQuery("linha 875 sentido centro horario"), true);
+  assertEquals(isBusInformationalQuery("previsao de chegada do onibus 509"), true);
+});
+
+Deno.test("isBusInformationalQuery: reclamação de transporte não vira Olho Vivo", () => {
+  assertEquals(isBusInformationalQuery("onibus atrasou mt no pico"), false);
+  assertEquals(isBusInformationalQuery("o onibus nao passou no ponto hj"), false);
+});
+
+Deno.test("detectCollectionIntent: urbano com typos (pichação, barulho)", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "pichacao no muro da escola",
+      [{ role: "user", content: "pichacao no muro da escola" }],
+      baseDeps,
+    )?.type,
+    "urban_report",
+  );
+  assertEquals(
+    detectCollectionIntent(
+      "cachorro solto atacando na calcada",
+      [{ role: "user", content: "cachorro solto atacando na calcada" }],
+      baseDeps,
+    )?.type,
+    "urban_report",
+  );
+});
+
+Deno.test("detectCollectionIntent: serviços CAPS e AMA", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "caps mais perto daqui",
+      [{ role: "user", content: "caps mais perto daqui" }],
+      baseDeps,
+    )?.type,
+    "services",
+  );
+  assertEquals(
+    detectCollectionIntent(
+      "ama 24h perto de casa",
+      [{ role: "user", content: "ama 24h perto de casa" }],
+      baseDeps,
+    )?.type,
+    "services",
+  );
+});
+
+Deno.test("detectCollectionIntent: ocupação em pronto-socorro", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "lotacao do pronto socorro agora?",
+      [{ role: "user", content: "lotacao do pronto socorro agora?" }],
+      baseDeps,
+    )?.type,
+    "occupancy",
+  );
+});
+
+Deno.test("detectCollectionIntent: consulta Olho Vivo → general", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "onibus 509 tempo real no ponto",
+      [{ role: "user", content: "onibus 509 tempo real no ponto" }],
+      baseDeps,
+    )?.type,
+    "general",
+  );
+});
+
 Deno.test("detectCollectionIntent: mantém histórico como jornada leve", () => {
   const result = detectCollectionIntent(
     "Quero ver meus relatos",

@@ -1,0 +1,14 @@
+{
+  "journey": "general",
+  "description": "Consulta informativa de ônibus (Olho Vivo) — NÃO deve virar relato de transporte",
+  "cases": [
+    { "id": "bus_quando_passa", "input": "Quando passa o ônibus 875A no ponto?", "expect_intent": "general" },
+    { "id": "bus_linhas_proximo", "input": "quais linhas de onibus passam perto de mim", "expect_intent": "general" },
+    { "id": "bus_previsao", "input": "previsao de chegada do onibus 509", "expect_intent": "general" },
+    { "id": "bus_itinerario", "input": "itinerario da linha 875A-10", "expect_intent": "general" },
+    { "id": "bus_qual_passa", "input": "qual onibus passa na rua tal", "expect_intent": "general" },
+    { "id": "bus_parada", "input": "horario da parada do onibus 875", "expect_intent": "general" },
+    { "id": "bus_tempo_real", "input": "onibus 509 tempo real no ponto", "expect_intent": "general" },
+    { "id": "bus_sentido", "input": "linha 875 sentido centro horario", "expect_intent": "general" }
+  ]
+}

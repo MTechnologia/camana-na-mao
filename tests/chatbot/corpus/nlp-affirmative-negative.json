@@ -1,0 +1,27 @@
+{
+  "description": "Respostas afirmativas/negativas com gíria e typos",
+  "cases": [
+    { "id": "aff_sim", "input": "sim", "expect": "affirmative" },
+    { "id": "aff_ss", "input": "ss", "expect": "affirmative" },
+    { "id": "aff_blz", "input": "blz", "expect": "affirmative" },
+    { "id": "aff_pode", "input": "pode sim", "expect": "affirmative" },
+    { "id": "aff_isso_msm", "input": "isso msm", "expect": "affirmative" },
+    { "id": "aff_ta_bom", "input": "ta bom", "expect": "affirmative" },
+    { "id": "aff_bora", "input": "bora", "expect": "affirmative" },
+    { "id": "aff_confirmo", "input": "confirmo", "expect": "affirmative" },
+    { "id": "neg_nao", "input": "nao", "expect": "negative" },
+    { "id": "neg_n", "input": "n", "expect": "negative" },
+    { "id": "neg_deixa", "input": "deixa pra la", "expect": "negative" },
+    { "id": "neg_cancela", "input": "cancela", "expect": "negative" },
+    { "id": "neg_errado", "input": "ta errado", "expect": "negative" },
+    { "id": "neg_outro", "input": "outro", "expect": "negative" },
+    { "id": "aff_com_certeza", "input": "com certeza", "expect": "affirmative" },
+    { "id": "aff_dale", "input": "dale", "expect": "affirmative" },
+    { "id": "aff_manda_ver", "input": "manda ver", "expect": "affirmative" },
+    { "id": "aff_pode_ser_sim", "input": "pode ser sim", "expect": "affirmative" },
+    { "id": "aff_ta_certo", "input": "ta certo", "expect": "affirmative" },
+    { "id": "neg_nao_obrigado", "input": "nao obrigado", "expect": "negative" },
+    { "id": "neg_esquece", "input": "esquece isso", "expect": "negative" },
+    { "id": "neg_para", "input": "para com isso", "expect": "negative" }
+  ]
+}

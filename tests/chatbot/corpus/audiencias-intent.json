@@ -1,0 +1,18 @@
+{
+  "journey": "audiencias",
+  "description": "Audiências públicas",
+  "cases": [
+    { "id": "audiencias_explicit", "input": "Mostre audiências públicas" },
+    { "id": "audiencias_proximas", "input": "próximas audiências públicas" },
+    { "id": "audiencias_typo", "input": "audiencia publica agendada" },
+    { "id": "audiencias_inscrever", "input": "como me inscrever numa audiencia" },
+    { "id": "audiencias_agenda", "input": "calendario de audiencias publicas" },
+    { "id": "audiencias_sem_acento", "input": "tem audiencia publica essa semana" },
+    { "id": "audiencias_calendario", "input": "calendario de audiencias" },
+    { "id": "audiencias_chip", "input": "quero ver audiências públicas" },
+    { "id": "audiencias_tema_educacao", "input": "audiencia publica sobre educacao" },
+    { "id": "audiencias_participar", "input": "quero participar de audiencia publica" },
+    { "id": "audiencias_aberta", "input": "tem audiencia publica aberta essa semana" },
+    { "id": "audiencias_tramitacao", "input": "audiencias sobre projetos em tramitacao" }
+  ]
+}

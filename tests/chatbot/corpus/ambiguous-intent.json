@@ -1,0 +1,51 @@
+{
+  "journey": "urban_report",
+  "description": "Casos com contexto de jornada em andamento (deve manter jornada)",
+  "cases": [
+    {
+      "id": "keep_transport_journey",
+      "input": "foi hj de manha",
+      "expect_intent": "transport_report",
+      "history": [
+        { "role": "user", "content": "onibus 875 atrasou" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:transport_report:3/8][FIELD_REQUEST:occurrence_date]Quando aconteceu?" }
+      ]
+    },
+    {
+      "id": "keep_urban_journey",
+      "input": "na rua das flores 123",
+      "expect_intent": "urban_report",
+      "history": [
+        { "role": "user", "content": "buraco na rua" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:urban_report:2/6][FIELD_REQUEST:location_address]Qual o endereço?" }
+      ]
+    },
+    {
+      "id": "keep_rating_journey",
+      "input": "atendimento foi otimo",
+      "expect_intent": "service_rating",
+      "history": [
+        { "role": "user", "content": "avaliar ubs" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:service_rating:4/7][FIELD_REQUEST:rating_comment]Como foi o atendimento?" }
+      ]
+    },
+    {
+      "id": "keep_transport_time_typo",
+      "input": "umas 8h da manha",
+      "expect_intent": "transport_report",
+      "history": [
+        { "role": "user", "content": "onibus 509 atrasou" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:transport_report:4/8][FIELD_REQUEST:occurrence_time]Qual horário?" }
+      ]
+    },
+    {
+      "id": "keep_rating_stars",
+      "input": "dou 4 estrelas no atendimento",
+      "expect_intent": "service_rating",
+      "history": [
+        { "role": "user", "content": "avaliar ubs centro" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:service_rating:5/7][FIELD_REQUEST:rating_comment]Como foi?" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Respostas determinísticas de auto-create / validação",
+  "cases": [
+    {
+      "id": "transport_invalid_subcategory",
+      "handler": "transport_auto_create",
+      "accumulated": { "report_type": "atraso" },
+      "expect": {
+        "field_request": "sub_category",
+        "picker_contains": "SUBCATEGORY_PICKER:atraso"
+      }
+    }
+  ]
+}

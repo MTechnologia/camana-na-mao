@@ -1,0 +1,98 @@
+{
+  "description": "accumulateFieldsFromHistory — extrai campos de mensagens informais",
+  "cases": [
+    {
+      "id": "transport_subcategory_marker",
+      "journey": "transport_report",
+      "history": [
+        { "role": "user", "content": "onibus 875 n passou" },
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:transport_report:{\"description\":\"atraso\",\"report_type\":\"atraso\"}][SUBCATEGORY_PICKER:atraso]Qual detalhe?"
+        },
+        {
+          "role": "user",
+          "content": "Subcategoria: Não passou [SUBCATEGORY_SELECTED:nao_passou] [SUBCATEGORY_REPORT_TYPE:atraso]"
+        }
+      ],
+      "expect": { "sub_category": "nao_passou", "report_type": "atraso" }
+    },
+    {
+      "id": "transport_time_typo",
+      "journey": "transport_report",
+      "history": [
+        { "role": "user", "content": "atraso linha 509" },
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:transport_report:{\"description\":\"atraso\",\"report_type\":\"atraso\",\"sub_category\":\"demora_excessiva\"}][FIELD_REQUEST:occurrence_time]Qual horário?"
+        },
+        { "role": "user", "content": "foi 7h5" }
+      ],
+      "expect": { "occurrence_time": "07:05" }
+    },
+    {
+      "id": "transport_direction_volta",
+      "journey": "transport_report",
+      "history": [
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:transport_report:{\"description\":\"lotado\"}][FIELD_REQUEST:direction]Sentido?"
+        },
+        { "role": "user", "content": "volta" }
+      ],
+      "expect": { "direction": "volta" }
+    },
+    {
+      "id": "urban_address_snippet",
+      "journey": "urban_report",
+      "history": [
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:urban_report:{\"description\":\"buraco na rua\"}][FIELD_REQUEST:location_address]Endereço?"
+        },
+        { "role": "user", "content": "Rua das Flores 123, Jardim Paulista" }
+      ],
+      "expect_keys_present": ["description"]
+    },
+    {
+      "id": "rating_dimensions_marker",
+      "journey": "service_rating",
+      "history": [
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:service_rating:{\"service_name\":\"UBS Centro\"}][MULTI_DIMENSION_RATING_PICKER]"
+        },
+        {
+          "role": "user",
+          "content": "Dimensões: tempo_espera=4, atendimento=5, infraestrutura=3, limpeza=4 [RATING_DIMENSIONS:4,5,3,4]"
+        }
+      ],
+      "expect_keys_present": ["service_name"]
+    },
+    {
+      "id": "transport_recurrence_typo",
+      "journey": "transport_report",
+      "history": [
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:transport_report:{\"description\":\"atraso\",\"direction\":\"ida\"}][FIELD_REQUEST:recurrence_frequency]Frequência?"
+        },
+        { "role": "user", "content": "td semana" }
+      ],
+      "expect": { "recurrence_frequency": "toda_semana" }
+    },
+    {
+      "id": "urban_nature_reclamacao",
+      "journey": "urban_report",
+      "history": [
+        { "role": "user", "content": "muito lixo acumulado na rua" },
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:urban_report:{}][FIELD_REQUEST:report_nature]É reclamação, sugestão ou elogio?"
+        },
+        { "role": "user", "content": "reclamacao" }
+      ],
+      "expect": { "report_nature": "reclamacao" }
+    }
+  ]
+}
