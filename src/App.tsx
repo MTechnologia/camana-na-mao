@@ -416,7 +416,6 @@ const AppContent = () => {
           <Route path="/admin/settings/n8n" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/settings/n8n-monitoring" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/configuracoes/agendamentos" element={<Navigate to="/admin/exports" replace />} />
-          <Route path="/admin/permissions" element={<Navigate to="/admin/users" replace />} />
           <Route path="/admin/docs" element={<Navigate to="/admin/docs/overview" replace />} />
 
           <Route element={<ProtectedAdminRoute />}>
@@ -441,6 +440,7 @@ const AppContent = () => {
 
                 <Route element={<ProtectedAdminOnlyRoute />}>
                   <Route path="users" element={<UserManagementPage />} />
+                  <Route path="permissions" element={<PermissionsMatrixPage />} />
                   <Route path="audit-logs" element={<AuditLogsPage />} />
                   <Route path="service-corrections" element={<ServiceCorrectionsPage />} />
                   <Route
