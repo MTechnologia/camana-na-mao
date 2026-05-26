@@ -40,6 +40,7 @@ interface JobRecord {
     categories?: string[];
     regions?: string[];
     zones?: string[];
+    __app_origin?: string;
   };
   include_summary: boolean;
 }
@@ -388,6 +389,10 @@ serve(async (req) => {
                 ? "relatos de transporte"
                 : job.dataset;
           const exportsPath = `/admin/exports?jobId=${job.id}`;
+          const appOrigin =
+            typeof job.filters?.__app_origin === "string" && job.filters.__app_origin.trim()
+              ? job.filters.__app_origin.replace(/\/$/, "")
+              : undefined;
           await supabase.from("notifications").insert({
             user_id: job.user_id,
             title: `Exportação "${schedule.name ?? "agendada"}" concluída`,
@@ -400,12 +405,13 @@ serve(async (req) => {
               scheduledExportId,
               format: job.format,
               rowCount: rows.length,
+              ...(appOrigin ? { appUrl: appOrigin } : {}),
             },
           });
         }
 
         // E-mail dedicado com link de download (independente do webhook genérico).
-        await invokeSendExportEmail(job.id);
+        await invokeSendExportEmail(job.id, job.filters?.__app_origin);
       }
     } catch (notifErr) {
       console.warn("[process-export-job] falha ao criar notificação:", notifErr);
@@ -447,7 +453,7 @@ serve(async (req) => {
   }
 });
 
-async function invokeSendExportEmail(jobId: string): Promise<void> {
+async function invokeSendExportEmail(jobId: string, appOrigin?: string): Promise<void> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
@@ -461,7 +467,7 @@ async function invokeSendExportEmail(jobId: string): Promise<void> {
         Authorization: `Bearer ${serviceKey}`,
         ...(cronSecret ? { "X-Cron-Secret": cronSecret } : {}),
       },
-      body: JSON.stringify({ jobId }),
+      body: JSON.stringify({ jobId, appOrigin }),
     });
     if (!res.ok) {
       console.warn("[process-export-job] send-export-email:", res.status, await res.text());

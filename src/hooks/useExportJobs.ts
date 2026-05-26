@@ -21,6 +21,13 @@ const TABLE = "export_jobs" as const;
 const REALTIME_TABLES = [TABLE] as const;
 const STORAGE_BUCKET = "export-files" as const;
 const SIGNED_URL_EXPIRES_SECONDS = 60 * 60 * 24 * 7; // 7 dias
+const APP_ORIGIN_FILTER_KEY = "__app_origin";
+
+function withAppOrigin<T extends Record<string, unknown>>(filters: T): T {
+  if (typeof window === "undefined" || !window.location?.origin) return filters;
+  if (typeof filters[APP_ORIGIN_FILTER_KEY] === "string") return filters;
+  return { ...filters, [APP_ORIGIN_FILTER_KEY]: window.location.origin } as T;
+}
 
 export type ExportJobStatus =
   | "pending"
@@ -172,7 +179,7 @@ export function useExportJobs(): UseExportJobsResult {
             format: input.format,
             fields: input.fieldIds,
             order_by: input.orderBy,
-            filters: input.filters ?? {},
+            filters: withAppOrigin((input.filters ?? {}) as Record<string, unknown>),
             include_summary: input.includeSummary ?? false,
             source: "manual",
             status: "pending",
