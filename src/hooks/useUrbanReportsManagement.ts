@@ -36,6 +36,13 @@ import {
   reportCommissionKey,
   type LegislativeCommissionOption,
 } from '@/lib/reportCommissionReferrals';
+import {
+  loadLatestCouncilReferralByUrbanIds,
+  loadUrbanTriageResponsibleCommissionByReportIds,
+  persistUrbanManagementReferral,
+  resolveUrbanReportResponsible,
+  type UrbanCouncilReferralSnapshot,
+} from '@/lib/urbanReportReferralPersistence';
 import { useReportsAdmin, type UnifiedManifest } from '@/hooks/useReportsAdmin';
 import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
 import {
@@ -261,6 +268,12 @@ export function useUrbanReportsManagement() {
   const [commissionByReportId, setCommissionByReportId] = useState<
     Map<string, { id: string; name: string }>
   >(new Map());
+  const [councilReferralByReportId, setCouncilReferralByReportId] = useState(
+    () => new Map<string, UrbanCouncilReferralSnapshot>(),
+  );
+  const [triageCommissionByReportId, setTriageCommissionByReportId] = useState<
+    Map<string, { id: string; name: string }>
+  >(new Map());
   const [manifestById, setManifestById] = useState<Map<string, UnifiedManifest>>(new Map());
   const [triagePriorityByReportId, setTriagePriorityByReportId] = useState<
     Map<string, TriagePriority | null>
@@ -375,14 +388,18 @@ export function useUrbanReportsManagement() {
     const ids = reportIdsKey ? reportIdsKey.split(',') : [];
     if (ids.length === 0) {
       setCommissionByReportId(new Map());
+      setCouncilReferralByReportId(new Map());
+      setTriageCommissionByReportId(new Map());
       setTriagePriorityByReportId(new Map());
       return;
     }
     void (async () => {
       try {
-        const [byKey, triageMap] = await Promise.all([
+        const [byKey, triageMap, councilMap, triageCommMap] = await Promise.all([
           loadLatestCommissionByReportKey(ids, []),
           loadUrbanTriagePriorityByReportId(ids),
+          loadLatestCouncilReferralByUrbanIds(ids),
+          loadUrbanTriageResponsibleCommissionByReportIds(ids),
         ]);
         const byId = new Map<string, { id: string; name: string }>();
         for (const id of ids) {
@@ -390,6 +407,8 @@ export function useUrbanReportsManagement() {
           if (ref) byId.set(id, { id: ref.commissionId, name: ref.commissionName });
         }
         setCommissionByReportId(byId);
+        setCouncilReferralByReportId(councilMap);
+        setTriageCommissionByReportId(triageCommMap);
         setTriagePriorityByReportId(triageMap);
       } catch (err) {
         console.error('[useUrbanReportsManagement] referrals / triage', err);
@@ -399,14 +418,21 @@ export function useUrbanReportsManagement() {
 
   const reportsWithResponsible = useMemo(() => {
     return baseReports.map((r) => {
-      const comm = commissionByReportId.get(r.id);
+      const resolved = resolveUrbanReportResponsible(
+        r.id,
+        commissionByReportId,
+        councilReferralByReportId,
+        triageCommissionByReportId,
+      );
       return {
         ...r,
-        responsibleId: comm?.id ?? null,
-        responsibleName: comm?.name ?? null,
+        responsibleId: resolved.responsibleId,
+        responsibleName: resolved.responsibleName,
+        councilMemberName: resolved.councilMemberName,
+        referral: r.referral ?? resolved.referral,
       };
     });
-  }, [baseReports, commissionByReportId]);
+  }, [baseReports, commissionByReportId, councilReferralByReportId, triageCommissionByReportId]);
 
   useEffect(() => {
     setResponsibleCatalog((prev) => {
@@ -537,12 +563,24 @@ export function useUrbanReportsManagement() {
       setSavingId(updated.id);
 
       try {
+        if (updated.referral) {
+          await persistUrbanManagementReferral({
+            urbanReportId: updated.id,
+            commissionId: updated.referral.commissionId,
+            commissionName: updated.referral.commissionName,
+            councillorId: updated.referral.councillorId,
+            councillorName: updated.referral.councillorName,
+            matchScore: updated.referral.matchScore,
+            note: updated.referral.note,
+          });
+        }
         await updateManifestStatus(updated.id, 'urban', dbStatus);
         setOverrides((prev) => {
           const next = { ...prev };
           delete next[updated.id];
           return next;
         });
+        void refetch();
       } catch {
         if (previous) {
           setOverrides((prev) => ({ ...prev, [updated.id]: previous }));
@@ -559,7 +597,7 @@ export function useUrbanReportsManagement() {
         setSavingId(null);
       }
     },
-    [baseReports, overrides, updateManifestStatus],
+    [baseReports, overrides, updateManifestStatus, refetch],
   );
 
   const onTriageCommitted = useCallback(
