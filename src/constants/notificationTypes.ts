@@ -68,6 +68,12 @@ export const NOTIFICATION_TYPES = {
     icon: '⚙️',
     audience: 'admin'
   },
+  export_completed: {
+    label: 'Exportação concluída',
+    color: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
+    icon: '📥',
+    audience: 'admin',
+  },
 
   // =========================================
   // Cidadão - Tipos específicos para usuários

@@ -1,6 +1,7 @@
 import type { PatternAlert } from '@/components/analytics/PatternAlerts';
 import type { ReportsAnalyticsStats, TimelineDataPoint } from '@/hooks/useReportsAnalytics';
-import type { PatternRankRow } from '@/types/analyticsDrill';
+import type { PatternRankRow, RegionPatternSummary } from '@/types/analyticsDrill';
+import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
 import type { SeriesPoint } from '@/lib/chartTypes';
 import { regionLabel } from '@/lib/analyticsLabels';
 import {
@@ -297,6 +298,28 @@ export function filterUrbanReportsByRegion(
   });
 }
 
+/** Distribuição por categoria a partir dos relatos já filtrados (período, região, fonte). */
+export function buildCategoryDistributionFromTerritoryRows(
+  rows: TerritoryGeoRow[],
+): { category: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const cat = (row.category ?? 'outro').trim() || 'outro';
+    counts.set(cat, (counts.get(cat) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Temas distintos com repetição mínima no recorte (KPI «Padrões recorrentes»). */
+export function countRecurringThemesFromCategories(
+  categories: { category: string; count: number }[],
+  minCount = 2,
+): number {
+  return categories.filter((c) => c.count >= minCount).length;
+}
+
 export function patternsFromCategories(
   categories: { category: string; count: number }[],
 ): PatternAlert[] {
@@ -304,15 +327,18 @@ export function patternsFromCategories(
     .filter((c) => c.count > 0)
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
-    .map((c) => ({
-      id: `cat-${c.category}`,
-      type: 'frequency' as const,
-      severity: c.count >= 10 ? ('warning' as const) : ('info' as const),
-      title: c.category,
-      description: `${c.count} relato(s) nesta categoria no recorte selecionado.`,
-      suggestedAction: 'Revisar triagem e encaminhamento temático.',
-      count: c.count,
-    }));
+    .map((c) => {
+      const label = formatReportCategoryLabel(c.category);
+      return {
+        id: `cat-${c.category}`,
+        type: 'frequency' as const,
+        severity: c.count >= 10 ? ('warning' as const) : ('info' as const),
+        title: label,
+        description: `${c.count} relato(s) em «${label}» no recorte dos filtros ativos.`,
+        suggestedAction: 'Revisar triagem e encaminhamento temático.',
+        count: c.count,
+      };
+    });
 }
 
 export function mapReportPatternsToAlerts(
@@ -339,12 +365,66 @@ export function mapReportPatternsToAlerts(
 }
 
 export function patternRankFromAlerts(alerts: PatternAlert[]): PatternRankRow[] {
-  return alerts.map((a) => ({
-    id: a.id,
-    label: a.title,
-    count: a.count ?? 0,
-    trendPct: 0,
-  }));
+  const byLabel = new Map<string, PatternRankRow>();
+  for (const alert of alerts) {
+    const label = formatReportCategoryLabel(alert.title);
+    const count = alert.count ?? 0;
+    const existing = byLabel.get(label);
+    if (existing) {
+      existing.count += count;
+      continue;
+    }
+    byLabel.set(label, {
+      id: alert.id,
+      label,
+      count,
+      trendPct: 0,
+      description: alert.description,
+    });
+  }
+  return [...byLabel.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+}
+
+/** Tema predominante por bairro/local no recorte (relatos com categoria no território). */
+export function buildTerritoryPatternSummaries(
+  rows: TerritoryGeoRow[],
+  options?: { maxItems?: number },
+): RegionPatternSummary[] {
+  const maxItems = options?.maxItems ?? 8;
+  const byNeighborhood = new Map<string, Map<string, number>>();
+
+  for (const row of rows) {
+    const neighborhood =
+      row.neighborhood?.trim() ||
+      [row.location].filter(Boolean).join(' ').trim() ||
+      'Não informado';
+    const categoryKey = (row.category ?? 'outro').trim() || 'outro';
+    if (!byNeighborhood.has(neighborhood)) {
+      byNeighborhood.set(neighborhood, new Map());
+    }
+    const catMap = byNeighborhood.get(neighborhood)!;
+    catMap.set(categoryKey, (catMap.get(categoryKey) ?? 0) + 1);
+  }
+
+  return [...byNeighborhood.entries()]
+    .map(([neighborhood, catMap]) => {
+      const ranked = [...catMap.entries()].sort((a, b) => b[1] - a[1]);
+      const [primaryKey, primaryCount] = ranked[0] ?? ['outro', 0];
+      const secondary = ranked.slice(1, 3).map(([cat, count]) => ({
+        label: formatReportCategoryLabel(cat),
+        count,
+      }));
+      return {
+        regionId: neighborhood,
+        regionLabel: neighborhood,
+        primaryPattern: formatReportCategoryLabel(primaryKey),
+        count: primaryCount,
+        trendPct: 0,
+        secondary,
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, maxItems);
 }
 
 export type AiInsightItem = {

@@ -1,6 +1,7 @@
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
 import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
 import {
+  countRecurringThemesFromCategories,
   DISTRICT_LABEL_FALLBACK,
   districtVolumeFromBreakdown,
   STREET_FALLBACK_ID,
@@ -9,6 +10,7 @@ import {
   territoryLabelsMatch,
 } from '@/lib/reportsAnalyticsAggregates';
 import { bairroParaZona, ZONA_DESCONHECIDA, ZONAS_FILTRO } from '@/lib/regionMapping';
+import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
 import { EMPTY_RESPONSE_TIME_DRILL } from '@/lib/responseTimeAggregates';
 import type {
   AnalyticsMetric,
@@ -163,7 +165,7 @@ export function buildDrillKpisFromStats(
 ): DrillKpis {
   if (!stats) return EMPTY_KPIS;
 
-  const patternsCount = stats.criticality.patterns.length || stats.categories.length;
+  const patternsCount = countRecurringThemesFromCategories(stats.categories);
 
   return {
     volume: volumeKpiFromStats(stats, grain, activeRegion, activeDistrict),
@@ -468,52 +470,50 @@ export function buildSentimentPolarityFromStats(
   return [];
 }
 
+/** Fallback quando territoryPatterns ainda não foi calculado no hook. */
 export function buildPatternsByRegionFromStats(
   stats: ReportsAnalyticsStats | null,
+  activeRegion?: string,
 ): RegionPatternSummary[] {
-  if (!stats?.demographics?.byRegion?.length) return [];
+  if (!stats) return [];
 
-  const patterns = stats.criticality.patterns;
-  const categories = stats.categories;
+  const topLabel =
+    stats.criticality.patterns[0]?.title ??
+    (stats.categories[0]
+      ? formatReportCategoryLabel(stats.categories[0].category)
+      : 'Sem tema dominante');
 
-  return stats.demographics.byRegion.slice(0, 8).map((r, regionIndex) => {
-    const primaryPattern =
-      patterns[regionIndex % Math.max(patterns.length, 1)]?.title ??
-      categories[regionIndex % Math.max(categories.length, 1)]?.category ??
-      'Demanda territorial';
+  let rows = stats.demographics.byRegion;
+  if (activeRegion) {
+    const zoneLabel = regionLabel(activeRegion);
+    rows = rows.filter((r) => bairroParaZona(r.region) === zoneLabel);
+  }
 
-    const secondaryCandidates = [
-      ...patterns.map((p) => ({
-        label: p.title ?? 'Padrão',
-        count: p.count ?? 1,
-      })),
-      ...categories.map((c) => ({
-        label: c.category,
-        count: Math.max(1, Math.round((c.count / Math.max(stats.total, 1)) * r.count)),
-      })),
-    ]
-      .filter((item) => item.label !== primaryPattern)
-      .filter(
-        (item, index, arr) =>
-          arr.findIndex((other) => other.label.toLowerCase() === item.label.toLowerCase()) ===
-          index,
-      );
-
-    const offset = regionIndex % Math.max(secondaryCandidates.length, 1);
-    const secondary = secondaryCandidates.slice(offset, offset + 2).map((item) => ({
-      label: item.label,
-      count: item.count,
-    }));
-
-    return {
-      regionId: `${r.region}-${regionIndex}`,
-      regionLabel: r.region,
-      primaryPattern,
+  if (!rows.length && stats.neighborhoodBreakdown?.length) {
+    return stats.neighborhoodBreakdown.slice(0, 8).map((r) => ({
+      regionId: r.neighborhood,
+      regionLabel: r.neighborhood,
+      primaryPattern: topLabel,
       count: r.count,
       trendPct: 0,
-      secondary,
-    };
-  });
+      secondary: stats.categories.slice(1, 3).map((c) => ({
+        label: formatReportCategoryLabel(c.category),
+        count: c.count,
+      })),
+    }));
+  }
+
+  return rows.slice(0, 8).map((r) => ({
+    regionId: r.region,
+    regionLabel: r.region,
+    primaryPattern: topLabel,
+    count: r.count,
+    trendPct: 0,
+    secondary: stats.categories.slice(1, 3).map((c) => ({
+      label: formatReportCategoryLabel(c.category),
+      count: c.count,
+    })),
+  }));
 }
 
 export function buildCorrelationFromStats(

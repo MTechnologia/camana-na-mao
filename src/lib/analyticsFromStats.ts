@@ -1,6 +1,7 @@
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
 import type {
   ChartBarPoint,
+  DrillGrain,
   DrillKpis,
   PatternRankRow,
   RegionPatternSummary,
@@ -14,7 +15,8 @@ import {
   buildPatternsByRegionFromStats,
   buildSentimentPolarityFromStats,
 } from '@/lib/analyticsDrillFromStats';
-import { formatTimelineDayLabel } from '@/lib/reportsAnalyticsAggregates';
+import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
+import { formatTimelineDayLabel, patternRankFromAlerts } from '@/lib/reportsAnalyticsAggregates';
 
 const emptyKpis: DrillKpis = {
   volume: 0,
@@ -53,7 +55,7 @@ export function buildAnalyticsChartBundle(
   const volumeByCategory: ChartBarPoint[] = stats?.categories?.length
     ? stats.categories.map((c) => ({
         id: c.category,
-        label: c.category,
+        label: formatReportCategoryLabel(c.category),
         filterKey: 'category' as const,
         filterValue: c.category,
         value: c.count,
@@ -77,23 +79,21 @@ export function buildAnalyticsChartBundle(
       }))
     : [];
 
+  const sentimentGrain: DrillGrain = region === 'all' ? 'overview' : 'region';
   const sentimentByRegion: RegionSentimentBreakdown[] = buildSentimentPolarityFromStats(
     stats,
-    'overview',
+    sentimentGrain,
     region === 'all' ? undefined : region,
-    category,
   );
 
   const topPatterns: PatternRankRow[] = stats?.criticality?.patterns?.length
-    ? stats.criticality.patterns.map((p, i) => ({
-        id: p.id ?? `pattern-${i}`,
-        label: p.title ?? 'Padrão',
-        count: p.count ?? 1,
-        trendPct: 0,
-      }))
+    ? patternRankFromAlerts(stats.criticality.patterns)
     : [];
 
-  const patternsByRegion: RegionPatternSummary[] = buildPatternsByRegionFromStats(stats);
+  const patternsByRegion: RegionPatternSummary[] =
+    stats?.territoryPatterns?.length
+      ? stats.territoryPatterns
+      : buildPatternsByRegionFromStats(stats, region === 'all' ? undefined : region);
   const correlationPoints = buildCorrelationFromStats(stats);
 
   void period;

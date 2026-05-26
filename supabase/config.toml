@@ -112,3 +112,6 @@ verify_jwt = false
 # Sugestão HU-8.6: agendamento semanal (ex.: domingo 04:00 UTC) ou diário em horário de baixo tráfego.
 [functions.analyze-patterns]
 verify_jwt = false
+
+[functions.send-export-email]
+verify_jwt = false

@@ -47,7 +47,10 @@ export function PatternsByRegionList({ items, className }: PatternsByRegionListP
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
               {region.regionLabel}
             </p>
-            <p className="mt-2 text-sm font-medium leading-snug text-foreground">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Tema predominante
+            </p>
+            <p className="mt-1 text-sm font-medium leading-snug text-foreground">
               {region.primaryPattern}
             </p>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -55,7 +58,7 @@ export function PatternsByRegionList({ items, className }: PatternsByRegionListP
                 <span className="font-semibold tabular-nums text-foreground">
                   {formatChartNumber(region.count)}
                 </span>{' '}
-                ocorrências
+                relatos com este tema
               </span>
               <TrendBadge trendPct={region.trendPct} />
             </div>

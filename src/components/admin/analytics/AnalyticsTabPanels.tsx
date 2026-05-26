@@ -218,19 +218,48 @@ export function SentimentTabPanel() {
   );
 }
 
+function PatternsChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { payload: { label: string; count: number; description?: string } }[];
+}) {
+  if (!active || !payload?.[0]?.payload) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-foreground">{row.label}</p>
+      {row.description ? (
+        <p className="mt-1 max-w-[220px] text-muted-foreground">{row.description}</p>
+      ) : null}
+      <p className="mt-1 tabular-nums text-foreground">
+        {formatChartNumber(row.count)} relato(s) no recorte
+      </p>
+    </div>
+  );
+}
+
 export function PatternsTabPanel() {
-  const { topPatterns, patternsByRegion, isLoading } = useAnalyticsChartData();
+  const { topPatterns, patternsByRegion, isLoading, kpis } = useAnalyticsChartData();
   const chartData = topPatterns.map((p) => ({ ...p, name: p.label }));
+  const chartSum = chartData.reduce((s, p) => s + p.count, 0);
 
   return (
     <ChartCard
       title="Padrões recorrentes"
-      subtitle="Ranking geral no recorte e detalhamento por zona"
+      subtitle="Temas mais frequentes no recorte dos filtros ativos (categorias e padrões detectados)"
       legend={[
         ...CHART_PARAMETER_LEGENDS.patternsRanking,
         ...CHART_PARAMETER_LEGENDS.patternsByRegion,
       ]}
     >
+        {!isLoading && chartData.length > 0 ? (
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            {chartData.length} tema(s) no ranking · {formatChartNumber(chartSum)} relato(s) somados
+            nos temas · {formatChartNumber(kpis.volume)} relato(s) no volume do recorte
+          </p>
+        ) : null}
         <ChartHeight>
           {!isLoading && chartData.length === 0 ? (
             <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -253,10 +282,7 @@ export function PatternsTabPanel() {
                   tickLine={false}
                   axisLine={false}
                 />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={(v) => [formatChartNumber(Number(v)), 'Ocorrências']}
-                />
+                <Tooltip content={<PatternsChartTooltip />} />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={CHART_COLORS[2]} />
               </BarChart>
             </ResponsiveContainer>

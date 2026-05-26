@@ -79,10 +79,9 @@ const URBAN_FIELDS: Record<string, FieldMeta> = {
   user_id: { id: "user_id", dbColumn: "user_id", label: "ID do usuário" },
   active_consequences: { id: "active_consequences", dbColumn: "active_consequences", label: "Consequências ativas" },
   risk_types: { id: "risk_types", dbColumn: "risk_types", label: "Tipos de risco" },
-  photos: { id: "photos", dbColumn: "photos", label: "Fotos (URLs)" },
-  n8n_priority: { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade (n8n)" },
-  n8n_tags: { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags (n8n)" },
-  n8n_validated_category: { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada (n8n)" },
+  n8n_priority: { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade" },
+  n8n_tags: { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags" },
+  n8n_validated_category: { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada" },
 };
 
 const TRANSPORT_FIELDS: Record<string, FieldMeta> = {
@@ -109,12 +108,12 @@ const TRANSPORT_FIELDS: Record<string, FieldMeta> = {
   responded_at: { id: "responded_at", dbColumn: "responded_at", label: "Respondido em" },
   user_id: { id: "user_id", dbColumn: "user_id", label: "ID do usuário" },
   accessibility_details: { id: "accessibility_details", dbColumn: "accessibility_details", label: "Detalhes de acessibilidade" },
-  photos: { id: "photos", dbColumn: "photos", label: "Fotos (URLs)" },
   ai_category: { id: "ai_category", dbColumn: "ai_category", label: "Categoria (IA)" },
   ai_sentiment: { id: "ai_sentiment", dbColumn: "ai_sentiment", label: "Sentimento (IA)" },
   ai_pattern_detected: { id: "ai_pattern_detected", dbColumn: "ai_pattern_detected", label: "Padrão detectado (IA)" },
-  n8n_priority: { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade (n8n)" },
-  n8n_tags: { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags (n8n)" },
+  n8n_priority: { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade" },
+  n8n_tags: { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags" },
+  n8n_validated_category: { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada" },
 };
 
 const FIELDS_BY_DATASET: Record<string, Record<string, FieldMeta>> = {
@@ -388,12 +387,13 @@ serve(async (req) => {
               : job.dataset === "transport_reports"
                 ? "relatos de transporte"
                 : job.dataset;
+          const exportsPath = `/admin/exports?jobId=${job.id}`;
           await supabase.from("notifications").insert({
             user_id: job.user_id,
             title: `Exportação "${schedule.name ?? "agendada"}" concluída`,
             message: `Sua exportação de ${datasetLabel} (${rows.length.toLocaleString("pt-BR")} linhas) está disponível para download.`,
             type: "export_completed",
-            action_url: "/admin/configuracoes/agendamentos",
+            action_url: exportsPath,
             priority: "normal",
             metadata: {
               jobId: job.id,
@@ -403,6 +403,9 @@ serve(async (req) => {
             },
           });
         }
+
+        // E-mail dedicado com link de download (independente do webhook genérico).
+        await invokeSendExportEmail(job.id);
       }
     } catch (notifErr) {
       console.warn("[process-export-job] falha ao criar notificação:", notifErr);
@@ -443,6 +446,30 @@ serve(async (req) => {
     });
   }
 });
+
+async function invokeSendExportEmail(jobId: string): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
+  if (!supabaseUrl || !serviceKey) return;
+
+  try {
+    const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/send-export-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        ...(cronSecret ? { "X-Cron-Secret": cronSecret } : {}),
+      },
+      body: JSON.stringify({ jobId }),
+    });
+    if (!res.ok) {
+      console.warn("[process-export-job] send-export-email:", res.status, await res.text());
+    }
+  } catch (e) {
+    console.warn("[process-export-job] send-export-email invoke failed:", e);
+  }
+}
 
 function normalizeXlsxCell(v: unknown): string | number | boolean | Date {
   if (v === null || v === undefined) return "";

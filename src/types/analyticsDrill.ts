@@ -58,6 +58,8 @@ export type PatternRankRow = {
   label: string;
   count: number;
   trendPct: number;
+  /** Texto de apoio no tooltip (ex.: relatos na categoria no recorte). */
+  description?: string;
 };
 
 /** Padrão recorrente predominante em uma zona territorial. */
