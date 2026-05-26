@@ -90,7 +90,7 @@ serve(async (req) => {
   }
 
   try {
-    const { jobId } = (await req.json()) as { jobId?: string };
+    const { jobId, appOrigin } = (await req.json()) as { jobId?: string; appOrigin?: string };
     if (!jobId) {
       return new Response(JSON.stringify({ error: "jobId obrigatório" }), {
         status: 400,
@@ -105,7 +105,7 @@ serve(async (req) => {
 
     const { data: job, error: jobErr } = await supabase
       .from("export_jobs")
-      .select("id, user_id, dataset, format, row_count, storage_path, status, scheduled_export_id")
+      .select("id, user_id, dataset, format, row_count, storage_path, status, scheduled_export_id, filters")
       .eq("id", jobId)
       .single();
 
@@ -150,7 +150,13 @@ serve(async (req) => {
       if (sch?.name) scheduleName = sch.name;
     }
 
-    const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+    const originFromPayload =
+      typeof appOrigin === "string" && appOrigin.trim() ? appOrigin.trim() : "";
+    const originFromJob =
+      typeof (job as { filters?: Record<string, unknown> }).filters?.__app_origin === "string"
+        ? String((job as { filters?: Record<string, unknown> }).filters?.__app_origin ?? "").trim()
+        : "";
+    const appUrl = (originFromPayload || originFromJob || Deno.env.get("APP_URL") || "").replace(/\/$/, "");
     const exportsPage = appUrl
       ? `${appUrl}/admin/exports?jobId=${job.id}`
       : `/admin/exports?jobId=${job.id}`;

@@ -38,6 +38,7 @@ interface WebhookPayload {
     type?: string;
     action_url?: string | null;
     priority?: string;
+    metadata?: { appUrl?: string | null } | null;
     scheduled_for?: string | null;
     push_delivered_at?: string | null;
   };
@@ -360,7 +361,9 @@ serve(async (req) => {
         // Aqui o destino seria auth.users.email — incorreto quando o contato é outro endereço.
         console.log("[notification-delivery] E-mail genérico omitido (audiencia_inscricao); confirmação via send-audiencia-inscricao-email");
       } else {
-      const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/$/, "");
+      const metadataAppUrl =
+        typeof record.metadata?.appUrl === "string" ? record.metadata.appUrl.trim() : "";
+      const appUrl = (metadataAppUrl || Deno.env.get("APP_URL") || "").replace(/\/$/, "");
       const actionUrl = record.action_url
         ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
         : appUrl || "#";
