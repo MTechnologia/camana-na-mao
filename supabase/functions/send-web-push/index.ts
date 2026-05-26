@@ -360,11 +360,13 @@ serve(async (req) => {
         // Aqui o destino seria auth.users.email — incorreto quando o contato é outro endereço.
         console.log("[notification-delivery] E-mail genérico omitido (audiencia_inscricao); confirmação via send-audiencia-inscricao-email");
       } else {
-      const appUrl = Deno.env.get("APP_URL") || "";
+      const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/$/, "");
       const actionUrl = record.action_url
         ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
         : appUrl || "#";
-      const htmlBody = `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">Abrir no app</a></p>`;
+      const linkLabel =
+        record.type === "export_completed" ? "Abrir exportações e baixar" : "Abrir no app";
+      const htmlBody = `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">${linkLabel}</a></p>`;
 
       // SendGrid (prioridade se configurado)
       const sendgridKey = Deno.env.get("SENDGRID_API_KEY");

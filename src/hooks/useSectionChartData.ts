@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
 import { useOptionalGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
+import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
 import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import {
   buildVolumeSeriesFromStats,
@@ -62,7 +63,7 @@ export function useSectionChartData() {
       ...extras,
       volumeTimeSeries: buildVolumeSeriesFromStats(stats),
       volumeByCategory: (stats?.categories ?? []).map((c) => ({
-        label: c.category,
+        label: formatReportCategoryLabel(c.category),
         value: c.count,
       })),
       statusBreakdown: (stats?.byStatus ?? []).map((s) => ({

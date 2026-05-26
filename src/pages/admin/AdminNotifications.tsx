@@ -13,6 +13,7 @@ import {
   AlertTriangle, Users, FileText, Bus, Building2, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { handleNotificationNavigation } from '@/lib/handleNotificationNavigation';
 import { getNotificationType, getNotificationPriority, ADMIN_NOTIFICATION_TYPES } from '@/constants/notificationTypes';
 import { NOTIFICATION_TYPE_ICONS } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
@@ -72,9 +73,7 @@ const AdminNotifications = () => {
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
+    void handleNotificationNavigation(notification, navigate);
   };
 
   const handleSelectAll = (checked: boolean) => {

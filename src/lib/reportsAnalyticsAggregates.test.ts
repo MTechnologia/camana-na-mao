@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
-import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
+import {
+  buildCategoryDistributionFromTerritoryRows,
+  buildMetricTrendsFromStats,
+  buildTerritoryPatternSummaries,
+  countRecurringThemesFromCategories,
+  patternRankFromAlerts,
+  patternsFromCategories,
+} from '@/lib/reportsAnalyticsAggregates';
+import type { TerritoryGeoRow } from '@/lib/reportsAnalyticsAggregates';
 
 function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnalyticsStats {
   return {
@@ -45,6 +53,10 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
       patterns: [{ id: 'p1', type: 'frequency', severity: 'info', title: 'A', description: 'd' }],
       criticalPendingReports: [],
     },
+    territoryPatterns: [],
+    neighborhoodBreakdown: [],
+    streetBreakdown: [],
+    responseTime: { avgHours: 0, resolvedCount: 0, byZone: [], byNeighborhood: [], byCategory: [] },
     ...overrides,
   };
 }
@@ -67,5 +79,76 @@ describe('buildMetricTrendsFromStats', () => {
     );
     expect(series).toHaveLength(1);
     expect(series[0].volume).toBe(7);
+  });
+});
+
+describe('patterns analytics helpers', () => {
+  it('patternsFromCategories usa rótulos legíveis', () => {
+    const alerts = patternsFromCategories([
+      { category: 'via_publica', count: 5 },
+      { category: 'atraso', count: 3 },
+    ]);
+    expect(alerts[0].title).toBe('Via pública');
+    expect(alerts[1].title).toBe('Atraso');
+  });
+
+  it('patternRankFromAlerts agrega rótulos duplicados', () => {
+    const rows = patternRankFromAlerts([
+      {
+        id: '1',
+        type: 'frequency',
+        severity: 'info',
+        title: 'atraso',
+        description: 'a',
+        suggestedAction: '',
+        count: 4,
+      },
+      {
+        id: '2',
+        type: 'frequency',
+        severity: 'info',
+        title: 'atraso',
+        description: 'b',
+        suggestedAction: '',
+        count: 6,
+      },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].label).toBe('Atraso');
+    expect(rows[0].count).toBe(10);
+  });
+
+  it('countRecurringThemesFromCategories exige repetição mínima', () => {
+    expect(
+      countRecurringThemesFromCategories([
+        { category: 'a', count: 5 },
+        { category: 'b', count: 1 },
+        { category: 'c', count: 2 },
+      ]),
+    ).toBe(2);
+  });
+
+  it('buildCategoryDistributionFromTerritoryRows reflete apenas o recorte', () => {
+    const dist = buildCategoryDistributionFromTerritoryRows([
+      { neighborhood: 'Sé', source: 'urbano', category: 'lixo' },
+      { neighborhood: 'Sé', source: 'urbano', category: 'lixo' },
+      { neighborhood: 'Sé', source: 'transporte', category: 'atraso' },
+    ]);
+    expect(dist).toHaveLength(2);
+    expect(dist[0]).toEqual({ category: 'lixo', count: 2 });
+  });
+
+  it('buildTerritoryPatternSummaries agrupa por bairro e tema', () => {
+    const rows: TerritoryGeoRow[] = [
+      { neighborhood: 'Sé', source: 'urbano', category: 'via_publica' },
+      { neighborhood: 'Sé', source: 'urbano', category: 'via_publica' },
+      { neighborhood: 'Sé', source: 'urbano', category: 'lixo' },
+      { neighborhood: 'Pinheiros', source: 'urbano', category: 'lixo' },
+    ];
+    const summaries = buildTerritoryPatternSummaries(rows);
+    const se = summaries.find((s) => s.regionLabel === 'Sé');
+    expect(se?.primaryPattern).toBe('Via pública');
+    expect(se?.count).toBe(2);
+    expect(summaries.find((s) => s.regionLabel === 'Pinheiros')?.primaryPattern).toBe('Lixo e limpeza');
   });
 });

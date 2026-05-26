@@ -51,13 +51,9 @@ import {
   XLSX_EXPORT_MAX_ROWS,
   type XlsxExportConfig,
 } from "@/hooks/useXlsxExport";
-import { useExportJobs } from "@/hooks/useExportJobs";
 import { ScheduleExportDialog } from "@/components/analytics/ScheduleExportDialog";
 import { CalendarClock } from "lucide-react";
 import type { DataExportDefaultFilters } from "@/lib/buildDataExportFilters";
-
-/** Acima desse limite, vai pro caminho server-side (HU-7.5). */
-const CLIENT_SIDE_THRESHOLD = 50_000;
 
 /**
  * HU-7.1 + HU-7.2 — Dialog unificado de exportação de dados.
@@ -153,7 +149,6 @@ export function DataExportDialog({
 
   const csvExport = useCsvExport();
   const xlsxExport = useXlsxExport();
-  const exportJobs = useExportJobs();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const exporting = csvExport.exporting || xlsxExport.exporting;
   const progressLoaded = format === "csv" ? csvExport.progressLoaded : xlsxExport.progressLoaded;
@@ -294,31 +289,6 @@ export function DataExportDialog({
     }
   };
 
-  /** HU-7.5 — Caminho server-side: cria export_job e fecha o dialog. */
-  const handleExportServerSide = async () => {
-    if (selectedFields.length === 0) {
-      toast.error("Selecione ao menos um campo para exportar.");
-      return;
-    }
-    persistChoices();
-    const job = await exportJobs.create({
-      dataset: datasetId,
-      format,
-      fieldIds: selectedFields,
-      orderBy: { fieldId: orderFieldId, direction: orderDir },
-      filters: defaultFilters,
-      includeSummary,
-    });
-    if (job) {
-      toast.success(
-        "Exportação enfileirada. Acompanhe em 'Minhas exportações' — ela ficará disponível em alguns minutos.",
-      );
-      onOpenChange(false);
-    } else {
-      toast.error("Não foi possível enfileirar a exportação.");
-    }
-  };
-
   /** HU-7.4 — Abre o dialog de agendamento com a config atual. */
   const openSchedule = () => {
     if (selectedFields.length === 0) {
@@ -328,9 +298,6 @@ export function DataExportDialog({
     persistChoices();
     setScheduleOpen(true);
   };
-
-  /** Cap acima do qual já recomendamos server-side (acima do client threshold). */
-  const showServerSideOption = roleCap > CLIENT_SIDE_THRESHOLD;
 
   // HU-7.3 — agrupa apenas os campos visíveis para a role atual.
   const grouped = useMemo(() => {
@@ -612,17 +579,6 @@ export function DataExportDialog({
             <CalendarClock className="h-4 w-4 mr-2" />
             Agendar
           </Button>
-          {/* HU-7.5 — Processar em background (cria export_job server-side).
-              Útil quando o gestor sabe que vai puxar muitos dados. */}
-          {showServerSideOption && (
-            <Button
-              variant="outline"
-              onClick={() => void handleExportServerSide()}
-              disabled={exporting || selectedFields.length === 0}
-            >
-              Processar em background
-            </Button>
-          )}
           <Button
             onClick={() => void handleExport()}
             disabled={exporting || selectedFields.length === 0}

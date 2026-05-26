@@ -27,6 +27,7 @@ import {
   type ResponseTimeDrillStats,
 } from '@/lib/responseTimeAggregates';
 import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
+import type { RegionPatternSummary } from '@/types/analyticsDrill';
 import { callGetReportsWithDemographics } from '@/lib/reportsDemographicsRpc';
 import { regionLabel } from '@/lib/analyticsLabels';
 import {
@@ -35,8 +36,9 @@ import {
   buildTimelineFromUrbanReports,
   buildVolumeByZoneFromGeoRows,
   filterGeoRowsByRegion,
+  buildCategoryDistributionFromTerritoryRows,
+  buildTerritoryPatternSummaries,
   filterUrbanReportsByRegion,
-  mapReportPatternsToAlerts,
   patternsFromCategories,
   type GeoReportRow,
   type TerritoryGeoRow,
@@ -127,6 +129,9 @@ export interface ReportsAnalyticsStats {
   /** HU-2.2 — tempo médio até resposta/resolução (relatos resolvidos no recorte). */
   responseTime: ResponseTimeDrillStats;
 
+  /** Tema recorrente por bairro/local no recorte (agregado dos relatos filtrados). */
+  territoryPatterns: RegionPatternSummary[];
+
   // Criticidade
   criticality: {
     criticalScore: number;
@@ -154,6 +159,7 @@ const emptyStats: ReportsAnalyticsStats = {
   volumeByZone: [],
   neighborhoodBreakdown: [],
   streetBreakdown: [],
+  territoryPatterns: [],
   demographics: {
     byGender: [],
     byRace: [],
@@ -330,8 +336,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .filter(d => d.count > 0)
         .sort((a, b) => b.count - a.count);
 
-      // Processar categorias
-      const categories = (demographicsFromRpc?.category_distribution || [])
+      // Processar categorias (RPC; pode ser substituído pelos relatos filtrados no território)
+      let categories = (demographicsFromRpc?.category_distribution || [])
         .map((c: { category?: string; count?: number }) => ({ category: c.category || 'Outros', count: c.count || 0 }));
 
       // Processar regiões
@@ -367,7 +373,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       // Relatos urbanos no recorte (timeline, engajamento e padrões)
       let urbanReports: Record<string, unknown>[] = [];
       let timeline: TimelineDataPoint[] = [];
-      let patternAlerts: PatternAlert[] = [];
+      let patternAlerts: PatternAlert[] = patternsFromCategories(categories);
+      let territoryPatterns: RegionPatternSummary[] = [];
       let volumeByZone: { zone: string; count: number }[] = [];
       let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
       let streetBreakdown: { street: string; neighborhood: string; zone: string; count: number }[] = [];
@@ -569,22 +576,20 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           }
         }
 
-        const { data: patternRows } = await supabase
-          .from('report_patterns')
-          .select(
-            'id, pattern_type, description, occurrence_count, suggested_action, avg_severity',
-          )
-          .eq('status', 'active')
-          .order('occurrence_count', { ascending: false })
-          .limit(10);
-
-        patternAlerts =
-          patternRows && patternRows.length > 0
-            ? mapReportPatternsToAlerts(patternRows)
-            : patternsFromCategories(categories);
+        const territoryFiltered = filterGeoRowsByRegion(
+          territoryForTime,
+          filters.region,
+        ) as TerritoryGeoRow[];
+        const categoriesFromTerritory = buildCategoryDistributionFromTerritoryRows(territoryFiltered);
+        if (categoriesFromTerritory.length > 0) {
+          categories = categoriesFromTerritory;
+        }
+        patternAlerts = patternsFromCategories(categories);
+        territoryPatterns = buildTerritoryPatternSummaries(territoryFiltered);
       } catch (err) {
         console.warn('Could not fetch urban reports timeline/patterns', err);
         patternAlerts = patternsFromCategories(categories);
+        territoryPatterns = [];
       }
 
       // Sem migration p_status no RPC: KPIs e pipeline alinhados à query urban_reports.
@@ -610,6 +615,17 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           { status: 'Resolvido', count: statusCounts.resolved, color: 'hsl(var(--chart-1))' },
           { status: 'Rejeitado', count: statusCounts.rejected, color: 'hsl(var(--chart-5))' },
         ];
+        const categoriesFromUrban = buildCategoryDistributionFromTerritoryRows(
+          (urbanReports as UrbanReportRow[]).map((r) => ({
+            neighborhood: r.neighborhood,
+            source: 'urbano' as const,
+            category: r.category,
+          })),
+        );
+        if (categoriesFromUrban.length > 0) {
+          categories = categoriesFromUrban;
+          patternAlerts = patternsFromCategories(categories);
+        }
       }
 
       const totalLikes = urbanReports.reduce((sum, r: Record<string, unknown>) => 
@@ -664,6 +680,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           volumeByZone,
           neighborhoodBreakdown,
           streetBreakdown,
+          territoryPatterns,
           responseTime,
           demographics: {
             byGender,
