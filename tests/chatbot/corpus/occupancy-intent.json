@@ -1,0 +1,16 @@
+{
+  "journey": "occupancy",
+  "description": "Ocupação / lotação de equipamentos agora",
+  "cases": [
+    { "id": "occupancy_ubs", "input": "como está a lotação da UBS agora?" },
+    { "id": "occupancy_cheio", "input": "a ubs ta cheia neste momento?" },
+    { "id": "occupancy_hospital", "input": "hospital ta lotado agora?" },
+    { "id": "occupancy_movimentacao", "input": "movimentacao da escola agora" },
+    { "id": "occupancy_typo", "input": "ocupacao do posto de saude nesse momento" },
+    { "id": "occupancy_superlotado", "input": "ubs superlotada agora?" },
+    { "id": "occupancy_fila_ubs", "input": "lotacao da ubs agora?" },
+    { "id": "occupancy_escola", "input": "escola ta cheia agora?" },
+    { "id": "occupancy_ps", "input": "lotacao do pronto socorro agora?" },
+    { "id": "occupancy_movimento", "input": "ocupacao do hospital agora" }
+  ]
+}

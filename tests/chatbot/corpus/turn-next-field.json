@@ -1,0 +1,57 @@
+{
+  "description": "getNextMissingField — próximo campo após estado acumulado",
+  "cases": [
+    {
+      "id": "transport_after_description_typo",
+      "journey": "transport_report",
+      "accumulated": {
+        "description": "onibus atrasou mt no pico da manha"
+      },
+      "expect_field": "sub_category",
+      "expect_picker_contains": "SUBCATEGORY_PICKER"
+    },
+    {
+      "id": "transport_needs_line",
+      "journey": "transport_report",
+      "accumulated": {
+        "description": "muito atraso no terminal sacoma",
+        "report_type": "atraso",
+        "sub_category": "nao_passou"
+      },
+      "expect_field": "line_code",
+      "expect_picker_contains": "LINE_PICKER"
+    },
+    {
+      "id": "urban_needs_nature",
+      "journey": "urban_report",
+      "accumulated": {},
+      "expect_field": "report_nature"
+    },
+    {
+      "id": "urban_needs_location",
+      "journey": "urban_report",
+      "accumulated": {
+        "description": "buraco gigante na rua das flores",
+        "report_nature": "reclamacao"
+      },
+      "expect_field": "location_method"
+    },
+    {
+      "id": "rating_needs_service",
+      "journey": "service_rating",
+      "accumulated": {},
+      "expect_field": "service_type"
+    },
+    {
+      "id": "transport_needs_stop",
+      "journey": "transport_report",
+      "accumulated": {
+        "description": "onibus nao passou",
+        "report_type": "atraso",
+        "sub_category": "nao_passou",
+        "line_code": "509M-10"
+      },
+      "expect_field": "stop_name"
+    }
+  ]
+}

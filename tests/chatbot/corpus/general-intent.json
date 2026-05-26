@@ -1,0 +1,18 @@
+{
+  "journey": "general",
+  "description": "Dúvidas gerais / base de conhecimento",
+  "cases": [
+    { "id": "general_duvida", "input": "tirar uma duvida sobre a camara" },
+    { "id": "general_como_funciona", "input": "como funciona a camara municipal" },
+    { "id": "general_o_que_e", "input": "o que e a camara municipal", "expect_intent": "general" },
+    { "id": "general_contato", "input": "como entrar em contato com a camara" },
+    { "id": "general_tramitacao", "input": "quais projetos estao em tramitacao" },
+    { "id": "general_chip", "input": "tenho uma duvida sobre a camara" },
+    { "id": "general_salario_vereador", "input": "quanto ganha um vereador" },
+    { "id": "general_competencias", "input": "quais sao as competencias da camara" },
+    { "id": "general_endereco", "input": "endereco da camara municipal" },
+    { "id": "general_visita", "input": "como funciona a visita guiada na camara" },
+    { "id": "general_ouvidoria", "input": "como funciona a ouvidoria da camara" },
+    { "id": "general_sessao", "input": "como funciona a sessao plenaria na camara" }
+  ]
+}

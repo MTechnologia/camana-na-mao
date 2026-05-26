@@ -1,0 +1,20 @@
+{
+  "journey": "service_rating",
+  "description": "Avaliação de serviço público",
+  "cases": [
+    { "id": "rating_explicit", "input": "Quero avaliar um serviço público" },
+    { "id": "rating_ubs", "input": "quero dar nota pra ubs do bairro" },
+    { "id": "rating_estrelas", "input": "avaliar atendimento da escola com estrelas" },
+    { "id": "rating_hospital", "input": "nota pro hospital q fui ontem" },
+    { "id": "rating_typo", "input": "avaliacao do posto de saude" },
+    { "id": "rating_chip", "input": "avaliar um serviço" },
+    { "id": "rating_ceu", "input": "quero avaliar o ceu da regiao" },
+    { "id": "rating_biblioteca", "input": "dar nota na biblioteca, atendimento foi bom" },
+    { "id": "rating_demora_atendimento", "input": "avaliar demora no atendimento da ubs" },
+    { "id": "rating_abrev", "input": "nota p/ ubs centro" },
+    { "id": "rating_prazo_espera", "input": "nota baixa no tempo de espera da ubs" },
+    { "id": "rating_limpeza_escola", "input": "avaliar limpeza da escola municipal" },
+    { "id": "rating_cras", "input": "funcionario grosso no cras, quero avaliar" },
+    { "id": "rating_ps", "input": "nota pro posto de saude do jardim angela" }
+  ]
+}

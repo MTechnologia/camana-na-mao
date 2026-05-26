@@ -9,7 +9,11 @@ import {
 
 Deno.test("nlp utils: reconhece respostas afirmativas e negativas", () => {
   assertEquals(isAffirmativeResponse("pode sim"), true);
+  assertEquals(isAffirmativeResponse("ta certo"), true);
+  assertEquals(isAffirmativeResponse("ta certo!"), true);
   assertEquals(isNegativeResponse("deixa pra lá"), true);
+  assertEquals(isNegativeResponse("esquece isso"), true);
+  assertEquals(isNegativeResponse("para com isso"), true);
 });
 
 Deno.test("nlp utils: filtra intenção genérica e aceita descrição curta válida", () => {

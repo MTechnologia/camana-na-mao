@@ -70,6 +70,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@deck.gl/aggregation-layers@9.3.2",
+        "npm:@deck.gl/core@9.3.2",
+        "npm:@deck.gl/google-maps@9.3.2",
         "npm:@dnd-kit/core@^6.3.1",
         "npm:@dnd-kit/sortable@10",
         "npm:@dnd-kit/utilities@^3.2.2",
@@ -133,6 +136,7 @@
         "npm:lucide-react@0.462",
         "npm:mermaid@^11.12.2",
         "npm:next-themes@0.3",
+        "npm:patch-package@^8.0.1",
         "npm:postcss@^8.5.6",
         "npm:prettier@^3.7.4",
         "npm:proj4@^2.20.2",

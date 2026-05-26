@@ -1,0 +1,18 @@
+{
+  "journey": "services",
+  "description": "Busca de serviços próximos",
+  "cases": [
+    { "id": "services_explicit", "input": "Buscar serviços perto de mim" },
+    { "id": "services_ubs_proximo", "input": "ubs mais perto daqui" },
+    { "id": "services_hospital", "input": "hospital perto de mim" },
+    { "id": "services_escola", "input": "onde tem escola publica perto" },
+    { "id": "services_typo", "input": "servicos perto de mim" },
+    { "id": "services_cadê", "input": "qual ubs mais perto de mim" },
+    { "id": "services_equipamento", "input": "onde tem escola perto de mim" },
+    { "id": "services_chip", "input": "quero encontrar serviços próximos" },
+    { "id": "services_cras", "input": "cras perto de mim" },
+    { "id": "services_caps", "input": "caps mais perto daqui" },
+    { "id": "services_ama", "input": "ama 24h perto de casa" },
+    { "id": "services_creche", "input": "creche municipal perto de mim" }
+  ]
+}
