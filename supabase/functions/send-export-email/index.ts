@@ -5,6 +5,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildExportCompletedEmailHtml,
+  buildExportCompletedEmailSubject,
+} from "../_shared/export-email-html.ts";
+import { readAppOriginFromFilters, resolveAppUrl } from "../_shared/resolve-app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,14 +20,6 @@ const corsHeaders = {
 const STORAGE_BUCKET = "export-files";
 const SIGNED_URL_TTL = 60 * 60 * 24 * 7;
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function isAuthorized(req: Request): boolean {
   const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
   if (cronSecret) {
@@ -30,8 +27,12 @@ function isAuthorized(req: Request): boolean {
     if (header === cronSecret) return true;
   }
   const auth = req.headers.get("authorization") ?? "";
+  const apikey = req.headers.get("apikey") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  return Boolean(serviceKey && auth.includes(serviceKey));
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  if (serviceKey && (auth.includes(serviceKey) || apikey === serviceKey)) return true;
+  if (anonKey && (auth.includes(anonKey) || apikey === anonKey)) return true;
+  return false;
 }
 
 async function sendViaSendGrid(to: string, subject: string, html: string): Promise<boolean> {
@@ -105,7 +106,9 @@ serve(async (req) => {
 
     const { data: job, error: jobErr } = await supabase
       .from("export_jobs")
-      .select("id, user_id, dataset, format, row_count, storage_path, status, scheduled_export_id, filters")
+      .select(
+        "id, user_id, dataset, format, row_count, storage_path, status, scheduled_export_id, filters",
+      )
       .eq("id", jobId)
       .single();
 
@@ -141,25 +144,28 @@ serve(async (req) => {
     }
 
     let scheduleName = "agendada";
+    let scheduleFilters: Record<string, unknown> | null = null;
     if (job.scheduled_export_id) {
       const { data: sch } = await supabase
         .from("scheduled_exports")
-        .select("name")
+        .select("name, filters")
         .eq("id", job.scheduled_export_id)
         .maybeSingle();
       if (sch?.name) scheduleName = sch.name;
+      if (sch?.filters && typeof sch.filters === "object") {
+        scheduleFilters = sch.filters as Record<string, unknown>;
+      }
     }
 
-    const originFromPayload =
-      typeof appOrigin === "string" && appOrigin.trim() ? appOrigin.trim() : "";
-    const originFromJob =
-      typeof (job as { filters?: Record<string, unknown> }).filters?.__app_origin === "string"
-        ? String((job as { filters?: Record<string, unknown> }).filters?.__app_origin ?? "").trim()
-        : "";
-    const appUrl = (originFromPayload || originFromJob || Deno.env.get("APP_URL") || "").replace(/\/$/, "");
-    const exportsPage = appUrl
-      ? `${appUrl}/admin/exports?jobId=${job.id}`
-      : `/admin/exports?jobId=${job.id}`;
+    const jobFilters = (job.filters ?? {}) as Record<string, unknown>;
+    const mergedFilters = { ...scheduleFilters, ...jobFilters };
+    const appUrl = resolveAppUrl({
+      explicitOrigin: appOrigin,
+      filters: mergedFilters,
+      scheduleName,
+    });
+    const exportsPage = `${appUrl}/admin/exports?jobId=${job.id}`;
+
     const datasetLabel =
       job.dataset === "urban_reports"
         ? "relatos urbanos"
@@ -168,15 +174,15 @@ serve(async (req) => {
           : job.dataset;
     const rowCount = job.row_count ?? 0;
 
-    const subject = `Exportação "${scheduleName}" pronta para download`;
-    const html = `
-      <p>Olá,</p>
-      <p>Sua exportação agendada <strong>${escapeHtml(scheduleName)}</strong> (${escapeHtml(datasetLabel)}, ${rowCount.toLocaleString("pt-BR")} linhas, formato ${escapeHtml(job.format.toUpperCase())}) foi concluída.</p>
-      <p><a href="${escapeHtml(signed.signedUrl)}" style="display:inline-block;padding:12px 24px;background:#c00000;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Baixar arquivo agora</a></p>
-      <p>O link de download direto é válido por 7 dias. Você também pode acessar o painel:</p>
-      <p><a href="${escapeHtml(exportsPage)}">${escapeHtml(exportsPage)}</a></p>
-      <p style="color:#666;font-size:12px;">Câmara na Mão — exportação automática</p>
-    `;
+    const subject = buildExportCompletedEmailSubject(scheduleName);
+    const html = buildExportCompletedEmailHtml({
+      scheduleName,
+      datasetLabel,
+      rowCount,
+      format: job.format,
+      signedDownloadUrl: signed.signedUrl,
+      exportsPageUrl: exportsPage,
+    });
 
     let sent = await sendViaSendGrid(toEmail, subject, html);
     if (!sent) sent = await sendViaResend(toEmail, subject, html);
@@ -188,7 +194,9 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, email: toEmail }), {
+    console.log("[send-export-email] enviado", { jobId, appUrl, toEmail });
+
+    return new Response(JSON.stringify({ ok: true, email: toEmail, appUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

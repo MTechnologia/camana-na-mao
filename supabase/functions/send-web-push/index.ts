@@ -9,6 +9,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as webpush from "jsr:@negrel/webpush@0.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveAppUrl } from "../_shared/resolve-app-url.ts";
 import {
   effectiveDailyLimit,
   shouldDiscardForDailyLimit,
@@ -360,15 +361,17 @@ serve(async (req) => {
         // Confirmação completa vai para o e-mail do formulário (send-audiencia-inscricao-email).
         // Aqui o destino seria auth.users.email — incorreto quando o contato é outro endereço.
         console.log("[notification-delivery] E-mail genérico omitido (audiencia_inscricao); confirmação via send-audiencia-inscricao-email");
+      } else if (record.type === "export_completed") {
+        // E-mail rico com signed URL é enviado por send-export-email (process-export-job).
+        console.log("[notification-delivery] E-mail genérico omitido (export_completed); envio via send-export-email");
       } else {
       const metadataAppUrl =
         typeof record.metadata?.appUrl === "string" ? record.metadata.appUrl.trim() : "";
-      const appUrl = (metadataAppUrl || Deno.env.get("APP_URL") || "").replace(/\/$/, "");
+      const appUrl = resolveAppUrl({ explicitOrigin: metadataAppUrl || null });
       const actionUrl = record.action_url
         ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
         : appUrl || "#";
-      const linkLabel =
-        record.type === "export_completed" ? "Abrir exportações e baixar" : "Abrir no app";
+      const linkLabel = "Abrir no app";
       const htmlBody = `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">${linkLabel}</a></p>`;
 
       // SendGrid (prioridade se configurado)

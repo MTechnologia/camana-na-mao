@@ -13,11 +13,37 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+import { resolveAppUrl } from "../_shared/resolve-app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
+
+/** Chamadas internas (cron) ou chaves Supabase; com verify_jwt=false no gateway. */
+function assertProcessExportAuthorized(req: Request): Response | null {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
+  const cronHeader = req.headers.get("x-cron-secret")?.trim();
+  const authHeader = req.headers.get("authorization") ?? "";
+  const apikey = req.headers.get("apikey") ?? "";
+
+  if (cronSecret && cronHeader === cronSecret) return null;
+  if (serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`) return null;
+  if (serviceRoleKey && apikey === serviceRoleKey) return null;
+  if (anonKey && authHeader === `Bearer ${anonKey}`) return null;
+  if (anonKey && apikey === anonKey) return null;
+
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (bearer.length > 0) return null;
+
+  return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 const PAGE_SIZE = 5000;
 // Caps a aplicar conforme role do dono do job. Espelha o que está em
@@ -170,6 +196,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const authError = assertProcessExportAuthorized(req);
+  if (authError) return authError;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -377,10 +406,23 @@ serve(async (req) => {
       if (scheduledExportId) {
         const { data: sch } = await supabase
           .from("scheduled_exports")
-          .select("name, notify_in_app")
+          .select("name, notify_in_app, filters")
           .eq("id", scheduledExportId)
           .single();
-        const schedule = sch as { name?: string; notify_in_app?: boolean } | null;
+        const schedule = sch as {
+          name?: string;
+          notify_in_app?: boolean;
+          filters?: Record<string, unknown>;
+        } | null;
+        const scheduleName = schedule?.name ?? "agendada";
+        const scheduleFilters =
+          schedule?.filters && typeof schedule.filters === "object" ? schedule.filters : null;
+        const mergedFilters = { ...(scheduleFilters ?? {}), ...(job.filters ?? {}) };
+        const appOrigin = resolveAppUrl({
+          filters: mergedFilters,
+          scheduleName,
+        });
+
         if (schedule?.notify_in_app) {
           const datasetLabel =
             job.dataset === "urban_reports"
@@ -389,13 +431,9 @@ serve(async (req) => {
                 ? "relatos de transporte"
                 : job.dataset;
           const exportsPath = `/admin/exports?jobId=${job.id}`;
-          const appOrigin =
-            typeof job.filters?.__app_origin === "string" && job.filters.__app_origin.trim()
-              ? job.filters.__app_origin.replace(/\/$/, "")
-              : undefined;
           await supabase.from("notifications").insert({
             user_id: job.user_id,
-            title: `Exportação "${schedule.name ?? "agendada"}" concluída`,
+            title: `Exportação "${scheduleName}" concluída`,
             message: `Sua exportação de ${datasetLabel} (${rows.length.toLocaleString("pt-BR")} linhas) está disponível para download.`,
             type: "export_completed",
             action_url: exportsPath,
@@ -405,13 +443,13 @@ serve(async (req) => {
               scheduledExportId,
               format: job.format,
               rowCount: rows.length,
-              ...(appOrigin ? { appUrl: appOrigin } : {}),
+              appUrl: appOrigin,
             },
           });
         }
 
         // E-mail dedicado com link de download (independente do webhook genérico).
-        await invokeSendExportEmail(job.id, job.filters?.__app_origin);
+        await invokeSendExportEmail(job.id, appOrigin);
       }
     } catch (notifErr) {
       console.warn("[process-export-job] falha ao criar notificação:", notifErr);
@@ -455,18 +493,23 @@ serve(async (req) => {
 
 async function invokeSendExportEmail(jobId: string, appOrigin?: string): Promise<void> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const cronSecret = Deno.env.get("CRON_SECRET")?.trim();
-  if (!supabaseUrl || !serviceKey) return;
+  const gatewayKey =
+    Deno.env.get("SUPABASE_ANON_KEY")?.trim() ||
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim() ||
+    "";
+  if (!supabaseUrl || (!cronSecret && !gatewayKey)) return;
 
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (cronSecret) headers["X-Cron-Secret"] = cronSecret;
+    if (gatewayKey) {
+      headers["Authorization"] = `Bearer ${gatewayKey}`;
+      headers["apikey"] = gatewayKey;
+    }
     const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/send-export-email`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceKey}`,
-        ...(cronSecret ? { "X-Cron-Secret": cronSecret } : {}),
-      },
+      headers,
       body: JSON.stringify({ jobId, appOrigin }),
     });
     if (!res.ok) {
