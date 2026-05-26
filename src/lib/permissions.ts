@@ -115,6 +115,13 @@ export const PERMISSIONS: PermissionDefinition[] = [
     domain: "users",
     roles: ["admin"],
   },
+  {
+    key: "users.manage_permissions",
+    label: "Editar matriz de permissões",
+    description: "Altera quais papéis possuem cada permissão no sistema.",
+    domain: "users",
+    roles: ["admin"],
+  },
 
   // === REPORTS ===
   {
@@ -290,7 +297,11 @@ export function getPermission(key: string): PermissionDefinition | null {
 export function rolesGrantPermission(
   roles: UserRole[],
   permissionKey: string,
+  permissionKeysFromDb?: ReadonlySet<string>,
 ): boolean {
+  if (permissionKeysFromDb && permissionKeysFromDb.size > 0) {
+    return permissionKeysFromDb.has(permissionKey);
+  }
   const def = PERMISSION_BY_KEY[permissionKey];
   if (!def) return false;
   return roles.some((r) => def.roles.includes(r));

@@ -100,6 +100,7 @@ export const useUserRole = () => {
   const [isAssessor, setIsAssessor] = useState(false);
   const [isCidadao, setIsCidadao] = useState(false);
   const [isCidadaoEngajado, setIsCidadaoEngajado] = useState(false);
+  const [permissionKeys, setPermissionKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchUserRoles();
@@ -116,6 +117,7 @@ export const useUserRole = () => {
         setIsAssessor(false);
         setIsCidadao(false);
         setIsCidadaoEngajado(false);
+        setPermissionKeys(new Set());
       }
     });
 
@@ -129,6 +131,7 @@ export const useUserRole = () => {
       if (!user) {
         setRoles([]);
         setCouncilMemberId(null);
+        setPermissionKeys(new Set());
         setLoading(false);
         return;
       }
@@ -179,6 +182,24 @@ export const useUserRole = () => {
       }
       
       setRoles(userRoles);
+
+      const { data: permRows, error: permErr } = await withPoolRetry(
+        () =>
+          supabase
+            .from('role_permissions')
+            .select('permission_key')
+            .in('role', userRoles),
+        { retries: 1, baseDelayMs: 700 },
+      );
+      if (permErr) {
+        console.warn('[useUserRole] role_permissions', permErr);
+        setPermissionKeys(new Set());
+      } else {
+        setPermissionKeys(
+          new Set((permRows ?? []).map((r) => r.permission_key as string)),
+        );
+      }
+
       setIsAdmin(userRoles.includes('admin'));
       setIsGestor(userRoles.includes('gestor'));
       setIsVereador(userRoles.includes('vereador'));
@@ -210,7 +231,7 @@ export const useUserRole = () => {
   const canViewDashboards =
     canUseStaffPaineis ||
     isCidadaoEngajado ||
-    rolesGrantPermission(roles, 'analytics.view_advanced');
+    rolesGrantPermission(roles, 'analytics.view_advanced', permissionKeys);
   const canCreateDashboards = canViewDashboards;
   const canManageDashboards = isAdmin || isGestor;
 
@@ -228,6 +249,7 @@ export const useUserRole = () => {
 
   return {
     roles,
+    permissionKeys,
     loading,
     councilMemberId,
     isAdmin,

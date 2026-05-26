@@ -28,9 +28,11 @@ test.describe("RBAC — rotas admin-only", () => {
   test("admin acessa /admin/permissions (matriz)", async ({ page }) => {
     await login(page, "admin");
     await page.goto("/admin/permissions");
-    // Legado: /admin/permissions redireciona para gestão de usuários (matriz vive lá)
-    await expect(page).toHaveURL(/\/admin\/users/, { timeout: 15_000 });
-    await expect(page.locator("body")).toContainText(/matriz de permissões|imutável|permissões|usuários/i);
+    await expect(page).toHaveURL(/\/admin\/permissions/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: /Matriz de permissões/i })).toBeVisible({
+      timeout: 12_000,
+    });
+    await expect(page.locator("body")).toContainText(/Salvar matriz/i);
   });
 
   test("admin acessa /admin/audit-logs", async ({ page }) => {
@@ -151,6 +153,9 @@ test.describe("RBAC — rotas admin-only", () => {
         await adm.evaluate((n) => (n as HTMLElement).click());
       }
       await expect(sidebar.getByRole("link", { name: /^Documentação$/i })).toBeVisible();
+      await expect(
+        sidebar.getByRole("link", { name: /Matriz de permissões/i }),
+      ).toBeVisible();
     }
   });
 });

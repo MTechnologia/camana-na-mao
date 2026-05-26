@@ -115,6 +115,17 @@ describe("rolesGrantPermission", () => {
   it("vereador NÃO tem triage.manage (gestão é admin/gestor)", () => {
     expect(rolesGrantPermission(["vereador"], "triage.manage")).toBe(false);
   });
+
+  it("usa permissionKeys do banco quando fornecido", () => {
+    const fromDb = new Set(["reports.read"]);
+    expect(rolesGrantPermission(["vereador"], "reports.read", fromDb)).toBe(true);
+    expect(rolesGrantPermission(["vereador"], "triage.manage", fromDb)).toBe(false);
+  });
+
+  it("admin tem users.manage_permissions no catálogo", () => {
+    expect(rolesGrantPermission(["admin"], "users.manage_permissions")).toBe(true);
+    expect(getPermission("users.manage_permissions")?.roles).toContain("admin");
+  });
 });
 
 describe("groupPermissionsByDomain", () => {
