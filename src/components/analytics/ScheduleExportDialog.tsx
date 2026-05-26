@@ -354,9 +354,9 @@ export function ScheduleExportDialog({
               onCheckedChange={(v) => setNotifyInApp(v === true)}
             />
             <span className="text-sm">
-              Receber notificação quando o arquivo estiver pronto
+              Receber e-mail e notificação no sino quando o arquivo estiver pronto
               <span className="block text-xs text-muted-foreground">
-                Avisa no sino da plataforma com link direto para download.
+                Envia o link de download por e-mail e exibe no sino da plataforma.
               </span>
             </span>
           </Label>

@@ -390,10 +390,8 @@ serve(async (req) => {
       })
       .eq("id", job.id);
 
-    // HU-8.1 — Notificação in-app quando o job veio de um agendamento e o
-    // dono pediu pra ser avisado.
+    // HU-8.1 — Export agendado: e-mail + sino (paridade — quem recebe e-mail deve ver no sino).
     try {
-      // O job pode ter `scheduled_export_id` populado quando source='scheduled'.
       const { data: jobFresh } = await supabase
         .from("export_jobs")
         .select("source, scheduled_export_id")
@@ -411,7 +409,7 @@ serve(async (req) => {
           .single();
         const schedule = sch as {
           name?: string;
-          notify_in_app?: boolean;
+          notify_in_app?: boolean | null;
           filters?: Record<string, unknown>;
         } | null;
         const scheduleName = schedule?.name ?? "agendada";
@@ -423,36 +421,42 @@ serve(async (req) => {
           scheduleName,
         });
 
-        if (schedule?.notify_in_app) {
-          const datasetLabel =
-            job.dataset === "urban_reports"
-              ? "relatos urbanos"
-              : job.dataset === "transport_reports"
-                ? "relatos de transporte"
-                : job.dataset;
-          const exportsPath = `/admin/exports?jobId=${job.id}`;
-          await supabase.from("notifications").insert({
-            user_id: job.user_id,
-            title: `Exportação "${scheduleName}" concluída`,
-            message: `Sua exportação de ${datasetLabel} (${rows.length.toLocaleString("pt-BR")} linhas) está disponível para download.`,
-            type: "export_completed",
-            action_url: exportsPath,
-            priority: "normal",
-            metadata: {
-              jobId: job.id,
-              scheduledExportId,
-              format: job.format,
-              rowCount: rows.length,
-              appUrl: appOrigin,
-            },
-          });
+        const datasetLabel =
+          job.dataset === "urban_reports"
+            ? "relatos urbanos"
+            : job.dataset === "transport_reports"
+              ? "relatos de transporte"
+              : job.dataset;
+        const exportsPath = `/admin/exports?jobId=${job.id}`;
+
+        // E-mail e sino sempre juntos (antes o e-mail saía mesmo com notify_in_app desligado).
+        const { error: notifInsertErr } = await supabase.from("notifications").insert({
+          user_id: job.user_id,
+          title: `Exportação "${scheduleName}" concluída`,
+          message: `Sua exportação de ${datasetLabel} (${rows.length.toLocaleString("pt-BR")} linhas) está disponível para download.`,
+          type: "export_completed",
+          action_url: exportsPath,
+          priority: "normal",
+          metadata: {
+            jobId: job.id,
+            scheduledExportId,
+            format: job.format,
+            rowCount: rows.length,
+            appUrl: appOrigin,
+          },
+        });
+        if (notifInsertErr) {
+          console.warn(
+            "[process-export-job] falha ao criar notificação in-app:",
+            notifInsertErr.message,
+            notifInsertErr,
+          );
         }
 
-        // E-mail dedicado com link de download (independente do webhook genérico).
         await invokeSendExportEmail(job.id, appOrigin);
       }
     } catch (notifErr) {
-      console.warn("[process-export-job] falha ao criar notificação:", notifErr);
+      console.warn("[process-export-job] falha ao notificar export agendado:", notifErr);
     }
 
     return new Response(
