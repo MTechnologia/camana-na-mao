@@ -16,6 +16,12 @@ import {
 } from "./lib-index-ai-fallback.ts";
 import { handleDeterministicServicesFlow } from "./lib-index-services-flow.ts";
 import { getMessageText, handlePreAiShortcuts } from "./lib-index-pre-ai-shortcuts.ts";
+import {
+  buildVersionedSystemPrompt,
+  loadActiveAiConfigVersion,
+  resolveEffectiveAiChatModel,
+} from "./lib-ai-config-version.ts";
+import { buildChatCompletionsModel, isVertexAiProvider } from "../_shared/ai-provider.ts";
 
 // CORS para preflight: entrypoint NÃO importa lib para OPTIONS passar mesmo se lib falhar no cold start
 const PREFLIGHT_CORS: Record<string, string> = {
@@ -34,7 +40,7 @@ serve(async (req) => {
   const requestStartTime = Date.now();
   const lib = await import("./lib.ts");
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
-  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-03-24-v1 (kb camara funcionamento + skip vertex)');
+  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-06-04-v1 (ai_config_versions ativa + prompt institucional)');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);
@@ -47,8 +53,9 @@ serve(async (req) => {
     if (bootstrap.response) {
       return bootstrap.response;
     }
+    const bootstrapCtx = bootstrap.context!;
     const {
-      aiChatModel,
+      aiChatModel: secretAiChatModel,
       attachmentUrls,
       chatHistoryTyped,
       chatMessages,
@@ -69,7 +76,25 @@ serve(async (req) => {
       vertexRagDatastore,
       vertexTokenObtained,
       vertexTokenUrl,
-    } = bootstrap.context!;
+    } = bootstrapCtx;
+
+    const activeAiConfig = await loadActiveAiConfigVersion({
+      supabaseAdmin: supabaseClassificationFeedbackRead,
+    });
+    const baseSystemPrompt = activeAiConfig
+      ? buildVersionedSystemPrompt(lib.systemPrompt, activeAiConfig)
+      : lib.systemPrompt;
+    const aiChatModel = resolveEffectiveAiChatModel(secretAiChatModel, activeAiConfig?.modelId);
+    const isVertex = isVertexAiProvider(finalAiBaseUrl, vertexTokenUrl);
+    const chatCompletionsModel = buildChatCompletionsModel(aiChatModel, isVertex);
+    if (activeAiConfig && aiChatModel !== secretAiChatModel) {
+      console.log("[ai-orchestrator] Modelo da versão ativa:", {
+        secret: secretAiChatModel,
+        effective: aiChatModel,
+        apiModel: chatCompletionsModel,
+        version: activeAiConfig.versionLabel,
+      });
+    }
 
     const councilShortcutResult = await handleCouncilShortcuts({
       chatMessages,
@@ -162,8 +187,8 @@ serve(async (req) => {
       return generalClosingResult.response;
     }
     
-    // Build dynamic system prompt with collected fields context
-    let dynamicSystemPrompt = lib.systemPrompt;
+    // Build dynamic system prompt with collected fields context (base = versão ativa + prompt operacional)
+    let dynamicSystemPrompt = baseSystemPrompt;
     
     // === LIGHT JOURNEY MARKER ===
     const lightJourneyMarker = accumulatedContext.lightJourneyMarker;
@@ -191,6 +216,7 @@ serve(async (req) => {
     const collectionTurn = await orchestrateCollectionTurn({
       accumulatedFields,
       attachmentUrls,
+      baseSystemPrompt,
       chatMessages,
       collectionIntent,
       conversationId,

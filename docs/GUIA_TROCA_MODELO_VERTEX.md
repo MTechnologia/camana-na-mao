@@ -13,6 +13,19 @@ No **Supabase Dashboard**:
    - `AI_CHAT_MODEL`
    - `AI_CHAT_BASE_URL`
 
+## Versionamento admin (`/admin/settings/ai`)
+
+A versão **ativa** em `ai_config_versions` define:
+
+- **Modelo** (`model_id`) — usado pelo `ai-orchestrator` quando preenchido (ex.: `gemini-3.1-flash-lite-preview`).
+- **Prompt institucional** (`body`) — injetado antes do prompt operacional em `lib-prompts.ts`.
+
+Fallback se não houver versão ativa ou leitura do banco falhar: secrets `AI_CHAT_MODEL` + prompt só do código.
+
+Ambiente do orchestrator: secret `AI_CONFIG_ENVIRONMENT` = `production` (padrão) ou `homologation` / `hml`.
+
+Após publicar nova versão na UI, o cache do orchestrator renova em até ~60s (ou novo deploy).
+
 ## Regra principal
 
 - `AI_CHAT_MODEL` deve usar o **ID curto** do modelo, sem prefixo `google/`.

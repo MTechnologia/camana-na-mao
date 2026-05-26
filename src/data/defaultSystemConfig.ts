@@ -1,84 +1,14 @@
 import type { ConfigEnvironment, EnvironmentConfigBundle } from '@/types/systemConfig';
 
-const promptTemplates = [
-  {
-    id: 'tpl-assistente-relatos',
-    name: 'Assistente — triagem de relatos',
-    description: 'Template padrão para classificação e encaminhamento inicial.',
-    body: `Você é o assistente institucional da Câmara na Mão.
-Contexto: {{regiao}} | Categoria: {{categoria}}
-Regras: prazo máximo de resposta {{prazo_horas}}h; tom {{tom_institucional}}.
-Priorize RN-REL-001 (triagem antes de encaminhamento).`,
-    variables: [
-      { key: 'regiao', label: 'Região', example: 'Zona Sul', required: true },
-      { key: 'categoria', label: 'Categoria', example: 'Saúde', required: true },
-      { key: 'prazo_horas', label: 'Prazo (horas)', example: '48', required: true },
-      { key: 'tom_institucional', label: 'Tom', example: 'acolhedor', required: false },
-    ],
-  },
-  {
-    id: 'tpl-avaliacao-servico',
-    name: 'Assistente — avaliação de serviços',
-    description: 'Conversação guiada para avaliação de equipamentos públicos.',
-    body: `Conduza avaliação do serviço {{tipo_servico}} em {{bairro}}.
-Limite: {{limite_avaliacoes_dia}} avaliação(ões) por dia por cidadão.
-Dimensões: espera, atendimento, infraestrutura, limpeza.`,
-    variables: [
-      { key: 'tipo_servico', label: 'Tipo de serviço', example: 'UBS', required: true },
-      { key: 'bairro', label: 'Bairro', example: 'Sé', required: true },
-      { key: 'limite_avaliacoes_dia', label: 'Limite diário', example: '1', required: true },
-    ],
-  },
-];
+/** Parâmetros e integrações ainda sem tabela dedicada; IA vem do Supabase (useAiConfig). */
+const emptyAiBundle = {
+  promptTemplates: [],
+  rollbackPolicy: { enabled: true, maxAccuracyDropPct: 3, observationHours: 24 },
+  aiVersions: [],
+} satisfies Pick<EnvironmentConfigBundle, 'promptTemplates' | 'rollbackPolicy' | 'aiVersions'>;
 
 const production: EnvironmentConfigBundle = {
-  promptTemplates,
-  rollbackPolicy: {
-    enabled: true,
-    maxAccuracyDropPct: 3,
-    observationHours: 24,
-  },
-  aiVersions: [
-    {
-      id: 'ai-prod-1',
-      version: '2026.05.1',
-      status: 'active',
-      templateId: 'tpl-assistente-relatos',
-      templateName: 'Assistente — triagem de relatos',
-      modelId: 'gpt-4o-mini',
-      body: promptTemplates[0].body,
-      variables: ['regiao', 'categoria', 'prazo_horas', 'tom_institucional'],
-      accuracyPct: 91.2,
-      publishedAt: '2026-05-10T14:00:00Z',
-      publishedBy: 'bruno@exemplo.camara.sp.gov.br',
-    },
-    {
-      id: 'ai-prod-2',
-      version: '2026.05.2-draft',
-      status: 'draft',
-      templateId: 'tpl-assistente-relatos',
-      templateName: 'Assistente — triagem de relatos',
-      modelId: 'gpt-4o-mini',
-      body: promptTemplates[0].body.replace('acolhedor', 'formal e objetivo'),
-      variables: ['regiao', 'categoria', 'prazo_horas', 'tom_institucional'],
-      accuracyPct: null,
-      publishedAt: null,
-      publishedBy: null,
-    },
-    {
-      id: 'ai-prod-0',
-      version: '2026.04.3',
-      status: 'archived',
-      templateId: 'tpl-assistente-relatos',
-      templateName: 'Assistente — triagem de relatos',
-      modelId: 'gpt-4o-mini',
-      body: promptTemplates[0].body,
-      variables: ['regiao', 'categoria', 'prazo_horas'],
-      accuracyPct: 89.8,
-      publishedAt: '2026-04-28T09:00:00Z',
-      publishedBy: 'bruno@exemplo.camara.sp.gov.br',
-    },
-  ],
+  ...emptyAiBundle,
   parameters: [
     {
       key: 'rating.cooldown_hours',
@@ -155,12 +85,6 @@ const production: EnvironmentConfigBundle = {
 
 const homologation: EnvironmentConfigBundle = {
   ...production,
-  rollbackPolicy: { ...production.rollbackPolicy, maxAccuracyDropPct: 5 },
-  aiVersions: production.aiVersions.map((v) =>
-    v.status === 'active'
-      ? { ...v, version: '2026.05.1-hml', accuracyPct: 88.5 }
-      : v,
-  ),
   integrations: production.integrations.map((i) =>
     i.source === 'custom'
       ? {
@@ -173,7 +97,7 @@ const homologation: EnvironmentConfigBundle = {
   ),
 };
 
-/** Valores iniciais de configuração institucional (sem tabela Supabase dedicada ainda). */
+/** Fallback local para parâmetros/integrações; IA é carregada de ai_* no Supabase. */
 export const defaultConfigByEnvironment: Record<ConfigEnvironment, EnvironmentConfigBundle> = {
   production,
   homologation,

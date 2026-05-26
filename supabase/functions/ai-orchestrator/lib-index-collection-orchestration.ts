@@ -12,6 +12,8 @@ type NextFieldInfo = { field: string | null; picker: string | null; prompt: stri
 type CollectionOrchestrationArgs = {
   accumulatedFields: Record<string, unknown>;
   attachmentUrls: string[];
+  /** Prompt base (versão ativa + operacional) — usado ao injetar contexto de coleta. */
+  baseSystemPrompt: string;
   chatMessages: Array<Record<string, unknown>>;
   collectionIntent: CollectionIntent | null;
   conversationId: unknown;
@@ -52,6 +54,7 @@ export async function orchestrateCollectionTurn(
   const {
     accumulatedFields,
     attachmentUrls,
+    baseSystemPrompt,
     chatMessages,
     collectionIntent,
     conversationId,
@@ -277,7 +280,7 @@ ${empathyNote}
 6. Se a descrição já contém detalhes suficientes, NÃO pergunte "qual tipo de problema" - classifique automaticamente
 ===`;
 
-    finalDynamicSystemPrompt = lib.systemPrompt + "\n\n" + collectionContext;
+    finalDynamicSystemPrompt = baseSystemPrompt + "\n\n" + collectionContext;
     console.log(
       "[ai-orchestrator] Injected collection context. Next field:",
       nextFieldInfo.field,
