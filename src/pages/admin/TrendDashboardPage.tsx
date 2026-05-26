@@ -20,7 +20,9 @@ import {
 } from '@/hooks/useReportsTrend';
 import { useTransportLines } from '@/hooks/useTransportLines';
 import { buildTrendChartRows } from '@/lib/buildTrendChartRows';
-import { LineChart as LineChartIcon, RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { ExecutiveKpiSection } from '@/components/admin/analytics/ExecutiveKpiSection';
+import { AnalyticsDrillBreadcrumb } from '@/components/admin/analytics/AnalyticsDrillBreadcrumb';
 
 export function TrendDashboardPage() {
   const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>('all');
@@ -44,6 +46,9 @@ export function TrendDashboardPage() {
   return (
     <PageShell title="Tendências temporais" titleInfo={RN_ANL_003_TRENDS_LEGEND}>
       <div className="space-y-6">
+        <AnalyticsDrillBreadcrumb />
+        <ExecutiveKpiSection />
+
         <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />

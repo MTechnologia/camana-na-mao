@@ -28,6 +28,7 @@ import {
 } from '@/lib/responseTimeAggregates';
 import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
 import { callGetReportsWithDemographics } from '@/lib/reportsDemographicsRpc';
+import { regionLabel } from '@/lib/analyticsLabels';
 import {
   buildNeighborhoodBreakdownFromGeoRows,
   buildStreetBreakdownFromGeoRows,
@@ -554,6 +555,19 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         responseTime = buildResponseTimeDrillStats(
           filterResponseTimeRecords(rtRecords, filters),
         );
+
+        if (filters.region && filters.region !== 'all') {
+          const zoneLabel = regionLabel(filters.region);
+          const zoneVol = volumeByZone.find((z) => z.zone === zoneLabel)?.count;
+          if (zoneVol != null && zoneVol >= 0) {
+            total = zoneVol;
+            if (urbanOnly) {
+              urbanCount = total;
+              transportCount = 0;
+              evaluationCount = 0;
+            }
+          }
+        }
 
         const { data: patternRows } = await supabase
           .from('report_patterns')

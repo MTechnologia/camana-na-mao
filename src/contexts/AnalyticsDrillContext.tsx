@@ -19,6 +19,7 @@ import {
 } from '@/hooks/useReportsAnalytics';
 import {
   buildChartSeriesFromStats,
+  buildDrillKpisForRegionFilter,
   buildDrillKpisFromStats,
 } from '@/lib/analyticsDrillFromStats';
 import {
@@ -144,10 +145,12 @@ function AnalyticsDrillStateProvider({
     }
   }, [region, grain, activeRegion, resetDrill]);
 
-  const kpis = useMemo(
-    () => buildDrillKpisFromStats(stats, grain, activeRegion, activeDistrict),
-    [stats, grain, activeRegion, activeDistrict],
-  );
+  const kpis = useMemo(() => {
+    if (region !== 'all' && grain === 'region' && activeRegion === region) {
+      return buildDrillKpisForRegionFilter(stats, region);
+    }
+    return buildDrillKpisFromStats(stats, grain, activeRegion, activeDistrict);
+  }, [stats, grain, activeRegion, activeDistrict, region]);
 
   const chartData = useMemo(
     () => buildChartSeriesFromStats(stats, grain, metric, activeRegion, activeDistrict),

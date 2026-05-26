@@ -13,6 +13,7 @@ import {
   type ReportsAnalyticsFilters,
   type ReportsAnalyticsStats,
 } from '@/hooks/useReportsAnalytics';
+import { useOptionalGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
 import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
 
 export type UrbanReportsAnalyticsFiltersState = {
@@ -43,17 +44,22 @@ export function UrbanReportsAnalyticsFiltersProvider({ children }: { children: R
     reset: resetGlobal,
   } = useGlobalFilters();
 
+  /** Mesmo recorte do GlobalReportsAnalytics (urbano + transporte + avaliações no tema). */
   const filters = useMemo(
-    () => ({
-      ...globalFiltersToReportsAnalytics(period, region, category, {
+    () =>
+      globalFiltersToReportsAnalytics(period, region, category, {
         periodA: periodCompare.periodA,
       }),
-      scope: 'urban_only' as const,
-    }),
     [period, region, category, periodCompare.periodA],
   );
 
-  const { stats, isLoading, error, lastUpdate, refresh } = useReportsAnalytics(filters);
+  const global = useOptionalGlobalReportsAnalytics();
+  const local = useReportsAnalytics(filters);
+  const stats = global?.stats ?? local.stats;
+  const isLoading = global?.isLoading ?? local.isLoading;
+  const error = global?.error ?? local.error;
+  const lastUpdate = global?.lastUpdate ?? local.lastUpdate;
+  const refresh = global?.refresh ?? local.refresh;
 
   useRegisterAnalyticsLive('urban-reports-analytics', { lastUpdate, refresh });
 
