@@ -20,6 +20,8 @@ export type ReportTimelineEvent = {
 };
 
 export type ReportReferral = {
+  /** Linha em `council_member_referrals` — usado para atualizar em vez de duplicar. */
+  councilReferralId?: string;
   commissionId: string;
   commissionName: string;
   councillorId: string;

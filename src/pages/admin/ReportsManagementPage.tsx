@@ -5,6 +5,7 @@ import { parseGlobalFiltersFromSearchParams } from '@/lib/commissionFilterNaviga
 import { ExternalLink } from 'lucide-react';
 import { ReportDetailSheet } from '@/components/admin/reports/ReportDetailSheet';
 import { ReportsDataTable } from '@/components/admin/reports/ReportsDataTable';
+import { ReportsListPagination } from '@/components/admin/reports/ReportsListPagination';
 import { ReportsQueueToolbar } from '@/components/admin/reports/ReportsQueueToolbar';
 import { ReportsWorkflowBanner } from '@/components/admin/reports/ReportsWorkflowBanner';
 import { ReportsWorkflowKpis } from '@/components/admin/reports/ReportsWorkflowKpis';
@@ -27,9 +28,16 @@ export function ReportsManagementPage() {
 
   const {
     filtered,
+    paginatedFiltered,
+    totalFiltered,
+    listPage,
+    setListPage,
+    totalListPages,
     counts,
     queueTab,
     setQueueTab,
+    selectWorkflowKpi,
+    activeKpiTab,
     search,
     setSearch,
     selected,
@@ -70,8 +78,8 @@ export function ReportsManagementPage() {
 
       <ReportsWorkflowKpis
         counts={counts}
-        queueTab={queueTab}
-        onSelectTab={setQueueTab}
+        activeKpiTab={activeKpiTab}
+        onSelectKpi={selectWorkflowKpi}
       />
 
       <ReportsQueueToolbar
@@ -79,7 +87,7 @@ export function ReportsManagementPage() {
         onTabChange={setQueueTab}
         search={search}
         onSearchChange={setSearch}
-        resultCount={filtered.length}
+        resultCount={totalFiltered}
         responsibleCatalog={responsibleCatalog}
         selectedResponsibleIds={selectedResponsibleIds}
         responsiblePopoverOpen={responsiblePopoverOpen}
@@ -106,9 +114,17 @@ export function ReportsManagementPage() {
       ) : null}
 
       <ReportsDataTable
-        rows={filtered}
+        rows={paginatedFiltered}
         selectedId={selectedId}
         onSelect={setSelectedId}
+        footer={
+          <ReportsListPagination
+            page={listPage}
+            totalPages={totalListPages}
+            totalCount={totalFiltered}
+            onPageChange={setListPage}
+          />
+        }
       />
 
       <ReportsManagementChartSection />

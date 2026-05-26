@@ -40,12 +40,20 @@ interface TriageEditorProps {
   source: ReportSource;
   canEdit?: boolean;
   onSaved?: (record: TriageRecord) => void;
+  /** Muda quando o encaminhamento é salvo — força recarga da triagem. */
+  referralSyncToken?: string | null;
 }
 
 const UNASSIGNED_VALUE = "__unassigned__";
 
-export function TriageEditor({ reportId, source, canEdit = true, onSaved }: TriageEditorProps) {
-  const { triage, isLoading, error, upsert } = useReportTriage(reportId, source);
+export function TriageEditor({
+  reportId,
+  source,
+  canEdit = true,
+  onSaved,
+  referralSyncToken = null,
+}: TriageEditorProps) {
+  const { triage, isLoading, error, upsert, refresh } = useReportTriage(reportId, source);
   const [commissions, setCommissions] = useState<LegislativeCommissionOption[]>([]);
   const [loadingCommissions, setLoadingCommissions] = useState(true);
 
@@ -70,6 +78,11 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
   }, []);
 
   useEffect(() => {
+    if (!referralSyncToken) return;
+    void refresh();
+  }, [referralSyncToken, refresh]);
+
+  useEffect(() => {
     if (triage) {
       setPriority(triage.priority);
       setResponsibleCommissionId(triage.responsibleCommissionId);
@@ -81,7 +94,7 @@ export function TriageEditor({ reportId, source, canEdit = true, onSaved }: Tria
       setStatus("untriaged");
       setNotes("");
     }
-  }, [triage?.id, triage?.updatedAt]);
+  }, [triage?.id, triage?.updatedAt, triage?.responsibleCommissionId]);
 
   const dirty =
     (triage?.priority ?? null) !== priority
