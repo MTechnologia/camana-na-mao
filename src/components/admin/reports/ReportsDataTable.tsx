@@ -106,9 +106,13 @@ export function ReportsDataTable({
                   <td className="max-w-[160px] px-4 py-3 text-muted-foreground">
                     <span
                       className="line-clamp-2 text-xs"
-                      title={r.councilMemberName ?? r.responsibleName ?? undefined}
+                      title={
+                        r.responsibleName && r.councilMemberName
+                          ? `${r.responsibleName} · ${r.councilMemberName}`
+                          : r.responsibleName ?? r.councilMemberName ?? undefined
+                      }
                     >
-                      {r.councilMemberName ?? r.responsibleName ?? '—'}
+                      {r.responsibleName ?? r.councilMemberName ?? '—'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.region}</td>
