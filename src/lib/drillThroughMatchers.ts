@@ -1,7 +1,9 @@
 import { regionLabel } from '@/lib/analyticsLabels';
 import { bairroParaZona } from '@/lib/regionMapping';
 import {
+  DISTRICT_FALLBACK_ID,
   DISTRICT_LABEL_FALLBACK,
+  districtLabelFromGeoRow,
   STREET_FALLBACK_ID,
   STREET_LABEL_FALLBACK,
   streetLabelFromTerritoryRow,
@@ -59,6 +61,34 @@ function barTerritoryTargets(bar: ChartBarPoint): string[] {
   return [...new Set(targets)];
 }
 
+function isDistrictFallbackBar(bar: ChartBarPoint): boolean {
+  return (
+    bar.filterValue === DISTRICT_LABEL_FALLBACK ||
+    bar.filterValue === DISTRICT_FALLBACK_ID ||
+    bar.label === DISTRICT_LABEL_FALLBACK ||
+    bar.id === DISTRICT_FALLBACK_ID
+  );
+}
+
+function isStreetFallbackBar(bar: ChartBarPoint): boolean {
+  return (
+    bar.filterValue === STREET_FALLBACK_ID ||
+    bar.label === STREET_LABEL_FALLBACK ||
+    bar.id === STREET_FALLBACK_ID
+  );
+}
+
+function effectiveZoneFilter(
+  filtersRegion: string | undefined,
+  activeRegion?: string,
+): string | null {
+  if (filtersRegion && filtersRegion !== 'all') {
+    return regionLabel(filtersRegion);
+  }
+  if (activeRegion) return regionLabel(activeRegion);
+  return null;
+}
+
 export function parseStreetBarLabel(label: string): { street: string; number?: string } {
   const trimmed = label.trim().replace(/\s*-\s*$/g, '');
   const commaIdx = trimmed.lastIndexOf(',');
@@ -93,11 +123,10 @@ export function matchesDistrictBar(
 ): boolean {
   if (bar.filterKey !== 'district') return true;
 
-  if (
-    bar.filterValue === DISTRICT_LABEL_FALLBACK ||
-    bar.label === DISTRICT_LABEL_FALLBACK
-  ) {
-    return !neighborhood?.trim();
+  if (isDistrictFallbackBar(bar)) {
+    return (
+      districtLabelFromGeoRow({ neighborhood, location }) === DISTRICT_LABEL_FALLBACK
+    );
   }
 
   const targets = barTerritoryTargets(bar);
@@ -116,9 +145,10 @@ export function matchesTerritoryBar(
   location?: string | null,
   lat?: number | null,
   lng?: number | null,
+  activeRegion?: string,
 ): boolean {
   const zone = zoneForLocation(neighborhood, location, lat, lng);
-  const zoneFromFilters = filtersRegion ? regionLabel(filtersRegion) : null;
+  const zoneFilter = effectiveZoneFilter(filtersRegion, activeRegion);
 
   if (bar.filterKey === 'region') {
     return zone === bar.label;
@@ -128,8 +158,8 @@ export function matchesTerritoryBar(
     return false;
   }
 
-  if (zoneFromFilters && (bar.filterKey === 'district' || bar.filterKey === 'region')) {
-    return zone === zoneFromFilters;
+  if (zoneFilter && (bar.filterKey === 'district' || bar.filterKey === 'region')) {
+    return zone === zoneFilter;
   }
 
   return true;
@@ -158,11 +188,15 @@ export function matchesStreetBar(
     }
   }
 
-  if (
-    bar.filterValue === STREET_FALLBACK_ID ||
-    bar.label === STREET_LABEL_FALLBACK
-  ) {
-    return !street?.trim();
+  if (isStreetFallbackBar(bar)) {
+    return (
+      streetLabelFromTerritoryRow({
+        neighborhood,
+        location,
+        street,
+        street_number: streetNumber,
+      }) === STREET_LABEL_FALLBACK
+    );
   }
 
   const reportLabel = streetLabelFromTerritoryRow({
@@ -185,17 +219,26 @@ export function matchesTerritoryBarWithStreet(
   street?: string | null,
   streetNumber?: string | null,
   activeDistrict?: string,
+  activeRegion?: string,
 ): boolean {
   if (bar.filterKey === 'street') {
     const zone = zoneForLocation(neighborhood, location, lat, lng);
-    const zoneFromFilters = filtersRegion ? regionLabel(filtersRegion) : null;
+    const zoneFilter = effectiveZoneFilter(filtersRegion, activeRegion);
     if (!matchesStreetBar(bar, neighborhood, location, street, streetNumber, activeDistrict)) {
       return false;
     }
-    if (zoneFromFilters) return zone === zoneFromFilters;
+    if (zoneFilter) return zone === zoneFilter;
     return true;
   }
-  return matchesTerritoryBar(bar, filtersRegion, neighborhood, location, lat, lng);
+  return matchesTerritoryBar(
+    bar,
+    filtersRegion,
+    neighborhood,
+    location,
+    lat,
+    lng,
+    activeRegion,
+  );
 }
 
 /** Categorias de barra que devem buscar em transport_reports (report_type). */
