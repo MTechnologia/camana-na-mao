@@ -217,12 +217,7 @@ export function buildMetricTrendsFromStats(stats: ReportsAnalyticsStats | null):
           regionRows.reduce((s, r) => s + (r.sentiment ?? 50) * r.count, 0) / regionTotal,
         )
       : 50;
-  const pending = stats.byStatus.find((s) => s.status === 'Pendente')?.count ?? stats.pending;
-  const resolved = stats.resolved || 0;
-  const response =
-    stats.total > 0 && resolved > 0
-      ? Math.min(99, Math.round((pending / Math.max(resolved, 1)) * 24 * 10) / 10)
-      : 0;
+  const response = stats.responseTime?.avgHours ?? 0;
 
   if (stats.timeline.length > 0) {
     return stats.timeline.map((p) => ({

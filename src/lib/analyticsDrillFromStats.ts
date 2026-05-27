@@ -26,18 +26,36 @@ import type {
 const EMPTY_KPIS: DrillKpis = {
   volume: 0,
   responseHours: 0,
-  sentimentPct: 0,
+  sentimentPct: null,
   patterns: 0,
 };
 
+const SENTIMENT_PLACEHOLDER_PCT = 50;
+
+/** Total no mesmo universo dos gráficos territoriais (amostra urbana geolocalizada). */
+export function territorialVolumeTotal(stats: ReportsAnalyticsStats): number {
+  if (stats.volumeByZone?.length) {
+    return stats.volumeByZone.reduce((s, z) => s + z.count, 0);
+  }
+  return stats.urban;
+}
+
+function sentimentDataIsPlaceholder(stats: ReportsAnalyticsStats): boolean {
+  if (stats.volumeByZone?.length) return true;
+  const rows = stats.demographics.byRegion;
+  if (rows.length === 0) return true;
+  return rows.every((r) => (r.sentiment ?? SENTIMENT_PLACEHOLDER_PCT) === SENTIMENT_PLACEHOLDER_PCT);
+}
+
 /** Relatos no total que não entram na distribuição territorial exibida no gráfico. */
 export function unallocatedVolumeFromStats(stats: ReportsAnalyticsStats): number {
+  const universe = territorialVolumeTotal(stats);
   if (stats.volumeByZone?.length) {
     const zoneSum = stats.volumeByZone.reduce((s, z) => s + z.count, 0);
-    return Math.max(0, stats.total - zoneSum);
+    return Math.max(0, universe - zoneSum);
   }
   const distributed = stats.demographics.byRegion.reduce((s, r) => s + r.count, 0);
-  return Math.max(0, stats.total - distributed);
+  return Math.max(0, universe - distributed);
 }
 
 function zoneVolumeFromStats(stats: ReportsAnalyticsStats, zoneLabel: string): number {
@@ -57,13 +75,29 @@ function districtRowsForZone(stats: ReportsAnalyticsStats, zoneLabel: string) {
     .map((r) => ({ neighborhood: r.region, zone: zoneLabel, count: r.count }));
 }
 
+function districtRowsFromStreetBreakdown(
+  stats: ReportsAnalyticsStats,
+  zoneLabel: string,
+): { neighborhood: string; zone: string; count: number }[] {
+  const byDistrict = new Map<string, number>();
+  for (const row of stats.streetBreakdown ?? []) {
+    if (row.zone !== zoneLabel) continue;
+    byDistrict.set(row.neighborhood, (byDistrict.get(row.neighborhood) ?? 0) + row.count);
+  }
+  return Array.from(byDistrict.entries()).map(([neighborhood, count]) => ({
+    neighborhood,
+    zone: zoneLabel,
+    count,
+  }));
+}
+
 function volumeKpiFromStats(
   stats: ReportsAnalyticsStats,
   grain: DrillGrain,
   activeRegion?: string,
   activeDistrict?: string,
 ): number {
-  if (grain === 'overview') return stats.total;
+  if (grain === 'overview') return territorialVolumeTotal(stats);
 
   if (grain === 'region' && activeRegion) {
     return zoneVolumeFromStats(stats, regionLabel(activeRegion));
@@ -84,7 +118,9 @@ function sentimentKpiFromStats(
   grain: DrillGrain,
   activeRegion?: string,
   activeDistrict?: string,
-): number {
+): number | null {
+  if (sentimentDataIsPlaceholder(stats)) return null;
+
   const rows =
     grain === 'street' && activeRegion && activeDistrict
       ? streetRowsForDistrict(stats.streetBreakdown ?? [], regionLabel(activeRegion), activeDistrict).map(
@@ -305,7 +341,10 @@ export function buildChartSeriesFromStats(
         .slice(0, 12);
     }
 
-    const rows = districtRowsForZone(stats, zoneLabel);
+    const streetDerivedRows = districtRowsFromStreetBreakdown(stats, zoneLabel);
+    const rows = streetDerivedRows.length > 0
+      ? streetDerivedRows
+      : districtRowsForZone(stats, zoneLabel);
     if (rows.length === 0 && zoneVolumeFromStats(stats, zoneLabel) > 0) {
       return [
         {
@@ -413,7 +452,7 @@ export function buildSentimentPolarityFromStats(
   activeRegion?: string,
   activeDistrict?: string,
 ): RegionSentimentBreakdown[] {
-  if (!stats) return [];
+  if (!stats || sentimentDataIsPlaceholder(stats)) return [];
 
   if (grain === 'overview') {
     const zones = groupByZone(stats);
