@@ -246,6 +246,8 @@ export function isInformationalQuestionAboutVereadorOrCamara(userMessage: string
     /quais\s+vereadores\s+faltaram\s+(na\s+)?(última|ultima)\s+sess[aã]o/i.test(m) ||
     /quanto\s+a\s+(c[aâ]mara|camara)\s+gasta\s*(por\s+m[eê]s)?/i.test(m) ||
     /(como\s+posso\s+)?falar\s+com\s+(meu\s+)?vereador/i.test(m) ||
+    /qual\s+vereador\s+(atende|representa|cuida\s+do|fala\s+por).*(meu\s+bairro|minha\s+regi[aã]o|minha\s+zona|bairro)/i.test(m) ||
+    /(meu\s+bairro|minha\s+regi[aã]o|minha\s+zona).*(qual\s+vereador|vereador\s+(atende|representa))/i.test(m) ||
     /onde\s+(ta|est[aá])\s+os\s+gastos\s+(dos\s+)?vereadores/i.test(m)
   );
 }
@@ -314,6 +316,14 @@ export const INTENT_KEYWORDS = [
   "desabamento",
   "desmoron",
   "atropelamento",
+  "bueiro",
+  "fio caido",
+  "fio caído",
+  "risco de choque",
+  "busao",
+  "busão",
+  "qro falar",
+  "qro fala",
   "quero reclamar", "preciso relatar", "quero reportar", "aconteceu",
   "tem um problema", "está com problema", "não está funcionando",
   "quero avaliar", "quero elogiar", "quero denunciar", "preciso informar",
@@ -403,6 +413,8 @@ export function detectCollectionIntent(
   const fullUserContext = `${userOnlyContext} ${msgLower}`;
   const normalizedForIntent = fullUserContext
     .replace(/\bqero\b/g, "quero")
+    .replace(/\bqro\b/g, "quero")
+    .replace(/\bbusao\b/g, "onibus")
     .replace(/\bvereadore(s)?\b/g, "vereador$1")
     .replace(/\bvereadoe(s)?\b/g, "vereador$1")
     .replace(/\bveread(o|or)\b/g, "vereador")
@@ -675,7 +687,7 @@ export function detectCollectionIntent(
     scores.push({ type: "occupancy", score: 28, fields: {} });
   }
 
-  const transportDomain = ["ônibus", "onibus", "metrô", "metro", "trem", "cptm", "estação", "estacao", "terminal", "ponto de ônibus", "transporte", "transporte público", "transporte publico", "motorista", "cobrador", "linha"];
+  const transportDomain = ["ônibus", "onibus", "busao", "busão", "metrô", "metro", "trem", "cptm", "estação", "estacao", "terminal", "ponto de ônibus", "transporte", "transporte público", "transporte publico", "motorista", "cobrador", "linha"];
   const transportProblems = ["lotado", "lotação", "lotacao", "atraso", "atrasou", "demora", "não passou", "nao passou", "quebrou", "passou", "freada", "freou", "sujo", "fedendo"];
   let transportScore = 0;
   if (!busInfoQuery) {
@@ -695,8 +707,8 @@ export function detectCollectionIntent(
     scores.push({ type: "transport_report", score: transportScore, fields: extractTransportFields(fullUserContext) });
   }
 
-  const urbanDomain = ["buraco", "poste", "iluminação", "iluminacao", "lixo", "entulho", "calçada", "calcada", "esgoto", "pavimentação", "pavimentacao", "recape", "asfaltamento", "sinalização", "sinalizacao", "semáforo", "semaforo", "placa", "faixa de pedestre", "drenagem", "sarjeta", "pluvial", "água pluvial", "agua pluvial", "árvore", "arvore", "poda", "fedor", "fedido", "bicho morto", "animal morto", "rato", "bueiro", "vazamento", "sujeira", "fedendo", "cheiro", "elogio", "elogiar", "sugestão", "sugestao", "parabéns", "parabens", "agradeço", "agradeco", "melhorar a cidade", "funcionou bem", "incêndio", "incendio", "fogo", "chamas", "queimando", "alagamento", "alagando", "enchente", "inundando", "chovendo", "chuva forte", "fios expostos", "explosão", "explosao", "transformador", "desabamento", "atropelamento", "prédio abandonado", "predio abandonado", "pichação", "pichacao", "barulho", "cachorro", "obra irregular", "tapume", "vandalismo"];
-  const urbanProblems = ["quebrado", "apagado", "acumulado", "vazando", "caindo", "fedendo", "fedido", "entupido", "entupida", "entupidas", "entupidos", "alagado", "alagando"];
+  const urbanDomain = ["buraco", "poste", "iluminação", "iluminacao", "lixo", "entulho", "calçada", "calcada", "esgoto", "pavimentação", "pavimentacao", "recape", "asfaltamento", "sinalização", "sinalizacao", "semáforo", "semaforo", "placa", "faixa de pedestre", "drenagem", "sarjeta", "pluvial", "água pluvial", "agua pluvial", "árvore", "arvore", "poda", "fedor", "fedido", "bicho morto", "animal morto", "rato", "bueiro", "vazamento", "sujeira", "fedendo", "cheiro", "elogio", "elogiar", "sugestão", "sugestao", "parabéns", "parabens", "agradeço", "agradeco", "melhorar a cidade", "funcionou bem", "incêndio", "incendio", "fogo", "chamas", "queimando", "alagamento", "alagando", "enchente", "inundando", "chovendo", "chuva forte", "fio caido", "fio caído", "fios expostos", "risco de choque", "choque", "explosão", "explosao", "transformador", "desabamento", "atropelamento", "prédio abandonado", "predio abandonado", "pichação", "pichacao", "barulho", "cachorro", "obra irregular", "tapume", "vandalismo"];
+  const urbanProblems = ["quebrado", "apagado", "acumulado", "vazando", "caindo", "fedendo", "fedido", "entupido", "entupida", "entupidas", "entupidos", "intupido", "intupida", "alagado", "alagada", "alagando"];
   let urbanScore = 0;
   urbanDomain.forEach((kw) => {
     if (contextIncludes(fullUserContext,kw)) urbanScore += 4;

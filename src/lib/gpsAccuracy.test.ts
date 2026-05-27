@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import {
+  MAX_GPS_ACCURACY_METERS,
+  MAX_GPS_ACCURACY_NEARBY_UI_METERS,
+  isGpsAccuracyAcceptable,
+} from "./gpsAccuracy";
+
+describe("isGpsAccuracyAcceptable", () => {
+  it("aceita accuracy finita menor ou igual ao limite critico", () => {
+    expect(isGpsAccuracyAcceptable(MAX_GPS_ACCURACY_METERS)).toBe(true);
+    expect(isGpsAccuracyAcceptable(MAX_GPS_ACCURACY_METERS - 0.1)).toBe(true);
+  });
+
+  it("rejeita accuracy ausente, infinita ou acima do limite", () => {
+    expect(isGpsAccuracyAcceptable(null)).toBe(false);
+    expect(isGpsAccuracyAcceptable(undefined)).toBe(false);
+    expect(isGpsAccuracyAcceptable(Number.POSITIVE_INFINITY)).toBe(false);
+    expect(isGpsAccuracyAcceptable(MAX_GPS_ACCURACY_METERS + 0.1)).toBe(false);
+  });
+
+  it("permite limite customizado para a UI de servicos proximos", () => {
+    expect(isGpsAccuracyAcceptable(500, MAX_GPS_ACCURACY_NEARBY_UI_METERS)).toBe(true);
+    expect(isGpsAccuracyAcceptable(2000, MAX_GPS_ACCURACY_NEARBY_UI_METERS)).toBe(false);
+  });
+});

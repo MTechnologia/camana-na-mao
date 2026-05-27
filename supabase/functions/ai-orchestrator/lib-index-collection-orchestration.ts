@@ -54,7 +54,7 @@ export async function orchestrateCollectionTurn(
   const {
     accumulatedFields,
     attachmentUrls,
-    baseSystemPrompt,
+    baseSystemPrompt: _baseSystemPrompt,
     chatMessages,
     collectionIntent,
     conversationId,
@@ -280,7 +280,7 @@ ${empathyNote}
 6. Se a descrição já contém detalhes suficientes, NÃO pergunte "qual tipo de problema" - classifique automaticamente
 ===`;
 
-    finalDynamicSystemPrompt = baseSystemPrompt + "\n\n" + collectionContext;
+    finalDynamicSystemPrompt = finalDynamicSystemPrompt + "\n\n" + collectionContext;
     console.log(
       "[ai-orchestrator] Injected collection context. Next field:",
       nextFieldInfo.field,

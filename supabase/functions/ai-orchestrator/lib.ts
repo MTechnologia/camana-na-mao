@@ -235,6 +235,10 @@ export {
   getTransportTypeLabel,
 } from "./lib-transport-preview.ts";
 export { parseFieldResponse } from "./lib-field-response.ts";
+export {
+  analyzeConversationTone,
+  buildConversationToneInstruction,
+} from "./lib-conversation-tone.ts";
 
 export const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',

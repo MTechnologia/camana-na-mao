@@ -21,6 +21,8 @@ export interface IntentCorpusCase {
   expect_intent: JourneyIntent;
   /** Mensagens anteriores (opcional). A última mensagem do usuário é `input`. */
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  languageProfile?: string;
+  expectedBehavior?: string;
   notes?: string;
 }
 
@@ -71,6 +73,7 @@ export async function loadAllIntentCorpus(): Promise<IntentCorpusCase[]> {
     "noticias-intent.json",
     "bus-informational-intent.json",
     "ambiguous-intent.json",
+    "conversation-robust-intent.json",
   ];
   const all: IntentCorpusCase[] = [];
   for (const file of files) {

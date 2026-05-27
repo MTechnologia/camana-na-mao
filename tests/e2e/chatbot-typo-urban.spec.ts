@@ -5,9 +5,16 @@ import { ensureChatReady, mockOrchestratorRoute, sendChatMessage } from './_help
 
 function createUrbanTypoHandler() {
   const state = { step: 0 };
-  return (_body: { messages?: Array<{ role: string; content: string }> }) => {
+  return (body: { messages?: Array<{ role: string; content: string }> }) => {
+    const latestUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user')?.content ?? '';
     state.step += 1;
     if (state.step === 1) {
+      if (/voces|voc[eê]s|vc|vcs/i.test(latestUser) && /incompetentes?|burro|idiota|lixo/i.test(latestUser)) {
+        return 'Entendo sua frustração, mas vamos manter o respeito. Vou registrar o problema urbano; pode descrever mais detalhes?';
+      }
+      if (/merda|porcaria|inferno/i.test(latestUser)) {
+        return 'Entendo sua frustração. Vou registrar o problema urbano; pode descrever mais detalhes?';
+      }
       return 'Entendi. Vou registrar seu relato urbano. Pode descrever com mais detalhes o que está acontecendo?';
     }
     if (state.step === 2) {
@@ -17,7 +24,7 @@ function createUrbanTypoHandler() {
   };
 }
 
-test.describe('Chatbot — relato urbano com typos (mock)', () => {
+test.describe('Chatbot - relato urbano com typos e linguagem real (mock)', () => {
   test.beforeEach(async ({ page }) => {
     const urbanHandler = createUrbanTypoHandler();
     await mockOrchestratorRoute(page, urbanHandler);

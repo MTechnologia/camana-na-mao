@@ -22,7 +22,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: process.env.PLAYWRIGHT_SCREENSHOT_MODE === 'on' ? 'on' : 'only-on-failure',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },

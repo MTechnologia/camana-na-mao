@@ -17,6 +17,10 @@ import {
 import { handleDeterministicServicesFlow } from "./lib-index-services-flow.ts";
 import { getMessageText, handlePreAiShortcuts } from "./lib-index-pre-ai-shortcuts.ts";
 import {
+  analyzeConversationTone,
+  buildConversationToneInstruction,
+} from "./lib-conversation-tone.ts";
+import {
   buildVersionedSystemPrompt,
   loadActiveAiConfigVersion,
   resolveEffectiveAiChatModel,
@@ -197,6 +201,10 @@ serve(async (req) => {
     const msgLower = lastUserMessage.toLowerCase().trim();
     const lastAssistantMessage = getMessageText(chatMessages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
+    const toneInstruction = buildConversationToneInstruction(analyzeConversationTone(lastUserMessage));
+    if (toneInstruction) {
+      dynamicSystemPrompt = `${dynamicSystemPrompt}\n\n${toneInstruction}`;
+    }
     const preAiShortcutResult = await handlePreAiShortcuts({
       accumulatedFields,
       chatMessages,

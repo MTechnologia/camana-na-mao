@@ -93,6 +93,32 @@
         { "role": "user", "content": "reclamacao" }
       ],
       "expect": { "report_nature": "reclamacao" }
+    },
+    {
+      "id": "transport_time_frustrated",
+      "journey": "transport_report",
+      "history": [
+        { "role": "user", "content": "o onibus atrasou de novo, ta um inferno" },
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:transport_report:{\"description\":\"ônibus atrasou de novo\",\"report_type\":\"atraso\"}][FIELD_REQUEST:occurrence_time]Qual horário?"
+        },
+        { "role": "user", "content": "foi 7h5 pelo amor" }
+      ],
+      "expect": { "occurrence_time": "07:05" }
+    },
+    {
+      "id": "urban_risk_low_literacy",
+      "journey": "urban_report",
+      "history": [
+        { "role": "user", "content": "tem fio caido na rua com risco de choque" },
+        {
+          "role": "assistant",
+          "content": "[COLLECTION_PROGRESS:urban_report:{}][FIELD_REQUEST:report_nature]É reclamação, sugestão ou elogio?"
+        },
+        { "role": "user", "content": "reclamacao" }
+      ],
+      "expect_keys_present": ["description", "report_nature"]
     }
   ]
 }

@@ -22,6 +22,10 @@
     { "id": "aff_ta_certo", "input": "ta certo", "expect": "affirmative" },
     { "id": "neg_nao_obrigado", "input": "nao obrigado", "expect": "negative" },
     { "id": "neg_esquece", "input": "esquece isso", "expect": "negative" },
-    { "id": "neg_para", "input": "para com isso", "expect": "negative" }
+    { "id": "neg_para", "input": "para com isso", "expect": "negative" },
+    { "id": "aff_sim_frustrado", "input": "sim, resolve isso logo", "expect": "affirmative" },
+    { "id": "aff_confirmo_irritado", "input": "confirmo essa porcaria", "expect": "affirmative" },
+    { "id": "neg_nao_frustrado", "input": "nao, deixa essa merda", "expect": "negative" },
+    { "id": "neg_errado_irritado", "input": "ta errado, pelo amor", "expect": "negative" }
   ]
 }
