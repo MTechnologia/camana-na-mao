@@ -7,7 +7,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 import { __test__ } from "./useUsageHeatmap";
 import type { HeatmapPoint } from "@/lib/reportsHeatmapData";
 
-const { mergePoints, startDateFromPeriod } = __test__;
+const { mergePoints, parseUsageHeatmapRpcPayload, startDateFromPeriod } = __test__;
 
 describe("startDateFromPeriod", () => {
   it("retorna ISO no passado de acordo com o período", () => {
@@ -74,5 +74,57 @@ describe("mergePoints", () => {
     expect(central?.weight).toBe(10); // 5+3+2
     const other = merged.find((p) => p.lat === -23.6);
     expect(other?.weight).toBe(1);
+  });
+});
+
+describe("parseUsageHeatmapRpcPayload", () => {
+  it("preserva pontos agregados e breakdown retornado pela RPC", () => {
+    const parsed = parseUsageHeatmapRpcPayload(
+      {
+        period: "30d",
+        start_at: "2026-05-01T00:00:00.000Z",
+        truncated: false,
+        points: [
+          { lat: -23.5505, lng: -46.6333, weight: 12 },
+          { lat: -23.4814, lng: -46.6308, weight: "3" },
+        ],
+        breakdown: {
+          urban: 2,
+          evaluation: "1",
+          visits: 4,
+          transport: "1",
+        },
+      },
+      "30d",
+    );
+
+    expect(parsed?.points).toHaveLength(2);
+    expect(parsed?.points[0].weight).toBe(12);
+    expect(parsed?.breakdown).toEqual({
+      urban: 2,
+      evaluation: 1,
+      visits: 4,
+      transport: 1,
+    });
+    expect(parsed?.truncated).toBe(false);
+  });
+
+  it("preenche breakdown zerado quando a RPC nao enviar a chave", () => {
+    const parsed = parseUsageHeatmapRpcPayload(
+      {
+        period: "7d",
+        start_at: "2026-05-20T00:00:00.000Z",
+        truncated: false,
+        points: [],
+      },
+      "7d",
+    );
+
+    expect(parsed?.breakdown).toEqual({
+      urban: 0,
+      evaluation: 0,
+      visits: 0,
+      transport: 0,
+    });
   });
 });
