@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
-import { DISTRICT_LABEL_FALLBACK, STREET_LABEL_FALLBACK } from '@/lib/reportsAnalyticsAggregates';
+import {
+  DISTRICT_FALLBACK_ID,
+  DISTRICT_LABEL_FALLBACK,
+  STREET_LABEL_FALLBACK,
+} from '@/lib/reportsAnalyticsAggregates';
 import {
   escapeForIlike,
   matchesTerritoryBar,
@@ -125,7 +129,8 @@ function applyTerritorialUrbanQuery<T extends {
   if (
     bar.filterKey !== 'street' &&
     districtName &&
-    districtName !== DISTRICT_LABEL_FALLBACK
+    districtName !== DISTRICT_LABEL_FALLBACK &&
+    districtName !== DISTRICT_FALLBACK_ID
   ) {
     const pattern = `%${escapeForIlike(districtName)}%`;
     q = q.or(`neighborhood.ilike.${pattern},location_address.ilike.${pattern}`);
@@ -197,6 +202,7 @@ async function fetchUrbanDrillRows(
             r.street,
             r.street_number,
             scope?.activeDistrict,
+            scope?.activeRegion,
           ),
     )
     .map(toUrbanRow);

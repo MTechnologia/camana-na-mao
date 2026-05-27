@@ -67,6 +67,7 @@ export type StreetBreakdownRow = {
 
 export const STREET_LABEL_FALLBACK = 'Sem logradouro definido';
 export const STREET_FALLBACK_ID = '__sem_logradouro__';
+export const DISTRICT_FALLBACK_ID = '__sem_bairro__';
 
 /** Contagem por zona canônica usando coords (prioridade) + texto de localização. */
 export function buildVolumeByZoneFromGeoRows(

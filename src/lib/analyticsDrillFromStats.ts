@@ -2,6 +2,7 @@ import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
 import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
 import {
   countRecurringThemesFromCategories,
+  DISTRICT_FALLBACK_ID,
   DISTRICT_LABEL_FALLBACK,
   districtVolumeFromBreakdown,
   STREET_FALLBACK_ID,
@@ -21,8 +22,6 @@ import type {
   RegionSentimentBreakdown,
   SentimentSlice,
 } from '@/types/analyticsDrill';
-
-const DISTRICT_FALLBACK_ID = '__sem_bairro__';
 
 const EMPTY_KPIS: DrillKpis = {
   volume: 0,
