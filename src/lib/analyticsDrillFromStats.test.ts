@@ -261,6 +261,34 @@ describe('analyticsDrillFromStats volume parity', () => {
     const kpis = buildDrillKpisFromStats(stats, 'street', 'north', 'Santana');
     expect(kpis.volume).toBe(4);
   });
+
+  it('drill de distrito usa a mesma base urbana do nível de logradouro', () => {
+    const stats = mockStats({
+      neighborhoodBreakdown: [{ neighborhood: 'Sem bairro definido', zone: 'Não informada', count: 83 }],
+      streetBreakdown: [
+        {
+          street: 'Sem logradouro definido',
+          neighborhood: 'Sem bairro definido',
+          zone: 'Não informada',
+          count: 3,
+        },
+      ],
+    });
+    const chart = buildChartSeriesFromStats(
+      stats,
+      'street',
+      'volume',
+      'unknown',
+      'Sem bairro definido',
+    );
+    expect(chart.find((b) => b.label === 'Sem logradouro definido')?.value).toBe(3);
+    const kpis = buildDrillKpisFromStats(stats, 'street', 'unknown', 'Sem bairro definido');
+    expect(kpis.volume).toBe(3);
+    expect(sumChartBarValues(chart)).toBe(3);
+
+    const districtChart = buildChartSeriesFromStats(stats, 'region', 'volume', 'unknown');
+    expect(districtChart.find((b) => b.label === 'Sem bairro definido')?.value).toBe(3);
+  });
 });
 
 describe('analyticsDrillFromStats response time (HU-2.2)', () => {

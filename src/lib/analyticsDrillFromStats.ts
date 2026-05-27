@@ -75,6 +75,22 @@ function districtRowsForZone(stats: ReportsAnalyticsStats, zoneLabel: string) {
     .map((r) => ({ neighborhood: r.region, zone: zoneLabel, count: r.count }));
 }
 
+function districtRowsFromStreetBreakdown(
+  stats: ReportsAnalyticsStats,
+  zoneLabel: string,
+): { neighborhood: string; zone: string; count: number }[] {
+  const byDistrict = new Map<string, number>();
+  for (const row of stats.streetBreakdown ?? []) {
+    if (row.zone !== zoneLabel) continue;
+    byDistrict.set(row.neighborhood, (byDistrict.get(row.neighborhood) ?? 0) + row.count);
+  }
+  return Array.from(byDistrict.entries()).map(([neighborhood, count]) => ({
+    neighborhood,
+    zone: zoneLabel,
+    count,
+  }));
+}
+
 function volumeKpiFromStats(
   stats: ReportsAnalyticsStats,
   grain: DrillGrain,
@@ -325,7 +341,10 @@ export function buildChartSeriesFromStats(
         .slice(0, 12);
     }
 
-    const rows = districtRowsForZone(stats, zoneLabel);
+    const streetDerivedRows = districtRowsFromStreetBreakdown(stats, zoneLabel);
+    const rows = streetDerivedRows.length > 0
+      ? streetDerivedRows
+      : districtRowsForZone(stats, zoneLabel);
     if (rows.length === 0 && zoneVolumeFromStats(stats, zoneLabel) > 0) {
       return [
         {
