@@ -37,7 +37,11 @@ export function WidgetKpiQuad({ widget }: { widget: PanelWidget }) {
   const items = [
     { label: 'Volume', value: formatChartNumber(kpis.volume), hint: 'relatos' },
     { label: 'Resposta média', value: `${kpis.responseHours}h`, hint: 'no período' },
-    { label: 'Sentimento +', value: `${kpis.sentimentPct}%`, hint: 'positivo' },
+    {
+      label: 'Sentimento +',
+      value: kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : '—',
+      hint: 'positivo',
+    },
     { label: 'Padrões', value: formatChartNumber(kpis.patterns), hint: 'temas ativos' },
   ];
   return (
@@ -64,7 +68,7 @@ export function WidgetKpiSingle({ widget }: { widget: PanelWidget }) {
   const valueMap: Record<AnalyticsMetric, string> = {
     volume: formatChartNumber(kpis.volume),
     response_time: `${kpis.responseHours} h`,
-    sentiment: `${kpis.sentimentPct}%`,
+    sentiment: kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : '—',
     patterns: formatChartNumber(kpis.patterns),
   };
   return (

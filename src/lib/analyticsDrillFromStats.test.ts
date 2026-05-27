@@ -90,15 +90,15 @@ const mockResponseTime = {
 } as const;
 
 describe('analyticsDrillFromStats volume parity', () => {
-  it('detecta relatos fora da distribuição por bairro', () => {
+  it('detecta relatos fora da distribuição por bairro (universo urbano)', () => {
     const stats = mockStats();
-    expect(unallocatedVolumeFromStats(stats)).toBe(11);
+    expect(unallocatedVolumeFromStats(stats)).toBe(5);
   });
 
-  it('KPI de volume no overview iguala o total de relatos', () => {
+  it('KPI de volume no overview usa o universo territorial urbano', () => {
     const stats = mockStats();
     const kpis = buildDrillKpisFromStats(stats, 'overview');
-    expect(kpis.volume).toBe(36);
+    expect(kpis.volume).toBe(30);
   });
 
   it('KPI de padrões conta temas recorrentes nas categorias do recorte', () => {
@@ -138,8 +138,24 @@ describe('analyticsDrillFromStats volume parity', () => {
         { zone: 'Não informada', count: 0 },
       ],
     });
-    expect(buildDrillKpisForRegionFilter(stats, 'all').volume).toBe(330);
+    expect(buildDrillKpisForRegionFilter(stats, 'all').volume).toBe(6);
     expect(buildDrillKpisForRegionFilter(stats, 'north').volume).toBe(4);
+  });
+
+  it('KPI de sentimento fica indisponível quando só há placeholder 50%', () => {
+    const stats = mockStats({
+      demographics: {
+        byGender: [],
+        byRace: [],
+        bySocialClass: [],
+        byAgeGroup: [],
+        byRegion: [
+          { region: 'Sé', count: 15, sentiment: 50 },
+          { region: 'Tatuapé', count: 5, sentiment: 50 },
+        ],
+      },
+    });
+    expect(buildDrillKpisFromStats(stats, 'overview').sentimentPct).toBeNull();
   });
 
   it('soma das barras de volume no overview iguala o KPI', () => {
@@ -181,9 +197,10 @@ describe('analyticsDrillFromStats volume parity', () => {
     expect(sumChartBarValues(chart)).toBe(10);
   });
 
-  it('volumeByZone incompleto aloca gap em Não informada para bater com o KPI', () => {
+  it('KPI de volume com volumeByZone iguala a soma das barras (sem inflar com RPC total)', () => {
     const stats = mockStats({
       total: 36,
+      urban: 30,
       volumeByZone: [
         { zone: 'Centro', count: 1 },
         { zone: 'Zona Norte', count: 1 },
@@ -195,8 +212,8 @@ describe('analyticsDrillFromStats volume parity', () => {
     });
     const kpis = buildDrillKpisFromStats(stats, 'overview');
     const chart = buildChartSeriesFromStats(stats, 'overview', 'volume');
-    expect(kpis.volume).toBe(36);
-    expect(chart.find((b) => b.label === 'Não informada')?.value).toBe(21);
+    expect(kpis.volume).toBe(28);
+    expect(chart.find((b) => b.label === 'Não informada')?.value).toBe(13);
     expect(sumChartBarValues(chart)).toBe(kpis.volume);
   });
 

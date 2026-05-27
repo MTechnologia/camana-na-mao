@@ -108,11 +108,18 @@ export function VolumeByRegionChart() {
         </div>
 
         {isSentiment ? (
-          <SentimentPolarityPiesGrid
-            items={sentimentPies}
-            selectedId={selectedBar?.id}
-            onItemClick={handleSentimentClick}
-          />
+          sentimentPies.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+              Sentimento agregado indisponível neste recorte. Os gráficos de polaridade exigem
+              classificação real por relato (ex.: IA em transporte); o painel não exibe estimativas.
+            </p>
+          ) : (
+            <SentimentPolarityPiesGrid
+              items={sentimentPies}
+              selectedId={selectedBar?.id}
+              onItemClick={handleSentimentClick}
+            />
+          )
         ) : (
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">

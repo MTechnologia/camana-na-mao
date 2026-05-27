@@ -21,7 +21,7 @@ import { formatTimelineDayLabel, patternRankFromAlerts } from '@/lib/reportsAnal
 const emptyKpis: DrillKpis = {
   volume: 0,
   responseHours: 0,
-  sentimentPct: 0,
+  sentimentPct: null,
   patterns: 0,
 };
 
@@ -34,13 +34,11 @@ export function buildAnalyticsChartBundle(
 ) {
   const kpis: DrillKpis = stats ? buildDrillKpisForRegionFilter(stats, region) : emptyKpis;
 
-  const resolvedRatio =
-    stats && stats.total > 0 ? stats.resolved / stats.total : 0;
   const volumeTimeSeries: TimeSeriesPoint[] = stats?.timeline?.length
     ? stats.timeline.map((p) => ({
         label: formatTimelineDayLabel(p.date),
         volume: p.total,
-        resolved: p.resolved ?? Math.round(p.total * resolvedRatio),
+        resolved: p.resolved ?? 0,
       }))
     : stats && stats.total > 0
       ? [

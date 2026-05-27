@@ -19,7 +19,8 @@ export type ChartBarPoint = {
 export type DrillKpis = {
   volume: number;
   responseHours: number;
-  sentimentPct: number;
+  /** null quando não há amostra real de sentimento no recorte (evita exibir 50% placeholder). */
+  sentimentPct: number | null;
   patterns: number;
 };
 

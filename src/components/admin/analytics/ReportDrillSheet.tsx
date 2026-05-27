@@ -56,6 +56,12 @@ export function ReportDrillSheet() {
             {!throughLoading && throughTotal > 0 ? (
               <p className="text-xs text-muted-foreground">
                 {throughTotal} {throughTotal === 1 ? 'relato' : 'relatos'} no período
+                {selectedBar.value > 0 && throughTotal !== Math.round(selectedBar.value) ? (
+                  <span className="block text-amber-700 dark:text-amber-400">
+                    Gráfico: {Math.round(selectedBar.value).toLocaleString('pt-BR')} · listados:{' '}
+                    {throughTotal.toLocaleString('pt-BR')}
+                  </span>
+                ) : null}
               </p>
             ) : null}
           </div>

@@ -33,7 +33,7 @@ export function formatKpiValue(metric: AnalyticsMetric, kpis: DrillKpis): string
     case 'response_time':
       return kpis.responseHours > 0 ? `${kpis.responseHours.toFixed(1)} h` : '—';
     case 'sentiment':
-      return kpis.sentimentPct > 0 ? `${kpis.sentimentPct}%` : '—';
+      return kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : '—';
     case 'patterns':
       return String(kpis.patterns);
   }
