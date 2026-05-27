@@ -20,7 +20,6 @@ import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
 import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
 import { SuspendUserDialog } from '@/components/admin/SuspendUserDialog';
 import { GabineteLinkDialog } from '@/components/admin/GabineteLinkDialog';
-import { PermissionGate } from '@/components/auth/PermissionGate';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +31,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
+import { usePermissions } from '@/hooks/usePermission';
 
 const roleColors: Record<string, string> = {
   admin: 'bg-red-500/10 text-red-500 border-red-500/20',
@@ -70,6 +70,18 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
   const [userForGabinete, setUserForGabinete] = useState<AdminUser | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { results: permissions, loading: permissionsLoading } = usePermissions([
+    'users.invite',
+    'users.update_role',
+    'users.link_gabinete',
+    'users.suspend',
+    'users.delete',
+  ]);
+  const canInviteUser = permissions['users.invite'];
+  const canUpdateRole = permissions['users.update_role'];
+  const canLinkGabinete = permissions['users.link_gabinete'];
+  const canSuspendUser = permissions['users.suspend'];
+  const canDeleteUser = permissions['users.delete'];
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
@@ -107,12 +119,12 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
               Gerencie o perfil e as permissões dos usuários do sistema
             </p>
           </div>
-          <PermissionGate permission="users.invite">
+          {canInviteUser && !permissionsLoading ? (
             <Button onClick={() => setInviteOpen(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Convidar usuário
             </Button>
-          </PermissionGate>
+          ) : null}
         </div>
 
         {/* Filters */}
@@ -199,7 +211,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                 header: 'Ações',
                 accessor: (user) => (
                   <div className="flex items-center gap-2">
-                    <PermissionGate permission="users.update_role">
+                    {canUpdateRole ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -207,7 +219,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                       >
                         Editar Perfil
                       </Button>
-                    </PermissionGate>
+                    ) : null}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -215,37 +227,38 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {(user.roles.includes('vereador') || user.roles.includes('assessor')) && (
-                          <PermissionGate permission="users.link_gabinete">
+                        {canLinkGabinete &&
+                          (user.roles.includes('vereador') || user.roles.includes('assessor')) && (
                             <DropdownMenuItem onClick={() => setUserForGabinete(user)}>
                               <Building className="h-4 w-4 mr-2" />
                               {user.council_member_id ? 'Editar gabinete' : 'Vincular a gabinete'}
                             </DropdownMenuItem>
-                          </PermissionGate>
                         )}
-                        <PermissionGate permission="users.suspend">
-                          {user.suspended_at ? (
-                            <DropdownMenuItem onClick={() => void handleReactivate(user)}>
-                              <ShieldCheck className="h-4 w-4 mr-2 text-green-600" />
-                              Reativar conta
+                        {canSuspendUser
+                          ? (user.suspended_at ? (
+                              <DropdownMenuItem onClick={() => void handleReactivate(user)}>
+                                <ShieldCheck className="h-4 w-4 mr-2 text-green-600" />
+                                Reativar conta
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => setUserToSuspend(user)}>
+                                <ShieldOff className="h-4 w-4 mr-2 text-destructive" />
+                                Suspender conta
+                              </DropdownMenuItem>
+                            ))
+                          : null}
+                        {canDeleteUser ? (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setUserToDelete(user)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => setUserToSuspend(user)}>
-                              <ShieldOff className="h-4 w-4 mr-2 text-destructive" />
-                              Suspender conta
-                            </DropdownMenuItem>
-                          )}
-                        </PermissionGate>
-                        <PermissionGate permission="users.delete">
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setUserToDelete(user)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </PermissionGate>
+                          </>
+                        ) : null}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -283,7 +296,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <PermissionGate permission="users.update_role">
+                  {canUpdateRole ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -292,15 +305,17 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                     >
                       Editar Perfil
                     </Button>
-                  </PermissionGate>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
-                    onClick={() => setUserToDelete(user)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  ) : null}
+                  {canDeleteUser ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
+                      onClick={() => setUserToDelete(user)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             )}
