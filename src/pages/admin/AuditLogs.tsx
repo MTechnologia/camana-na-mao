@@ -50,6 +50,7 @@ import {
   type AuditExportFilterState,
   type AuditRangePreset,
 } from "@/lib/auditExportFilters";
+import { ReportsListPagination } from "@/components/admin/reports/ReportsListPagination";
 
 /**
  * HU-12.2 — Trilha de auditoria com filtros completos.
@@ -80,6 +81,8 @@ interface AuditLogRow {
   created_at: string;
 }
 
+const AUDIT_LOGS_PAGE_SIZE = 25;
+
 function fmtDateTime(iso: string): string {
   try {
     return format(new Date(iso), "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
@@ -108,6 +111,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selected, setSelected] = useState<AuditLogRow | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   // HU-13.2 — Mede tempo de carga inicial da página (SLA 3s).
   usePerformanceMark("audit_logs_load", !isLoading);
@@ -170,6 +174,24 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
       return hay.includes(q);
     });
   }, [logs, searchTerm, actorById]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredLogs.length / AUDIT_LOGS_PAGE_SIZE)),
+    [filteredLogs.length],
+  );
+
+  const paginatedLogs = useMemo(() => {
+    const start = (page - 1) * AUDIT_LOGS_PAGE_SIZE;
+    return filteredLogs.slice(start, start + AUDIT_LOGS_PAGE_SIZE);
+  }, [filteredLogs, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, actionFilter, entityFilter, userFilter, rangePreset, customStart, customEnd]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const entityTypes = useMemo(
     () => Array.from(new Set(logs.map((log) => log.entity_type))).sort(),
@@ -328,7 +350,7 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLogs.map((log) => {
+                paginatedLogs.map((log) => {
                   const actor = log.user_id ? actorById.get(log.user_id) : null;
                   return (
                     <TableRow
@@ -364,10 +386,17 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               )}
             </TableBody>
           </Table>
+          <ReportsListPagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={filteredLogs.length}
+            pageSize={AUDIT_LOGS_PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          Exibindo {filteredLogs.length} de {logs.length} registros
+          Exibindo {filteredLogs.length} de {logs.length} registros filtrados
           {logs.length >= 500 && (
             <span> · Limite 500 — refine os filtros para ver mais.</span>
           )}

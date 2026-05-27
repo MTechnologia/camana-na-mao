@@ -45,6 +45,33 @@ import {
   type UrbanReportRow,
 } from '@/lib/reportsAnalyticsAggregates';
 
+function normalizeSeverityBucket(value: unknown): 'critical' | 'high' | 'medium' | 'low' | null {
+  const raw = String(value ?? '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!raw) return null;
+  if (raw === 'critical' || raw === 'critico' || raw === 'critica') return 'critical';
+  if (raw === 'high' || raw === 'alto' || raw === 'alta') return 'high';
+  if (raw === 'medium' || raw === 'medio' || raw === 'media') return 'medium';
+  if (raw === 'low' || raw === 'baixo' || raw === 'baixa') return 'low';
+  return null;
+}
+
+function sentimentToScore(value: unknown): number | null {
+  const raw = String(value ?? '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!raw) return null;
+  if (raw === 'positive' || raw === 'positivo') return 100;
+  if (raw === 'negative' || raw === 'negativo') return 0;
+  if (raw === 'neutral' || raw === 'neutro') return 50;
+  return null;
+}
+
 export interface ReportsAnalyticsFilters {
   startDate?: string;
   endDate?: string;
@@ -344,7 +371,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       const byRegion = (demographicsFromRpc?.neighborhood_distribution || [])
         .map((n: { neighborhood?: string; count?: number }) => ({
           region: n.neighborhood || 'Não especificado',
-          count: n.count,
+          count: Number(n.count) || 0,
           sentiment: 50,
         }));
 
@@ -361,8 +388,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         { status: 'Rejeitado', count: statusMap.get('rejected') || 0, color: 'hsl(var(--chart-5))' },
       ];
 
-      // Calcular severidade
-      const criticalScore = total > 0 ? (critical / total) * 100 : 0;
+      // Calcular severidade (ajustada depois com base nos relatos filtrados).
+      let criticalScore = total > 0 ? (critical / total) * 100 : 0;
       const bySeverity = [
         { severity: 'Crítico', count: critical, percentage: criticalScore, color: 'hsl(var(--chart-5))' },
         { severity: 'Alto', count: 0, percentage: 0, color: 'hsl(var(--chart-3))' },
@@ -372,6 +399,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
       // Relatos urbanos no recorte (timeline, engajamento e padrões)
       let urbanReports: Record<string, unknown>[] = [];
+      let urbanForTimeline: UrbanReportRow[] = [];
       let timeline: TimelineDataPoint[] = [];
       let patternAlerts: PatternAlert[] = patternsFromCategories(categories);
       let territoryPatterns: RegionPatternSummary[] = [];
@@ -422,7 +450,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           urbanReports = urbanData || [];
         }
 
-        const urbanForTimeline = filterUrbanReportsByRegion(
+        urbanForTimeline = filterUrbanReportsByRegion(
           urbanReports as UrbanReportRow[],
           filters.region,
         );
@@ -453,7 +481,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           let transportQuery = supabase
             .from('transport_reports')
             .select(
-              'id, location, stop_location, stop_name, sub_category, report_type, status, created_at, updated_at, responded_at',
+              'id, location, stop_location, stop_name, sub_category, report_type, status, created_at, updated_at, responded_at, ai_sentiment',
             )
             .order('created_at', { ascending: true })
             .limit(3000);
@@ -487,6 +515,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
               source: 'transporte',
               status: t.status as string,
               category: (t.sub_category as string) || (t.report_type as string),
+              ai_sentiment: (t.ai_sentiment as string) ?? null,
               reportType: t.report_type as string,
               created_at: t.created_at as string,
               updated_at: (t.updated_at as string) ?? null,
@@ -586,6 +615,28 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         }
         patternAlerts = patternsFromCategories(categories);
         territoryPatterns = buildTerritoryPatternSummaries(territoryFiltered);
+
+        // Usa `ai_sentiment` de transporte quando disponível para reduzir placeholder 50%.
+        const transportSentimentByRegion = new Map<string, { sum: number; n: number }>();
+        for (const row of territoryFiltered) {
+          if (row.source !== 'transporte') continue;
+          const score = sentimentToScore((row as { ai_sentiment?: unknown }).ai_sentiment);
+          if (score == null) continue;
+          const region = String(row.neighborhood ?? '').trim();
+          if (!region) continue;
+          const cur = transportSentimentByRegion.get(region) ?? { sum: 0, n: 0 };
+          cur.sum += score;
+          cur.n += 1;
+          transportSentimentByRegion.set(region, cur);
+        }
+        if (transportSentimentByRegion.size > 0) {
+          byRegion.forEach((regionRow) => {
+            const scored = transportSentimentByRegion.get(regionRow.region);
+            if (scored && scored.n > 0) {
+              regionRow.sentiment = Math.round(scored.sum / scored.n);
+            }
+          });
+        }
       } catch (err) {
         console.warn('Could not fetch urban reports timeline/patterns', err);
         patternAlerts = patternsFromCategories(categories);
@@ -628,12 +679,13 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         }
       }
 
-      const totalLikes = urbanReports.reduce((sum, r: Record<string, unknown>) => 
+      const engagementBaseTotal = urbanForTimeline.length;
+      const totalLikes = urbanForTimeline.reduce((sum, r: Record<string, unknown>) => 
         sum + ((r.urban_report_likes as { count?: number }[])?.[0]?.count || 0), 0);
-      const totalComments = urbanReports.reduce((sum, r: Record<string, unknown>) => 
+      const totalComments = urbanForTimeline.reduce((sum, r: Record<string, unknown>) => 
         sum + (r.urban_report_comments?.[0]?.count || 0), 0);
 
-      const topReports: TopReport[] = urbanReports
+      const topReports: TopReport[] = urbanForTimeline
         .map((report: Record<string, unknown>) => ({
           id: report.id,
           description: report.description || 'Sem descrição',
@@ -647,18 +699,57 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .sort((a, b) => b.likes - a.likes)
         .slice(0, 10);
 
-      const withInteraction = urbanReports.filter((r: Record<string, unknown>) => 
+      const withInteraction = urbanForTimeline.filter((r: Record<string, unknown>) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0 || (r.urban_report_comments?.[0]?.count || 0) > 0
       ).length;
-      const withLikes = urbanReports.filter((r: Record<string, unknown>) => 
+      const withLikes = urbanForTimeline.filter((r: Record<string, unknown>) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0
       ).length;
 
+      const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+      for (const row of urbanForTimeline) {
+        const bucket = normalizeSeverityBucket((row as { severity?: unknown }).severity);
+        if (!bucket) continue;
+        severityCounts[bucket] += 1;
+      }
+      const severityTotal = Object.values(severityCounts).reduce((s, n) => s + n, 0);
+      critical = severityCounts.critical;
+      criticalScore = severityTotal > 0 ? (severityCounts.critical / severityTotal) * 100 : 0;
+      bySeverity[0] = {
+        severity: 'Crítico',
+        count: severityCounts.critical,
+        percentage: severityTotal > 0 ? (severityCounts.critical / severityTotal) * 100 : 0,
+        color: 'hsl(var(--chart-5))',
+      };
+      bySeverity[1] = {
+        severity: 'Alto',
+        count: severityCounts.high,
+        percentage: severityTotal > 0 ? (severityCounts.high / severityTotal) * 100 : 0,
+        color: 'hsl(var(--chart-3))',
+      };
+      bySeverity[2] = {
+        severity: 'Médio',
+        count: severityCounts.medium,
+        percentage: severityTotal > 0 ? (severityCounts.medium / severityTotal) * 100 : 0,
+        color: 'hsl(var(--chart-2))',
+      };
+      bySeverity[3] = {
+        severity: 'Baixo',
+        count: severityCounts.low,
+        percentage: severityTotal > 0 ? (severityCounts.low / severityTotal) * 100 : 0,
+        color: 'hsl(var(--chart-1))',
+      };
+
+      const resolvedUrban = urbanForTimeline.reduce((sum, row) => {
+        const status = normalizeCitizenReportStatus((row as { status?: string }).status);
+        return sum + (status === 'resolved' ? 1 : 0);
+      }, 0);
+
       const conversionFunnel: FunnelStep[] = [
-        { label: 'Relatos Criados', count: total, percentage: 100, color: 'hsl(var(--chart-2))' },
-        { label: 'Com Interação', count: withInteraction, percentage: total > 0 ? (withInteraction / total) * 100 : 0, color: 'hsl(var(--chart-6))' },
-        { label: 'Apoiados', count: withLikes, percentage: total > 0 ? (withLikes / total) * 100 : 0, color: 'hsl(var(--chart-3))' },
-        { label: 'Resolvidos', count: resolved, percentage: total > 0 ? (resolved / total) * 100 : 0, color: 'hsl(var(--chart-1))' },
+        { label: 'Relatos Criados', count: engagementBaseTotal, percentage: engagementBaseTotal > 0 ? 100 : 0, color: 'hsl(var(--chart-2))' },
+        { label: 'Com Interação', count: withInteraction, percentage: engagementBaseTotal > 0 ? (withInteraction / engagementBaseTotal) * 100 : 0, color: 'hsl(var(--chart-6))' },
+        { label: 'Apoiados', count: withLikes, percentage: engagementBaseTotal > 0 ? (withLikes / engagementBaseTotal) * 100 : 0, color: 'hsl(var(--chart-3))' },
+        { label: 'Resolvidos', count: resolvedUrban, percentage: engagementBaseTotal > 0 ? (resolvedUrban / engagementBaseTotal) * 100 : 0, color: 'hsl(var(--chart-1))' },
       ];
 
       if (isMounted) {
@@ -692,8 +783,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           engagement: {
             totalLikes,
             totalComments,
-            avgLikesPerReport: total > 0 ? totalLikes / total : 0,
-            avgCommentsPerReport: total > 0 ? totalComments / total : 0,
+            avgLikesPerReport: engagementBaseTotal > 0 ? totalLikes / engagementBaseTotal : 0,
+            avgCommentsPerReport: engagementBaseTotal > 0 ? totalComments / engagementBaseTotal : 0,
             likesTrend: 0,
             commentsTrend: 0,
             topReports,

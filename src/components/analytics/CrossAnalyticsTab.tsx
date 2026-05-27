@@ -150,13 +150,19 @@ export function CrossAnalyticsTab({
 
   const handleCellClick = (
     rowLabel: string,
-    _colValue: string,
+    colValue: string,
     colLabel: string,
-    _count: number,
+    count: number,
   ) => {
-    // O DemographicHeatmap envia o "category" como o LABEL da linha. Para fazer
-    // o lookup, recuperamos o `value` original da matriz subjacente.
-    const rowEntry = matrix.rowValues.find((r) => r.label === rowLabel);
+    // O heatmap trabalha com labels; aqui resolvemos de volta para values
+    // sem assumir label único (pode haver colisão em dimensões diferentes).
+    const rowCandidates = matrix.rowValues.filter((r) => r.label === rowLabel);
+    const rowEntry =
+      rowCandidates.length <= 1
+        ? rowCandidates[0]
+        : rowCandidates.find(
+            (r) => (matrix.cells[`${r.value}|${colValue}`] || 0) === count,
+          ) ?? rowCandidates[0];
     const colEntry = matrix.colValues.find((c) => c.label === colLabel);
     if (!rowEntry || !colEntry) return;
     const cellReports = getReportsForCell(rowEntry.value, colEntry.value);

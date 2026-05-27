@@ -36,6 +36,15 @@ interface WidgetRendererProps {
   widget: WidgetConfig;
 }
 
+function pickStableIcon(seed: string) {
+  const icons = [TrendingUp, Users, AlertTriangle, MapPin];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return icons[hash % icons.length];
+}
+
 function EmptyChartMessage({ message }: { message: string }) {
   return (
     <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center">
@@ -102,8 +111,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
 
     switch (widget.type) {
       case 'kpi-card': {
-        const icons = [TrendingUp, Users, AlertTriangle, MapPin];
-        const IconComponent = icons[Math.floor(Math.random() * icons.length)];
+        const IconComponent = pickStableIcon(`${widget.id}:${widget.title}`);
         return (
           <KPICard
             title={widget.title}

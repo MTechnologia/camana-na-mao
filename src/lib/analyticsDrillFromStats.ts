@@ -41,7 +41,6 @@ export function territorialVolumeTotal(stats: ReportsAnalyticsStats): number {
 }
 
 function sentimentDataIsPlaceholder(stats: ReportsAnalyticsStats): boolean {
-  if (stats.volumeByZone?.length) return true;
   const rows = stats.demographics.byRegion;
   if (rows.length === 0) return true;
   return rows.every((r) => (r.sentiment ?? SENTIMENT_PLACEHOLDER_PCT) === SENTIMENT_PLACEHOLDER_PCT);
@@ -438,11 +437,26 @@ export function buildChartSeriesFromStats(
 
 function sentimentSlicesFromCounts(positive: number, neutral: number, negative: number): SentimentSlice[] {
   const total = positive + neutral + negative || 1;
-  return [
-    { id: 'positive', label: 'Positivo', value: Math.round((100 * positive) / total) },
-    { id: 'neutral', label: 'Neutro', value: Math.round((100 * neutral) / total) },
-    { id: 'negative', label: 'Negativo', value: Math.round((100 * negative) / total) },
+  const raw = [
+    { id: 'positive' as const, label: 'Positivo', exact: (100 * positive) / total },
+    { id: 'neutral' as const, label: 'Neutro', exact: (100 * neutral) / total },
+    { id: 'negative' as const, label: 'Negativo', exact: (100 * negative) / total },
   ];
+
+  const base = raw.map((s) => ({ ...s, value: Math.floor(s.exact), frac: s.exact - Math.floor(s.exact) }));
+  let remaining = 100 - base.reduce((acc, s) => acc + s.value, 0);
+
+  if (remaining > 0) {
+    const byFrac = [...base].sort((a, b) => b.frac - a.frac);
+    let idx = 0;
+    while (remaining > 0 && byFrac.length > 0) {
+      byFrac[idx % byFrac.length].value += 1;
+      remaining -= 1;
+      idx += 1;
+    }
+  }
+
+  return base.map((s) => ({ id: s.id, label: s.label, value: s.value }));
 }
 
 /** Polaridade por zona/bairro/categoria a partir dos agregados reais. */

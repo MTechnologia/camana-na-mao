@@ -62,19 +62,20 @@ function startDateFromPeriod(period: UsageHeatmapPeriod): string {
 async function fetchRpcPoints(
   rpcType: "urban" | "evaluation",
   period: UsageHeatmapPeriod,
-): Promise<HeatmapPoint[]> {
+): Promise<{ points: HeatmapPoint[]; truncated: boolean }> {
   const { data, error } = await supabase.rpc("get_reports_heatmap_data", {
     p_type: rpcType,
     p_period: period,
   });
   if (error) {
     console.warn(`[useUsageHeatmap] RPC ${rpcType} falhou`, error);
-    return [];
+    return { points: [], truncated: false };
   }
-  return parseHeatmapRpcPayload(data)?.points ?? [];
+  const parsed = parseHeatmapRpcPayload(data);
+  return { points: parsed?.points ?? [], truncated: parsed?.truncated === true };
 }
 
-async function fetchVisitsPoints(period: UsageHeatmapPeriod): Promise<HeatmapPoint[]> {
+async function fetchVisitsPoints(period: UsageHeatmapPeriod): Promise<{ points: HeatmapPoint[]; truncated: boolean }> {
   const startAt = startDateFromPeriod(period);
   const { data, error } = await supabase
     .from("service_visits")
@@ -83,7 +84,7 @@ async function fetchVisitsPoints(period: UsageHeatmapPeriod): Promise<HeatmapPoi
     .limit(5000);
   if (error) {
     console.warn("[useUsageHeatmap] visits falhou", error);
-    return [];
+    return { points: [], truncated: false };
   }
   // Agrega por arredondamento de coords (~50m)
   const cellMap = new Map<string, HeatmapPoint>();
@@ -99,10 +100,10 @@ async function fetchVisitsPoints(period: UsageHeatmapPeriod): Promise<HeatmapPoi
     slot.weight += 1;
     cellMap.set(key, slot);
   });
-  return Array.from(cellMap.values());
+  return { points: Array.from(cellMap.values()), truncated: (data ?? []).length >= 5000 };
 }
 
-async function fetchTransportPoints(period: UsageHeatmapPeriod): Promise<HeatmapPoint[]> {
+async function fetchTransportPoints(period: UsageHeatmapPeriod): Promise<{ points: HeatmapPoint[]; truncated: boolean }> {
   const startAt = startDateFromPeriod(period);
   const { data, error } = await supabase
     .from("transport_reports")
@@ -111,7 +112,7 @@ async function fetchTransportPoints(period: UsageHeatmapPeriod): Promise<Heatmap
     .limit(5000);
   if (error) {
     console.warn("[useUsageHeatmap] transport falhou", error);
-    return [];
+    return { points: [], truncated: false };
   }
   // Geocoding aproximado: bairro/local → zona → centroide
   const zoneCount = new Map<string, number>();
@@ -131,7 +132,7 @@ async function fetchTransportPoints(period: UsageHeatmapPeriod): Promise<Heatmap
     // Espalha levemente em torno do centroide pra não virar 1 ponto gigante visualmente
     points.push({ lat: c.lat, lng: c.lng, weight: count });
   });
-  return points;
+  return { points, truncated: (data ?? []).length >= 5000 };
 }
 
 /**
@@ -168,32 +169,38 @@ export function useUsageHeatmap(params: {
       const [urban, evaluation, visits, transport] = await Promise.all([
         want === "urban" || want === "all_usage" || want === "all_reports"
           ? fetchRpcPoints("urban", period)
-          : Promise.resolve([] as HeatmapPoint[]),
+          : Promise.resolve({ points: [], truncated: false }),
         want === "evaluation" || want === "all_usage" || want === "all_reports"
           ? fetchRpcPoints("evaluation", period)
-          : Promise.resolve([] as HeatmapPoint[]),
+          : Promise.resolve({ points: [], truncated: false }),
         want === "visits" || want === "all_usage"
           ? fetchVisitsPoints(period)
-          : Promise.resolve([] as HeatmapPoint[]),
+          : Promise.resolve({ points: [], truncated: false }),
         want === "transport" || want === "all_usage"
           ? fetchTransportPoints(period)
-          : Promise.resolve([] as HeatmapPoint[]),
+          : Promise.resolve({ points: [], truncated: false }),
       ]);
 
       const breakdown: UsageHeatmapBreakdown = {
-        urban: urban.length,
-        evaluation: evaluation.length,
-        visits: visits.length,
-        transport: transport.length,
+        urban: urban.points.length,
+        evaluation: evaluation.points.length,
+        visits: visits.points.length,
+        transport: transport.points.length,
       };
 
-      const points = mergePoints(urban, evaluation, visits, transport);
+      const points = mergePoints(
+        urban.points,
+        evaluation.points,
+        visits.points,
+        transport.points,
+      );
 
       setData({
         period,
         start_at: startDateFromPeriod(period),
         points,
-        truncated: points.length >= 5000,
+        truncated:
+          urban.truncated || evaluation.truncated || visits.truncated || transport.truncated,
         breakdown,
       });
     } catch (e) {

@@ -1,9 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { DemographicHeatmap, __test__ } from "./DemographicHeatmap";
 import type { CrossMatrix } from "@/hooks/useDemographicCrossAnalytics";
 
 const { intensity, cellBgClass } = __test__;
+
+afterEach(() => {
+  cleanup();
+});
 
 function buildMatrix(): CrossMatrix {
   return {

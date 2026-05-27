@@ -34,6 +34,7 @@ const MAX_PAGES = 5;
 
 export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
   const [zones, setZones] = useState<ZoneWaitTime[]>([]);
+  const [isTruncated, setIsTruncated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +44,7 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
     try {
       const startAt = startDateFromPeriod(params.period);
       const bucket = new Map<string, { sum: number; n: number }>();
+      let truncated = false;
 
       for (let page = 0; page < MAX_PAGES; page += 1) {
         let query = supabase
@@ -71,6 +73,7 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
           bucket.set(zone, cur);
         }
         if (rows.length < PAGE_SIZE) break;
+        if (page === MAX_PAGES - 1) truncated = true;
       }
 
       const next: ZoneWaitTime[] = [];
@@ -88,10 +91,12 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
       }
       next.sort((a, b) => b.avgWaitScore - a.avgWaitScore);
       setZones(next);
+      setIsTruncated(truncated);
     } catch (e) {
       console.error('[useWaitTimeByZone]', e);
       setError(e instanceof Error ? e.message : 'Erro ao carregar tempos de espera.');
       setZones([]);
+      setIsTruncated(false);
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +108,12 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
 
   const summary = useMemo(() => {
     if (zones.length === 0) {
-      return { totalRatings: 0, avgScore: 0, worstZone: null as ZoneWaitTime | null };
+      return {
+        totalRatings: 0,
+        avgScore: 0,
+        worstZone: null as ZoneWaitTime | null,
+        truncated: isTruncated,
+      };
     }
     const totalRatings = zones.reduce((s, z) => s + z.count, 0);
     const weighted = zones.reduce((s, z) => s + z.avgWaitScore * z.count, 0);
@@ -112,8 +122,9 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
       totalRatings,
       avgScore: totalRatings > 0 ? weighted / totalRatings : 0,
       worstZone,
+      truncated: isTruncated,
     };
-  }, [zones]);
+  }, [zones, isTruncated]);
 
   return { zones, summary, isLoading, error, refresh: fetchData };
 }
