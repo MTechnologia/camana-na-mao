@@ -112,6 +112,11 @@ export function WaitTimeHeatmapPanel() {
           <Badge style={{ backgroundColor: colorForWait(120), color: 'black' }}>Intermediária</Badge>
           <Badge style={{ backgroundColor: colorForWait(168), color: 'white' }}>Espera maior</Badge>
         </div>
+        {summary.truncated ? (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            Resultado parcial por limite de performance (até 5.000 avaliações no período).
+          </p>
+        ) : null}
       </Card>
     </div>
   );

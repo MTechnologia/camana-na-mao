@@ -114,6 +114,12 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
           <Badge style={{ backgroundColor: 'hsl(120,75%,45%)', color: 'white' }}>Baixa demanda</Badge>
           <Badge style={{ backgroundColor: 'hsl(0,75%,45%)', color: 'white' }}>Alta demanda</Badge>
         </div>
+        {summary.truncated ? (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            Amostra limitada para performance (até 5.000 registros por fonte e período).
+            Use filtros mais específicos para maior precisão.
+          </p>
+        ) : null}
       </Card>
 
       {zones.length > 0 && (

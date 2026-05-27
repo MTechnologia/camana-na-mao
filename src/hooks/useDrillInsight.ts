@@ -179,7 +179,8 @@ export const useDrillInsight = (baseFilters: ReportsAnalyticsFilters = {}) => {
       resolved: 0,
       pending: 0,
       topRegion: '',
-      trend: Math.round((Math.random() - 0.5) * 40),
+      // Evita tendência sintética; sem série temporal comparável, mantém neutro.
+      trend: 0,
     };
 
     const regionCounts: Record<string, number> = {};

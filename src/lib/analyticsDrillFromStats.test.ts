@@ -4,6 +4,7 @@ import {
   buildChartSeriesFromStats,
   buildDrillKpisForRegionFilter,
   buildDrillKpisFromStats,
+  buildSentimentPolarityFromStats,
   sumChartBarValues,
   unallocatedVolumeFromStats,
 } from '@/lib/analyticsDrillFromStats';
@@ -324,5 +325,24 @@ describe('analyticsDrillFromStats response time (HU-2.2)', () => {
     const chart = buildChartSeriesFromStats(stats, 'region', 'response_time', 'east');
     expect(chart.map((b) => b.label)).toEqual(expect.arrayContaining(['Tatuapé', 'Mooca']));
     expect(chart.find((b) => b.label === 'Tatuapé')?.value).toBe(20);
+  });
+});
+
+describe('analyticsDrillFromStats sentiment rounding', () => {
+  it('fatias de polaridade somam 100%', () => {
+    const stats = mockStats({
+      demographics: {
+        byGender: [],
+        byRace: [],
+        bySocialClass: [],
+        byAgeGroup: [],
+        byRegion: [{ region: 'Sé', count: 3, sentiment: 67 }],
+      },
+      volumeByZone: [],
+    });
+    const rows = buildSentimentPolarityFromStats(stats, 'overview');
+    const centro = rows.find((r) => r.label === 'Centro');
+    const total = (centro?.slices ?? []).reduce((acc, s) => acc + s.value, 0);
+    expect(total).toBe(100);
   });
 });

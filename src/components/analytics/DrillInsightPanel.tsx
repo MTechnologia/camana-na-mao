@@ -123,6 +123,11 @@ export const DrillInsightPanel = ({
                 <p className="text-sm text-muted-foreground mt-1">
                   {stats.total} relatos encontrados
                 </p>
+                {reports.length !== stats.total ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    Exibindo amostra de {reports.length} relatos para um total de {stats.total}.
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

@@ -110,6 +110,15 @@ export function UsageHeatmapPanel() {
                 ? ` Dados desde ${new Date(data.start_at).toLocaleString('pt-BR')}.`
                 : ''}
             </p>
+            <p className="text-xs text-muted-foreground">
+              Período do mapa segue o filtro global de tempo do dashboard.
+            </p>
+            {(typeFilter === 'transport' || typeFilter === 'all_usage') && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Transporte usa agregação por zona (centroide), então a densidade visual não equivale
+                a um ponto por relato individual.
+              </p>
+            )}
             {breakdown && (
               <div className="flex flex-wrap gap-2 text-xs">
                 <Badge variant="outline" title="Células com peso de relatos urbanos">

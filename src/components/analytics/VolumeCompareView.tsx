@@ -92,6 +92,10 @@ export function VolumeCompareView({
 }: VolumeCompareViewProps) {
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Esta comparação A vs B é um bloco dedicado de leitura temporal e não substitui os KPIs
+        principais do dashboard.
+      </p>
       {isLoading && totalsA.total === 0 && totalsB.total === 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
