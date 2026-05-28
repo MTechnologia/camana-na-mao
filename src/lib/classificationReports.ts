@@ -37,7 +37,6 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
 
 const CORRECTION_SOURCE_LABELS: Record<string, string> = {
   admin_panel: 'Painel admin',
-  n8n: 'N8N',
   manual: 'Manual',
 };
 
@@ -106,7 +105,7 @@ function mapVsRow(row: VsRow, meta: Map<string, ReportMeta>): ClassificationRepo
     confidencePct: null,
     feedbackLabel: row.category_match
       ? 'Categoria confirmada'
-      : `Corrigido (${CORRECTION_SOURCE_LABELS[row.correction_source ?? ''] ?? row.correction_source ?? '—'})`,
+      : `Corrigido (${CORRECTION_SOURCE_LABELS[row.correction_source ?? ''] ?? 'Outra origem'})`,
     createdAt: row.corrected_at
       ? new Date(row.corrected_at).toLocaleString('pt-BR')
       : row.predicted_at

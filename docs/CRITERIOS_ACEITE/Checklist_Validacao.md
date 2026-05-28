@@ -103,7 +103,7 @@ Este checklist deve ser executado antes de:
 - [ ] Portal CMSP funciona (notícias, agenda)
 - [ ] SP Legis funciona (vereadores)
 - [ ] Google Maps funciona (serviços próximos)
-- [ ] N8N funciona (notificações)
+- [ ] automacao funciona (notificações)
 - [ ] Tratamento de erros funciona
 - [ ] Timeouts são tratados
 

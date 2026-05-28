@@ -98,7 +98,7 @@ Mesmo conjunto em 3 arquivos:
 | `EscolaParlamento.tsx` | ✅ em lista de benefícios (6x) |
 | `CamaraExplica.tsx` | 💡 Ficou com dúvidas? |
 | `OfflineMode.tsx` | 💡 Dica |
-| `N8NIntegration.tsx` | 🟡 TESTE, 🟢 PRODUÇÃO, 💡 dica |
+| `automacaoIntegration.tsx` | 🟡 TESTE, 🟢 PRODUÇÃO, 💡 dica |
 | `AIInsightsCard.tsx` | 💡 Ação sugerida |
 | `DrillInsightPanel.tsx` | 🔍 📁 📅 📊 📋 😊 😞 😐 por contexto |
 
@@ -156,6 +156,6 @@ Retorno por tipo: 🔍 😊 😞 😐 📁 📅 📊 📋
 4. Substituir **interesses** (Onboarding, InterestsForm, InterestsStep).
 5. Substituir labels em **AudienciaFilters** e estados vazios (🔍/📍).
 6. Trocar **✓** por `<CheckIcon />` nos Inline* e mensagens de confirmação.
-7. Demais ocorrências pontuais (Privacy, Docs, N8N, DrillInsight, etc.).
+7. Demais ocorrências pontuais (Privacy, Docs, automacao, DrillInsight, etc.).
 
 Isso evita duplicar SVGs e mantém contraste e acessibilidade consistentes.

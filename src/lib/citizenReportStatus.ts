@@ -1,5 +1,5 @@
 /**
- * HU-5.5: status canônicos de protocolo para relatos urbanos e de transporte (paridade com admin / N8N).
+ * HU-5.5: status canônicos de protocolo para relatos urbanos e de transporte.
  */
 export const CITIZEN_REPORT_STATUS_VALUES = [
   "pending",

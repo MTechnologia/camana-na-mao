@@ -1,4 +1,4 @@
--- Feedback loop na classificação IA: correções (N8N, admin, usuário) melhoram o modelo
+-- Feedback loop na classificação IA: correções de admin/usuário melhoram o modelo
 -- Cada correção é armazenada e usada para classificar relatos futuros com descrição similar.
 
 CREATE TABLE IF NOT EXISTS public.report_classification_feedback (
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.report_classification_feedback (
   corrected_category TEXT NOT NULL,
   corrected_subcategory TEXT,
   description_excerpt TEXT NOT NULL,
-  source TEXT NOT NULL DEFAULT 'admin' CHECK (source IN ('admin', 'n8n', 'user')),
+  source TEXT NOT NULL DEFAULT 'admin' CHECK (source IN ('admin', 'user')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_report_classification_feedback_corrected_category
 
 ALTER TABLE public.report_classification_feedback ENABLE ROW LEVEL SECURITY;
 
--- Edge Functions (n8n-callback, ai-orchestrator) usam service_role e ignoram RLS
+-- Edge Functions usam service_role e ignoram RLS
 -- Logado: apenas admins/gestores podem ver e inserir feedback (ao corrigir categoria no painel)
 CREATE POLICY "Admins can view classification feedback"
   ON public.report_classification_feedback FOR SELECT

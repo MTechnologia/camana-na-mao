@@ -1,6 +1,6 @@
 /**
  * Rótulos em português para valores técnicos / enums gravados em inglês
- * (n8n, IA, colunas estruturadas) na ficha do relato.
+ * (IA, colunas estruturadas) na ficha do relato.
  */
 
 function normKey(s: string): string {
@@ -36,7 +36,7 @@ const ACTIVE_CONSEQUENCE_PT: Record<string, string> = {
   service_disruption: "Interrupção de serviço essencial",
 };
 
-/** Urgência / risco quando o campo veio só como token (ex.: n8n). Texto livre permanece como está. */
+/** Urgência / risco quando o campo veio só como token. Texto livre permanece como está. */
 const URGENCY_TOKEN_PT: Record<string, string> = {
   none: "Nenhuma",
   low: "Baixa",

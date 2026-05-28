@@ -12,7 +12,6 @@ import { MapPin, Send, Mic, MicOff, Camera, X, Image as ImageIcon } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProfile } from "@/hooks/useProfile";
 import { logManualClassificationPrediction } from "@/lib/classificationPredictionLog";
 import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
 
@@ -40,59 +39,11 @@ function normalizeManualCategory(raw: string): string {
   return raw;
 }
 
-// Buscar configurações de automação
-const getN8NSettings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('n8n_settings')
-      .select('webhook_url, secret_key, enabled_events')
-      .limit(1)
-      .single();
-    
-    if (error || !data) return null;
-    return data;
-  } catch {
-    return null;
-  }
-};
-
-// Enviar para processamento automático em background
-const sendToN8N = async (reportData: Record<string, unknown>) => {
-  try {
-    const settings = await getN8NSettings();
-    if (!settings || !settings.webhook_url) return;
-
-    // Verificar se o evento urban_report_created está habilitado
-    const events = (settings.enabled_events as Array<{ key?: string; enabled?: boolean }>) || [];
-    const isEnabled = events.find((e) => e.key === 'urban_report_created')?.enabled;
-    if (!isEnabled) return;
-
-    // Enviar para N8N via edge function
-    await supabase.functions.invoke('n8n-webhook', {
-      body: {
-        webhookUrl: settings.webhook_url,
-        secretKey: settings.secret_key,
-        payload: {
-          event: 'urban_report_created',
-          timestamp: new Date().toISOString(),
-          data: reportData
-        }
-      }
-    });
-    
-    console.log('✅ Relato enviado para processamento');
-  } catch (error) {
-    // Log silencioso - não bloquear o fluxo do usuário
-    console.error('⚠️ Erro ao enviar para processamento automático (não crítico):', error);
-  }
-};
-
 const DRAFT_KEY = 'cmsp_urban_report_draft';
 
 export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile } = useProfile();
   const MAX_PHOTOS = 3;
   const MAX_PHOTO_MB = 50;
   const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
@@ -299,7 +250,7 @@ export default function ManualReportPage() {
         category: formData.category,
         subcategory: formData.title,
         description: formData.description,
-        severity: null, // Será classificado pelo N8N
+        severity: null,
         location_address: formData.location || null,
         latitude: formData.latitude,
         longitude: formData.longitude,
@@ -327,19 +278,6 @@ export default function ManualReportPage() {
       sessionStorage.removeItem(DRAFT_KEY);
       
       toast.success("Relato enviado com sucesso!");
-
-      // Enviar para N8N em background (não-bloqueante)
-      sendToN8N({
-        id: insertedReport.id,
-        ...reportPayload,
-        created_at: insertedReport.created_at,
-        categoryLabel: categories.find(c => c.value === formData.category)?.label,
-        user: {
-          id: user.id,
-          name: profile?.full_name || 'Não informado',
-          email: user.email || 'Não informado'
-        }
-      });
 
       navigate("/relato-urbano/historico");
     } catch (error) {

@@ -426,7 +426,6 @@ export function useUrbanReportsManagement() {
       const formal = triagePriorityByReportId.get(m.id) ?? null;
       const triagePriority = effectiveReportTriagePriority(
         formal,
-        m.n8n_priority ?? null,
         m.severity ?? null,
       );
       return manifestToUrbanRecord(m, triagePriority);

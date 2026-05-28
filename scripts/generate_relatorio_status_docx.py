@@ -58,7 +58,7 @@ def add_roadmap_table(doc: Document) -> None:
         [
             "Mapeamento de Integrações",
             "Parcial (documentado + functions criadas)",
-            "docs/N8N_INTEGRATION_GUIDE.md; supabase/functions/*; docs/adr/0002-backend-baas-supabase.md; docs/ENVIRONMENT_VARIABLES.md",
+            "docs/automacao_INTEGRATION_GUIDE.md; supabase/functions/*; docs/adr/0002-backend-baas-supabase.md; docs/ENVIRONMENT_VARIABLES.md",
             "Completar um diagrama único (sistemas externos + dados + credenciais) e definir responsáveis por cada integração.",
         ],
         [
@@ -169,7 +169,7 @@ def main() -> None:
         doc,
         [
             "Supabase (BaaS): Auth, Postgres (RLS), Realtime, Edge Functions (docs/adr/0002-backend-baas-supabase.md).",
-            "N8N: integração via Edge Functions notify-n8n e n8n-callback + guia completo em docs/N8N_INTEGRATION_GUIDE.md.",
+            "automacao: integração via Edge Functions notify-automacao e automacao-callback + guia completo em docs/automacao_INTEGRATION_GUIDE.md.",
             "Google Places: Edge Functions google-places-autocomplete e google-places-details.",
             "Agenda/Notícias/Vereadores: Edge Functions fetch-agenda, fetch-noticias, fetch-vereadores.",
         ],

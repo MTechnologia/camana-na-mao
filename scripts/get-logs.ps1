@@ -3,7 +3,7 @@
 
 param(
     [Parameter(Position=0)]
-    [ValidateSet("supabase", "cloudrun", "vllm", "n8n", "audit", "all")]
+    [ValidateSet("supabase", "cloudrun", "vllm", "automacao", "audit", "all")]
     [string]$Tipo = "all",
     
     [Parameter()]
@@ -29,7 +29,7 @@ Tipos:
   supabase  - Logs do Supabase Edge Functions (ai-orchestrator)
   cloudrun  - Logs do GCP Cloud Run (frontend)
   vllm      - Logs do vLLM (VM GCP)
-  n8n       - Logs do n8n (Cloud Run)
+  automacao       - Logs do automacao (Cloud Run)
   audit     - Logs de auditoria (SQL)
   all       - Todos os logs (padrão)
 
@@ -133,12 +133,12 @@ function Get-VLLMLogs {
     Invoke-Expression $cmd
 }
 
-function Get-N8NLogs {
+function Get-automacaoLogs {
     param([int]$Limit, [switch]$Follow, [switch]$Errors, [string]$Grep)
     
-    Write-Host "`n📋 Logs do n8n (Cloud Run)`n" -ForegroundColor Cyan
+    Write-Host "`n📋 Logs do automacao (Cloud Run)`n" -ForegroundColor Cyan
     
-    $cmd = "gcloud run services logs read n8n --region southamerica-east1"
+    $cmd = "gcloud run services logs read automacao --region southamerica-east1"
     
     if ($Limit) {
         $cmd += " --limit $Limit"
@@ -202,8 +202,8 @@ switch ($Tipo) {
     "vllm" {
         Get-VLLMLogs -Limit $Limit -Follow:$Follow -Errors:$Errors -Grep $Grep
     }
-    "n8n" {
-        Get-N8NLogs -Limit $Limit -Follow:$Follow -Errors:$Errors -Grep $Grep
+    "automacao" {
+        Get-automacaoLogs -Limit $Limit -Follow:$Follow -Errors:$Errors -Grep $Grep
     }
     "audit" {
         Get-AuditLogs -Limit $Limit
@@ -214,7 +214,7 @@ switch ($Tipo) {
         Write-Host "`n" + ("=" * 80) + "`n"
         Get-CloudRunLogs -Limit $Limit -Errors:$Errors -Grep $Grep
         Write-Host "`n" + ("=" * 80) + "`n"
-        Get-N8NLogs -Limit $Limit -Errors:$Errors -Grep $Grep
+        Get-automacaoLogs -Limit $Limit -Errors:$Errors -Grep $Grep
     }
 }
 

@@ -509,7 +509,7 @@ O aplicativo é projetado seguindo diretrizes WCAG 2.1 nível AA:
 | Sistema de Geolocalização (GPS) | Coleta de location_point em relatos e detecção de proximidade |
 | Mapas Interativos | Visualização de serviços, rotas e mapas de calor |
 | Portal CMSP e SP Legis | Fonte de dados institucionais (vereadores, agenda, notícias) |
-| Webhooks (n8n) | Integração com sistemas externos e automações |
+| Webhooks (automacao) | Integração com sistemas externos e automações |
 | Análise de Sentimento | Processamento de comentários para classificação automática |
 | Embeddings Vetoriais | Busca semântica na base de conhecimento institucional |
 

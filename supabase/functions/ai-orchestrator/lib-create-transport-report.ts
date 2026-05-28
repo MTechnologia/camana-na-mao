@@ -382,11 +382,6 @@ export async function handleCreateTransportReport(
   }
   const protocolCode = protocolData || null;
 
-  const isTransportSafety = validReportType === "seguranca";
-  const isTransportCritical = inferredSeverity === "critica";
-  const isTransportHigh = inferredSeverity === "alta";
-  const initialTransportPriority = isTransportSafety || isTransportCritical ? "critica" : isTransportHigh ? "alta" : null;
-
   console.log("[create_transport_report] Attempting to insert report:", {
     userId,
     report_type: validReportType,
@@ -438,7 +433,6 @@ export async function handleCreateTransportReport(
       impact_description: argsState.impact_description || null,
       status: "pending",
       photos: photosArray,
-      n8n_priority: initialTransportPriority,
     })
     .select("id, protocol_code")
     .single();
@@ -487,19 +481,6 @@ export async function handleCreateTransportReport(
       personal_impact: personalImpactScore,
     },
   });
-
-  try {
-    await supabase.functions.invoke("notify-n8n", {
-      body: {
-        event_type: "transport_report.created",
-        entity_type: "transport_report",
-        entity_id: data.id,
-        payload: { ...argsState, user_id: userId },
-      },
-    });
-  } catch (n8nError) {
-    console.error("[executeTool] N8N notification failed:", n8nError);
-  }
 
   const successMessage = buildTransportSuccessMessage(
     data,

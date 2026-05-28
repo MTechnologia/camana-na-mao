@@ -9,7 +9,7 @@
 
 **Arquitetura Híbrida Recomendada:**
 - ✅ vLLM Self-hosted (GCP) - Chat em tempo real
-- ✅ n8n Cloud Run (GCP) - Processamento assíncrono  
+- ✅ automacao Cloud Run (GCP) - Processamento assíncrono
 - ✅ Embeddings Self-hosted (GCP) - Busca semântica
 - ✅ Provedor de IA configurável (vLLM / OpenAI-compatible)
 
@@ -27,7 +27,7 @@
 |------|--------------|
 | VM Chat (GPU) | R$ 1.200 |
 | VM Embeddings | R$ 200 |
-| n8n Cloud Run | R$ 300 |
+| automacao Cloud Run | R$ 300 |
 | Storage/Network | R$ 150 |
 | Fallback (opcional) | R$ 200-500 |
 | **TOTAL** | **R$ 2.050-2.350** |
@@ -79,14 +79,14 @@ Representações numéricas (vetores) que capturam o **significado** do texto.
 ## 🏗️ Slide 5: Arquitetura
 
 ```
-Usuário → Supabase → vLLM (Chat) + n8n (Workflow) + Embeddings (Busca)
+Usuário → Supabase → vLLM (Chat) + automacao (Workflow) + Embeddings (Busca)
                     ↓
               Resposta ao Usuário
 ```
 
 **Componentes:**
 - **vLLM**: Chat em tempo real (Llama 3.1 8B, 128K tokens)
-- **n8n**: Processamento assíncrono (auto-scaling)
+- **automacao**: Processamento assíncrono (auto-scaling)
 - **Embeddings**: Busca semântica (BAAI/bge-m3)
 
 **Tudo em `southamerica-east1` (Brasil - LGPD)**
@@ -123,7 +123,7 @@ Usuário → Supabase → vLLM (Chat) + n8n (Workflow) + Embeddings (Busca)
 3. **Recursos**: 1 DevOps + 1 Backend (part-time)
 
 **Status Atual:**
-- ✅ n8n: Deployado
+- ✅ automacao: Deployado
 - ✅ vLLM: Configurado
 - ⏳ Migração Llama 3.1 8B: Em andamento
 

@@ -227,7 +227,7 @@ flowchart TB
     subgraph Backend["⚙️ Backend"]
         API[NestJS API]
         Auth[Keycloak/Cognito]
-        N8N[N8N Workflow Engine]
+        automacao[automacao Workflow Engine]
     end
 
     subgraph IA["🧠 Camada de IA"]
@@ -260,7 +260,7 @@ flowchart TB
     API --> Auth
     API --> IA
     API --> Dados
-    API --> N8N
+    API --> automacao
     Infra --> Backend
     Observabilidade --> Backend
 ```
@@ -305,7 +305,7 @@ flowchart TB
 | **Latência**        | Streaming de respostas           |
 | **Compliance**      | Opção de processamento regional  |
 
-#### 4.2.5 Motor de Workflow: N8N (Self-hosted)
+#### 4.2.5 Motor de Workflow: automacao (Self-hosted)
 
 | Critério          | Justificativa                       |
 | ----------------- | ----------------------------------- |
@@ -351,7 +351,7 @@ flowchart TB
         GoogleMaps["🗺️ Google Maps Platform<br/>(Geocoding, Places, Directions)"]
         VertexAI["🧠 Google Vertex AI<br/>(Gemini LLM)"]
         FCM["📲 Firebase FCM<br/>(Push Notifications)"]
-        N8N["⚡ N8N Workflow<br/>(Automação de Processos)"]
+        automacao["⚡ automacao Workflow<br/>(Automação de Processos)"]
     end
 
     Cidadao --> App
@@ -363,7 +363,7 @@ flowchart TB
     App --> GoogleMaps
     App --> VertexAI
     App --> FCM
-    App --> N8N
+    App --> automacao
 ```
 
 ### 5.2 Diagrama de Containers (Nível 2)
@@ -445,7 +445,7 @@ flowchart TB
                 WorkerPods["Worker Pods<br/>(2-5 réplicas)"]
                 CronPods["Cron Jobs<br/>(Sync Dados)"]
             end
-            N8NInstance["N8N Instance<br/>(EC2/ECS)"]
+            automacaoInstance["automacao Instance<br/>(EC2/ECS)"]
         end
 
         subgraph DataSubnet["Subnet Privada - Dados"]
@@ -477,7 +477,7 @@ flowchart TB
     CronPods --> RDS
 
     EKS --> NAT
-    N8NInstance --> NAT
+    automacaoInstance --> NAT
     NAT --> Internet
 
     EKS --> CloudWatch
@@ -497,7 +497,7 @@ sequenceDiagram
     participant AI as AI Service
     participant Gemini as Vertex AI
     participant DB as PostgreSQL
-    participant N8N as N8N Workflow
+    participant automacao as automacao Workflow
     participant FCM as Firebase
 
     C->>App: "Tem um buraco na rua X"
@@ -520,14 +520,14 @@ sequenceDiagram
     Gemini-->>AI: Dados suficientes
     AI->>DB: INSERT urban_reports
     DB-->>AI: Protocolo URB-2024-000123
-    AI->>N8N: Webhook (triagem)
-    N8N-->>AI: Callback (prioridade: alta)
-    AI->>DB: UPDATE report (n8n_priority)
+    AI->>automacao: Webhook (triagem)
+    automacao-->>AI: Callback (prioridade: alta)
+    AI->>DB: UPDATE report (automacao_priority)
     AI-->>API: Confirmação + Protocolo
     API-->>App: Stream SSE
     App-->>C: "Relato registrado! Protocolo: URB-2024-000123"
 
-    N8N->>FCM: Notificar gestor
+    automacao->>FCM: Notificar gestor
     FCM->>Gestor: Push notification
 ```
 
@@ -1218,7 +1218,7 @@ Avaliação de um serviço público visitado.
 6. Cidadão descreve o problema detalhadamente
 7. Assistente faz perguntas de impacto (para categorias de risco)
 8. Sistema registra relato com protocolo
-9. Sistema envia para triagem via N8N
+9. Sistema envia para triagem via automacao
 10. Cidadão recebe confirmação com protocolo
 
 **Fluxos Alternativos:**
@@ -1308,7 +1308,7 @@ flowchart TB
         Configuracoes["Configurações"]
         Integracoes["Integrações"]
         Logs["Logs de Auditoria"]
-        N8NConfig["Configurar N8N"]
+        automacaoConfig["Configurar automacao"]
     end
 
     Welcome --> Login
@@ -1741,8 +1741,8 @@ flowchart TB
 
     Submit["Registra relato"] --> Protocol["Gera protocolo"]
     Protocol --> Notify["Notifica cidadão"]
-    Notify --> N8N["Envia para triagem"]
-    N8N --> Dashboard["Aparece no dashboard"]
+    Notify --> automacao["Envia para triagem"]
+    automacao --> Dashboard["Aparece no dashboard"]
 ```
 
 **Descrição Detalhada:**
@@ -2375,7 +2375,7 @@ flowchart TB
 ```mermaid
 stateDiagram-v2
     [*] --> Registrado: Cidadão submete
-    Registrado --> EmTriagem: N8N processa
+    Registrado --> EmTriagem: automacao processa
     EmTriagem --> EmAnalise: Gestor assume
     EmTriagem --> Duplicado: Duplicata detectada
     EmAnalise --> EmAtendimento: Ação iniciada
@@ -2389,7 +2389,7 @@ stateDiagram-v2
 
     note right of Registrado
         Protocolo gerado
-        N8N notificado
+        automacao notificado
     end note
 
     note right of EmTriagem
@@ -2501,9 +2501,9 @@ stateDiagram-v2
 | Google Maps     | On-demand | REST      | Por requisição |
 | Google Places   | On-demand | REST      | Por requisição |
 | Firebase FCM    | Push      | REST      | Por evento     |
-| N8N             | Webhook   | REST      | Por evento     |
+| automacao             | Webhook   | REST      | Por evento     |
 
-### 17.2 Fluxo: Processamento de Manifestação via N8N
+### 17.2 Fluxo: Processamento de Manifestação via automacao
 
 ```mermaid
 sequenceDiagram
@@ -2511,26 +2511,26 @@ sequenceDiagram
     participant App as 📱 App
     participant API as ⚙️ Backend API
     participant DB as 💾 PostgreSQL
-    participant N8N as ⚡ N8N Workflow
+    participant automacao as ⚡ automacao Workflow
     participant Gestor as 👔 Dashboard Gestor
 
     App->>API: POST /manifestacoes
     API->>DB: INSERT manifestacao
     DB-->>API: ID + Protocolo
-    API->>N8N: POST /webhook/nova-manifestacao
-    Note over N8N: Processa:<br/>1. Valida categoria<br/>2. Define prioridade<br/>3. Extrai entidades<br/>4. Verifica duplicatas
-    N8N->>API: POST /callback/n8n
-    API->>DB: UPDATE manifestacao (n8n_data)
+    API->>automacao: POST /webhook/nova-manifestacao
+    Note over automacao: Processa:<br/>1. Valida categoria<br/>2. Define prioridade<br/>3. Extrai entidades<br/>4. Verifica duplicatas
+    automacao->>API: POST /callback/automacao
+    API->>DB: UPDATE manifestacao (automacao_data)
     API-->>App: 200 OK + Protocolo
 
     alt Prioridade Alta
-        N8N->>Gestor: Notificação push
+        automacao->>Gestor: Notificação push
     end
 
     Gestor->>API: GET /manifestacoes
     API->>DB: SELECT (com filtros)
     DB-->>API: Lista de manifestações
-    API-->>Gestor: Manifestações com dados N8N
+    API-->>Gestor: Manifestações com dados automacao
 ```
 
 ### 17.3 Fluxo: Busca de Serviços Próximos
@@ -2635,7 +2635,7 @@ sequenceDiagram
 | **API de IA lenta**        | Médio   | Timeout 10s      | Streaming parcial         | Retry com backoff          |
 | **API de IA indisponível** | Alto    | Healthcheck      | Mensagem de manutenção    | Fallback para fluxo manual |
 | **Banco de dados lento**   | Alto    | Latência > 2s    | Query timeout             | Read replica               |
-| **N8N offline**            | Baixo   | Healthcheck      | Fila de eventos           | Reprocessamento            |
+| **automacao offline**            | Baixo   | Healthcheck      | Fila de eventos           | Reprocessamento            |
 | **Google Maps quota**      | Médio   | HTTP 429         | Cache agressivo           | Usar dados cacheados       |
 | **FCM indisponível**       | Baixo   | Erro de envio    | Retry exponencial         | Email fallback             |
 
@@ -2755,7 +2755,7 @@ flowchart TB
 }
 ```
 
-### 19.5 Payload do Webhook N8N
+### 19.5 Payload do Webhook automacao
 
 ```json
 {
@@ -2778,7 +2778,7 @@ flowchart TB
       "nome": "Maria Silva"
     }
   },
-  "callback_url": "https://api.camaranamao.sp.gov.br/webhooks/n8n/callback"
+  "callback_url": "https://api.camaranamao.sp.gov.br/webhooks/automacao/callback"
 }
 ```
 
@@ -2813,7 +2813,7 @@ flowchart TB
 | Módulo               | Integrações Externas             |
 | -------------------- | -------------------------------- |
 | Assistente IA        | Vertex AI (Gemini), RAG Pipeline |
-| Manifestações        | N8N Workflow                     |
+| Manifestações        | automacao Workflow                     |
 | Mapa de Serviços     | Google Maps, Google Places       |
 | Audiências           | Portal CMSP (RSS)                |
 | Vereadores/Comissões | SP Legis API                     |
@@ -2929,7 +2929,7 @@ flowchart TB
 | **JWT**            | JSON Web Token - Token de autenticação                              |
 | **LGPD**           | Lei Geral de Proteção de Dados                                      |
 | **Manifestação**   | Registro de cidadão (relato, avaliação, sugestão)                   |
-| **N8N**            | Ferramenta de automação de workflows                                |
+| **automacao**            | Ferramenta de automação de workflows                                |
 | **NPS**            | Net Promoter Score - Métrica de satisfação                          |
 | **OAuth2**         | Protocolo de autorização                                            |
 | **OIDC**           | OpenID Connect - Protocolo de autenticação                          |

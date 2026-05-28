@@ -12,7 +12,7 @@
 2. [SP Legis](#2-sp-legis)
 3. [Audiências Públicas](#3-audiências-públicas)
 4. [Google Maps Places API](#4-google-maps-places-api)
-5. [N8N Workflows](#5-n8n-workflows)
+5. [automacao Workflows](#5-automacao-workflows)
 6. [Knowledge Base (RAG)](#6-knowledge-base-rag)
 
 ---
@@ -251,48 +251,48 @@
 
 ---
 
-## 5. N8N Workflows
+## 5. automacao Workflows
 
 ### 5.1 Notificação de Relatos
 
-**Descrição:** Sistema notifica N8N sobre novos relatos
+**Descrição:** Sistema notifica automacao sobre novos relatos
 
 **Critérios:**
-- ✅ Edge Function `notify-n8n` funciona
+- ✅ Edge Function `notify-automacao` funciona
 - ✅ Notifica quando relato é criado
 - ✅ Payload contém dados completos
 - ✅ Tratamento de erro funciona
 - ✅ Retry funciona (se configurado)
-- ✅ Webhook do N8N recebe dados
+- ✅ Webhook do automacao recebe dados
 
 **Como Validar:**
 1. Criar relato urbano
-2. Verificar logs da função `notify-n8n`
-3. Verificar que N8N recebeu dados
+2. Verificar logs da função `notify-automacao`
+3. Verificar que automacao recebeu dados
 4. Simular erro → verificar tratamento
 
 **Evidências:**
 - Logs da Edge Function
-- Logs do N8N
-- Arquivo: `supabase/functions/notify-n8n/index.ts`
+- Logs do automacao
+- Arquivo: `supabase/functions/notify-automacao/index.ts`
 
 **Status:** ✅ Aprovado
 
 ---
 
-### 5.2 Callback do N8N
+### 5.2 Callback do automacao
 
-**Descrição:** N8N pode fazer callback para atualizar status
+**Descrição:** automacao pode fazer callback para atualizar status
 
 **Critérios:**
-- ✅ Edge Function `n8n-callback` funciona
+- ✅ Edge Function `automacao-callback` funciona
 - ✅ Recebe atualizações de status
 - ✅ Atualiza relato no banco
 - ✅ Validação de dados funciona
 - ✅ Autenticação funciona (se configurada)
 
 **Como Validar:**
-1. Simular callback do N8N
+1. Simular callback do automacao
 2. Verificar que status é atualizado
 3. Verificar validações
 4. Testar com dados inválidos → deve tratar erro
@@ -300,7 +300,7 @@
 **Evidências:**
 - Logs da Edge Function
 - Query SQL verificando atualização
-- Arquivo: `supabase/functions/n8n-callback/index.ts`
+- Arquivo: `supabase/functions/automacao-callback/index.ts`
 
 **Status:** ✅ Aprovado
 
@@ -368,7 +368,7 @@
 | SP Legis | 2 | ✅ |
 | Audiências | 2 | ✅ |
 | Google Maps | 2 | ✅ |
-| N8N | 2 | ✅ |
+| automacao | 2 | ✅ |
 | Knowledge Base | 2 | ✅ |
 | **TOTAL** | **12** | **✅ 100%** |
 

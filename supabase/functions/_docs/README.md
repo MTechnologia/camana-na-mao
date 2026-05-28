@@ -19,7 +19,6 @@ HU-13.3 — Documentação das funções serverless do projeto Câmara na Mão.
 | `fetch-audiencias` | Cron | Cloud Scheduler | X-Cron-Secret |
 | `send-notification` | Worker | RPC trigger | service_role |
 | `send-web-push` | Worker | Chamado internamente | service_role |
-| `n8n-webhook` | API | n8n / integrações | apikey |
 | `delete-user` | API | Browser | JWT admin |
 | `delete-own-account` | API | Browser | JWT do próprio user |
 

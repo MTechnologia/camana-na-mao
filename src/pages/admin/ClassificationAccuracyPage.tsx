@@ -22,7 +22,7 @@ export function ClassificationAccuracyPage() {
     useClassificationAccuracyMetrics();
 
   return (
-    <PageShell title="Acurácia da classificação" description="Predições da IA comparadas com correções no painel ou N8N.">
+    <PageShell title="Acurácia da classificação" description="Predições da IA comparadas com correções no painel.">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -31,8 +31,8 @@ export function ClassificationAccuracyPage() {
               Acurácia da classificação (IA)
             </h1>
             <p className="text-muted-foreground mt-1 max-w-2xl">
-              Predições registradas no envio do relato comparadas com correções feitas no painel ou pelo
-              N8N. Relatos ainda não corrigidos não entram na taxa de acerto.
+              Predições registradas no envio do relato comparadas com correções feitas no painel.
+              Relatos ainda não corrigidos não entram na taxa de acerto.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
@@ -123,7 +123,7 @@ export function ClassificationAccuracyPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground">
-                  Passaram por ajuste de categoria no admin ou N8N
+                  Passaram por ajuste de categoria no admin
                 </CardContent>
               </Card>
               <Card>

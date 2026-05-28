@@ -106,9 +106,6 @@ const URBAN_FIELDS: Record<string, FieldMeta> = {
   user_id: { id: "user_id", dbColumn: "user_id", label: "ID do usuário" },
   active_consequences: { id: "active_consequences", dbColumn: "active_consequences", label: "Consequências ativas" },
   risk_types: { id: "risk_types", dbColumn: "risk_types", label: "Tipos de risco" },
-  n8n_priority: { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade" },
-  n8n_tags: { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags" },
-  n8n_validated_category: { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada" },
 };
 
 const TRANSPORT_FIELDS: Record<string, FieldMeta> = {
@@ -138,9 +135,6 @@ const TRANSPORT_FIELDS: Record<string, FieldMeta> = {
   ai_category: { id: "ai_category", dbColumn: "ai_category", label: "Categoria (IA)" },
   ai_sentiment: { id: "ai_sentiment", dbColumn: "ai_sentiment", label: "Sentimento (IA)" },
   ai_pattern_detected: { id: "ai_pattern_detected", dbColumn: "ai_pattern_detected", label: "Padrão detectado (IA)" },
-  n8n_priority: { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade" },
-  n8n_tags: { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags" },
-  n8n_validated_category: { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada" },
 };
 
 const FIELDS_BY_DATASET: Record<string, Record<string, FieldMeta>> = {

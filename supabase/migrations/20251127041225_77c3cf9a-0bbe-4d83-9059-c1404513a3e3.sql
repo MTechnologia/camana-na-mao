@@ -8,33 +8,6 @@ CREATE POLICY "Admins can delete any transport report"
 ON transport_reports FOR DELETE
 USING (public.has_role(auth.uid(), 'admin'::app_role));
 
--- FASE 1: Criar tabela para configurações N8N
-CREATE TABLE n8n_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  webhook_url TEXT NOT NULL,
-  secret_key TEXT,
-  is_connected BOOLEAN DEFAULT false,
-  enabled_events JSONB DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Enable RLS
-ALTER TABLE n8n_settings ENABLE ROW LEVEL SECURITY;
-
--- Admins can manage N8N settings
-CREATE POLICY "Admins can manage N8N settings"
-ON n8n_settings FOR ALL
-USING (public.has_role(auth.uid(), 'admin'::app_role))
-WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
-
--- Trigger para updated_at
-CREATE TRIGGER update_n8n_settings_updated_at
-  BEFORE UPDATE ON n8n_settings
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
-
 -- FASE 4: Criar tabela para configurações do sistema
 CREATE TABLE system_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
