@@ -22,7 +22,7 @@
 
 | Tipo unificado | Fonte | Dados captados/exibidos |
 |---|---|---|
-| `urban` | `urban_reports` com `category != feedback_camara` | `id`, `category`, `subcategory`, `description`, `severity`, `status`, `created_at`, `updated_at`, endereco/localizacao, `neighborhood`, `user_id`, `protocol_code`. No detalhe completo ha fotos, rua, numero, CEP, ponto de referencia, risco, impacto, classificacao IA e dados N8N. |
+| `urban` | `urban_reports` com `category != feedback_camara` | `id`, `category`, `subcategory`, `description`, `severity`, `status`, `created_at`, `updated_at`, endereco/localizacao, `neighborhood`, `user_id`, `protocol_code`. No detalhe completo ha fotos, rua, numero, CEP, ponto de referencia, risco, impacto, classificacao IA e dados automacao. |
 | `transport` | `transport_reports` | `report_type`, `description`, `severity`, `status`, `location`, linha, data/hora da ocorrencia, protocolo, resposta, sentimento/categoria IA, padrao detectado, frequencia, impacto, acessibilidade e fotos no detalhe global. |
 | `evaluation` | `service_ratings` + `public_services` | `rating_stars`, `rating_text`, `sentiment`, `service_id`, nome/tipo de servico, `publication_status`, anonimato. O status operacional e normalizado como `completed`; nao participa da triagem HU-10. |
 | `feedback` | `urban_reports` com `category = feedback_camara` | Usa a mesma tabela de relatos urbanos, mas como tipo separado. Em geral nao carrega regiao, fotos ou campos territoriais na lista. |

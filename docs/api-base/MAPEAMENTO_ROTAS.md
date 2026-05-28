@@ -175,8 +175,8 @@
 | `/admin/audit-logs` | `AuditLogs` | Logs de auditoria | ✅ | **Apenas Admin** |
 | `/admin/reports` | `ReportsManagement` | Gerenciar relatos | ✅ | Gestor, Admin |
 | `/admin/referrals` | `ReferralsManagement` | Gerenciar encaminhamentos | ✅ | Gestor, Admin |
-| `/admin/settings/n8n` | `N8NIntegration` | Integração N8N | ✅ | **Apenas Admin** |
-| `/admin/settings/n8n-monitoring` | `N8NMonitoring` | Monitoramento N8N | ✅ | **Apenas Admin** |
+| `/admin/settings/automacao` | `automacaoIntegration` | Integração automacao | ✅ | **Apenas Admin** |
+| `/admin/settings/automacao-monitoring` | `automacaoMonitoring` | Monitoramento automacao | ✅ | **Apenas Admin** |
 | `/admin/settings/accessibility` | `AccessibilitySettings` | Configurações de acessibilidade | ✅ | **Apenas Admin** |
 
 **Redirects (rotas removidas):**
@@ -222,8 +222,8 @@
 | `api-router` | `/functions/v1/api-router` | GET | Health check do router | ✅ |
 | `api-router` | `/functions/v1/api-router/vereadores` | GET | Lista de vereadores (RESTful) | ✅ |
 | `api-router` | `/functions/v1/api-router/vereadores/:id` | GET | Detalhes de vereador (RESTful) | ✅ |
-| `n8n-webhook` | `/functions/v1/n8n-webhook` | POST | Webhook N8N | ✅ |
-| `n8n-callback` | `/functions/v1/n8n-callback` | POST | Callback N8N | ✅ |
+| `automacao-webhook` | `/functions/v1/automacao-webhook` | POST | Webhook automacao | ✅ |
+| `automacao-callback` | `/functions/v1/automacao-callback` | POST | Callback automacao | ✅ |
 
 ### 🔒 Protegidas (Requerem JWT)
 
@@ -236,7 +236,7 @@
 | `send-notification` | `/functions/v1/send-notification` | POST | Envio de notificações | ✅ |
 | `generate-embeddings` | `/functions/v1/generate-embeddings` | POST | Geração de embeddings | ✅ |
 | `populate-knowledge-base` | `/functions/v1/populate-knowledge-base` | POST | População de base de conhecimento | ✅ |
-| `notify-n8n` | `/functions/v1/notify-n8n` | POST | Notificação N8N | ✅ |
+| `notify-automacao` | `/functions/v1/notify-automacao` | POST | Notificação automacao | ✅ |
 | `delete-user` | `/functions/v1/delete-user` | POST | Exclusão de usuário | ✅ |
 
 ---
@@ -365,10 +365,10 @@
 
 **Distribuição por categoria:**
 - 🌍 Públicas (Dados): 5 funções (fetch-vereadores, fetch-noticias, fetch-agenda, google-places-*)
-- 🔧 Infraestrutura: 3 funções (api-router, n8n-webhook, n8n-callback)
+- 🔧 Infraestrutura: 3 funções (api-router, automacao-webhook, automacao-callback)
 - 🤖 IA/ML: 3 funções (ai-orchestrator, analyze-sentiment, recommend-services)
 - 📊 Analytics: 2 funções (suggest-council-members, generate-embeddings)
-- 🔔 Notificações: 2 funções (send-notification, notify-n8n)
+- 🔔 Notificações: 2 funções (send-notification, notify-automacao)
 - 🗄️ Dados: 2 funções (populate-knowledge-base, delete-user)
 
 ### API REST

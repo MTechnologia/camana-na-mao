@@ -87,9 +87,6 @@ const URBAN_FIELDS: readonly ExportField[] = [
   { id: "user_id", dbColumn: "user_id", label: "ID do usuário", group: "Avançado", kind: "uuid", inBasicPreset: false, restrictedToRoles: ["admin"] },
   { id: "active_consequences", dbColumn: "active_consequences", label: "Consequências ativas", group: "Avançado", kind: "array", inBasicPreset: false },
   { id: "risk_types", dbColumn: "risk_types", label: "Tipos de risco", group: "Avançado", kind: "array", inBasicPreset: false },
-  { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade", group: "Avançado", kind: "text", inBasicPreset: false },
-  { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags", group: "Avançado", kind: "array", inBasicPreset: false },
-  { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada", group: "Avançado", kind: "text", inBasicPreset: false },
 ];
 
 const TRANSPORT_FIELDS: readonly ExportField[] = [
@@ -125,9 +122,6 @@ const TRANSPORT_FIELDS: readonly ExportField[] = [
   { id: "ai_category", dbColumn: "ai_category", label: "Categoria (IA)", group: "Avançado", kind: "text", inBasicPreset: false },
   { id: "ai_sentiment", dbColumn: "ai_sentiment", label: "Sentimento (IA)", group: "Avançado", kind: "text", inBasicPreset: false },
   { id: "ai_pattern_detected", dbColumn: "ai_pattern_detected", label: "Padrão detectado (IA)", group: "Avançado", kind: "boolean", inBasicPreset: false },
-  { id: "n8n_priority", dbColumn: "n8n_priority", label: "Prioridade", group: "Avançado", kind: "text", inBasicPreset: false },
-  { id: "n8n_tags", dbColumn: "n8n_tags", label: "Tags", group: "Avançado", kind: "array", inBasicPreset: false },
-  { id: "n8n_validated_category", dbColumn: "n8n_validated_category", label: "Categoria validada", group: "Avançado", kind: "text", inBasicPreset: false },
 ];
 
 export const EXPORT_DATASETS: Record<ExportDataset, DatasetMeta> = {

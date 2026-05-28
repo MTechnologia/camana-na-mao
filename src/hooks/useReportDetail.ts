@@ -103,10 +103,10 @@ export interface UseReportDetailResult {
 }
 
 const URBAN_FIELDS =
-  "id, user_id, category, subcategory, description, status, severity, photos, latitude, longitude, location_address, neighborhood, street, street_number, cep, reference_point, protocol_code, urgency_reason, affected_estimate, affected_scope, active_consequences, ai_classification, n8n_priority, n8n_validated_category, n8n_tags, n8n_enriched_data, created_at, updated_at";
+  "id, user_id, category, subcategory, description, status, severity, photos, latitude, longitude, location_address, neighborhood, street, street_number, cep, reference_point, protocol_code, urgency_reason, affected_estimate, affected_scope, active_consequences, ai_classification, created_at, updated_at";
 
 const TRANSPORT_FIELDS =
-  "id, user_id, report_type, sub_category, description, status, severity, photos, location, stop_name, stop_location, direction, line_code_custom, occurrence_date, occurrence_time, recurrence_frequency, impact_description, personal_impact, accessibility_details, protocol_code, ai_category, ai_sentiment, ai_pattern_detected, n8n_priority, n8n_validated_category, n8n_tags, n8n_enriched_data, responded_at, created_at, updated_at";
+  "id, user_id, report_type, sub_category, description, status, severity, photos, location, stop_name, stop_location, direction, line_code_custom, occurrence_date, occurrence_time, recurrence_frequency, impact_description, personal_impact, accessibility_details, protocol_code, ai_category, ai_sentiment, ai_pattern_detected, responded_at, created_at, updated_at";
 
 function safeJson(value: unknown): Record<string, unknown> | null {
   if (!value) return null;
@@ -114,7 +114,7 @@ function safeJson(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
-/** Primeiro valor textual não vazio (IA / n8n / JSON aninhado). */
+/** Primeiro valor textual não vazio. */
 function pickStr(...candidates: unknown[]): string | null {
   for (const c of candidates) {
     if (c === null || c === undefined) continue;
@@ -202,11 +202,6 @@ export function useReportDetail(
 
       const r = rep as Record<string, unknown>;
       const ai = safeJson(r.ai_classification) ?? {};
-      const enriched = safeJson(r.n8n_enriched_data) ?? {};
-      const analysis =
-        enriched.analysis !== null && enriched.analysis !== undefined && typeof enriched.analysis === "object"
-          ? (enriched.analysis as Record<string, unknown>)
-          : null;
       const photos = Array.isArray(r.photos) ? (r.photos as string[]) : [];
 
       const extras: Array<{ label: string; value: string }> = [];
@@ -271,37 +266,20 @@ export function useReportDetail(
         aiAnalysis: {
           sentiment: pickStr(
             ai.sentiment,
-            enriched.sentiment,
-            enriched.sentimento,
-            analysis?.sentiment,
             source === "transport" ? r.ai_sentiment : null,
           ),
           category: pickStr(
             ai.category,
             ai.validated_category,
-            r.n8n_validated_category,
             r.ai_category,
-            enriched.validated_category,
-            enriched.category,
-            enriched.categoria_validada,
           ),
-          priority: pickStr(
-            ai.priority,
-            r.n8n_priority,
-            enriched.priority,
-            enriched.prioridade,
-            enriched.prioridade_ia,
-          ),
+          priority: pickStr(ai.priority),
           patternDetected:
             typeof r.ai_pattern_detected === "boolean"
               ? (r.ai_pattern_detected as boolean)
-              : pickBool(
-                  enriched.pattern_detected,
-                  enriched.padrao_detectado,
-                  analysis?.pattern_detected,
-                ),
-          tags: Array.isArray(r.n8n_tags) ? (r.n8n_tags as string[]) : [],
-          enrichedData: Object.keys(enriched).length > 0 ? enriched : null,
+              : pickBool(ai.pattern_detected),
+          tags: Array.isArray(ai.tags) ? (ai.tags as string[]) : [],
+          enrichedData: Object.keys(ai).length > 0 ? ai : null,
         },
         authorUserId: r.user_id as string | null,
       };

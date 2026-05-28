@@ -5,7 +5,7 @@ import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
 
 export type DeriveWorkflowStageInput = {
   dbStatus: string | null | undefined;
-  /** Prioridade formal em `report_triage` (não usa inferência n8n/severidade). */
+  /** Prioridade formal em `report_triage` (não usa inferência por severidade). */
   formalTriagePriority: TriagePriority | null;
   hasCommissionReferral: boolean;
   hasCouncilReferral: boolean;

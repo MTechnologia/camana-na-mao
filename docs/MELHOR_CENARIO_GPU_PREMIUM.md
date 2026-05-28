@@ -143,7 +143,7 @@
 |------------|---------------|--------------|
 | **VM Chat (L4)** | n1-standard-8 + L4 (preemptible) | **R$ 2.500** |
 | **VM Embeddings** | e2-standard-4 | R$ 200 |
-| **n8n Cloud Run** | 5-50 instâncias (robusto) | R$ 1.500-3.000 |
+| **automacao Cloud Run** | 5-50 instâncias (robusto) | R$ 1.500-3.000 |
 | **Load Balancer** | Global HTTPS | R$ 200 |
 | **Storage/Network** | 200GB SSD + tráfego | R$ 300 |
 | **Fallback GPT-4** | 5% das requisições | R$ 500-1.000 |
@@ -258,9 +258,9 @@ gcloud compute firewall-rules create allow-vllm-l4-8000 \
   --description "Allow vLLM on port 8000 (L4)"
 ```
 
-### Passo 6: Atualizar n8n e Supabase
+### Passo 6: Atualizar automacao e Supabase
 
-1. **No n8n:** Atualizar workflow para usar novo IP
+1. **No automacao:** Atualizar workflow para usar novo IP
 2. **No Supabase:** Atualizar `AI_CHAT_BASE_URL` e `AI_CHAT_MODEL`
 
 ```bash
@@ -393,7 +393,7 @@ AI_CHAT_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ
 1. **Verificar disponibilidade L4** em southamerica-east1
 2. **Criar VM com L4** (se disponível)
 3. **Deploy Qwen 2.5 32B** (quantizado AWQ)
-4. **Atualizar n8n** para usar novo modelo
+4. **Atualizar automacao** para usar novo modelo
 5. **Testar performance** e qualidade
 6. **Migrar produção** após validação
 
@@ -408,7 +408,7 @@ AI_CHAT_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ
 - [ ] Deploy Qwen 2.5 32B (AWQ)
 - [ ] Configurar firewall
 - [ ] Testar API (latência, qualidade)
-- [ ] Atualizar n8n workflows
+- [ ] Atualizar automacao workflows
 - [ ] Atualizar Supabase secrets
 - [ ] Testar integração completa
 - [ ] Migrar produção

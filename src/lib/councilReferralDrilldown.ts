@@ -13,7 +13,7 @@ const COUNCIL_REFERRAL_STATUS_LABELS: Record<string, string> = {
 };
 
 const URBAN_DRILLDOWN_FIELDS =
-  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code,n8n_priority';
+  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code';
 
 const CHUNK_SIZE = 80;
 
@@ -37,7 +37,6 @@ function rowToUrbanManifest(r: Record<string, unknown>): UnifiedManifest {
     updated_at: r.updated_at as string | null,
     location: r.location_address as string | null,
     author: null,
-    n8n_priority: (r.n8n_priority as string | null) ?? null,
     urban_data: {
       category: r.category as string,
       subcategory: r.subcategory as string | null,

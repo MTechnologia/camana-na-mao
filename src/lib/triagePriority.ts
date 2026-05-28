@@ -13,32 +13,6 @@ export function isTriagePriority(v: unknown): v is TriagePriority {
   return v === 'P0' || v === 'P1' || v === 'P2' || v === 'P3';
 }
 
-/** Mapeia textos do n8n / legado (`critica`, `urgente`, …) para P0–P3. */
-export function inferPriorityFromN8n(n8n: string | null | undefined): TriagePriority | null {
-  if (!n8n) return null;
-  const s = normKey(n8n);
-  if (!s) return null;
-  if (/\bp0\b/.test(s) || s.includes('critica') || s.includes('critico') || s.includes('critical')) {
-    return 'P0';
-  }
-  if (/\bp1\b/.test(s) || s.includes('urgente') || s.includes('alta') || s.includes('high')) {
-    return 'P1';
-  }
-  if (
-    /\bp2\b/.test(s)
-    || s.includes('normal')
-    || s.includes('media')
-    || s.includes('moderate')
-    || s.includes('medio')
-  ) {
-    return 'P2';
-  }
-  if (/\bp3\b/.test(s) || s.includes('baixa') || s.includes('low')) {
-    return 'P3';
-  }
-  return null;
-}
-
 export function inferPriorityFromSeverity(sev: string | null | undefined): TriagePriority | null {
   if (!sev) return null;
   const s = normKey(sev);
@@ -50,14 +24,13 @@ export function inferPriorityFromSeverity(sev: string | null | undefined): Triag
   return null;
 }
 
-/** Prioridade efetiva: triagem formal → n8n → severidade do relato. */
+/** Prioridade efetiva: triagem formal ou severidade do relato. */
 export function effectiveReportTriagePriority(
   triagePriority: TriagePriority | null | undefined,
-  n8nPriority: string | null | undefined,
   severity: string | null | undefined,
 ): TriagePriority | null {
   if (isTriagePriority(triagePriority)) return triagePriority;
-  return inferPriorityFromN8n(n8nPriority) ?? inferPriorityFromSeverity(severity);
+  return inferPriorityFromSeverity(severity);
 }
 
 /** Prioridades formais em `report_triage` por relato urbano. */

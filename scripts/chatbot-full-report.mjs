@@ -410,6 +410,30 @@ function buildHtml(data) {
   const e2eOk = e2e.failed === 0;
   const statusClass = overallOk ? 'status-ok' : 'status-fail';
   const statusLabel = overallOk ? 'TODOS APROVADOS' : 'COM FALHAS';
+  const failedTotal = deno.failed + vitest.failed + e2e.failed;
+
+  const decision = failedTotal === 0
+    ? {
+      label: 'Apto para homologacao',
+      className: 'decision-go',
+      note: 'Suite completa sem falhas. Recomendado seguir para homologacao.',
+    }
+    : failedTotal <= 3
+      ? {
+        label: 'Apto com ressalvas',
+        className: 'decision-warn',
+        note: 'Existem falhas pontuais. Recomenda-se plano de correcao antes de ampliar rollout.',
+      }
+      : {
+        label: 'Nao apto',
+        className: 'decision-stop',
+        note: 'Volume de falhas acima do limite sugerido. Recomenda-se bloquear avancos.',
+      };
+
+  const passRate = (passed, total) => (total > 0 ? Math.round((passed / total) * 100) : 0);
+  const denoPassRate = passRate(deno.passed, deno.total);
+  const vitestPassRate = passRate(vitest.passed, vitest.total);
+  const e2ePassRate = passRate(e2e.passed, e2e.total);
 
   const journeyRows = Object.entries(corpus.intentByJourney)
     .sort((a, b) => b[1] - a[1])
@@ -771,6 +795,40 @@ function buildHtml(data) {
       border: 1px solid var(--border);
       border-radius: 8px;
     }
+    .executive-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .executive-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+    .executive-card h3 {
+      font-size: 0.92rem;
+      margin-bottom: 0.6rem;
+      color: #c8d6ea;
+      letter-spacing: 0.02em;
+    }
+    .executive-card ul { margin-left: 1rem; display: grid; gap: 0.35rem; }
+    .executive-card li { color: var(--muted); font-size: 0.88rem; }
+    .decision-chip {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 0.25rem 0.7rem;
+      margin-bottom: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: 1px solid transparent;
+    }
+    .decision-go { color: var(--ok); background: var(--ok-dim); border-color: #22c55e55; }
+    .decision-warn { color: var(--warn); background: #f59e0b22; border-color: #f59e0b55; }
+    .decision-stop { color: var(--fail); background: var(--fail-dim); border-color: #ef444455; }
   </style>
 </head>
 <body>
@@ -815,6 +873,34 @@ function buildHtml(data) {
         <div class="hint">urbano + transporte, com linguagem real</div>
       </div>
     </div>
+
+    <section>
+      <h2><span class="phase">Diretoria</span> Resumo executivo e recomendacao</h2>
+      <p class="lead">Leitura rapida para decisao de avancar em homologacao.</p>
+      <div class="executive-grid">
+        <article class="executive-card">
+          <h3>Resumo executivo (3 pontos)</h3>
+          <ul>
+            <li>Confiabilidade de testes: Deno ${deno.passed}/${deno.total} (${denoPassRate}%), Vitest ${vitest.passed}/${vitest.total} (${vitestPassRate}%), E2E ${e2e.passed}/${e2e.total} (${e2ePassRate}%).</li>
+            <li>Cobertura funcional reforcada com ${corpus.corpusCasesTotal} casos no corpus e ${corpus.e2eScenarios.length} cenarios E2E unicos.</li>
+            <li>Status geral da bateria: ${statusLabel.toLowerCase()}.</li>
+          </ul>
+        </article>
+        <article class="executive-card">
+          <h3>Impacto no negocio</h3>
+          <ul>
+            <li>Maior previsibilidade na classificacao das jornadas do municipe (urbano, transporte e servicos).</li>
+            <li>Reducao de retrabalho em homologacao com evidencias automatizadas e rastreaveis.</li>
+            <li>Melhor governanca de release com criterios objetivos de aprovacao por fase.</li>
+          </ul>
+        </article>
+        <article class="executive-card">
+          <h3>Decisao sugerida</h3>
+          <span class="decision-chip ${decision.className}">${decision.label}</span>
+          <p class="lead" style="margin:0">${escapeHtml(decision.note)}</p>
+        </article>
+      </div>
+    </section>
 
     <section>
       <h2><span class="phase">Fase 1</span> Detecção de intenção — ${corpus.intentTotal} casos</h2>

@@ -36,7 +36,7 @@ import {
  * No card, exibe a comissão do encaminhamento mais recente.
  *
  * Prioridade no card e no filtro: `report_triage.priority` quando existir;
- * senão infere P0–P3 de `n8n_priority` e de `severity` (relatos sem triagem formal).
+ * senão infere P0–P3 de `severity` (relatos sem triagem formal).
  */
 
 const TABLES_REALTIME = [
@@ -89,10 +89,10 @@ export interface KanbanFilters extends KanbanGlobalRecorte {
 }
 
 const URBAN_KANBAN_FIELDS =
-  "id, protocol_code, description, category, status, severity, n8n_priority, created_at, updated_at, location_address, neighborhood, latitude, longitude";
+  "id, protocol_code, description, category, status, severity, created_at, updated_at, location_address, neighborhood, latitude, longitude";
 
 const TRANSPORT_KANBAN_FIELDS =
-  "id, protocol_code, description, report_type, status, severity, n8n_priority, created_at, updated_at, location, stop_name";
+  "id, protocol_code, description, report_type, status, severity, created_at, updated_at, location, stop_name";
 
 export interface UseTriageKanbanResult {
   itemsByStatus: Record<TriageStatus, KanbanItem[]>;
@@ -110,7 +110,6 @@ interface UrbanRow {
   category: string | null;
   status: string | null;
   severity: string | null;
-  n8n_priority: string | null;
   created_at: string;
   updated_at: string | null;
   location_address: string | null;
@@ -126,7 +125,6 @@ interface TransportRow {
   report_type: string | null;
   status: string | null;
   severity: string | null;
-  n8n_priority: string | null;
   created_at: string;
   updated_at: string | null;
   location: string | null;
@@ -443,7 +441,6 @@ export function useTriageKanban(
             r.protocol_code,
             r.status,
             r.severity,
-            r.n8n_priority,
             r.category,
             r.created_at,
             r.updated_at ?? r.created_at,
@@ -464,7 +461,6 @@ export function useTriageKanban(
             r.protocol_code,
             r.status,
             r.severity,
-            r.n8n_priority,
             r.report_type,
             r.created_at,
             r.updated_at ?? r.created_at,
@@ -549,7 +545,6 @@ function buildItem(
   protocolCode: string | null,
   status: string | null,
   severity: string | null,
-  n8nPriority: string | null,
   category: string | null,
   createdAt: string,
   updatedAt: string,
@@ -578,7 +573,7 @@ function buildItem(
     createdAt,
     updatedAt,
     triageId: triage?.id ?? null,
-    priority: effectiveReportTriagePriority(triage?.priority, n8nPriority, severity),
+    priority: effectiveReportTriagePriority(triage?.priority, severity),
     assigneeId: triage?.responsible_commission_id ?? triage?.assignee_id ?? null,
     assigneeName: effectiveCommission?.commissionName ?? null,
     triagedByName: triage?.triaged_by

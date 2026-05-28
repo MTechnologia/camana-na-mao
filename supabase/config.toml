@@ -24,15 +24,6 @@ verify_jwt = true
 [functions.suggest-council-members]
 verify_jwt = false
 
-[functions.n8n-webhook]
-verify_jwt = false
-
-[functions.notify-n8n]
-verify_jwt = true
-
-[functions.n8n-callback]
-verify_jwt = false
-
 [functions.delete-user]
 verify_jwt = false
 

@@ -446,8 +446,8 @@ Popula base de conhecimento com dados.
 }
 ```
 
-#### `POST /notify-n8n`
-Notifica sistema N8N sobre eventos.
+#### `POST /notify-automacao`
+Notifica sistema automacao sobre eventos.
 
 **Autenticação:** Requerida (`verify_jwt = true`)
 
@@ -567,13 +567,13 @@ npx supabase functions deploy sync-app-suggestions
 
 ### Webhooks (Sem Autenticação)
 
-#### `POST /n8n-webhook`
-Webhook para integração com N8N.
+#### `POST /automacao-webhook`
+Webhook para integração com automacao.
 
 **Autenticação:** Não requerida (`verify_jwt = false`)
 
-#### `POST /n8n-callback`
-Callback para integração com N8N.
+#### `POST /automacao-callback`
+Callback para integração com automacao.
 
 **Autenticação:** Não requerida (`verify_jwt = false`)
 
@@ -631,8 +631,8 @@ Estes endpoints são acessados através de proxies implementados nas Edge Functi
 - `/fetch-agenda`
 - `/google-places-autocomplete`
 - `/google-places-details`
-- `/n8n-webhook`
-- `/n8n-callback`
+- `/automacao-webhook`
+- `/automacao-callback`
 
 ### Endpoints Protegidos (Requerem JWT)
 - `/sync-app-suggestions` (JWT validado na função; enviar `Authorization` ou `access_token` no body)
@@ -643,7 +643,7 @@ Estes endpoints são acessados através de proxies implementados nas Edge Functi
 - `/send-notification`
 - `/generate-embeddings`
 - `/populate-knowledge-base`
-- `/notify-n8n`
+- `/notify-automacao`
 - `/delete-user`
 
 **Como autenticar:**

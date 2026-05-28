@@ -132,7 +132,7 @@
 
 | Item | Status | Detalhes |
 |------|--------|----------|
-| **Implementado** | ❌ **~10%** | Documentação e configuração N8N mencionam `similar_reports_count`; padrões de relatos similares em backend/admin. **Não há fluxo no app** para: (1) detectar relatos similares na região antes/depois de criar o relato, (2) mostrar "Já existe um relato parecido – deseja apoiar ou criar novo?". |
+| **Implementado** | ❌ **~10%** | Documentação e configuração automacao mencionam `similar_reports_count`; padrões de relatos similares em backend/admin. **Não há fluxo no app** para: (1) detectar relatos similares na região antes/depois de criar o relato, (2) mostrar "Já existe um relato parecido – deseja apoiar ou criar novo?". |
 
 ---
 
@@ -171,7 +171,7 @@
 | 11. Severidade automática | 90% | Heurística + ajuste no fluxo | — |
 | 12. Localização GPS/manual + mapa | 90% | Geolocalização, endereço manual, confirmação | Revisar mapa na confirmação |
 | 13. Anexo de fotos | 50% | Manual com foto | Foto no chat |
-| 14. Relatos similares / apoiar | 10% | Ideia em docs/N8N | Fluxo: detectar similares, apoiar ou criar novo |
+| 14. Relatos similares / apoiar | 10% | Ideia em docs/automacao | Fluxo: detectar similares, apoiar ou criar novo |
 | 15. Encaminhamento Comissão | 70% | Sugestão de vereador por comissão | Encaminhamento formal ao órgão (se for requisito) |
 | 16. Testes de integração | 85% | E2E auth, urban, transport, evaluation, audiencias, ai-chat | E2E mapa/busca/favoritos; integração API |
 

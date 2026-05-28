@@ -413,8 +413,6 @@ const AppContent = () => {
           <Route path="/admin/previsoes" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/anomalias" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/comissions" element={<Navigate to="/admin/commissions" replace />} />
-          <Route path="/admin/settings/n8n" element={<Navigate to="/admin" replace />} />
-          <Route path="/admin/settings/n8n-monitoring" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/configuracoes/agendamentos" element={<Navigate to="/admin/exports" replace />} />
           <Route path="/admin/docs" element={<Navigate to="/admin/docs/overview" replace />} />
 

@@ -7,7 +7,7 @@ Admin e gestor: **Área Admin → Acurácia da classificação** (`/admin/classi
 A medição combina também:
 
 1. **Registro no momento da criação do relato** (chat) → tabela `report_classification_prediction_log`
-2. **Correção humana ou N8N** → tabela `report_classification_feedback` (já existente)
+2. **Correção humana ou automacao** → tabela `report_classification_feedback` (já existente)
 3. **Views SQL** para acerto/erro e agregações
 4. **Log estruturado** na Edge Function `ai-orchestrator`: linha `[CLASSIFICATION_METRIC]` com JSON (observabilidade nos logs do Supabase)
 

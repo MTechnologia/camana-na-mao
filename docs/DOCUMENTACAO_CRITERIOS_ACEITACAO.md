@@ -1637,22 +1637,22 @@ console.log(data.results); // Array com análise de cada relato
 
 ---
 
-#### 5. N8N Webhook
+#### 5. automacao Webhook
 
-**Arquivo:** `supabase/functions/n8n-webhook/index.ts`
+**Arquivo:** `supabase/functions/automacao-webhook/index.ts`
 
-**Endpoint:** `POST /functions/v1/n8n-webhook`
+**Endpoint:** `POST /functions/v1/automacao-webhook`
 
-**Descrição:** Proxy para encaminhar requisições para webhooks do n8n com autenticação e tratamento de erros.
+**Descrição:** Proxy para encaminhar requisições para webhooks do automacao com autenticação e tratamento de erros.
 
 **Autenticação:** JWT Bearer Token (obrigatório)
 
 **Request Body:**
 ```typescript
 {
-  webhookUrl: string; // URL do webhook n8n
+  webhookUrl: string; // URL do webhook automacao
   payload: any; // Dados a serem enviados
-  secretKey?: string; // Chave secreta opcional para autenticação no n8n
+  secretKey?: string; // Chave secreta opcional para autenticação no automacao
 }
 ```
 
@@ -1660,7 +1660,7 @@ console.log(data.results); // Array com análise de cada relato
 ```typescript
 {
   success: boolean;
-  data?: any; // Resposta do n8n
+  data?: any; // Resposta do automacao
   message: string;
   error?: string; // Se success = false
 }
@@ -1668,20 +1668,20 @@ console.log(data.results); // Array com análise de cada relato
 
 **Exemplo de Código:**
 ```typescript
-const response = await fetch(`${supabaseUrl}/functions/v1/n8n-webhook`, {
+const response = await fetch(`${supabaseUrl}/functions/v1/automacao-webhook`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   },
   body: JSON.stringify({
-    webhookUrl: "https://n8n.example.com/webhook/report-created",
+    webhookUrl: "https://automacao.example.com/webhook/report-created",
     payload: {
       reportId: "123",
       type: "urban_report",
       category: "iluminacao",
     },
-    secretKey: "n8n-secret-key",
+    secretKey: "automacao-secret-key",
   }),
 });
 
@@ -1692,7 +1692,7 @@ if (data.success) {
 ```
 
 **Características:**
-- ✅ Proxy seguro para n8n
+- ✅ Proxy seguro para automacao
 - ✅ Suporte a autenticação via secret key
 - ✅ Tratamento de erros robusto
 - ✅ CORS configurado
@@ -1840,9 +1840,9 @@ if (data.success) {
 | **Recommend Services** | `/functions/v1/recommend-services` | POST | JWT | ✅ |
 | **Generate Embeddings** | `/functions/v1/generate-embeddings` | POST | JWT + Admin | ✅ |
 | **Analyze Sentiment** | `/functions/v1/analyze-sentiment` | POST | JWT | ✅ |
-| **N8N Webhook** | `/functions/v1/n8n-webhook` | POST | JWT | ✅ |
-| **Notify N8N** | `/functions/v1/notify-n8n` | POST | JWT | ✅ |
-| **N8N Callback** | `/functions/v1/n8n-callback` | POST | JWT + Secret | ✅ |
+| **automacao Webhook** | `/functions/v1/automacao-webhook` | POST | JWT | ✅ |
+| **Notify automacao** | `/functions/v1/notify-automacao` | POST | JWT | ✅ |
+| **automacao Callback** | `/functions/v1/automacao-callback` | POST | JWT + Secret | ✅ |
 | **Fetch Vereadores** | `/functions/v1/fetch-vereadores` | GET | JWT | ✅ |
 | **Fetch Notícias** | `/functions/v1/fetch-noticias` | GET | JWT | ✅ |
 | **Fetch Agenda** | `/functions/v1/fetch-agenda` | GET | JWT | ✅ |
@@ -1870,7 +1870,7 @@ Documentação completa do AI Orchestrator incluindo:
 - ✅ Jornadas leves (services, audiencias, history, general)
 - ✅ Guardrails e regras de ouro
 - ✅ Categorias urbanas e tipos de transporte
-- ✅ Sistema de priorização n8n
+- ✅ Sistema de priorização automacao
 - ✅ Algoritmo de sugestão de vereadores
 - ✅ Integrações externas (SP Legis, WordPress, Google Places)
 - ✅ Segurança e auditoria
@@ -1890,10 +1890,10 @@ Documentação completa do AI Orchestrator incluindo:
 Documentação completa das integrações do sistema:
 - ✅ Frontend ↔ Supabase
 - ✅ AI Orchestrator ↔ LLM
-- ✅ Supabase ↔ n8n
+- ✅ Supabase ↔ automacao
 - ✅ Edge Functions ↔ APIs Externas
 - ✅ Mobile ↔ Frontend Web
-- ✅ n8n ↔ vLLM
+- ✅ automacao ↔ vLLM
 - ✅ Fluxos completos de criação de relatórios
 - ✅ Autenticação e autorização
 - ✅ Notificações push

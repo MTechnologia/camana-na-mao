@@ -79,12 +79,6 @@ export interface UnifiedManifest {
     /** published | pending_review | rejected */
     publication_status?: string;
   };
-  // N8N fields (common for urban/transport)
-  n8n_processed?: boolean | null;
-  n8n_priority?: string | null;
-  n8n_tags?: string[] | null;
-  n8n_validated_category?: string | null;
-  n8n_enriched_data?: Record<string, unknown> | null;
 }
 
 export interface ManifestKPIs {
@@ -150,7 +144,7 @@ interface UseReportsAdminReturn {
 
 // Projeção mínima para lista (campos necessários para ManifestCard + zona)
 const URBAN_LIST_FIELDS =
-  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code,n8n_priority';
+  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code';
 const TRANSPORT_LIST_FIELDS = 'id,report_type,description,severity,status,created_at,updated_at,location,user_id,line_id,occurrence_date,occurrence_time,protocol_code,responded_at';
 const EVALUATION_LIST_FIELDS =
   'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous,publication_status';
@@ -371,13 +365,10 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
             updated_at: r.updated_at,
             location: r.location_address,
             author: null,
-            n8n_priority: (r.n8n_priority as string | null) ?? null,
             urban_data: {
               category: r.category,
               subcategory: r.subcategory,
               photos: null,
-              latitude: null,
-              longitude: null,
               likes_count: 0,
               comments_count: 0,
               ai_classification: null,

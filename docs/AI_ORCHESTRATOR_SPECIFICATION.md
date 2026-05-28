@@ -23,18 +23,18 @@
 12. [Categorias Urbanas](#12-categorias-urbanas)
 13. [Tipos de Transporte](#13-tipos-de-transporte)
 14. [Marcadores de Sincronização](#14-marcadores-de-sincronização)
-15. [Sistema de Priorização N8N](#15-sistema-de-priorização-n8n)
+15. [Sistema de Priorização automacao](#15-sistema-de-priorização-automacao)
 16. [Matriz de Prioridade](#16-matriz-de-prioridade)
 17. [Fatores de Pontuação](#17-fatores-de-pontuação)
 18. [Regras de Override](#18-regras-de-override)
-19. [Payload N8N](#19-payload-n8n)
+19. [Payload automacao](#19-payload-automacao)
 20. [Sistema de Encaminhamento](#20-sistema-de-encaminhamento)
 21. [Algoritmo de Sugestão de Vereadores](#21-algoritmo-de-sugestão-de-vereadores)
 22. [Ciclo de Vida do Encaminhamento](#22-ciclo-de-vida-do-encaminhamento)
 23. [Notificações](#23-notificações)
 24. [Integrações Externas](#24-integrações-externas)
     - 24.1 [Visão Geral](#241-visão-geral-das-integrações)
-    - 24.2 [N8N Workflow Engine](#242-n8n-workflow-engine)
+    - 24.2 [automacao Workflow Engine](#242-automacao-workflow-engine)
     - 24.3 [Google Places API](#243-google-places-api-new)
     - 24.4 [ViaCEP](#244-viacep)
     - 24.5 [SP Legis API - Vereadores](#245-sp-legis-api---vereadores)
@@ -1992,36 +1992,36 @@ export function sanitizeMessageContent(content: string): string {
 
 ---
 
-## 15. Sistema de Priorização N8N
+## 15. Sistema de Priorização automacao
 
 ### 15.1 Visão Geral
 
-O N8N (self-hosted) atua como motor de workflow para processamento inteligente de manifestações. Quando um relato é criado, o sistema automaticamente:
+O automacao (self-hosted) atua como motor de workflow para processamento inteligente de manifestações. Quando um relato é criado, o sistema automaticamente:
 
-1. Envia dados para o N8N via webhook
-2. N8N processa, classifica e prioriza
-3. N8N retorna dados enriquecidos via callback
+1. Envia dados para o automacao via webhook
+2. automacao processa, classifica e prioriza
+3. automacao retorna dados enriquecidos via callback
 4. Sistema atualiza o relato com prioridade e tags
 
 ```mermaid
 sequenceDiagram
     participant AI as AI Orchestrator
     participant DB as Supabase
-    participant N8N as N8N Workflow
+    participant automacao as automacao Workflow
     participant Admin as CMS Admin
 
     AI->>DB: Cria relato
-    DB->>N8N: Webhook (notify-n8n)
-    N8N->>N8N: Analisa e prioriza
-    N8N->>DB: Callback (n8n-callback)
+    DB->>automacao: Webhook (notify-automacao)
+    automacao->>automacao: Analisa e prioriza
+    automacao->>DB: Callback (automacao-callback)
     DB->>DB: Atualiza prioridade + tags
     DB->>Admin: Exibe no Kanban
 ```
 
-### 15.2 Payload de Entrada (notify-n8n)
+### 15.2 Payload de Entrada (notify-automacao)
 
 ```typescript
-interface N8NNotifyPayload {
+interface automacaoNotifyPayload {
   event_type: 'urban_report_created' | 'transport_report_created' | 'service_rating_created';
   report_id: string;
   report_type: 'urban' | 'transport' | 'service_rating';
@@ -2244,12 +2244,12 @@ function applyOverrides(
 
 ---
 
-## 19. Payload N8N
+## 19. Payload automacao
 
-### 19.1 Payload de Callback (n8n-callback)
+### 19.1 Payload de Callback (automacao-callback)
 
 ```typescript
-interface N8NCallbackPayload {
+interface automacaoCallbackPayload {
   report_id: string;
   report_type: 'urban' | 'transport' | 'service_rating';
   
@@ -2707,11 +2707,11 @@ flowchart TB
 | Google Places | ✅ Produção | `google-places-*` | Nenhuma | Componentes |
 | ViaCEP | ✅ Produção | inline no orquestrador | Nenhuma | - |
 | Provedor LLM (OpenAI-compatible) | ✅ Produção | `ai-orchestrator`, etc. | Nenhuma | `useUnifiedAIChat` |
-| N8N Workflow | ✅ Produção | `notify-n8n`, `n8n-callback` | Logs apenas | - |
+| automacao Workflow | ✅ Produção | `notify-automacao`, `automacao-callback` | Logs apenas | - |
 
 ---
 
-### 24.2 N8N Workflow Engine
+### 24.2 automacao Workflow Engine
 
 **Propósito**: Processamento inteligente e triagem de manifestações.
 
@@ -2720,8 +2720,8 @@ flowchart TB
 **Endpoints Internos**:
 | Endpoint | Método | Descrição |
 |----------|--------|-----------|
-| `/functions/v1/notify-n8n` | POST | Notifica novo relato para N8N processar |
-| `/functions/v1/n8n-callback` | POST | Recebe dados processados do N8N |
+| `/functions/v1/notify-automacao` | POST | Notifica novo relato para automacao processar |
+| `/functions/v1/automacao-callback` | POST | Recebe dados processados do automacao |
 
 **Eventos Suportados**:
 - `urban_report_created` / `urban_report_updated`
@@ -2733,16 +2733,16 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     participant BD as Supabase (Trigger)
-    participant EF as notify-n8n
-    participant N8N as N8N Workflow
-    participant CB as n8n-callback
+    participant EF as notify-automacao
+    participant automacao as automacao Workflow
+    participant CB as automacao-callback
     participant DB as Supabase (Update)
     
     BD->>EF: Novo relato criado (trigger)
-    EF->>N8N: POST webhook com payload
-    N8N->>N8N: Processa (categoriza, prioriza)
-    N8N->>CB: POST callback com resultado
-    CB->>DB: UPDATE relato com n8n_* fields
+    EF->>automacao: POST webhook com payload
+    automacao->>automacao: Processa (categoriza, prioriza)
+    automacao->>CB: POST callback com resultado
+    CB->>DB: UPDATE relato com automacao_* fields
 ```
 
 ---
@@ -3761,7 +3761,7 @@ function handleChatError(error: ChatError): string {
 | **Intent Detection** | Detecção automática da intenção do usuário |
 | **Journey** | Fluxo completo de coleta de dados (urbano, transporte, etc.) |
 | **Marker** | Tag especial no conteúdo para sincronização frontend-backend |
-| **N8N** | Plataforma de automação de workflows (self-hosted) |
+| **automacao** | Plataforma de automação de workflows (self-hosted) |
 | **Picker** | Componente de UI para seleção de dados (data, endereço, etc.) |
 | **Priority Score** | Pontuação 0-100 que determina prioridade do relato |
 | **Protocol Code** | Código único de identificação do relato (URB/TRP-YYYY-NNNNNN) |
@@ -3798,7 +3798,7 @@ graph TB
         J[Provedor LLM]
         K[Google Places API]
         L[ViaCEP]
-        M[N8N Workflows]
+        M[automacao Workflows]
     end
     
     subgraph Database
@@ -3846,14 +3846,14 @@ flowchart TD
     J --> M
 ```
 
-### E.3 Pipeline N8N
+### E.3 Pipeline automacao
 
 ```mermaid
 flowchart LR
-    A[Relato Criado] --> B[Trigger: notify-n8n]
-    B --> C[N8N Webhook]
+    A[Relato Criado] --> B[Trigger: notify-automacao]
+    B --> C[automacao Webhook]
     
-    subgraph N8N Workflow
+    subgraph automacao Workflow
         C --> D[Extrair Dados]
         D --> E[Análise de Sentimento]
         E --> F[Calcular Prioridade]
@@ -3861,7 +3861,7 @@ flowchart LR
         G --> H[Validar Categoria]
     end
     
-    H --> I[Callback: n8n-callback]
+    H --> I[Callback: automacao-callback]
     I --> J[Atualizar BD]
     J --> K[Exibir no CMS]
 ```
@@ -3934,7 +3934,7 @@ flowchart TB
         GP["📍 Google Places API<br/>places.googleapis.com/v1/places"]
         VC["📮 ViaCEP<br/>viacep.com.br/ws/{cep}/json"]
         LAI["🤖 Provedor LLM<br/>AI_CHAT_BASE_URL"]
-        N8N["⚙️ N8N Workflow<br/>Self-hosted"]
+        automacao["⚙️ automacao Workflow<br/>Self-hosted"]
     end
     
     subgraph "Edge Functions (Supabase)"
@@ -3944,8 +3944,8 @@ flowchart TB
         GPA[google-places-autocomplete]
         GPD[google-places-details]
         AIO[ai-orchestrator]
-        NN8[notify-n8n]
-        CB8[n8n-callback]
+        NN8[notify-automacao]
+        CB8[automacao-callback]
     end
     
     subgraph "Camada de Cache"
@@ -3971,8 +3971,8 @@ flowchart TB
     GP --> GPD
     VC --> AIO
     LAI --> AIO
-    N8N <--> NN8
-    N8N <--> CB8
+    automacao <--> NN8
+    automacao <--> CB8
     
     %% Conexões de Edge Functions para Cache
     FV --> MC
@@ -3996,7 +3996,7 @@ flowchart TB
     classDef cache fill:#f3e5f5,stroke:#7b1fa2
     classDef frontend fill:#e8f5e9,stroke:#2e7d32
     
-    class SPL,WPN,WPA,GP,VC,LAI,N8N api
+    class SPL,WPN,WPA,GP,VC,LAI,automacao api
     class FV,FN,FA,GPA,GPD,AIO,NN8,CB8 edge
     class MC,CMC,NC,AC cache
     class UV,UN,UA,AAC,UAI frontend
@@ -4006,7 +4006,7 @@ flowchart TB
 - 🏛️ APIs Institucionais (SP Legis, Portal CMSP)
 - 📍 APIs de Geolocalização (Google Places, ViaCEP)
 - 🤖 APIs de IA (provedor LLM configurável)
-- ⚙️ Automação (N8N)
+- ⚙️ Automação (automacao)
 - 💾 Cache em memória (volátil)
 - 🗃️ Cache em banco (persistente)
 
@@ -4060,8 +4060,8 @@ O CMS Administrativo é a interface de gestão da plataforma Câmara na Mão, de
 /admin/notifications      → Central de Alertas
 /admin/audit-logs         → Logs de Auditoria
 /admin/exports            → Logs de Exportação
-/admin/settings/n8n       → Configuração N8N
-/admin/settings/n8n-monitoring → Monitoramento N8N
+/admin/settings/automacao       → Configuração automacao
+/admin/settings/automacao-monitoring → Monitoramento automacao
 /admin/settings/accessibility → Configurações de Acessibilidade
 ```
 
@@ -4102,7 +4102,7 @@ flowchart TD
 | Gestão de Usuários | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Logs de Auditoria | ✅ | 👁️ | ❌ | ❌ | ❌ |
 | Exportação de Dados | ✅ | ✅ | ⚠️ | ❌ | ❌ |
-| Configurações N8N | ✅ | ⚠️ | ❌ | ❌ | ❌ |
+| Configurações automacao | ✅ | ⚠️ | ❌ | ❌ | ❌ |
 | Central de Alertas | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 **Legenda:**
@@ -4216,7 +4216,7 @@ function useUserRole() {
 | Urbanas | Contagem `urban_reports` |
 | Transporte | Contagem `transport_reports` |
 | Avaliações | Contagem `service_ratings` |
-| Urgentes | `severity = 'critical'` OR `n8n_priority = 'critica'` |
+| Urgentes | `severity = 'critical'` OR `automacao_priority = 'critica'` |
 
 ### 30.4 Sistema de Filtros
 
@@ -4318,7 +4318,7 @@ interface KanbanConfig {
    - Escopo afetado
    - Estimativa de pessoas
 
-5. **Dados N8N** (se processado)
+5. **Dados automacao** (se processado)
    - Prioridade calculada (badge)
    - Tags automáticas
    - Categoria validada
@@ -4643,11 +4643,11 @@ const AVAILABLE_ROLES = [
 |------|-----------|------------|-------------|
 | `new_urban_report` | Novo relato urbano | Normal | Trigger BD |
 | `new_transport_report` | Novo relato transporte | Normal | Trigger BD |
-| `critical_report` | Relato prioridade crítica | Alta | N8N callback |
+| `critical_report` | Relato prioridade crítica | Alta | automacao callback |
 | `new_user` | Novo usuário cadastrado | Baixa | Trigger BD |
 | `referral_created` | Novo encaminhamento | Normal | Frontend |
 | `referral_acknowledged` | Vereador confirmou | Normal | Webhook |
-| `n8n_error` | Erro no workflow N8N | Alta | Webhook |
+| `automacao_error` | Erro no workflow automacao | Alta | Webhook |
 | `sla_warning` | SLA próximo de vencer | Alta | Cron job |
 
 ### 35.3 Campos Exibidos
@@ -4781,18 +4781,18 @@ interface PDFExportContent {
 
 ## 37. Módulo: Configurações
 
-### 37.1 Integração N8N
+### 37.1 Integração automacao
 
-- **Rota:** `/admin/settings/n8n`
+- **Rota:** `/admin/settings/automacao`
 - **Configurações:**
   - Webhook URL
   - Secret Key
   - Eventos habilitados (checkboxes)
   - Status de conexão (teste)
 
-### 37.2 Monitoramento N8N
+### 37.2 Monitoramento automacao
 
-- **Rota:** `/admin/settings/n8n-monitoring`
+- **Rota:** `/admin/settings/automacao-monitoring`
 - **Visualizações:**
   - Logs de integração recentes
   - Taxa de sucesso/falha
@@ -5022,8 +5022,8 @@ flowchart TD
         USERS --> ROLE_MODAL[Modal de Roles]
         USERS --> DEL_USER[Excluir Usuário]
         
-        SETTINGS --> N8N[Config N8N]
-        SETTINGS --> N8N_MON[Monitor N8N]
+        SETTINGS --> automacao[Config automacao]
+        SETTINGS --> automacao_MON[Monitor automacao]
         SETTINGS --> ACCESS[Acessibilidade]
     end
 ```
@@ -5038,7 +5038,7 @@ sequenceDiagram
     participant F as Frontend (React)
     participant H as Hooks
     participant S as Supabase
-    participant N as N8N
+    participant N as automacao
     
     U->>F: Acessa /admin
     F->>H: useAdminDashboardStats()
@@ -5050,7 +5050,7 @@ sequenceDiagram
     U->>F: Clica em relato
     F->>H: fetchReportDetails(id)
     H->>S: SELECT * WHERE id = ?
-    S-->>H: Dados completos + N8N data
+    S-->>H: Dados completos + automacao data
     H-->>F: Report details
     F-->>U: Abre Drawer
     

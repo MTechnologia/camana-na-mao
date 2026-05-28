@@ -141,8 +141,6 @@ const URBAN_CONSEQUENCE_LABELS: Record<string, string> = {
   safety_risk: "Risco à segurança",
 };
 
-const SAFETY_HEALTH_CATEGORIES = ["esgoto", "via_publica", "iluminacao", "sinalizacao", "drenagem", "area_verde"];
-
 function buildUrbanLocationAddress(eff: Record<string, unknown>): string {
   const locationParts = [];
   if (eff.street) locationParts.push(eff.street);
@@ -394,12 +392,6 @@ export async function handleCreateUrbanReport(
   const reportNatureResolved =
     deps.normalizeReportNature((eff.report_nature as string) ?? (acc.report_nature as string)) ?? "reclamacao";
 
-  const isCriticalSeverity = derivedSeverity === "critical";
-  const isSafetyHealthWithRisk =
-    SAFETY_HEALTH_CATEGORIES.includes(String(eff.category)) &&
-    ["critical", "moderate"].includes(String(eff.risk_level || ""));
-  const initialN8nPriority = isCriticalSeverity || isSafetyHealthWithRisk ? "critica" : null;
-
   console.log("[create_urban_report] Attempting to insert report:", {
     userId,
     category: eff.category,
@@ -441,7 +433,6 @@ export async function handleCreateUrbanReport(
       urgency_reason: eff.urgency_reason || null,
       severity: derivedSeverity,
       status: "pending",
-      n8n_priority: initialN8nPriority,
     })
     .select("id, protocol_code")
     .single();
@@ -509,19 +500,6 @@ export async function handleCreateUrbanReport(
         proximity_details: proximityAdjustment.proximityDetails,
       },
     });
-  }
-
-  try {
-    await supabase.functions.invoke("notify-n8n", {
-      body: {
-        event_type: "urban_report.created",
-        entity_type: "urban_report",
-        entity_id: data.id,
-        payload: { ...eff, user_id: userId },
-      },
-    });
-  } catch (n8nError) {
-    console.error("[executeTool] N8N notification failed:", n8nError);
   }
 
   const successMessage = buildUrbanSuccessMessage(data, eff, acc, deps.urbanRiskCollectionCategories);

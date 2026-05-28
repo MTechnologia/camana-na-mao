@@ -1,5 +1,5 @@
 # Resumo Executivo - Pós-Reunião
-## Arquitetura n8n-Cêntrica Robusta
+## Arquitetura automacao-Cêntrica Robusta
 
 **Data:** 2026-01-28  
 **Versão:** 2.0
@@ -8,8 +8,8 @@
 
 ## 🎯 Decisões da Reunião
 
-### 1. Arquitetura: **n8n-Cêntrica**
-- ✅ **Tudo passa pelo n8n** (melhor manutenção)
+### 1. Arquitetura: **automacao-Cêntrica**
+- ✅ **Tudo passa pelo automacao** (melhor manutenção)
 - ✅ Workflows visuais para todo o fluxo
 - ✅ Observabilidade centralizada
 
@@ -26,7 +26,7 @@
 
 | Componente | Especificação | Custo Mensal |
 |------------|---------------|--------------|
-| **n8n Cloud Run** | 5-50 instâncias (robusto) | **R$ 1.500-3.000** |
+| **automacao Cloud Run** | 5-50 instâncias (robusto) | **R$ 1.500-3.000** |
 | **VM Chat (GPU)** | Llama 3.1 8B (T4) | **R$ 1.200** |
 | **VM Embeddings** | BAAI/bge-m3 (CPU) | **R$ 200** |
 | **Load Balancer** | Global HTTPS | **R$ 200** |
@@ -100,12 +100,12 @@
 
 ---
 
-## 🏗️ Arquitetura n8n-Cêntrica
+## 🏗️ Arquitetura automacao-Cêntrica
 
 ### Fluxo Completo
 
 ```
-Usuário → Supabase (proxy) → n8n Cloud Run → vLLM (Llama) → Resposta
+Usuário → Supabase (proxy) → automacao Cloud Run → vLLM (Llama) → Resposta
                               ↓ (se falhar)
                          GPT-4 (fallback)
 ```
@@ -152,8 +152,8 @@ Usuário → Supabase (proxy) → n8n Cloud Run → vLLM (Llama) → Resposta
 
 ## 🎯 Próximos Passos
 
-1. ✅ **n8n atualizado**: Configuração robusta (5-50 instâncias)
-2. ⏳ **Workflows**: Criar workflows principais no n8n
+1. ✅ **automacao atualizado**: Configuração robusta (5-50 instâncias)
+2. ⏳ **Workflows**: Criar workflows principais no automacao
 3. ⏳ **Migração Llama**: Migrar para Llama 3.1 8B (128K tokens)
 4. ⏳ **Fallback GPT**: Configurar fallback seletivo
 5. ⏳ **Monitoramento**: Métricas e alertas
@@ -164,7 +164,7 @@ Usuário → Supabase (proxy) → n8n Cloud Run → vLLM (Llama) → Resposta
 
 | Decisão | Escolha | Justificativa |
 |---------|---------|---------------|
-| **Arquitetura** | n8n-Cêntrica | Melhor manutenção |
+| **Arquitetura** | automacao-Cêntrica | Melhor manutenção |
 | **Capacidade** | 200+ simultâneos | Auto-scaling 5-50 |
 | **Modelo Principal** | Llama 3.1 8B | LGPD + Custo |
 | **Fallback** | GPT-4 (seletivo) | Qualidade quando necessário |
@@ -173,4 +173,4 @@ Usuário → Supabase (proxy) → n8n Cloud Run → vLLM (Llama) → Resposta
 ---
 
 **Última atualização:** 2026-01-28  
-**Status:** n8n atualizado para configuração robusta ✅
+**Status:** automacao atualizado para configuração robusta ✅

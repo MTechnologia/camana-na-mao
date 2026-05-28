@@ -53,7 +53,7 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
 | **Dados** | Mockados + Supabase | APIs reais (SP Legis, CMSP) |
 | **IA** | Modelo simplificado | Modelo otimizado com RAG |
 | **Autenticação** | Email/senha | OAuth2 + Gov.br |
-| **Integrações** | Parciais/simuladas | Completas (N8N, webhooks) |
+| **Integrações** | Parciais/simuladas | Completas (automacao, webhooks) |
 
 ---
 
@@ -200,8 +200,8 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
 
 | Rota | URL Completa | Descrição |
 |------|--------------|-----------|
-| `/admin/settings/n8n` | [https://cmsp-connect.app-mtechnologia.com/admin/settings/n8n](https://cmsp-connect.app-mtechnologia.com/admin/settings/n8n) | Configuração de integração N8N |
-| `/admin/settings/n8n-monitoring` | [https://cmsp-connect.app-mtechnologia.com/admin/settings/n8n-monitoring](https://cmsp-connect.app-mtechnologia.com/admin/settings/n8n-monitoring) | Monitoramento de workflows N8N |
+| `/admin/settings/automacao` | [https://cmsp-connect.app-mtechnologia.com/admin/settings/automacao](https://cmsp-connect.app-mtechnologia.com/admin/settings/automacao) | Configuração de integração automacao |
+| `/admin/settings/automacao-monitoring` | [https://cmsp-connect.app-mtechnologia.com/admin/settings/automacao-monitoring](https://cmsp-connect.app-mtechnologia.com/admin/settings/automacao-monitoring) | Monitoramento de workflows automacao |
 | `/admin/settings/accessibility` | [https://cmsp-connect.app-mtechnologia.com/admin/settings/accessibility](https://cmsp-connect.app-mtechnologia.com/admin/settings/accessibility) | Configurações de acessibilidade do sistema |
 
 ---
@@ -460,8 +460,8 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
    └── Filtre por período e tipo de ação
    └── Exporte logs se necessário
 
-5. CONFIGURAR INTEGRAÇÃO N8N
-   └── Acesse: https://cmsp-connect.app-mtechnologia.com/admin/settings/n8n
+5. CONFIGURAR INTEGRAÇÃO automacao
+   └── Acesse: https://cmsp-connect.app-mtechnologia.com/admin/settings/automacao
    └── Configure URL do webhook
    └── Gere/regenere chave secreta
    └── Selecione eventos a enviar:
@@ -471,8 +471,8 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
        └── Alterações de status
    └── Teste a conexão
 
-6. MONITORAR WORKFLOWS N8N
-   └── Acesse: https://cmsp-connect.app-mtechnologia.com/admin/settings/n8n-monitoring
+6. MONITORAR WORKFLOWS automacao
+   └── Acesse: https://cmsp-connect.app-mtechnologia.com/admin/settings/automacao-monitoring
    └── Visualize logs de integração
    └── Identifique erros de envio
    └── Verifique payloads enviados
@@ -487,7 +487,7 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
 
 - [ ] Usuários podem ter roles alteradas
 - [ ] Logs de auditoria registram todas as ações
-- [ ] Configuração N8N salva corretamente
+- [ ] Configuração automacao salva corretamente
 - [ ] Teste de webhook funciona
 - [ ] Monitoramento mostra logs recentes
 - [ ] Acesso administrativo é protegido por role
@@ -583,8 +583,8 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
 | Análise de Sentimento | Classificação automática | ✅ |
 | Logs de Auditoria | Rastreabilidade completa | ✅ |
 | Exportação de Dados | CSV/Excel com filtros | ✅ |
-| Integração N8N | Webhooks configuráveis | ✅ |
-| Monitoramento N8N | Logs de integração | ✅ |
+| Integração automacao | Webhooks configuráveis | ✅ |
+| Monitoramento automacao | Logs de integração | ✅ |
 
 ### 4.8 Recursos de Acessibilidade
 
@@ -638,7 +638,7 @@ O **Câmara na Mão** é um protótipo funcional de aplicativo móvel-first que 
 | **Dados Mockados** | Vereadores, notícias e audiências são estáticos | Integração com APIs SP Legis e Portal CMSP |
 | **IA Simplificada** | Modelo de linguagem básico via gateway | Modelo otimizado com RAG e fine-tuning |
 | **Geolocalização Simulada** | Fallback para coordenadas padrão | GPS nativo do dispositivo |
-| **N8N Parcial** | Configuração demonstrativa | Workflows completos de triagem |
+| **automacao Parcial** | Configuração demonstrativa | Workflows completos de triagem |
 
 ### 6.2 Funcionalidades Não Implementadas
 
@@ -754,7 +754,7 @@ gantt
     section Integrações
     APIs SP Legis/CMSP           :2025-03, 2025-05
     OAuth2/Gov.br                :2025-04, 2025-06
-    N8N Produção                 :2025-05, 2025-06
+    automacao Produção                 :2025-05, 2025-06
     section IA
     RAG com Base de Conhecimento :2025-03, 2025-05
     Fine-tuning do Modelo        :2025-05, 2025-07
