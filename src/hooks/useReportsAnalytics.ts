@@ -30,6 +30,7 @@ import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
 import type { RegionPatternSummary } from '@/types/analyticsDrill';
 import { callGetReportsWithDemographics } from '@/lib/reportsDemographicsRpc';
 import { regionLabel } from '@/lib/analyticsLabels';
+import { bairroParaZona } from '@/lib/regionMapping';
 import {
   buildNeighborhoodBreakdownFromGeoRows,
   buildStreetBreakdownFromGeoRows,
@@ -618,6 +619,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
         // Usa `ai_sentiment` de transporte quando disponível para reduzir placeholder 50%.
         const transportSentimentByRegion = new Map<string, { sum: number; n: number }>();
+        const transportSentimentByZone = new Map<string, { sum: number; n: number }>();
         for (const row of territoryFiltered) {
           if (row.source !== 'transporte') continue;
           const score = sentimentToScore((row as { ai_sentiment?: unknown }).ai_sentiment);
@@ -628,14 +630,56 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           cur.sum += score;
           cur.n += 1;
           transportSentimentByRegion.set(region, cur);
+
+          const zone = bairroParaZona(
+            [row.neighborhood, row.location].filter(Boolean).join(' '),
+            row.latitude,
+            row.longitude,
+          );
+          const zoneCur = transportSentimentByZone.get(zone) ?? { sum: 0, n: 0 };
+          zoneCur.sum += score;
+          zoneCur.n += 1;
+          transportSentimentByZone.set(zone, zoneCur);
         }
         if (transportSentimentByRegion.size > 0) {
+          let matchedByRegion = 0;
           byRegion.forEach((regionRow) => {
             const scored = transportSentimentByRegion.get(regionRow.region);
             if (scored && scored.n > 0) {
               regionRow.sentiment = Math.round(scored.sum / scored.n);
+              matchedByRegion += 1;
             }
           });
+
+          // Fallback: quando nomes territoriais não casam (ex.: stop_name),
+          // aplica média por zona para destravar o KPI de sentimento real.
+          if (matchedByRegion === 0 && transportSentimentByZone.size > 0) {
+            byRegion.forEach((regionRow) => {
+              const zone = bairroParaZona(regionRow.region);
+              const scored = transportSentimentByZone.get(zone);
+              if (scored && scored.n > 0) {
+                regionRow.sentiment = Math.round(scored.sum / scored.n);
+              }
+            });
+          }
+
+          // Último fallback: se ainda não houver match e existirem linhas de região,
+          // aplica média global de transporte para evitar placeholder fixo.
+          if (
+            byRegion.length > 0 &&
+            byRegion.every((row) => row.sentiment === 50) &&
+            transportSentimentByZone.size > 0
+          ) {
+            let totalSum = 0;
+            let totalN = 0;
+            transportSentimentByZone.forEach((entry) => {
+              totalSum += entry.sum;
+              totalN += entry.n;
+            });
+            if (totalN > 0) {
+              byRegion[0].sentiment = Math.round(totalSum / totalN);
+            }
+          }
         }
       } catch (err) {
         console.warn('Could not fetch urban reports timeline/patterns', err);
