@@ -1,6 +1,10 @@
 import type { CollectionIntent } from "./lib.ts";
 import { LIGHT_JOURNEY_TYPES } from "./lib-index-collection-intent.ts";
 import { buildJourneySnapshotV1, type JourneySnapshotV1 } from "./lib-index-journey-snapshot.ts";
+import {
+  applyUrbanQuickModeDefaults,
+  detectUrbanQuickModeFromHistory,
+} from "./lib-urban-quick-mode.ts";
 
 type ChatHistoryEntry = {
   role: string;
@@ -113,6 +117,19 @@ export async function buildAccumulatedContext(
         console.log(
           "[ai-orchestrator] Urban incident opening: report_nature + description definidos → fluxo até location_method",
         );
+      }
+
+      if (
+        detectUrbanQuickModeFromHistory(
+          chatMessages.map((message) => ({
+            role: String(message.role ?? ""),
+            content: String(message.content ?? ""),
+          })),
+        )
+      ) {
+        accumulatedFields._urban_quick_mode = true;
+        applyUrbanQuickModeDefaults(accumulatedFields);
+        console.log("[ai-orchestrator] Urban quick mode ativo (defaults de risco/escopo)");
       }
     }
 

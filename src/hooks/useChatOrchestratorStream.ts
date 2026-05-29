@@ -3,17 +3,14 @@ import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseAnonKey } from "@/integrations/supabase/client";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 import { useToast } from "@/hooks/use-toast";
-import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
 import { createClientId } from "@/lib/clientId";
 import { extractCollectionProgressJsonObjects } from "@/lib/chatCollectionProgress";
-import { shouldEnterLightJourney } from "@/lib/chatJourneyState";
 import { persistChatMessage } from "@/lib/persistChatMessage";
 import {
   describeAiOrchestratorFailure,
   isStatementTimeoutFailure,
   RATE_LIMIT_RETRY_DELAY_MS,
-  shouldIgnoreStaleCollectionProgress,
   shouldRetryAfterRateLimit,
   sleep,
   STATEMENT_TIMEOUT_ASSISTANT_MESSAGE,
@@ -21,7 +18,12 @@ import {
 import { trackChatJourneyEvent } from "@/lib/chatAnalytics";
 import { LIGHT_JOURNEY_TYPES, VALID_TRACKER_TYPES } from "@/hooks/useChatJourneyConstants";
 import { applyOutgoingFieldHeuristics } from "@/hooks/chat/fieldHeuristics";
-import { shouldRunOutgoingFieldHeuristics } from "@/hooks/chat/fieldHeuristicsGate";
+import { applyMinimalOutgoingFieldHeuristics } from "@/hooks/chat/fieldHeuristicsMinimal";
+import { getOutgoingFieldHeuristicsMode } from "@/hooks/chat/fieldHeuristicsGate";
+import {
+  applyLightJourneyMarker,
+  applyStreamCollectionProgress,
+} from "@/hooks/chat/streamCollectionProgress";
 import { uploadChatAttachments } from "@/hooks/chat/uploadChatAttachments";
 import { createUserChatMessage, type ChatMessage, type CreatedReport } from "@/hooks/chat/types";
 import type { EvaluationContext } from "@/hooks/chat/types";
@@ -69,8 +71,17 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
     content: string,
     options?: { attachmentFiles?: File[]; existingUserMessageId?: string },
   ) => {
-    if (shouldRunOutgoingFieldHeuristics()) {
+    const heuristicsMode = getOutgoingFieldHeuristicsMode();
+    if (heuristicsMode === "full") {
       applyOutgoingFieldHeuristics({
+        content,
+        messages,
+        collectionType,
+        collectedFields,
+        setCollectedFields,
+      });
+    } else if (heuristicsMode === "minimal") {
+      applyMinimalOutgoingFieldHeuristics({
         content,
         messages,
         collectionType,
@@ -411,39 +422,27 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
                 // If the user just switched journeys, ignore COLLECTION_PROGRESS from different type
                 // This prevents the backend from overriding explicit user journey choice
                 const lastUserMsgContent = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-                if (shouldIgnoreStaleCollectionProgress({
+                const progressResult = applyStreamCollectionProgress({
                   progressType: type,
+                  fieldsJson: fields,
                   lastUserMessageContent: lastUserMsgContent,
-                })) {
+                  currentCollectionType: collectionType,
+                  currentLightJourneyType: lightJourneyType,
+                });
+                if (progressResult.ignoredStale) {
                   console.log('[useUnifiedAIChat] Ignoring stale COLLECTION_PROGRESS:', type, '- user switched journey');
                   continue;
                 }
-                
-                // === PHASE 2: Only update collectionType if it's a valid structured type ===
-                // This prevents light intents (services, audiencias, general, history) from
-                // replacing an ongoing structured journey
-                const mergeFields = (raw: Record<string, unknown>) => {
-                  const next = { ...raw };
-                  if (typeof next.service_type === "string") {
-                    const n = normalizeServiceTypeToDbEnum(next.service_type);
-                    if (n) next.service_type = n;
-                  }
-                  return next;
-                };
-                const fieldsNorm = mergeFields(fields);
-
-                if (VALID_TRACKER_TYPES.includes(type)) {
-                  setCollectionType(type);
-                  if (lightJourneyType) {
-                    setLightJourneyType(null);
-                  }
-                  setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
-                } else {
+                if (progressResult.collectionType !== collectionType) {
+                  setCollectionType(progressResult.collectionType);
+                }
+                if (VALID_TRACKER_TYPES.includes(type) && lightJourneyType) {
+                  setLightJourneyType(null);
+                }
+                if (progressResult.fieldsPatch) {
+                  setCollectedFields((prev) => ({ ...prev, ...progressResult.fieldsPatch }));
+                } else if (!VALID_TRACKER_TYPES.includes(type)) {
                   console.log('[useUnifiedAIChat] Ignoring non-structured type:', type, '- keeping current journey');
-                  // Only update fields if we already have a structured type set
-                  if (collectionType && VALID_TRACKER_TYPES.includes(collectionType)) {
-                    setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
-                  }
                 }
               } catch (e) {
                 console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressJsonStr, e);
@@ -464,25 +463,24 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
               const journey = lightJourneyMatch[1];
               if (LIGHT_JOURNEY_TYPES.includes(journey) && lightJourneyType !== journey) {
                 const lastUserMsgContent = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-                const explicitSwitchToLight = lastUserMsgContent.includes(`[JOURNEY_SWITCHED:${journey}]`);
-                const canEnterLightJourney = shouldEnterLightJourney({
+                const lightResult = applyLightJourneyMarker({
+                  journey,
                   currentCollectionType: collectionType,
-                  validTrackerTypes: VALID_TRACKER_TYPES,
-                  explicitSwitchToLight,
+                  currentLightJourneyType: lightJourneyType,
+                  lastUserMessageContent: lastUserMsgContent,
                 });
-                if (!canEnterLightJourney) {
+                if (!lightResult.lightJourneyType || lightResult.lightJourneyType !== journey) {
                   console.log(
                     '[useUnifiedAIChat] Ignoring LIGHT_JOURNEY marker to avoid clearing structured tracker:',
                     journey,
                   );
                 } else {
-                console.log('[useUnifiedAIChat] Light journey detected:', journey);
-                setLightJourneyType(journey);
-                // Clear structured journey when entering light journey
-                if (collectionType) {
-                  setCollectionType(null);
-                  setCollectedFields({});
-                }
+                  console.log('[useUnifiedAIChat] Light journey detected:', journey);
+                  setLightJourneyType(journey);
+                  if (lightResult.clearStructured) {
+                    setCollectionType(null);
+                    setCollectedFields({});
+                  }
                 }
               }
             }

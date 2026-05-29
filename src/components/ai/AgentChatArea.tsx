@@ -26,6 +26,7 @@ import {
   isPhotoAttachStepContent,
 } from "@/lib/chatOrchestratorClient";
 import {
+  buildManualReportNavigateOptions,
   isOpenManualReportMessage,
   resolveManualReportPath,
 } from "@/lib/manualReportNavigation";
@@ -201,7 +202,10 @@ const AgentChatArea = () => {
     if (!content.trim() && !chatPhotoFiles.length) return;
 
     if (isOpenManualReportMessage(content)) {
-      navigate(resolveManualReportPath(collectionType));
+      navigate(
+        resolveManualReportPath(collectionType),
+        buildManualReportNavigateOptions({ returnToChatConversationId: activeConversationId }),
+      );
       return;
     }
 
@@ -281,6 +285,7 @@ const AgentChatArea = () => {
         resolveManualReportPath(
           (collectionTypePreset as CollectionType) ?? collectionType,
         ),
+        buildManualReportNavigateOptions({ returnToChatConversationId: activeConversationId }),
       );
       return;
     }
@@ -519,7 +524,14 @@ const AgentChatArea = () => {
               <FileEdit className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               <button
                 type="button"
-                onClick={() => navigate(resolveManualReportPath(collectionType))}
+                onClick={() =>
+                  navigate(
+                    resolveManualReportPath(collectionType),
+                    buildManualReportNavigateOptions({
+                      returnToChatConversationId: activeConversationId,
+                    }),
+                  )
+                }
                 className="text-xs text-muted-foreground underline hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded min-h-11 px-1"
               >
                 {collectionType === "transport_report"
