@@ -14,7 +14,7 @@ Guia passo a passo para validar o assistente conversacional após os refinamento
 
 ```bash
 npm run test:chatbot
-npx vitest run src/lib/chatOrchestratorClient.test.ts src/lib/chatJourneyState.test.ts src/lib/evaluationVisit.test.ts
+npx vitest run src/lib/chatOrchestratorClient.test.ts src/lib/chatJourneyState.test.ts src/lib/evaluationVisit.test.ts src/lib/persistChatMessage.test.ts src/hooks/useJourneyTracker.test.ts src/hooks/chat/
 npm run test:chatbot:e2e
 ```
 
