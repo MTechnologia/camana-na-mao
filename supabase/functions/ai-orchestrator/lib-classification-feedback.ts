@@ -395,12 +395,14 @@ export async function insertClassificationPredictionLog(
   if (error) {
     const code = (error as { code?: string }).code;
     if (code === "23505") {
-      console.warn(
+      console.log(
         "[CLASSIFICATION_METRIC]",
         JSON.stringify({
           event: "prediction_log_duplicate_ignored",
           report_id: params.reportId,
           report_type: params.reportType,
+          classification_source: params.classificationSource,
+          note: "idempotent_insert_expected",
         }),
       );
       return;

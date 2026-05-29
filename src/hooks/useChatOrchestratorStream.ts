@@ -21,6 +21,7 @@ import {
 import { trackChatJourneyEvent } from "@/lib/chatAnalytics";
 import { LIGHT_JOURNEY_TYPES, VALID_TRACKER_TYPES } from "@/hooks/useChatJourneyConstants";
 import { applyOutgoingFieldHeuristics } from "@/hooks/chat/fieldHeuristics";
+import { shouldRunOutgoingFieldHeuristics } from "@/hooks/chat/fieldHeuristicsGate";
 import { uploadChatAttachments } from "@/hooks/chat/uploadChatAttachments";
 import { createUserChatMessage, type ChatMessage, type CreatedReport } from "@/hooks/chat/types";
 import type { EvaluationContext } from "@/hooks/chat/types";
@@ -68,13 +69,15 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
     content: string,
     options?: { attachmentFiles?: File[]; existingUserMessageId?: string },
   ) => {
-    applyOutgoingFieldHeuristics({
-      content,
-      messages,
-      collectionType,
-      collectedFields,
-      setCollectedFields,
-    });
+    if (shouldRunOutgoingFieldHeuristics()) {
+      applyOutgoingFieldHeuristics({
+        content,
+        messages,
+        collectionType,
+        collectedFields,
+        setCollectedFields,
+      });
+    }
     // Evita duplicar a bolha do usuário quando já existe mensagem otimista com o mesmo texto
     // (chip na tela inicial: addOptimisticMessage + sendMessage via pendingMessageRef).
     // Não exigir isLoading aqui: no início de sendMessage isLoading ainda é false, e exigir isLoading

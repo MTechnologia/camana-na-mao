@@ -1,9 +1,11 @@
 # AI Orchestrator - Especificação Técnica Completa
 
-> **Versão:** 1.0.0  
-> **Última Atualização:** Janeiro 2026  
+> **Versão:** 1.1.0  
+> **Última Atualização:** Maio 2026  
 > **Projeto:** Câmara na Mão  
-> **Classificação:** Documentação Técnica Interna
+> **Classificação:** Documentação Técnica Interna  
+>
+> **Notas CHB (Maio/2026):** fluxo centralizado no `ai-orchestrator` (sem workflow N8N legado); `metadata.journey_snapshot` para retomada; FE modular (`useJourneyTracker`, `useChatOrchestratorStream`); precedência de atalhos em [AI_ORCHESTRATOR_SHORTCUT_PRECEDENCE.md](./AI_ORCHESTRATOR_SHORTCUT_PRECEDENCE.md).
 
 ---
 

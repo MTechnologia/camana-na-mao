@@ -28,6 +28,7 @@ import {
 } from "./lib-ai-config-version.ts";
 import { buildChatCompletionsModel, isVertexAiProvider } from "../_shared/ai-provider.ts";
 import { buildCorsHeaders } from "./lib-cors.ts";
+import { ORCHESTRATOR_SHORTCUT_PIPELINE } from "./lib-index-shortcut-order.ts";
 
 function logTurnEvent(event: string, payload: Record<string, unknown>) {
   console.log(
@@ -51,7 +52,8 @@ serve(async (req) => {
   const lib = await import("./lib.ts");
   Object.assign(lib.corsHeaders, requestCors);
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
-  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-06-04-v1 (ai_config_versions ativa + prompt institucional)');
+  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-05-29-v2 (CHB shortcut pipeline + journey snapshot)');
+  console.log('[ai-orchestrator] Shortcut pipeline:', ORCHESTRATOR_SHORTCUT_PIPELINE.join(" → "));
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);

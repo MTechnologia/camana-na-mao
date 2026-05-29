@@ -16,6 +16,10 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_JOURNEY_SNAPSHOT?: string;
   /** Desliga journey_snapshot no frontend quando true/1. */
   readonly VITE_DISABLE_JOURNEY_SNAPSHOT?: string;
+  /** CHB-001: desliga heurísticas locais no envio (só COLLECTION_PROGRESS/snapshot). */
+  readonly VITE_DISABLE_LOCAL_FIELD_HEURISTICS?: string;
+  /** CHB-001: com snapshot ativo, não aplica heurísticas locais (true/1). */
+  readonly VITE_LOCAL_FIELD_HEURISTICS_MINIMAL?: string;
 }
 
 interface ImportMeta {
