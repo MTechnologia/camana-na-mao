@@ -429,7 +429,7 @@ const DataCollectionTracker = ({
 
             {totalRequiredCount > 0 && (
               <span className="text-[10px] text-muted-foreground ml-1">
-                Etapa {currentStep} de {totalRequiredCount}
+                Passo {currentStep} de {totalRequiredCount}
               </span>
             )}
           </div>
@@ -504,7 +504,7 @@ const DataCollectionTracker = ({
 
               {totalRequiredCount > 0 && (
                 <span className="text-[10px] text-muted-foreground ml-1 whitespace-nowrap">
-                  Etapa {currentStep} de {totalRequiredCount}
+                  Passo {currentStep} de {totalRequiredCount}
                 </span>
               )}
             </div>

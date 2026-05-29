@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cleanInternalMarkers } from '@/lib/sanitizeMarkers';
 import { createClientId } from '@/lib/clientId';
+import { parseLatestCollectionProgressFields } from '@/lib/chatCollectionProgress';
 
 export interface AIConversation {
   id: string;
@@ -27,19 +28,23 @@ const extractReportData = (messages: Array<{ content?: string }>): { category?: 
   for (const msg of messages) {
     const content = msg?.content || "";
     
-    // Try to extract from COLLECTION_PROGRESS marker
-    const progressMatch = content.match(/\[COLLECTION_PROGRESS:(\w+):(\{.*?\})\]/);
-    if (progressMatch) {
-      try {
-        const data = JSON.parse(progressMatch[2]);
-        const category = data.category || data.report_type;
-        const address = [data.street, data.street_number, data.neighborhood].filter(Boolean).join(", ");
-        return {
-          category: formatCategory(category),
-          address: address || undefined,
-          status: "Em andamento"
-        };
-      } catch { /* ignore parse errors */ }
+    const progress = parseLatestCollectionProgressFields(content);
+    if (progress) {
+      const data = progress.fields;
+      const category =
+        typeof data.category === "string"
+          ? data.category
+          : typeof data.report_type === "string"
+            ? data.report_type
+            : undefined;
+      const address = [data.street, data.street_number, data.neighborhood]
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .join(", ");
+      return {
+        category: formatCategory(category),
+        address: address || undefined,
+        status: "Em andamento",
+      };
     }
     
     // Try to extract from REPORT_CREATED marker

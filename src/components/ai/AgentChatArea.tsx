@@ -409,7 +409,15 @@ const AgentChatArea = () => {
             />
             
             <ScrollArea className="flex-1">
-              <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4" data-testid="chat-messages">
+              <div
+                className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4"
+                data-testid="chat-messages"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions"
+                aria-atomic="false"
+                aria-label="Mensagens da conversa com o assistente"
+              >
                 {messages.map((msg, index) => {
                   // Find last assistant message index
                   const lastAssistantIndex = messages.reduce((acc, m, i) => 
@@ -465,7 +473,10 @@ const AgentChatArea = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2 }}
+                    aria-live="polite"
+                    aria-busy="true"
                   >
+                    <span className="sr-only">Assistente está digitando uma resposta.</span>
                     <TypingIndicator />
                   </motion.div>
                 )}
