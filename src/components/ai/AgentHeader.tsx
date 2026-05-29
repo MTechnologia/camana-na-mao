@@ -34,7 +34,7 @@ const headerVariants = {
 const AgentHeader = () => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
-  const { activeConversationId, clearConversation } = useAIJourney();
+  const { activeConversationId, clearConversation, startNewChatSession } = useAIJourney();
   const { toast } = useToast();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -85,10 +85,10 @@ const AgentHeader = () => {
   };
 
   const handleNewConversation = () => {
-    clearConversation();
+    startNewChatSession();
     toast({
       title: "Nova conversa",
-      description: "Uma nova conversa foi iniciada.",
+      description: "Escolha um tema abaixo para começar.",
     });
   };
 

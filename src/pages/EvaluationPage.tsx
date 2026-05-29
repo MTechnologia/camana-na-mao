@@ -1,4 +1,9 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import {
+  resolveReturnToChatAction,
+  type ManualReportNavigationState,
+} from "@/lib/manualReportNavigation";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
 
@@ -30,6 +35,25 @@ export default function EvaluationPage() {
 
   const { visitId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setActiveConversationId } = useAIJourney();
+  const returnNavState = location.state as ManualReportNavigationState | null | undefined;
+  const hasReturnToChat = Boolean(returnNavState?.returnToChatConversationId?.trim());
+
+  const handleReturnToChat = () => {
+    const { path, conversationId } = resolveReturnToChatAction(returnNavState);
+    if (conversationId) setActiveConversationId(conversationId);
+    navigate(path);
+  };
+
+  const handleExitEvaluation = () => {
+    if (hasReturnToChat) {
+      handleReturnToChat();
+      return;
+    }
+    navigate("/");
+  };
+
   const { user, loading: authLoading } = useAuth();
   const { pendingRatings, loading: pendingLoading, markAsSkipped } = usePendingRatings({ limit: 50 });
   const [visit, setVisit] = useState<VisitWithService | null>(null);
@@ -131,7 +155,7 @@ export default function EvaluationPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Carregando..." />
+        <PageHeader title="Carregando..." onBack={handleExitEvaluation} />
         <div className="p-4">
           <Skeleton className="h-[500px] w-full" />
         </div>
@@ -144,7 +168,7 @@ export default function EvaluationPage() {
     if (pendingLoading) {
       return (
         <div className="min-h-screen bg-background pb-24 pt-[60px]">
-          <PageHeader title="Avaliar Serviço" />
+          <PageHeader title="Avaliar Serviço" onBack={handleExitEvaluation} />
           <div className="p-4">
             <Skeleton className="h-[200px] w-full" />
           </div>
@@ -153,7 +177,7 @@ export default function EvaluationPage() {
     }
     return (
       <div className="min-h-screen bg-background flex flex-col pb-24 pt-[60px]">
-        <PageHeader title="Avaliar serviços" />
+        <PageHeader title="Avaliar serviços" onBack={handleExitEvaluation} />
         <div className="p-4 flex-1 flex flex-col gap-6 min-h-0 max-w-3xl mx-auto w-full">
           {pendingRatings.length > 0 && (
             <section aria-labelledby="pending-visits-heading" className="space-y-3 shrink-0">
@@ -272,6 +296,7 @@ export default function EvaluationPage() {
     <div className="h-[100dvh] min-h-screen bg-background flex flex-col overflow-hidden pb-24 pt-[60px]">
       <PageHeader
         title={visit ? `Avaliar ${visit.service.name}` : "Avaliar Serviço"}
+        onBack={handleExitEvaluation}
       />
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 gap-4">

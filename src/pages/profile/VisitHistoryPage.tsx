@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -7,12 +8,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ServiceTypeIcon } from "@/components/icons";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { formatVisitDurationMs } from "@/lib/closeServiceVisitDeparture";
 import { getVisitHistoryUiStatus } from "@/lib/visitHistoryStatus";
 import { getServiceDisplayName } from "@/lib/mapUtils";
-import { MapPin, Clock, Timer, AlertCircle } from "lucide-react";
+import BulkDeleteConfirmDialog, {
+  VISIT_BULK_DELETE_COPY,
+} from "@/components/shared/BulkDeleteConfirmDialog";
+import { useToast } from "@/hooks/use-toast";
+import { MapPin, Clock, Timer, AlertCircle, Trash2 } from "lucide-react";
 
 function formatVisitDateTime(iso: string): { date: string; time: string } {
   const d = new Date(iso);
@@ -24,7 +30,65 @@ function formatVisitDateTime(iso: string): { date: string; time: string } {
 
 export default function VisitHistoryPage() {
   const navigate = useNavigate();
-  const { visits, loading, error } = useVisitHistory();
+  const { toast } = useToast();
+  const { visits, loading, error, deleteVisits, deleteAllVisits } = useVisitHistory();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<"selected" | "all">("selected");
+
+  const allSelected = visits.length > 0 && visits.every((v) => selectedIds.has(v.id));
+  const selectedCount = selectedIds.size;
+
+  const toggleSelection = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (allSelected) {
+        const next = new Set(prev);
+        visits.forEach((v) => next.delete(v.id));
+        return next;
+      }
+      const next = new Set(prev);
+      visits.forEach((v) => next.add(v.id));
+      return next;
+    });
+  }, [allSelected, visits]);
+
+  const openBulkDelete = (mode: "selected" | "all") => {
+    setBulkDeleteMode(mode);
+    setBulkDeleteOpen(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (bulkDeleteMode === "all") {
+      const count = await deleteAllVisits();
+      if (count > 0) {
+        setSelectedIds(new Set());
+        toast({
+          title: "Histórico limpo",
+          description: `${count} visita${count === 1 ? "" : "s"} removida${count === 1 ? "" : "s"}.`,
+        });
+      }
+    } else {
+      const ids = Array.from(selectedIds);
+      const count = await deleteVisits(ids);
+      if (count > 0) {
+        setSelectedIds(new Set());
+        toast({
+          title: "Visitas excluídas",
+          description: `${count} visita${count === 1 ? "" : "s"} removida${count === 1 ? "" : "s"}.`,
+        });
+      }
+    }
+    setBulkDeleteOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
@@ -36,6 +100,38 @@ export default function VisitHistoryPage() {
           A <strong>entrada</strong> é registrada após permanência mínima no local. A <strong>saída</strong> pode ser
           detectada pelo GPS (com o app rastreando localização) ou registrada ao avaliar, dispensar ou expirar a visita.
         </p>
+
+        {!loading && visits.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={() => toggleSelectAll()}
+                aria-label="Selecionar todas as visitas"
+              />
+              Selecionar todas
+            </label>
+            {selectedCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => openBulkDelete("selected")}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir ({selectedCount})
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+              onClick={() => openBulkDelete("all")}
+            >
+              Limpar todas
+            </Button>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
@@ -83,6 +179,14 @@ export default function VisitHistoryPage() {
                   <Card className="border-border/80 overflow-hidden">
                     <CardContent className="p-4 space-y-3">
                       <div className="flex gap-3">
+                        <Checkbox
+                          checked={selectedIds.has(visit.id)}
+                          onCheckedChange={(checked) =>
+                            toggleSelection(visit.id, checked === true)
+                          }
+                          aria-label={`Selecionar visita ${displayName}`}
+                          className="mt-2 shrink-0"
+                        />
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                           <ServiceTypeIcon serviceType={serviceType} size={22} />
                         </div>
@@ -117,7 +221,7 @@ export default function VisitHistoryPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4 pl-7">
                         <div>
                           <p className="flex items-center gap-1 font-medium text-foreground/80">
                             <Clock className="h-3 w-3" />
@@ -158,7 +262,7 @@ export default function VisitHistoryPage() {
                       </div>
 
                       {ui === "open_for_rating" && (
-                        <Button className="w-full" onClick={() => navigate(`/avaliar/${visit.id}`)}>
+                        <Button className="w-full ml-7 max-w-[calc(100%-1.75rem)]" onClick={() => navigate(`/avaliar/${visit.id}`)}>
                           Avaliar
                         </Button>
                       )}
@@ -170,6 +274,15 @@ export default function VisitHistoryPage() {
           </ul>
         )}
       </div>
+
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        count={bulkDeleteMode === "all" ? visits.length : selectedCount}
+        mode={bulkDeleteMode}
+        copy={VISIT_BULK_DELETE_COPY}
+        onConfirm={handleConfirmBulkDelete}
+      />
     </div>
   );
 }

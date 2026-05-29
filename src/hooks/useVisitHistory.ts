@@ -92,5 +92,51 @@ export function useVisitHistory() {
     void fetchVisits();
   }, [fetchVisits]);
 
-  return { visits, loading, error, refetch: fetchVisits };
+  const deleteVisits = useCallback(
+    async (visitIds: string[]) => {
+      if (!user?.id || visitIds.length === 0) return 0;
+
+      try {
+        const { error: delErr } = await supabase
+          .from("service_visits")
+          .delete()
+          .in("id", visitIds)
+          .eq("user_id", user.id);
+
+        if (delErr) throw delErr;
+
+        await fetchVisits();
+        return visitIds.length;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Erro ao excluir visitas";
+        setError(msg);
+        return 0;
+      }
+    },
+    [user?.id, fetchVisits],
+  );
+
+  const deleteAllVisits = useCallback(async () => {
+    if (!user?.id) return 0;
+    const count = visits.length;
+    if (count === 0) return 0;
+
+    try {
+      const { error: delErr } = await supabase
+        .from("service_visits")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (delErr) throw delErr;
+
+      await fetchVisits();
+      return count;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao limpar visitas";
+      setError(msg);
+      return 0;
+    }
+  }, [user?.id, visits.length, fetchVisits]);
+
+  return { visits, loading, error, refetch: fetchVisits, deleteVisits, deleteAllVisits };
 }

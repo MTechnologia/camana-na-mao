@@ -101,6 +101,39 @@ Deno.test("getNextMissingField pede localização na jornada leve de serviços",
   });
 });
 
+Deno.test("getNextMissingField pede frequência antes de concluir transporte", async () => {
+  const fields: Record<string, unknown> = {
+    description: "ônibus atrasou muito na linha",
+    report_type: "atraso",
+    sub_category: "atraso_recorrente",
+    line_code: "1017-10",
+    occurrence_date: "2026-05-29",
+    occurrence_time: "07:32",
+    direction: "ida",
+    _stop_name_skipped: true,
+    _stop_location_skipped: true,
+  };
+  const result = await getNextMissingField(
+    "transport_report",
+    fields,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      isGenericIntentText: () => false,
+      isValidDomainDescription: () => true,
+      getClassificationFromFeedback: async () => null,
+      inferTransportTypeFromText: () => null,
+      extractTransportFields: () => ({}),
+      isValidTransportSubcategory: () => true,
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+  assertEquals(result.field, "recurrence_frequency");
+});
+
 Deno.test("getNextMissingField não pede stop_name/stop_location quando usuário pulou", async () => {
   const fields: Record<string, unknown> = {
     description: "ônibus atrasado",

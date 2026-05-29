@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAIJourney } from '@/contexts/AIJourneyContext';
+import {
+  resolveReturnToChatAction,
+  type ManualReportNavigationState,
+} from '@/lib/manualReportNavigation';
 import { ArrowRight, Camera, ImageIcon, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -32,6 +37,25 @@ const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
 
 export default function NewReportPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setActiveConversationId } = useAIJourney();
+  const returnNavState = location.state as ManualReportNavigationState | null | undefined;
+  const hasReturnToChat = Boolean(returnNavState?.returnToChatConversationId?.trim());
+
+  const handleReturnToChat = () => {
+    const { path, conversationId } = resolveReturnToChatAction(returnNavState);
+    if (conversationId) setActiveConversationId(conversationId);
+    navigate(path);
+  };
+
+  const handleExitForm = () => {
+    if (hasReturnToChat) {
+      handleReturnToChat();
+      return;
+    }
+    navigate('/relatos');
+  };
+
   const { user } = useAuth();
   const { submitReport, submitting } = useTransportReport();
   const { patterns } = useReportPatterns();
@@ -234,7 +258,7 @@ export default function NewReportPage() {
   if (success) {
     return (
       <>
-        <PageHeader title="Novo Relato" backTo="/relatos" />
+        <PageHeader title="Novo Relato" onBack={handleExitForm} />
         <div className="min-h-screen bg-gray-50 pt-[60px] p-4 pb-6 flex items-center justify-center">
           <div className="max-w-md w-full">
             <ReportSuccessCard
@@ -278,10 +302,9 @@ export default function NewReportPage() {
 
   return (
     <>
-      <PageHeader 
+      <PageHeader
         title={`Passo ${step} de ${totalSteps}`}
-        onBack={step > 1 ? handleBack : undefined}
-        backTo={step === 1 ? '/relatos' : undefined}
+        onBack={step > 1 ? handleBack : handleExitForm}
       />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="sticky top-[60px] z-10 bg-gray-50 border-b px-4 py-2">

@@ -5,6 +5,8 @@ import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/
 import {
   parseTransportReportPreviewJson,
 } from "@/lib/parseTransportReportPreview";
+import { parseTransportReportSuccess } from "@/lib/parseTransportReportSuccess";
+import { TransportReportSuccessInChat } from "@/components/ai/TransportReportSuccessInChat";
 import {
   parseServiceRatingSubmitPreviewJson,
   stripRatingSubmitPreviewDuplicateMarkdown,
@@ -744,6 +746,19 @@ const ChatMessageBubble = ({
     return text;
   };
 
+  /** Resumo pós-registro (urbano/transporte/avaliação): uma linha por campo no Markdown. */
+  const withRegisteredReportLineBreaks = (text: string): string => {
+    if (!/\[(REPORT|TRANSPORT|RATING)_CREATED:/i.test(text)) return text;
+    return text.replace(/\n/g, '  \n');
+  };
+
+  const assistantMarkdown = useMemo(() => {
+    const base = withStepLineBreaks(cleanContent);
+    return isRegisteredReportSuccessMessage
+      ? withRegisteredReportLineBreaks(base)
+      : base;
+  }, [cleanContent, isRegisteredReportSuccessMessage]);
+
   // Split para colocar Documentos e Convidados acima de "Quer saber mais sobre alguma ou inscrever-se?"
   const audienciaContentSplit = useMemo(() => {
     const needle = "Quer saber mais sobre alguma ou inscrever-se?";
@@ -857,6 +872,11 @@ const ChatMessageBubble = ({
     () => (!isUser ? parseTransportReportPreviewJson(message.content) : null),
     [isUser, message.content],
   );
+  const transportSuccessParsed = useMemo(
+    () => (!isUser ? parseTransportReportSuccess(message.content) : null),
+    [isUser, message.content],
+  );
+  const showTransportSuccessCard = Boolean(transportSuccessParsed);
   const showTransportPreviewCard = Boolean(
     !isUser &&
       transportPreviewParsed &&
@@ -895,6 +915,7 @@ const ChatMessageBubble = ({
     isLongContent &&
     !showUrbanPreviewCard &&
     !showTransportPreviewCard &&
+    !showTransportSuccessCard &&
     !showRatingSubmitPreviewCard &&
     !isRegisteredReportSuccessMessage;
 
@@ -1141,6 +1162,8 @@ const ChatMessageBubble = ({
             <div className="w-full">
               {showUrbanPreviewCard && urbanReportPreviewParsed ? (
                 <UrbanReportPreviewInChat preview={urbanReportPreviewParsed} />
+              ) : showTransportSuccessCard && transportSuccessParsed ? (
+                <TransportReportSuccessInChat success={transportSuccessParsed} />
               ) : showTransportPreviewCard && transportPreviewParsed ? (
               <>
                 <TransportReportPreviewInChat preview={transportPreviewParsed} />
@@ -1305,7 +1328,7 @@ const ChatMessageBubble = ({
                   }}
                 >
                   {audienciaContentSplit.contentAfter === null
-                    ? withStepLineBreaks(cleanContent)
+                    ? assistantMarkdown
                     : withStepLineBreaks(audienciaContentSplit.contentBefore)}
                 </ReactMarkdown>
               </div>
