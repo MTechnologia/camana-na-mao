@@ -17,76 +17,15 @@ import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
 import { createClientId } from "@/lib/clientId";
+import { extractCollectionProgressJsonObjects } from "@/lib/chatCollectionProgress";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 const LIGHT_JOURNEY_TYPES: string[] = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 
-const COLLECTION_PROGRESS_PREFIX = "[COLLECTION_PROGRESS:";
-
-/**
- * Extrai cada payload JSON dos marcadores `[COLLECTION_PROGRESS:type:{...}]`.
- * Usa profundidade de chaves ignorando `{`/`}` dentro de strings JSON (o regex `\{[^\]]*\}`
- * quebrava quando `description` continha `[RATING_DIMENSIONS:...]` com `]`).
- */
-function extractCollectionProgressJsonObjects(text: string): Array<{ type: string; jsonStr: string }> {
-  const results: Array<{ type: string; jsonStr: string }> = [];
-  let pos = 0;
-  while (pos < text.length) {
-    const start = text.indexOf(COLLECTION_PROGRESS_PREFIX, pos);
-    if (start === -1) break;
-    const typeStart = start + COLLECTION_PROGRESS_PREFIX.length;
-    const colonIdx = text.indexOf(":", typeStart);
-    if (colonIdx === -1) break;
-    const type = text.slice(typeStart, colonIdx);
-    if (!/^\w+$/.test(type)) {
-      pos = typeStart;
-      continue;
-    }
-    const braceStart = text.indexOf("{", colonIdx);
-    if (braceStart === -1) break;
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    let i = braceStart;
-    let closed = false;
-    for (; i < text.length; i++) {
-      const c = text[i];
-      if (escape) {
-        escape = false;
-        continue;
-      }
-      if (inString) {
-        if (c === "\\") {
-          escape = true;
-          continue;
-        }
-        if (c === '"') inString = false;
-        continue;
-      }
-      if (c === '"') {
-        inString = true;
-        continue;
-      }
-      if (c === "{") depth++;
-      else if (c === "}") {
-        depth--;
-        if (depth === 0) {
-          closed = true;
-          break;
-        }
-      }
-    }
-    if (!closed) break;
-    const jsonStr = text.slice(braceStart, i + 1);
-    if (text[i + 1] === "]") {
-      results.push({ type, jsonStr });
-    }
-    pos = i + 2;
-  }
-  return results;
-}
+const STATEMENT_TIMEOUT_ASSISTANT_MESSAGE =
+  "O sistema demorou mais que o normal para responder. Por favor, aguarde alguns segundos e envie sua mensagem novamente.";
 
 /** Corpo de erro da Edge (HTML/JSON) → texto útil em português. */
 function describeAiOrchestratorFailure(status: number, body: string): string {
@@ -220,6 +159,7 @@ export const useUnifiedAIChat = (
   const conversationIdRef = useRef<string | null>(conversationId || null);
   const prevConversationIdRef = useRef<string | null>(null);
   const messagesRef = useRef<Message[]>([]);
+  const progressParseWarnedRef = useRef(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -1229,6 +1169,7 @@ export const useUnifiedAIChat = (
       setMessages((prev) => [...prev, userMessage]);
     }
     setIsLoading(true);
+    progressParseWarnedRef.current = false;
 
     // Save user message to database
     if (conversationIdRef.current && user) {
@@ -1396,8 +1337,22 @@ export const useUnifiedAIChat = (
         const errorText = await response.text().catch(() => 'Erro desconhecido');
         console.error('[useUnifiedAIChat] API error:', response.status, errorText);
 
-        // Não exibir toast para timeout de statement (ruído técnico transitório).
         if (isStatementTimeoutFailure(errorText)) {
+          toast({
+            title: "Sistema demorou para responder",
+            description: "Aguarde alguns instantes e tente enviar novamente.",
+            variant: "destructive",
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: createClientId("chat-message"),
+              role: "assistant",
+              content: STATEMENT_TIMEOUT_ASSISTANT_MESSAGE,
+              timestamp: new Date().toISOString(),
+              source: "Assistente Câmara na Mão",
+            },
+          ]);
           setIsLoading(false);
           return;
         }
@@ -1518,6 +1473,14 @@ export const useUnifiedAIChat = (
                 }
               } catch (e) {
                 console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressJsonStr, e);
+                if (!progressParseWarnedRef.current) {
+                  progressParseWarnedRef.current = true;
+                  toast({
+                    title: "Progresso temporariamente indisponível",
+                    description:
+                      "A barra de etapas pode não atualizar agora. Continue respondendo normalmente.",
+                  });
+                }
               }
             }
             
