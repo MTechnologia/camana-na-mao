@@ -10,7 +10,6 @@ export async function persistChatMessage(
 ): Promise<void> {
   const title = options?.title?.trim() || undefined;
 
-  // @ts-expect-error RPC append_ai_conversation_message — tipos gerados após migration
   const { error: rpcError } = await supabase.rpc("append_ai_conversation_message", {
     p_conversation_id: conversationId,
     p_message: message as Json,
@@ -19,7 +18,13 @@ export async function persistChatMessage(
 
   if (!rpcError) return;
 
-  if (rpcError.code !== "PGRST202" && !rpcError.message?.includes("append_ai_conversation_message")) {
+  const rpcMissing =
+    rpcError.code === "PGRST202" ||
+    rpcError.code === "42883" ||
+    rpcError.message?.includes("append_ai_conversation_message") ||
+    rpcError.message?.includes("Could not find the function");
+
+  if (!rpcMissing) {
     console.warn("[persistChatMessage] RPC failed, using fallback:", rpcError.message);
   }
 

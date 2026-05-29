@@ -64,6 +64,7 @@ export type Database = {
           journey_id: string | null
           last_message_at: string
           messages: Json
+          metadata: Json
           status: string | null
           title: string | null
           updated_at: string
@@ -76,6 +77,7 @@ export type Database = {
           journey_id?: string | null
           last_message_at?: string
           messages?: Json
+          metadata?: Json
           status?: string | null
           title?: string | null
           updated_at?: string
@@ -88,6 +90,7 @@ export type Database = {
           journey_id?: string | null
           last_message_at?: string
           messages?: Json
+          metadata?: Json
           status?: string | null
           title?: string | null
           updated_at?: string
@@ -2674,6 +2677,14 @@ export type Database = {
       analyze_report_patterns: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      },
+      append_ai_conversation_message: {
+        Args: {
+          p_conversation_id: string
+          p_message: Json
+          p_title?: string | null
+        }
+        Returns: undefined
       },
       get_analytics_dashboard_summary: {
         Args: { p_end?: string | null; p_start?: string | null }

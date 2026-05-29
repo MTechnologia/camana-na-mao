@@ -72,6 +72,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[OFFER_REFERRAL\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW_JSON:[^\]]+\]/g, '')
+    .replace(/\[PHOTO_ATTACH_STEP\]/g, '')
     .replace(/\[FIELD_REQUEST:\w+\]/g, '')
     .replace(/\[ADDRESS_PICKER\]/g, '')
     .replace(/\[LINE_PICKER\]/g, '')
