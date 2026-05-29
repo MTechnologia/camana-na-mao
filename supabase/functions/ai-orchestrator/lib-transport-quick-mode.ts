@@ -1,4 +1,7 @@
-/** CHB-004: defaults para acelerar transporte quando faltam campos secundários. */
+/**
+ * CHB-004 (legado): defaults opcionais — não usado em getNextMissingField;
+ * frequência e impacto devem ser perguntados ao cidadão.
+ */
 
 export function applyTransportCollectionDefaults(fields: Record<string, unknown>): void {
   if (!fields.direction && fields.line_code) {

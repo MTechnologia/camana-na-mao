@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, MessageSquare, Plus, Trash2, Bot, Bus, MapPin, FileText, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAIConversations, type AIConversation } from "@/hooks/useAIConversations";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
 import DeleteConversationDialog from "@/components/ai/DeleteConversationDialog";
+import BulkDeleteConfirmDialog, {
+  CONVERSATION_BULK_DELETE_COPY,
+} from "@/components/shared/BulkDeleteConfirmDialog";
 import { isToday, isYesterday, subDays, isAfter, format } from "date-fns";
-import { formatRelativeTime } from "@/lib/dateUtils";
 import { ptBR } from "date-fns/locale";
 
 const journeyIcons: Record<string, typeof Bot> = {
@@ -25,12 +28,22 @@ const journeyIcons: Record<string, typeof Bot> = {
 const ConversationsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { conversations, isLoading, deleteConversation } = useAIConversations();
-  const { setActiveConversationId } = useAIJourney();
-  
+  const {
+    conversations,
+    isLoading,
+    deleteConversation,
+    deleteConversations,
+    deleteAllConversations,
+  } = useAIConversations();
+  const { setActiveConversationId, activeConversationId, startNewChatSession, clearConversation } =
+    useAIJourney();
+
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<AIConversation | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<"selected" | "all">("selected");
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
@@ -38,7 +51,7 @@ const ConversationsPage = () => {
     return conversations.filter(
       (conv) =>
         conv.title.toLowerCase().includes(query) ||
-        conv.lastMessagePreview.toLowerCase().includes(query)
+        conv.lastMessagePreview.toLowerCase().includes(query),
     );
   }, [conversations, searchQuery]);
 
@@ -81,6 +94,46 @@ const ConversationsPage = () => {
     older: "Mais antigas",
   };
 
+  const allFilteredSelected =
+    filteredConversations.length > 0 &&
+    filteredConversations.every((c) => selectedIds.has(c.id));
+
+  const toggleSelection = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAllFiltered = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filteredConversations.forEach((c) => next.delete(c.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filteredConversations.forEach((c) => next.add(c.id));
+      return next;
+    });
+  }, [allFilteredSelected, filteredConversations]);
+
+  const clearSelectionIfActiveDeleted = useCallback(
+    (deletedIds: string[]) => {
+      if (activeConversationId && deletedIds.includes(activeConversationId)) {
+        clearConversation();
+      }
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        deletedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    },
+    [activeConversationId, clearConversation],
+  );
+
   const handleConversationClick = (conversation: AIConversation) => {
     setActiveConversationId(conversation.id);
     navigate("/");
@@ -94,19 +147,57 @@ const ConversationsPage = () => {
 
   const handleConfirmDelete = async () => {
     if (conversationToDelete) {
-      await deleteConversation(conversationToDelete.id);
-      toast({
-        title: "Conversa excluída",
-        description: "A conversa foi removida com sucesso.",
-      });
+      const ok = await deleteConversation(conversationToDelete.id);
+      if (ok) {
+        clearSelectionIfActiveDeleted([conversationToDelete.id]);
+        toast({
+          title: "Conversa excluída",
+          description: "A conversa foi removida com sucesso.",
+        });
+      }
     }
     setDeleteDialogOpen(false);
     setConversationToDelete(null);
   };
 
   const handleNewConversation = () => {
-    setActiveConversationId(null);
-    navigate("/");
+    startNewChatSession();
+    setSelectedIds(new Set());
+    navigate("/", { replace: true });
+    toast({
+      title: "Nova conversa",
+      description: "Escolha um tema no assistente para começar.",
+    });
+  };
+
+  const openBulkDelete = (mode: "selected" | "all") => {
+    setBulkDeleteMode(mode);
+    setBulkDeleteOpen(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (bulkDeleteMode === "all") {
+      const count = await deleteAllConversations();
+      if (count > 0) {
+        startNewChatSession();
+        setSelectedIds(new Set());
+        toast({
+          title: "Conversas removidas",
+          description: `${count} conversa${count === 1 ? "" : "s"} excluída${count === 1 ? "" : "s"}.`,
+        });
+      }
+    } else {
+      const ids = Array.from(selectedIds);
+      const count = await deleteConversations(ids);
+      if (count > 0) {
+        clearSelectionIfActiveDeleted(ids);
+        toast({
+          title: "Conversas excluídas",
+          description: `${count} conversa${count === 1 ? "" : "s"} removida${count === 1 ? "" : "s"}.`,
+        });
+      }
+    }
+    setBulkDeleteOpen(false);
   };
 
   const getJourneyIcon = (journeyId: string) => {
@@ -114,15 +205,15 @@ const ConversationsPage = () => {
     return <Icon className="h-5 w-5" />;
   };
 
-
   const formatCreatedDate = (date: Date) => {
     return format(date, "dd/MM HH:mm", { locale: ptBR });
   };
 
+  const selectedCount = selectedIds.size;
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-60px)] bg-background">
-      {/* Search */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -132,13 +223,43 @@ const ConversationsPage = () => {
             className="pl-10"
           />
         </div>
+
+        {!isLoading && filteredConversations.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <Checkbox
+                checked={allFilteredSelected}
+                onCheckedChange={() => toggleSelectAllFiltered()}
+                aria-label="Selecionar todas as conversas visíveis"
+              />
+              Selecionar todas
+            </label>
+            {selectedCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => openBulkDelete("selected")}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir ({selectedCount})
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+              onClick={() => openBulkDelete("all")}
+            >
+              Limpar todas
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Content */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-6">
           {isLoading ? (
-            // Loading skeleton
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="space-y-2">
@@ -149,7 +270,6 @@ const ConversationsPage = () => {
               ))}
             </div>
           ) : filteredConversations.length === 0 ? (
-            // Empty state
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                 <MessageSquare className="h-8 w-8 text-muted-foreground" />
@@ -165,12 +285,11 @@ const ConversationsPage = () => {
               {!searchQuery && (
                 <Button onClick={handleNewConversation}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Nova Conversa
+                  Nova conversa
                 </Button>
               )}
             </div>
           ) : (
-            // Grouped conversations
             Object.entries(groupedConversations).map(([group, convs]) => {
               if (convs.length === 0) return null;
               return (
@@ -186,6 +305,15 @@ const ConversationsPage = () => {
                         onClick={() => handleConversationClick(conversation)}
                       >
                         <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedIds.has(conversation.id)}
+                            onCheckedChange={(checked) =>
+                              toggleSelection(conversation.id, checked === true)
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Selecionar conversa ${conversation.title}`}
+                            className="mt-2"
+                          />
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                             {getJourneyIcon(conversation.journeyId)}
                           </div>
@@ -201,9 +329,7 @@ const ConversationsPage = () => {
                                   </span>
                                 )}
                                 {conversation.reportData.address && (
-                                  <span className="truncate">
-                                    {conversation.reportData.address}
-                                  </span>
+                                  <span className="truncate">{conversation.reportData.address}</span>
                                 )}
                               </div>
                             )}
@@ -238,20 +364,19 @@ const ConversationsPage = () => {
         </div>
       </ScrollArea>
 
-      {/* FAB for new conversation */}
       {!isLoading && filteredConversations.length > 0 && (
         <div className="fixed bottom-20 right-4">
           <Button
             size="lg"
             className="rounded-full shadow-lg h-14 w-14"
             onClick={handleNewConversation}
+            aria-label="Nova conversa"
           >
             <Plus className="h-6 w-6" />
           </Button>
         </div>
       )}
 
-      {/* Delete Dialog */}
       {conversationToDelete && (
         <DeleteConversationDialog
           conversation={conversationToDelete}
@@ -260,6 +385,15 @@ const ConversationsPage = () => {
           onConfirm={handleConfirmDelete}
         />
       )}
+
+      <BulkDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        count={bulkDeleteMode === "all" ? conversations.length : selectedCount}
+        mode={bulkDeleteMode}
+        copy={CONVERSATION_BULK_DELETE_COPY}
+        onConfirm={handleConfirmBulkDelete}
+      />
     </div>
   );
 };

@@ -1,4 +1,5 @@
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -15,7 +16,8 @@ interface ChatSidebarProps {
 
 const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   const { conversations, deleteConversation } = useAIConversations();
-  const { setActiveConversationId, activeConversationId, clearConversation } = useAIJourney();
+  const { setActiveConversationId, activeConversationId, clearConversation, startNewChatSession } =
+    useAIJourney();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -83,7 +85,23 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   return (
     <div className="flex flex-col h-full w-full pt-12">
       {/* Search - Top com padding para não sobrepor o X */}
-      <div className="p-3 border-b border-border">
+      <div className="p-3 border-b border-border space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => {
+            startNewChatSession();
+            toast({
+              title: "Nova conversa",
+              description: "Escolha um tema abaixo para começar.",
+            });
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Nova conversa
+        </Button>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

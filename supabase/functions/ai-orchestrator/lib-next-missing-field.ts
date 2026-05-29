@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { hasTransportAccessibilityDetails } from "./lib-index-transport-preview.ts";
 import { URBAN_AFFECTED_SCOPE_FIELD_PROMPT } from "./lib-prompt-ux.ts";
-import { applyTransportCollectionDefaults } from "./lib-transport-quick-mode.ts";
 import {
   applyUrbanQuickModeDefaults,
   shouldSkipUrbanRiskScopeQuestions,
@@ -502,16 +501,6 @@ export async function getNextMissingField(
         picker: "[TIME_PICKER]",
         prompt: "Qual foi o **horário exato** da ocorrência?",
       };
-    }
-
-    const hasTransportCore =
-      Boolean(fields.report_type) &&
-      Boolean(fields.line_code) &&
-      Boolean(fields.occurrence_date) &&
-      Boolean(fields.occurrence_time) &&
-      String(fields.description ?? "").trim().length >= 5;
-    if (hasTransportCore) {
-      applyTransportCollectionDefaults(fields);
     }
 
     if (!fields.direction) {

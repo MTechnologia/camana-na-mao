@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildManualReportNavigateOptions,
+  EVALUATION_FREE_FORM_PATH,
   isOpenManualReportMessage,
   OPEN_MANUAL_REPORT_MESSAGE,
   resolveManualReportPath,
@@ -17,6 +18,10 @@ describe("manualReportNavigation", () => {
   it("detecta marcador do chip", () => {
     expect(isOpenManualReportMessage(OPEN_MANUAL_REPORT_MESSAGE)).toBe(true);
     expect(isOpenManualReportMessage("  [OPEN_MANUAL_REPORT]  ")).toBe(true);
+  });
+
+  it("expõe rota do formulário de avaliação livre", () => {
+    expect(EVALUATION_FREE_FORM_PATH).toBe("/avaliar");
   });
 
   it("preserva conversa ao abrir manual e volta ao chat", () => {

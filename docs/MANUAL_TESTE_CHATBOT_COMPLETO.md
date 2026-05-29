@@ -77,7 +77,7 @@ npm run test:chatbot:e2e
 
 | # | Passo | Resultado esperado |
 |---|--------|-------------------|
-| 6.1 | `/avaliar` — lista de visitas pendentes | Cards clicáveis ou modo livre visível. |
+| 6.1 | `/avaliar` — lista de visitas pendentes | Cards clicáveis ou modo livre visível. Acesso sem URL: chip **Avaliar serviço** na home → rodapé **Prefiro o formulário de avaliação livre**; ou card laranja de visitas pendentes. |
 | 6.2 | Abra `/avaliar/{visitId}` válido | Chat de avaliação com serviço já contextualizado. |
 | 6.3 | Abra link com visita expirada ou já avaliada | Toast claro; redireciona para `/avaliar` (não trava em branco). |
 | 6.4 | Modo livre: informe tipo e nome do serviço | Dimensões/estrelas conforme tipo (sem picker legado de estrelas gerais). |
@@ -100,8 +100,9 @@ npm run test:chatbot:e2e
 |---|--------|-------------------|
 | 8.1 | Menu → Histórico | Lista de conversas. |
 | 8.2 | Abra conversa antiga com relato em andamento | Mensagens e tracker coerentes. |
-| 8.3 | Nova conversa | Hub inicial limpo. |
-| 8.4 | Excluir conversa | Toast de sucesso; some da lista. |
+| 8.3 | Nova conversa | Botão **+** em `/conversas` ou **Nova conversa** na sidebar do chat → abre o assistente (`/`) com hub limpo (sem mensagens da conversa anterior). |
+| 8.4 | Excluir conversa | Toast de sucesso; some da lista (ícone lixeira ou seleção + **Excluir**). |
+| 8.5 | Limpar todas | Em `/conversas`, **Limpar todas** → confirma → lista vazia; chat em hub limpo se estava em conversa ativa. |
 
 ---
 

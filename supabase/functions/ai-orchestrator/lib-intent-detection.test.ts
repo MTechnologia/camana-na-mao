@@ -3,6 +3,7 @@ import {
   detectCollectionIntent,
   detectExistingJourney,
   isBusInformationalQuery,
+  messageLooksLikeTransportProblemReport,
 } from "./lib-intent-detection.ts";
 
 const baseDeps = {
@@ -117,4 +118,19 @@ Deno.test("detectCollectionIntent: classifica relato urbano explícito", () => {
   );
 
   assertEquals(result, { type: "urban_report", fields: { category: "lixo" } });
+});
+
+Deno.test("messageLooksLikeTransportProblemReport: ônibus atrasando", () => {
+  assertEquals(messageLooksLikeTransportProblemReport("O ônibus está atrasando demais"), true);
+  assertEquals(messageLooksLikeTransportProblemReport("onibus 509 tempo real no ponto"), false);
+});
+
+Deno.test("detectCollectionIntent: relato de ônibus em jornada urbana → transport_report", () => {
+  const history = [
+    { role: "user", content: "Quero falar sobre a cidade" },
+    { role: "user", content: "reclamacao" },
+    { role: "assistant", content: "[COLLECTION_PROGRESS:urban_report:2/8] O que está acontecendo?" },
+  ];
+  const result = detectCollectionIntent("O ônibus está atrasando demais", history, baseDeps);
+  assertEquals(result?.type, "transport_report");
 });

@@ -337,7 +337,7 @@ export const useAIConversations = () => {
   };
 
   const deleteConversation = async (conversationId: string) => {
-    if (!user) return;
+    if (!user) return false;
 
     try {
       const { error } = await supabase
@@ -349,6 +349,7 @@ export const useAIConversations = () => {
       if (error) throw error;
 
       await loadConversations();
+      return true;
     } catch (error: unknown) {
       console.error('Error deleting conversation:', error);
       toast({
@@ -356,6 +357,58 @@ export const useAIConversations = () => {
         description: 'Não foi possível deletar a conversa.',
         variant: 'destructive',
       });
+      return false;
+    }
+  };
+
+  const deleteConversations = async (conversationIds: string[]) => {
+    if (!user || conversationIds.length === 0) return 0;
+
+    try {
+      const { error } = await supabase
+        .from('ai_conversations')
+        .delete()
+        .in('id', conversationIds)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      await loadConversations();
+      return conversationIds.length;
+    } catch (error: unknown) {
+      console.error('Error deleting conversations:', error);
+      toast({
+        title: 'Erro ao excluir conversas',
+        description: 'Não foi possível remover as conversas selecionadas.',
+        variant: 'destructive',
+      });
+      return 0;
+    }
+  };
+
+  const deleteAllConversations = async () => {
+    if (!user) return 0;
+    const count = conversations.length;
+    if (count === 0) return 0;
+
+    try {
+      const { error } = await supabase
+        .from('ai_conversations')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      await loadConversations();
+      return count;
+    } catch (error: unknown) {
+      console.error('Error deleting all conversations:', error);
+      toast({
+        title: 'Erro ao limpar conversas',
+        description: 'Não foi possível remover todas as conversas.',
+        variant: 'destructive',
+      });
+      return 0;
     }
   };
 
@@ -367,6 +420,8 @@ export const useAIConversations = () => {
     archiveConversation,
     restoreConversation,
     deleteConversation,
+    deleteConversations,
+    deleteAllConversations,
     loadConversations,
     isLoading,
   };

@@ -2,6 +2,9 @@ import type { CollectionType } from "@/components/ai/DataCollectionTracker";
 
 export const OPEN_MANUAL_REPORT_MESSAGE = "[OPEN_MANUAL_REPORT]";
 
+/** Página dedicada: visitas pendentes + modo livre (CHB / manual §6). */
+export const EVALUATION_FREE_FORM_PATH = "/avaliar";
+
 export type ManualReportNavigationState = {
   returnToChatConversationId?: string | null;
 };

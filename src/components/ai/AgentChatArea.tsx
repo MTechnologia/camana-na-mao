@@ -27,6 +27,7 @@ import {
 } from "@/lib/chatOrchestratorClient";
 import {
   buildManualReportNavigateOptions,
+  EVALUATION_FREE_FORM_PATH,
   isOpenManualReportMessage,
   resolveManualReportPath,
 } from "@/lib/manualReportNavigation";
@@ -48,9 +49,8 @@ const contentVariants = {
 
 const AgentChatArea = () => {
   const navigate = useNavigate();
-  const { activeConversationId, setActiveConversationId } = useAIJourney();
+  const { activeConversationId, setActiveConversationId, chatSessionEpoch } = useAIJourney();
   const { profile, getInitials } = useProfile();
-  const hasCleared = useRef(false);
   const pendingMessageRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
@@ -95,6 +95,12 @@ const AgentChatArea = () => {
   
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const clearMessagesRef = useRef(clearMessages);
+  clearMessagesRef.current = clearMessages;
+  const chatSessionResetRef = useRef({
+    conversationId: activeConversationId,
+    epoch: chatSessionEpoch,
+  });
 
   // Extrai o campo atual sendo solicitado da última mensagem do assistente
   const currentField = useMemo(() => {
@@ -173,13 +179,21 @@ const AgentChatArea = () => {
   }, []);
 
   useEffect(() => {
-    if (activeConversationId === null && !hasCleared.current) {
-      hasCleared.current = true;
-      clearMessages();
-    } else if (activeConversationId !== null) {
-      hasCleared.current = false;
+    const prev = chatSessionResetRef.current;
+    const conversationCleared =
+      activeConversationId === null && prev.conversationId !== null;
+    const epochBumpedWhileHub =
+      activeConversationId === null && chatSessionEpoch !== prev.epoch;
+
+    chatSessionResetRef.current = {
+      conversationId: activeConversationId,
+      epoch: chatSessionEpoch,
+    };
+
+    if (conversationCleared || epochBumpedWhileHub) {
+      clearMessagesRef.current();
     }
-  }, [activeConversationId, clearMessages]);
+  }, [activeConversationId, chatSessionEpoch]);
 
   // Enviar mensagem pendente após conversa carregar completamente
   useEffect(() => {
@@ -515,28 +529,34 @@ const AgentChatArea = () => {
         transition={{ delay: 0.2, duration: 0.3 }}
       >
         <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-2">
-          {(collectionType === "urban_report" || collectionType === "transport_report") && (
+          {(collectionType === "urban_report" ||
+            collectionType === "transport_report" ||
+            collectionType === "service_rating") && (
             <div
               className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2"
               role="region"
-              aria-label="Atalho para formulário manual"
+              aria-label="Atalho para formulário dedicado"
             >
               <FileEdit className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               <button
                 type="button"
-                onClick={() =>
-                  navigate(
-                    resolveManualReportPath(collectionType),
-                    buildManualReportNavigateOptions({
-                      returnToChatConversationId: activeConversationId,
-                    }),
-                  )
-                }
+                onClick={() => {
+                  const navOpts = buildManualReportNavigateOptions({
+                    returnToChatConversationId: activeConversationId,
+                  });
+                  if (collectionType === "service_rating") {
+                    navigate(EVALUATION_FREE_FORM_PATH, navOpts);
+                    return;
+                  }
+                  navigate(resolveManualReportPath(collectionType), navOpts);
+                }}
                 className="text-xs text-muted-foreground underline hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded min-h-11 px-1"
               >
                 {collectionType === "transport_report"
                   ? "Prefiro o formulário manual (passo a passo)"
-                  : "Prefiro o formulário manual (com fotos)"}
+                  : collectionType === "service_rating"
+                    ? "Prefiro o formulário de avaliação livre"
+                    : "Prefiro o formulário manual (com fotos)"}
               </button>
             </div>
           )}

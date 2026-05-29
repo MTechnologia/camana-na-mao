@@ -59,6 +59,20 @@ function contextIncludes(context: string, fragment: string): boolean {
   return foldAccents(context).includes(foldAccents(fragment));
 }
 
+const TRANSPORT_PROBLEM_LAST_MSG_DOMAINS =
+  /\b(onibus|bus[aã]o|metro|metr[oô]|trem|cptm|linha|motorista|cobrador|transporte\s+publico|parada)\b/i;
+const TRANSPORT_PROBLEM_LAST_MSG_ISSUES =
+  /\b(atras(o|ou|ando|ada)?|demora(r|ndo)?|lotad[oa]|lotacao|lota[cç][aã]o|n[aã]o\s+passou|quebrou|sujo|fedendo|imprudente|perigoso|capotou|freada|superlotad)\b/i;
+
+/** Relato de problema no transporte na última mensagem (não consulta Olho Vivo). */
+export function messageLooksLikeTransportProblemReport(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 10) return false;
+  if (isBusInformationalQuery(t)) return false;
+  const folded = foldAccents(t);
+  return TRANSPORT_PROBLEM_LAST_MSG_DOMAINS.test(folded) && TRANSPORT_PROBLEM_LAST_MSG_ISSUES.test(folded);
+}
+
 export function detectExistingJourney(
   conversationHistory: ConversationMessage[],
 ): "urban_report" | "transport_report" | "service_rating" | null {
@@ -688,7 +702,10 @@ export function detectCollectionIntent(
   }
 
   const transportDomain = ["ônibus", "onibus", "busao", "busão", "metrô", "metro", "trem", "cptm", "estação", "estacao", "terminal", "ponto de ônibus", "transporte", "transporte público", "transporte publico", "motorista", "cobrador", "linha"];
-  const transportProblems = ["lotado", "lotação", "lotacao", "atraso", "atrasou", "demora", "não passou", "nao passou", "quebrou", "passou", "freada", "freou", "sujo", "fedendo"];
+  const transportProblems = [
+    "lotado", "lotação", "lotacao", "atraso", "atrasou", "atrasando", "atrasada",
+    "demora", "demorando", "demorou", "não passou", "nao passou", "quebrou", "freada", "freou", "sujo", "fedendo",
+  ];
   let transportScore = 0;
   if (!busInfoQuery) {
     transportDomain.forEach((kw) => {
@@ -1001,6 +1018,26 @@ export function detectCollectionIntent(
     return null;
   }
 
+  if (
+    existingJourney === "urban_report" &&
+    messageLooksLikeTransportProblemReport(userMessage)
+  ) {
+    const transportEntry = scores.find((s) => s.type === "transport_report");
+    const boost = 14;
+    if (transportEntry) {
+      transportEntry.score += boost;
+    } else {
+      scores.push({
+        type: "transport_report",
+        score: boost,
+        fields: extractTransportFields(msgLower),
+      });
+    }
+    console.log(
+      "[detectCollectionIntent] Transport problem in last message during urban_report → boosted transport_report",
+    );
+  }
+
   if (lastMsgExplicitIntent) {
     const targetScore = scores.find((s) => s.type === lastMsgExplicitIntent.type);
     if (targetScore) {
@@ -1077,7 +1114,8 @@ export function detectCollectionIntent(
     existingJourney &&
     winner.type !== existingJourney &&
     !lastMsgExplicitIntent &&
-    msgLower.trim().length <= 56
+    msgLower.trim().length <= 56 &&
+    !messageLooksLikeTransportProblemReport(userMessage)
   ) {
     console.log(
       `[detectCollectionIntent] Preserving structured journey ${existingJourney} on short in-collection reply (winner: ${winner.type}=${winner.score})`,

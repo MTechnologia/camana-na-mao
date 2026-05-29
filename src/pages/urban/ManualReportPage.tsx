@@ -51,6 +51,7 @@ export default function ManualReportPage() {
   const location = useLocation();
   const { setActiveConversationId } = useAIJourney();
   const returnNavState = location.state as ManualReportNavigationState | null | undefined;
+  const hasReturnToChat = Boolean(returnNavState?.returnToChatConversationId?.trim());
   const { user } = useAuth();
 
   const handleReturnToChat = () => {
@@ -304,7 +305,11 @@ export default function ManualReportPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Relato Manual" />
+      <PageHeader
+        title="Relato Manual"
+        onBack={hasReturnToChat ? handleReturnToChat : undefined}
+        backTo={hasReturnToChat ? undefined : "/relatos"}
+      />
       
       <div className="p-4">
         <Card>
@@ -468,7 +473,7 @@ export default function ManualReportPage() {
 
               {/* Botões */}
               <div className="flex gap-2 pt-4">
-                {returnNavState?.returnToChatConversationId ? (
+                {hasReturnToChat ? (
                   <Button
                     type="button"
                     variant="outline"
