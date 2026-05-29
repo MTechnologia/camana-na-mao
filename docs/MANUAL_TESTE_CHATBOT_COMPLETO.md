@@ -63,39 +63,46 @@ npm run test:chatbot:e2e
 
 ---
 
-## 5. Avaliação de serviço
+## 5. Formulário manual (CHB-022)
 
 | # | Passo | Resultado esperado |
 |---|--------|-------------------|
-| 5.1 | `/avaliar` — lista de visitas pendentes | Cards clicáveis ou modo livre visível. |
-| 5.2 | Abra `/avaliar/{visitId}` válido | Chat de avaliação com serviço já contextualizado. |
-| 5.3 | Abra link com visita expirada ou já avaliada | Toast claro; redireciona para `/avaliar` (não trava em branco). |
-| 5.4 | Modo livre: informe tipo e nome do serviço | Dimensões/estrelas conforme tipo. |
+| 5.0 | No hub, chip «Formulário manual (com foto)» | Abre `/relato-urbano/manual`. |
+| 5.0b | Durante relato de **transporte** no chat, use o link «Preferir formulário manual» | Abre `/transporte/novo`. |
 
----
-
-## 6. Robustez e erros
+## 6. Avaliação de serviço
 
 | # | Passo | Resultado esperado |
 |---|--------|-------------------|
-| 6.1 | Simule rede lenta (DevTools → Slow 3G) e envie mensagem | Timeout amigável ou retry automático (marcador `[TIMEOUT]`). |
-| 6.2 | Se possível, provoque 429 (muitas mensagens seguidas) | Uma retentativa automática; depois toast de limite. |
-| 6.3 | Deslogue e tente enviar | Pedido de login; sem spinner infinito. |
+| 6.1 | `/avaliar` — lista de visitas pendentes | Cards clicáveis ou modo livre visível. |
+| 6.2 | Abra `/avaliar/{visitId}` válido | Chat de avaliação com serviço já contextualizado. |
+| 6.3 | Abra link com visita expirada ou já avaliada | Toast claro; redireciona para `/avaliar` (não trava em branco). |
+| 6.4 | Modo livre: informe tipo e nome do serviço | Dimensões/estrelas conforme tipo (sem picker legado de estrelas gerais). |
 
 ---
 
-## 7. Histórico de conversas
+## 7. Robustez e erros
 
 | # | Passo | Resultado esperado |
 |---|--------|-------------------|
-| 7.1 | Menu → Histórico | Lista de conversas. |
-| 7.2 | Abra conversa antiga com relato em andamento | Mensagens e tracker coerentes. |
-| 7.3 | Nova conversa | Hub inicial limpo. |
-| 7.4 | Excluir conversa | Toast de sucesso; some da lista. |
+| 7.1 | Simule rede lenta (DevTools → Slow 3G) e envie mensagem | Timeout amigável ou retry automático (marcador `[TIMEOUT]`). |
+| 7.2 | Se possível, provoque 429 (muitas mensagens seguidas) | Uma retentativa automática; depois toast de limite. |
+| 7.3 | Deslogue e tente enviar | Pedido de login; sem spinner infinito. |
 
 ---
 
-## 8. Checklist de regressão rápida (smoke)
+## 8. Histórico de conversas
+
+| # | Passo | Resultado esperado |
+|---|--------|-------------------|
+| 8.1 | Menu → Histórico | Lista de conversas. |
+| 8.2 | Abra conversa antiga com relato em andamento | Mensagens e tracker coerentes. |
+| 8.3 | Nova conversa | Hub inicial limpo. |
+| 8.4 | Excluir conversa | Toast de sucesso; some da lista. |
+
+---
+
+## 9. Checklist de regressão rápida (smoke)
 
 Marque após cada deploy:
 
@@ -109,7 +116,7 @@ Marque após cada deploy:
 
 ---
 
-## 9. Onde olhar se algo falhar
+## 10. Onde olhar se algo falhar
 
 | Sintoma | Onde verificar |
 |---------|----------------|

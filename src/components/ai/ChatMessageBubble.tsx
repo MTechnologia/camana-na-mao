@@ -165,6 +165,8 @@ interface ChatMessageBubbleProps {
   onOpenDiscovery?: () => void;
   /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
   disableRegistrarUntilPhotosAttached?: boolean;
+  /** CHB-035: oculta picker de estrelas legado quando o fluxo usa dimensões atômicas. */
+  suppressLegacyStarRating?: boolean;
 }
 
 const ChatMessageBubble = ({ 
@@ -198,6 +200,7 @@ const ChatMessageBubble = ({
   onSendMessage,
   patchMessageContent,
   disableRegistrarUntilPhotosAttached = false,
+  suppressLegacyStarRating = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const attachmentUrls = isUser ? (Array.isArray(message.attachmentUrls) ? message.attachmentUrls : []) : [];
@@ -571,7 +574,7 @@ const ChatMessageBubble = ({
   
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
-    if (isUser || ratingSelected || hasRatingPicker) return false;
+    if (suppressLegacyStarRating || isUser || ratingSelected || hasRatingPicker) return false;
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:rating_stars]') ||
@@ -584,7 +587,7 @@ const ChatMessageBubble = ({
         isLastAssistantMessage
       )
     );
-  }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
+  }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage, suppressLegacyStarRating]);
 
   const isAskingForWaitTime = useMemo(() => {
     if (isUser || waitTimeSelected || hasWaitTimePicker) return false;
@@ -1625,6 +1628,7 @@ const ChatMessageBubble = ({
         
         {/* Avaliação geral (1–5 estrelas) — não exibir se for dimensão atômica (FIELD_REQUEST:dim_* + RATING_PICKER) */}
         {(hasRatingPicker || isAskingForRating) &&
+          !suppressLegacyStarRating &&
           !hasDimensionRatingPicker &&
           !ratingSelected &&
           isLastAssistantMessage &&

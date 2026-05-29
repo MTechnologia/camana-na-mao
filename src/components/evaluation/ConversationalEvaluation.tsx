@@ -11,6 +11,7 @@ import {
   SERVICE_RATING_DIMENSION_LABELS,
 } from "@/lib/serviceRatingDimensions";
 import { shouldOfferRatingCommentReview } from "@/lib/shouldOfferRatingCommentReview";
+import { conversationUsesDimensionOnlyRating } from "@/lib/serviceRatingFlow";
 import ChatMessageBubble from "@/components/ai/ChatMessageBubble";
 import ChatInput from "@/components/ai/ChatInput";
 import TypingIndicator from "@/components/ai/TypingIndicator";
@@ -156,6 +157,7 @@ export function ConversationalEvaluation({
 
   const userAvatarUrl = profile?.avatar_url;
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
+  const suppressLegacyStarRating = conversationUsesDimensionOnlyRating(messages);
 
   return (
     <Card className="flex-1 flex flex-col min-h-0">
@@ -183,6 +185,7 @@ export function ConversationalEvaluation({
                 onSendMessage={(text) => {
                   void sendMessage(text);
                 }}
+                suppressLegacyStarRating={suppressLegacyStarRating}
               />
             );
           })}
