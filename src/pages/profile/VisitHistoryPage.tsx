@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,6 +17,12 @@ import { getServiceDisplayName } from "@/lib/mapUtils";
 import BulkDeleteConfirmDialog, {
   VISIT_BULK_DELETE_COPY,
 } from "@/components/shared/BulkDeleteConfirmDialog";
+import {
+  CITIZEN_LIST_PAGE_SIZE,
+  ListPagination,
+  paginateSlice,
+  totalListPages,
+} from "@/components/shared/ListPagination";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Clock, Timer, AlertCircle, Trash2 } from "lucide-react";
 
@@ -33,8 +39,22 @@ export default function VisitHistoryPage() {
   const { toast } = useToast();
   const { visits, loading, error, deleteVisits, deleteAllVisits } = useVisitHistory();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteMode, setBulkDeleteMode] = useState<"selected" | "all">("selected");
+
+  const visitTotalPages = totalListPages(visits.length, CITIZEN_LIST_PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > visitTotalPages) {
+      setPage(visitTotalPages);
+    }
+  }, [page, visitTotalPages]);
+
+  const paginatedVisits = useMemo(
+    () => paginateSlice(visits, page, CITIZEN_LIST_PAGE_SIZE),
+    [visits, page],
+  );
 
   const allSelected = visits.length > 0 && visits.every((v) => selectedIds.has(v.id));
   const selectedCount = selectedIds.size;
@@ -154,8 +174,9 @@ export default function VisitHistoryPage() {
             </CardContent>
           </Card>
         ) : (
+          <>
           <ul className="space-y-3 list-none p-0 m-0">
-            {visits.map((visit) => {
+            {paginatedVisits.map((visit) => {
               const svc = visit.service;
               const serviceType = svc?.service_type ?? "other";
               const displayName = svc
@@ -272,6 +293,14 @@ export default function VisitHistoryPage() {
               );
             })}
           </ul>
+          <ListPagination
+            page={page}
+            totalPages={visitTotalPages}
+            totalCount={visits.length}
+            pageSize={CITIZEN_LIST_PAGE_SIZE}
+            onPageChange={setPage}
+          />
+          </>
         )}
       </div>
 

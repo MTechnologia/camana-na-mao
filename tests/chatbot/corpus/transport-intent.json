@@ -13,7 +13,7 @@
     { "id": "transport_acessibilidade", "input": "elevador do metro quebrado" },
     { "id": "transport_chip", "input": "problema no transporte público" },
     { "id": "transport_trem", "input": "trem atrasou na estacao" },
-    { "id": "transport_abrev", "input": "875 n passou no ponto" },
+    { "id": "transport_abrev", "input": "onibus 875 n passou no ponto" },
     { "id": "transport_demora", "input": "demora excessiva no terminal sacoma" },
     { "id": "transport_conducao_giria", "input": "motorista dirigindo feito doido" },
     { "id": "transport_integracao", "input": "integracao do bilhete nao funcionou no onibus" },

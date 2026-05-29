@@ -1,0 +1,41 @@
+{
+  "journey": "urban_report",
+  "description": "Troca de jornada: relato de transporte durante coleta urbana (CHB manual §4)",
+  "cases": [
+    {
+      "id": "switch_urban_to_transport_bus_delay",
+      "input": "O ônibus está atrasando demais",
+      "expect_intent": "transport_report",
+      "history": [
+        { "role": "user", "content": "Quero falar sobre a cidade" },
+        { "role": "user", "content": "reclamacao" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:urban_report:2/8] O que está acontecendo?" }
+      ],
+      "languageProfile": "informal",
+      "expectedBehavior": "classificar",
+      "notes": "Manual §4 — não pedir tema urbano; oferecer transporte"
+    },
+    {
+      "id": "switch_urban_to_transport_busao_atrasou",
+      "input": "onibus atrasou mt no pico",
+      "expect_intent": "transport_report",
+      "history": [
+        { "role": "user", "content": "buraco na rua" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:urban_report:2/6][FIELD_REQUEST:location_address]Qual o endereço?" }
+      ],
+      "languageProfile": "baixa_escrita",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "switch_urban_to_transport_nao_passou",
+      "input": "o onibus nao passou no ponto hj",
+      "expect_intent": "transport_report",
+      "history": [
+        { "role": "user", "content": "tem lixo na esquina" },
+        { "role": "assistant", "content": "[COLLECTION_PROGRESS:urban_report:3/6][FIELD_REQUEST:description]Descreva o problema." }
+      ],
+      "languageProfile": "baixa_escrita",
+      "expectedBehavior": "classificar"
+    }
+  ]
+}

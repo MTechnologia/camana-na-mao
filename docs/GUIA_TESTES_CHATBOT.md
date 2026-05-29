@@ -36,6 +36,9 @@ tests/e2e/
   chatbot-typo-urban.spec.ts
   chatbot-typo-transport.spec.ts
   chat-journey-switch.spec.ts
+  chat-urban-smoke.spec.ts
+  chat-transport-smoke.spec.ts
+  chat-evaluation-hub-smoke.spec.ts
   fixtures/chatbot-typo-scenarios.ts
   _helpers/chatOrchestratorMock.ts
 
@@ -105,16 +108,23 @@ Valida o protocolo UI <-> backend:
 
 Adicione casos em `turn-accumulate.json`, `turn-next-field.json` ou `turn-auto-create.json`.
 
+## Troca de jornada (corpus)
+
+`journey-switch-intent.json` cobre relatos de transporte durante coleta urbana (ex.: “ônibus atrasando” em jornada `urban_report` → `transport_report`), alinhado ao manual §4.
+
 ## Cobertura Complementar - Vitest
 
-O relatório completo também executa testes unitários de apoio em `src/lib/` para comportamentos usados no fluxo conversacional: limpeza de mensagens com GPS, máscara de telefone, timeout de promises, prazo de avaliação, dimensões de avaliação, referral e revisão de comentário.
+O relatório completo também executa testes unitários de apoio em `src/lib/` e `src/hooks/` para o fluxo conversacional: sanitização de marcadores (`sanitizeMarkers`), navegação de formulários manuais, sucesso de relato de transporte, estado de jornada, persistência de mensagens, tracker/heurísticas de coleta, avaliação e utilitários (GPS, telefone, timeout, dimensões de avaliação).
 
 ## Fase 3 - E2E Playwright
 
-Specs com **mock** do `ai-orchestrator`:
+Specs com **mock** do `ai-orchestrator` (typo + troca de jornada) e smoke com login E2E:
 
 - `chatbot-typo-urban.spec.ts` - abertura com gíria/typos, frustração e ofensa direta
 - `chatbot-typo-transport.spec.ts` - fluxo completo com `7h5`, `td semana`, baixa escrita e risco
+- `chat-journey-switch.spec.ts` - confirmação de troca urbana → transporte
+- `chat-urban-smoke.spec.ts` / `chat-transport-smoke.spec.ts` - início de jornada e tracker
+- `chat-evaluation-hub-smoke.spec.ts` - página `/avaliar`
 
 Requer `.env.e2e.local` com credenciais de teste. O relatório completo anexa screenshots das execuções e permite abrir cada imagem em lightbox.
 
