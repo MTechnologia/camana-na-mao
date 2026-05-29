@@ -12,6 +12,8 @@ interface ImportMetaEnv {
 
   /** API key Google Maps Platform. Quando definida, o mapa real é exibido em "Perto de Você". */
   readonly VITE_GOOGLE_MAPS_API_KEY?: string;
+  /** Habilita hidratação do tracker por metadata.journey_snapshot no chat. */
+  readonly VITE_ENABLE_JOURNEY_SNAPSHOT?: string;
 }
 
 interface ImportMeta {

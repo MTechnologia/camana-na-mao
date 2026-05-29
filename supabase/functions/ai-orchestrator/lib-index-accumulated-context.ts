@@ -1,5 +1,6 @@
 import type { CollectionIntent } from "./lib.ts";
 import { LIGHT_JOURNEY_TYPES } from "./lib-index-collection-intent.ts";
+import { buildJourneySnapshotV1, type JourneySnapshotV1 } from "./lib-index-journey-snapshot.ts";
 
 type ChatHistoryEntry = {
   role: string;
@@ -19,6 +20,7 @@ type BuildAccumulatedContextArgs = {
 
 type BuildAccumulatedContextResult = {
   accumulatedFields: Record<string, unknown>;
+  journeySnapshot: JourneySnapshotV1 | null;
   lightJourneyMarker: string;
 };
 
@@ -124,8 +126,13 @@ export async function buildAccumulatedContext(
     console.log("[ai-orchestrator] Will emit light journey marker:", lightJourneyMarker);
   }
 
+  const journeySnapshot = collectionIntent
+    ? buildJourneySnapshotV1(collectionIntent.type, accumulatedFields)
+    : null;
+
   return {
     accumulatedFields,
+    journeySnapshot,
     lightJourneyMarker,
   };
 }
