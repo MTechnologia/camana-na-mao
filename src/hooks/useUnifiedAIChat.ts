@@ -26,6 +26,9 @@ const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report
 
 const STATEMENT_TIMEOUT_ASSISTANT_MESSAGE =
   "O sistema demorou mais que o normal para responder. Por favor, aguarde alguns segundos e envie sua mensagem novamente.";
+const ENABLE_JOURNEY_SNAPSHOT =
+  String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "true" ||
+  String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "1";
 
 /** Corpo de erro da Edge (HTML/JSON) → texto útil em português. */
 function describeAiOrchestratorFailure(status: number, body: string): string {
@@ -74,6 +77,27 @@ interface Message {
   source?: string;
   /** URLs de fotos anexadas (apenas mensagens do usuário no fluxo de relato urbano) */
   attachmentUrls?: string[];
+}
+
+type JourneySnapshotMetadata = {
+  schema_version?: string;
+  journey_type?: string;
+  fields?: Record<string, unknown>;
+};
+
+function extractJourneySnapshotFromMetadata(metadata: unknown): JourneySnapshotMetadata | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const root = metadata as Record<string, unknown>;
+  const rawSnapshot = root.journey_snapshot;
+  if (!rawSnapshot || typeof rawSnapshot !== "object" || Array.isArray(rawSnapshot)) return null;
+  const snapshot = rawSnapshot as Record<string, unknown>;
+  const schema_version = typeof snapshot.schema_version === "string" ? snapshot.schema_version : undefined;
+  const journey_type = typeof snapshot.journey_type === "string" ? snapshot.journey_type : undefined;
+  const fields = snapshot.fields && typeof snapshot.fields === "object" && !Array.isArray(snapshot.fields)
+    ? (snapshot.fields as Record<string, unknown>)
+    : undefined;
+  if (!schema_version || !journey_type || !fields) return null;
+  return { schema_version, journey_type, fields };
 }
 
 function messageFromSavedRow(msg: Record<string, unknown>): Message {
@@ -245,13 +269,31 @@ export const useUnifiedAIChat = (
 
         const { data, error } = await supabase
           .from('ai_conversations')
-          .select('messages')
+          .select('messages, metadata')
           .eq('id', conversationId)
           .single();
 
         if (error) throw error;
 
         const savedMessages = (data.messages as Array<Record<string, unknown>>) || [];
+        if (ENABLE_JOURNEY_SNAPSHOT) {
+          const snapshot = extractJourneySnapshotFromMetadata(data.metadata);
+          if (
+            snapshot?.schema_version === "journey_snapshot.v1" &&
+            snapshot.journey_type &&
+            snapshot.fields &&
+            VALID_TRACKER_TYPES.includes(snapshot.journey_type as CollectionType)
+          ) {
+            const snapshotType = snapshot.journey_type as CollectionType;
+            console.log(
+              "[useUnifiedAIChat] Restored tracker from metadata snapshot:",
+              snapshotType,
+              snapshot.schema_version,
+            );
+            setCollectionType(snapshotType);
+            setCollectedFields(snapshot.fields as CollectedFields);
+          }
+        }
         
         if (savedMessages.length === 0) {
           // Não sobrescrever se já há mensagem do usuário (ex.: otimista ou recém-enviada) para evitar sumir a pergunta

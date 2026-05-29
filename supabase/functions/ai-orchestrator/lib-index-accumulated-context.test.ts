@@ -36,6 +36,9 @@ Deno.test("buildAccumulatedContext injeta evaluationContext em service_rating", 
     service_type: "ubs",
     visit_id: "visit-1",
   });
+  assertEquals(result.journeySnapshot?.schema_version, "journey_snapshot.v1");
+  assertEquals(result.journeySnapshot?.journey_type, "service_rating");
+  assertEquals(result.journeySnapshot?.fields.service_type, "ubs");
   assertEquals(result.lightJourneyMarker, "");
 });
 
@@ -68,6 +71,7 @@ Deno.test("buildAccumulatedContext resolve CEP faltante e preenche endereço", a
     state: "SP",
     street: "Rua Exemplo",
   });
+  assertEquals(result.journeySnapshot?.journey_type, "urban_report");
 });
 
 Deno.test("buildAccumulatedContext aplica atalho de incidente urbano e marker de jornada leve", async () => {
@@ -84,6 +88,7 @@ Deno.test("buildAccumulatedContext aplica atalho de incidente urbano e marker de
   });
 
   assertEquals(result.lightJourneyMarker, "[LIGHT_JOURNEY:general]");
+  assertEquals(result.journeySnapshot?.journey_type, "general");
 });
 
 Deno.test("buildAccumulatedContext define report_nature e description para abertura urbana grave", async () => {
@@ -104,4 +109,5 @@ Deno.test("buildAccumulatedContext define report_nature e description para abert
 
   assertEquals(result.accumulatedFields.description, "tem um incêndio agora na comunidade");
   assertEquals(result.accumulatedFields.report_nature, "reclamacao");
+  assertEquals(result.journeySnapshot?.journey_type, "urban_report");
 });

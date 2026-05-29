@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { buildAccumulatedContext } from "./lib-index-accumulated-context.ts";
+import { persistJourneySnapshotMetadata } from "./lib-index-journey-snapshot.ts";
 import { runAiPipeline } from "./lib-index-ai-pipeline.ts";
 import { initializeRequestBootstrap } from "./lib-index-bootstrap.ts";
 import { orchestrateCollectionTurn } from "./lib-index-collection-orchestration.ts";
@@ -155,6 +156,26 @@ serve(async (req) => {
       lib,
     });
     let accumulatedFields: Record<string, unknown> = accumulatedContext.accumulatedFields;
+    if (accumulatedContext.journeySnapshot) {
+      console.log(
+        "[ai-orchestrator] Journey snapshot prepared:",
+        accumulatedContext.journeySnapshot.schema_version,
+        accumulatedContext.journeySnapshot.journey_type,
+        Object.keys(accumulatedContext.journeySnapshot.fields).length,
+        "fields",
+      );
+      const snapshotPersistResult = await persistJourneySnapshotMetadata({
+        supabase,
+        conversationId: typeof conversationId === "string" ? conversationId : undefined,
+        userId: user.id,
+        snapshot: accumulatedContext.journeySnapshot,
+      });
+      if (snapshotPersistResult.persisted) {
+        console.log("[ai-orchestrator] Journey snapshot persisted in ai_conversations.metadata");
+      } else if (snapshotPersistResult.reason && snapshotPersistResult.reason !== "feature_disabled") {
+        console.log("[ai-orchestrator] Journey snapshot not persisted:", snapshotPersistResult.reason);
+      }
+    }
 
     const urbanNonComplaintClosingResult = await handleUrbanNonComplaintClosingShortcut({
       accumulatedFields,
