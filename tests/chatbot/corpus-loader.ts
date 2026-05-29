@@ -73,6 +73,7 @@ export async function loadAllIntentCorpus(): Promise<IntentCorpusCase[]> {
     "noticias-intent.json",
     "bus-informational-intent.json",
     "ambiguous-intent.json",
+    "journey-switch-intent.json",
     "conversation-robust-intent.json",
   ];
   const all: IntentCorpusCase[] = [];

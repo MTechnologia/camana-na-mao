@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, MessageSquare, Plus, Trash2, Bot, Bus, MapPin, FileText, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,12 @@ import DeleteConversationDialog from "@/components/ai/DeleteConversationDialog";
 import BulkDeleteConfirmDialog, {
   CONVERSATION_BULK_DELETE_COPY,
 } from "@/components/shared/BulkDeleteConfirmDialog";
+import {
+  CITIZEN_LIST_PAGE_SIZE,
+  ListPagination,
+  paginateSlice,
+  totalListPages,
+} from "@/components/shared/ListPagination";
 import { isToday, isYesterday, subDays, isAfter, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -39,6 +45,7 @@ const ConversationsPage = () => {
     useAIJourney();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<AIConversation | null>(null);
@@ -55,6 +62,26 @@ const ConversationsPage = () => {
     );
   }, [conversations, searchQuery]);
 
+  const conversationTotalPages = totalListPages(
+    filteredConversations.length,
+    CITIZEN_LIST_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (page > conversationTotalPages) {
+      setPage(conversationTotalPages);
+    }
+  }, [page, conversationTotalPages]);
+
+  const paginatedConversations = useMemo(
+    () => paginateSlice(filteredConversations, page, CITIZEN_LIST_PAGE_SIZE),
+    [filteredConversations, page],
+  );
+
   const groupedConversations = useMemo(() => {
     const groups: Record<string, AIConversation[]> = {
       today: [],
@@ -68,7 +95,7 @@ const ConversationsPage = () => {
     const weekAgo = subDays(now, 7);
     const monthAgo = subDays(now, 30);
 
-    filteredConversations.forEach((conv) => {
+    paginatedConversations.forEach((conv) => {
       const date = conv.lastMessageAt;
       if (isToday(date)) {
         groups.today.push(conv);
@@ -84,7 +111,7 @@ const ConversationsPage = () => {
     });
 
     return groups;
-  }, [filteredConversations]);
+  }, [paginatedConversations]);
 
   const groupLabels: Record<string, string> = {
     today: "Hoje",
@@ -360,6 +387,16 @@ const ConversationsPage = () => {
                 </div>
               );
             })
+          )}
+
+          {!isLoading && filteredConversations.length > 0 && (
+            <ListPagination
+              page={page}
+              totalPages={conversationTotalPages}
+              totalCount={filteredConversations.length}
+              pageSize={CITIZEN_LIST_PAGE_SIZE}
+              onPageChange={setPage}
+            />
           )}
         </div>
       </ScrollArea>

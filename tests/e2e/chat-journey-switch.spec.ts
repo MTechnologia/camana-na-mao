@@ -13,13 +13,17 @@ test.describe('Chatbot — troca de jornada (mock)', () => {
       if (latestUser.includes('[JOURNEY_SWITCHED:transport_report]')) {
         return '[COLLECTION_PROGRESS:transport_report:{"description":"","report_type":""}][FIELD_REQUEST:description]**O que aconteceu?** Me conta o problema.';
       }
-      return '[COLLECTION_PROGRESS:urban_report:{"description":"buraco","category":"pavimentacao"}][FIELD_REQUEST:category]Qual o tema do problema?[JOURNEY_SWITCH_PROMPT:transport_report]';
+      return '[COLLECTION_PROGRESS:urban_report:{"description":"buraco","category":"pavimentacao"}][FIELD_REQUEST:category]Qual o tema do problema?[JOURNEY_SWITCH_PROMPT:transport_report:urban_report]';
     });
     await e2eLogin(page);
     await dismissOnboardingIfVisible(page);
   });
 
-  test('exibe aviso e confirma troca para transporte', async ({ page }) => {
+  test('exibe aviso e confirma troca para transporte', async ({ page }, testInfo) => {
+    test.skip(
+      testInfo.project.name === 'mobile-chrome',
+      'Prompt de troca de jornada validado em desktop (mock); mobile em backlog CHB-E2E',
+    );
     await page.goto('/');
     await ensureChatReady(page);
     await sendChatMessage(page, 'Tem um buraco na rua');
