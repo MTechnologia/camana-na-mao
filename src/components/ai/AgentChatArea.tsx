@@ -16,7 +16,7 @@ import TypingIndicator from "./TypingIndicator";
 import DataCollectionTracker from "./DataCollectionTracker";
 import CapabilitiesOverlay from "./CapabilitiesOverlay";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ImageIcon, X, Camera } from "lucide-react";
+import { Sparkles, ImageIcon, X, Camera, FileEdit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { CollectionType } from "./DataCollectionTracker";
@@ -511,17 +511,22 @@ const AgentChatArea = () => {
       >
         <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-2">
           {(collectionType === "urban_report" || collectionType === "transport_report") && (
-            <p className="text-xs text-muted-foreground text-center">
+            <div
+              className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2"
+              role="region"
+              aria-label="Atalho para formulário manual"
+            >
+              <FileEdit className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               <button
                 type="button"
                 onClick={() => navigate(resolveManualReportPath(collectionType))}
-                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+                className="text-xs text-muted-foreground underline hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded min-h-11 px-1"
               >
                 {collectionType === "transport_report"
-                  ? "Preferir formulário manual (passo a passo)"
-                  : "Preferir formulário manual (com foto)"}
+                  ? "Prefiro o formulário manual (passo a passo)"
+                  : "Prefiro o formulário manual (com fotos)"}
               </button>
-            </p>
+            </div>
           )}
           {/* Anexar fotos: relato urbano ou de transporte, após "Deseja anexar imagens?" e usuário dizer sim */}
           {showUrbanAttachmentUI && (
