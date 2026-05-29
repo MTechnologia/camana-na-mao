@@ -1,14 +1,14 @@
 ﻿import { useCallback, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase, supabaseAnonKey } from "@/integrations/supabase/client";
-import type { Json } from "@/integrations/supabase/types";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
 import { createClientId } from "@/lib/clientId";
 import { extractCollectionProgressJsonObjects } from "@/lib/chatCollectionProgress";
-import { appendMessageByIdIfMissing, shouldEnterLightJourney } from "@/lib/chatJourneyState";
+import { shouldEnterLightJourney } from "@/lib/chatJourneyState";
+import { persistChatMessage } from "@/lib/persistChatMessage";
 import {
   describeAiOrchestratorFailure,
   isStatementTimeoutFailure,
@@ -131,33 +131,15 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
     setIsLoading(true);
     progressParseWarnedRef.current = false;
 
-    // Save user message to database
     if (conversationIdRef.current && user) {
       try {
-        const { data: currentConv } = await supabase
-          .from('ai_conversations')
-          .select('messages, title')
-          .eq('id', conversationIdRef.current)
-          .single();
-
-        if (currentConv) {
-          const currentMessages = (currentConv.messages as Array<Record<string, unknown>>) || [];
-          const updatedMessages = appendMessageByIdIfMissing(
-            currentMessages,
-            userMessage as unknown as Record<string, unknown>,
-          );
-          
-          await supabase
-            .from('ai_conversations')
-            .update({
-              messages: updatedMessages as Json,
-              last_message_at: new Date().toISOString(),
-              title: currentConv.title || trimmedContent.slice(0, 50),
-            })
-            .eq('id', conversationIdRef.current);
-        }
+        await persistChatMessage(
+          conversationIdRef.current,
+          userMessage as unknown as Record<string, unknown>,
+          { title: trimmedContent.slice(0, 50) },
+        );
       } catch (error) {
-        console.error('Error saving user message:', error);
+        console.error("Error saving user message:", error);
       }
     }
 
@@ -263,6 +245,7 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
       
       const payload = {
         messages: effectiveMessages.map((msg) => ({
+          id: msg.id,
           role: msg.role,
           content: msg.content,
           ...(msg.attachmentUrls && msg.attachmentUrls.length > 0 && { attachmentUrls: msg.attachmentUrls }),
@@ -727,47 +710,20 @@ export function useChatOrchestratorStream(params: UseChatOrchestratorStreamParam
         }
       }
 
-      // Save assistant response - PRESERVE RAW CONTENT WITH MARKERS
-      // This is critical for backend correlation on subsequent requests
       if (conversationIdRef.current && user && assistantMessage) {
         try {
-          const { data: currentConv } = await supabase
-            .from('ai_conversations')
-            .select('messages')
-            .eq('id', conversationIdRef.current)
-            .single();
-
-          if (currentConv) {
-            // CRITICAL FIX: Save RAW assistantMessage (with markers) to database
-            // The markers are needed for backend deterministic field capture
-            // UI sanitization happens in ChatMessageBubble
-            const finalAssistantMsg = {
-              id: assistantMessageId,
-              role: "assistant",
-              content: assistantMessage, // RAW content WITH markers
-              timestamp: new Date().toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              source: "Assistente Câmara na Mão",
-            };
-
-            const currentMessages = (currentConv.messages as Array<Record<string, unknown>>) || [];
-            const updatedMessages = appendMessageByIdIfMissing(
-              currentMessages,
-              finalAssistantMsg as unknown as Record<string, unknown>,
-            );
-            
-            await supabase
-              .from('ai_conversations')
-              .update({
-                messages: updatedMessages as Json,
-                last_message_at: new Date().toISOString(),
-              })
-              .eq('id', conversationIdRef.current);
-          }
+          await persistChatMessage(conversationIdRef.current, {
+            id: assistantMessageId,
+            role: "assistant",
+            content: assistantMessage,
+            timestamp: new Date().toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            source: "Assistente Câmara na Mão",
+          });
         } catch (error) {
-          console.error('Error saving assistant message:', error);
+          console.error("Error saving assistant message:", error);
         }
       }
 

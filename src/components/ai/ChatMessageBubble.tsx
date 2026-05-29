@@ -1720,7 +1720,11 @@ const ChatMessageBubble = ({
         
         {/* Botões de resposta rápida (Sim/Não, Registrar, Confirmar/Corrigir) */}
         {quickReplyButtons.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div
+            className="mt-3 flex flex-wrap gap-2"
+            role="group"
+            aria-label="Respostas rápidas"
+          >
             {quickReplyButtons.map((btn) => {
               const isRegistrar = btn.value === "registrar";
               const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
@@ -1741,8 +1745,15 @@ const ChatMessageBubble = ({
                   }
                   disabled={disabled}
                   onClick={() => !disabled && onSendMessage?.(btn.label)}
+                  onKeyDown={(e) => {
+                    if (disabled) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSendMessage?.(btn.label);
+                    }
+                  }}
                   className={cn(
-                    "rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "min-h-11 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
                       (isConfirmar || isPublicar) &&
                       "min-h-11 px-5",
