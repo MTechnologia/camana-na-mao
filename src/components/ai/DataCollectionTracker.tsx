@@ -3,13 +3,10 @@ import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users, Eye,
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
-import {
-  isCompleteServiceRatingDimensions,
-  SERVICE_RATING_DIMENSION_KEYS,
-  SERVICE_RATING_DIMENSION_LABELS,
-} from "@/lib/serviceRatingDimensions";
+import { isCompleteServiceRatingDimensions } from "@/lib/serviceRatingDimensions";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
-import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
+import { getFieldLabel as getReportFieldLabel, URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
+import { formatTrackerFieldValue } from "@/lib/reportTrackerLabels";
 
 function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
   if (fieldKey === "wait_time_score") return "wait_time_score" in fields;
@@ -32,96 +29,6 @@ export type CollectionType = 'urban_report' | 'transport_report' | 'service_rati
 export interface CollectedFields {
   [key: string]: unknown;
 }
-
-// Human-readable labels for field values
-const VALUE_LABELS: Record<string, Record<string, string>> = {
-  report_nature: {
-    reclamacao: 'Reclamação',
-    duvida: 'Dúvida',
-    sugestao: 'Sugestão',
-    elogio: 'Elogio',
-  },
-  risk_level: {
-    critical: 'Crítico',
-    moderate: 'Moderado',
-    low: 'Baixo',
-    none: 'Nenhum'
-  },
-  affected_scope: {
-    individual: 'Individual',
-    local: 'Local (rua/quadra)',
-    street: 'Toda a Rua',
-    neighborhood: 'Bairro',
-    regional: 'Regional (bairro)',
-    citywide: 'Cidade toda'
-  },
-  severity: {
-    baixa: 'Baixa',
-    media: 'Média',
-    alta: 'Alta',
-    critica: 'Crítica'
-  },
-  direction: {
-    ida: 'Ida',
-    volta: 'Volta',
-    circular: 'Circular',
-  },
-  recurrence_frequency: {
-    primeira_vez: 'Primeira vez',
-    algumas_vezes_mes: 'Algumas vezes/mês',
-    toda_semana: 'Toda semana',
-    todos_os_dias: 'Todos os dias',
-  },
-  category: {
-    via_publica: 'Via Pública',
-    iluminacao: 'Iluminação',
-    sinalizacao: 'Sinalização',
-    drenagem: 'Drenagem',
-    esgoto: 'Esgoto/Saneamento',
-    area_verde: 'Área Verde',
-    lixo: 'Lixo/Entulho',
-    calcada: 'Calçada',
-    higiene_urbana: 'Higiene Urbana',
-    animais: 'Animais',
-    poluicao: 'Poluição/Barulho',
-    feedback_camara: 'Feedback da Câmara',
-    outro: 'Outro',
-    outros: 'Outro'
-  },
-  report_type: {
-    atraso: 'Atraso',
-    lotacao: 'Lotação',
-    seguranca: 'Segurança',
-    limpeza: 'Limpeza',
-    acessibilidade: 'Acessibilidade',
-    conducao: 'Condução',
-    outro: 'Outro'
-  },
-  service_type: {
-    ubs: 'UBS',
-    school: 'Escola',
-    ceu: 'CEU',
-    hospital: 'Hospital',
-    library: 'Biblioteca',
-    sports_center: 'Centro Esportivo',
-    street_market: 'Feira',
-    community_center: 'Centro Comunitário',
-    daycare: 'Creche',
-    park: 'Parque',
-    social_assistance: 'Assistência Social',
-    police_station: 'Delegacia',
-    transit_station: 'Transporte',
-    market: 'Mercado',
-    city_market: 'Mercado Municipal',
-    theater: 'Teatro/Cinema',
-    museum: 'Museu',
-    cemetery: 'Cemitério',
-    accessibility: 'Acessibilidade',
-    recycling_point: 'Reciclagem/Limpeza',
-    fire_station: 'Bombeiros',
-    other: 'Outro'
-  }
-};
 
 interface DataCollectionTrackerProps {
   collectionType: CollectionType;
@@ -240,57 +147,12 @@ const FieldIndicator = ({ label, isCollected, isRequired, isCurrent }: {
   </span>
 );
 
-// Format field value for display
-const formatFieldValue = (key: string, value: unknown): string => {
-  if (key === 'wait_time_score' && value === null) {
-    return 'Não se aplica';
+const getTrackerStepLabel = (key: string, fields: FieldConfig[]): string => {
+  if (key === "wait_time") {
+    return fields.find((f) => f.key === "wait_time_score")?.label ?? "Tempo de espera";
   }
-  if (key === 'wait_time_score' && typeof value === 'number') {
-    return `Faixa → nota ${value}`;
-  }
-
-  if (value === null || value === undefined) return '';
-  
-  if (VALUE_LABELS[key] && VALUE_LABELS[key][String(value)]) {
-    return VALUE_LABELS[key][String(value)];
-  }
-  
-  if (Array.isArray(value)) {
-    return value.map(v => VALUE_LABELS[key]?.[v] || v).join(', ');
-  }
-  
-  if (key === 'rating_stars' && typeof value === 'number') {
-    return `${'★'.repeat(value)}${'☆'.repeat(5 - value)} (${value}/5)`;
-  }
-
-  if (key === 'personal_impact' && typeof value === 'number') {
-    if (value >= 5) return 'Alto (compromisso ou não embarque)';
-    if (value >= 4) return 'Atraso > 30 min';
-    if (value >= 3) return 'Atraso < 30 min';
-    return 'Desconforto';
-  }
-
-  if (key === 'rating_dimensions' && value && typeof value === 'object' && !Array.isArray(value)) {
-    const o = value as Record<string, number>;
-    return SERVICE_RATING_DIMENSION_KEYS.map(
-      (k) => `${SERVICE_RATING_DIMENSION_LABELS[k]}: ${o[k] ?? "—"}/5`
-    ).join(" · ");
-  }
-  
-  if (typeof value === 'string' && value.length > 60) {
-    return value.substring(0, 57) + '...';
-  }
-  
-  return String(value);
-};
-
-// Get label for a field key
-const getFieldLabel = (key: string, fields: FieldConfig[]): string => {
-  if (key === 'wait_time') {
-    return fields.find(f => f.key === 'wait_time_score')?.label ?? 'Tempo de espera';
-  }
-  const field = fields.find(f => f.key === key);
-  return field?.label || key;
+  const field = fields.find((f) => f.key === key);
+  return field?.label || getReportFieldLabel(key);
 };
 
 const DataCollectionTracker = ({ 
@@ -455,7 +317,7 @@ const DataCollectionTracker = ({
             </motion.span>
           ) : currentField ? (
             <span className="text-[10px] text-primary truncate max-w-[100px]">
-              → {getFieldLabel(currentField, config.fields)}
+              → {getTrackerStepLabel(currentField, config.fields)}
             </span>
           ) : null}
 
@@ -643,7 +505,7 @@ const DataCollectionTracker = ({
                           />
                         ) : (
                           <span className="text-foreground break-words">
-                            {formatFieldValue(field.key, collectedFields[field.key])}
+                            {formatTrackerFieldValue(field.key, collectedFields[field.key])}
                           </span>
                         )}
                       </div>

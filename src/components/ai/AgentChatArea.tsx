@@ -25,6 +25,11 @@ import {
   extractFieldRequestFromContent,
   isPhotoAttachStepContent,
 } from "@/lib/chatOrchestratorClient";
+import {
+  isOpenManualReportMessage,
+  resolveManualReportPath,
+} from "@/lib/manualReportNavigation";
+import { conversationUsesDimensionOnlyRating } from "@/lib/serviceRatingFlow";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -39,8 +44,6 @@ const contentVariants = {
     transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const }
   }
 };
-
-const OPEN_MANUAL_REPORT_MESSAGE = "[OPEN_MANUAL_REPORT]";
 
 const AgentChatArea = () => {
   const navigate = useNavigate();
@@ -103,10 +106,14 @@ const AgentChatArea = () => {
   // Mostrar botões de anexar fotos apenas após "Você deseja anexar imagens?" e usuário ter respondido Sim (backend envia "Pode anexar até 3 fotos")
   const hasReachedAttachPhotosStep = useMemo(() => {
     return messages.some(
-      (m) =>
-        m.role === "assistant" && m.content.includes("Pode anexar até 3 fotos")
+      (m) => m.role === "assistant" && isPhotoAttachStepContent(m.content),
     );
   }, [messages]);
+
+  const suppressLegacyStarRating = useMemo(
+    () => conversationUsesDimensionOnlyRating(messages),
+    [messages],
+  );
 
   /** Última mensagem do assistente (para não misturar passo "anexar" com resumo final). */
   const lastAssistantContent = useMemo(() => {
@@ -193,6 +200,11 @@ const AgentChatArea = () => {
   const handleSendMessage = async (content: string) => {
     if (!content.trim() && !chatPhotoFiles.length) return;
 
+    if (isOpenManualReportMessage(content)) {
+      navigate(resolveManualReportPath(collectionType));
+      return;
+    }
+
     if (!activeConversationId) {
       // Guardar mensagem para enviar após conversa criada
       pendingMessageRef.current = content.trim();
@@ -264,8 +276,12 @@ const AgentChatArea = () => {
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
 
-    if (initialMessage === OPEN_MANUAL_REPORT_MESSAGE) {
-      navigate("/relato-urbano/manual");
+    if (initialMessage && isOpenManualReportMessage(initialMessage)) {
+      navigate(
+        resolveManualReportPath(
+          (collectionTypePreset as CollectionType) ?? collectionType,
+        ),
+      );
       return;
     }
 
@@ -459,6 +475,7 @@ const AgentChatArea = () => {
                         onSendMessage={handleSendMessage}
                         patchMessageContent={patchMessageContent}
                         disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
+                        suppressLegacyStarRating={suppressLegacyStarRating}
                       />
                     </motion.div>
                   );
@@ -493,25 +510,16 @@ const AgentChatArea = () => {
         transition={{ delay: 0.2, duration: 0.3 }}
       >
         <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-2">
-          {collectionType === "urban_report" && (
+          {(collectionType === "urban_report" || collectionType === "transport_report") && (
             <p className="text-xs text-muted-foreground text-center">
               <button
                 type="button"
-                onClick={() => navigate("/relato-urbano/manual")}
+                onClick={() => navigate(resolveManualReportPath(collectionType))}
                 className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
               >
-                Preferir formulário manual (com foto)
-              </button>
-            </p>
-          )}
-          {collectionType === "transport_report" && (
-            <p className="text-xs text-muted-foreground text-center">
-              <button
-                type="button"
-                onClick={() => navigate("/transporte/novo")}
-                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
-              >
-                Preferir formulário manual (passo a passo)
+                {collectionType === "transport_report"
+                  ? "Preferir formulário manual (passo a passo)"
+                  : "Preferir formulário manual (com foto)"}
               </button>
             </p>
           )}

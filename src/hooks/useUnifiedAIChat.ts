@@ -33,11 +33,11 @@ import {
   STATEMENT_TIMEOUT_ASSISTANT_MESSAGE,
 } from "@/lib/chatOrchestratorClient";
 import { trackChatJourneyEvent } from "@/lib/chatAnalytics";
-
-// === PHASE 2: Structured vs Light journey types ===
-const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
-const LIGHT_JOURNEY_TYPES: string[] = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
-const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
+import {
+  LIGHT_JOURNEY_TYPES,
+  STRUCTURED_JOURNEY_TYPES,
+  VALID_TRACKER_TYPES,
+} from "@/hooks/useChatJourneyConstants";
 
 const DISABLE_JOURNEY_SNAPSHOT =
   String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "true" ||
