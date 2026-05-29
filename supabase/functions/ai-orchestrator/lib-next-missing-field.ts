@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { hasTransportAccessibilityDetails } from "./lib-index-transport-preview.ts";
 import { URBAN_AFFECTED_SCOPE_FIELD_PROMPT } from "./lib-prompt-ux.ts";
+import { applyTransportCollectionDefaults } from "./lib-transport-quick-mode.ts";
+import {
+  applyUrbanQuickModeDefaults,
+  shouldSkipUrbanRiskScopeQuestions,
+} from "./lib-urban-quick-mode.ts";
 
 export type NextFieldInfo = {
   field: string | null;
@@ -318,35 +323,39 @@ export async function getNextMissingField(
     }
 
     if (lib.URBAN_RISK_COLLECTION_CATEGORIES.includes(String(fields.category || ""))) {
-      if (!fields.risk_level) {
-        const inferText = `${String(fields.description ?? "")} ${fields.subcategory || ""}`.trim();
-        const inferred = inferText.length >= 4
-          ? lib.autoInferRisk(inferText)
-          : { risk_level: null as string | null, confidence: 0, risk_types: [] as string[] };
-        if (inferred.risk_level != null && inferred.confidence >= 0.4) {
-          fields.risk_level = inferred.risk_level;
-          if (inferred.risk_types?.length) fields.risk_types = inferred.risk_types;
-          fields._risk_auto_inferred = true;
-          console.log(
-            "[getNextMissingField] Auto-inferred risk_level:",
-            inferred.risk_level,
-            "confidence:",
-            inferred.confidence,
-          );
-        } else {
-          fields.risk_level = "low";
-          fields._risk_default_low = true;
-          console.log(
-            "[getNextMissingField] No risk patterns matched; defaulting risk_level to 'low' (avoids redundant question; user can adjust via correction menu)",
-          );
+      if (shouldSkipUrbanRiskScopeQuestions(fields)) {
+        applyUrbanQuickModeDefaults(fields);
+      } else {
+        if (!fields.risk_level) {
+          const inferText = `${String(fields.description ?? "")} ${fields.subcategory || ""}`.trim();
+          const inferred = inferText.length >= 4
+            ? lib.autoInferRisk(inferText)
+            : { risk_level: null as string | null, confidence: 0, risk_types: [] as string[] };
+          if (inferred.risk_level != null && inferred.confidence >= 0.4) {
+            fields.risk_level = inferred.risk_level;
+            if (inferred.risk_types?.length) fields.risk_types = inferred.risk_types;
+            fields._risk_auto_inferred = true;
+            console.log(
+              "[getNextMissingField] Auto-inferred risk_level:",
+              inferred.risk_level,
+              "confidence:",
+              inferred.confidence,
+            );
+          } else {
+            fields.risk_level = "low";
+            fields._risk_default_low = true;
+            console.log(
+              "[getNextMissingField] No risk patterns matched; defaulting risk_level to 'low' (avoids redundant question; user can adjust via correction menu)",
+            );
+          }
         }
-      }
-      if (!fields.affected_scope) {
-        return {
-          field: "affected_scope",
-          picker: null,
-          prompt: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
-        };
+        if (!fields.affected_scope) {
+          return {
+            field: "affected_scope",
+            picker: null,
+            prompt: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+          };
+        }
       }
     }
 
@@ -493,6 +502,16 @@ export async function getNextMissingField(
         picker: "[TIME_PICKER]",
         prompt: "Qual foi o **horário exato** da ocorrência?",
       };
+    }
+
+    const hasTransportCore =
+      Boolean(fields.report_type) &&
+      Boolean(fields.line_code) &&
+      Boolean(fields.occurrence_date) &&
+      Boolean(fields.occurrence_time) &&
+      String(fields.description ?? "").trim().length >= 5;
+    if (hasTransportCore) {
+      applyTransportCollectionDefaults(fields);
     }
 
     if (!fields.direction) {

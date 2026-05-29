@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import {
+  resolveReturnToChatAction,
+  type ManualReportNavigationState,
+} from "@/lib/manualReportNavigation";
 import PageHeader from "@/components/ui/page-header";
 
 import { Button } from "@/components/ui/button";
@@ -43,7 +48,16 @@ const DRAFT_KEY = 'cmsp_urban_report_draft';
 
 export default function ManualReportPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setActiveConversationId } = useAIJourney();
+  const returnNavState = location.state as ManualReportNavigationState | null | undefined;
   const { user } = useAuth();
+
+  const handleReturnToChat = () => {
+    const { path, conversationId } = resolveReturnToChatAction(returnNavState);
+    if (conversationId) setActiveConversationId(conversationId);
+    navigate(path);
+  };
   const MAX_PHOTOS = 3;
   const MAX_PHOTO_MB = 50;
   const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
@@ -454,15 +468,27 @@ export default function ManualReportPage() {
 
               {/* Botões */}
               <div className="flex gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate("/relatos")}
-                  className="flex-1"
-                  disabled={loading}
-                >
-                  Cancelar
-                </Button>
+                {returnNavState?.returnToChatConversationId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleReturnToChat}
+                    className="flex-1"
+                    disabled={loading}
+                  >
+                    Voltar ao chat
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate("/relatos")}
+                    className="flex-1"
+                    disabled={loading}
+                  >
+                    Cancelar
+                  </Button>
+                )}
                 <Button
                   type="submit"
                   className="flex-1"

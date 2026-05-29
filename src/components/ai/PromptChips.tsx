@@ -12,7 +12,9 @@ import {
   Newspaper,
   ChevronDown,
   FileText,
+  Zap,
 } from "lucide-react";
+import { URBAN_QUICK_REPORT_CHIP_MESSAGE } from "@/lib/urbanQuickReport";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +44,13 @@ const chips: PromptChip[] = [
     label: "Relato Urbano",
     message: "Quero falar sobre a cidade",
     icon: Building2,
+    collectionType: "urban_report",
+  },
+  {
+    id: "urban_quick",
+    label: "Relato rápido",
+    message: URBAN_QUICK_REPORT_CHIP_MESSAGE,
+    icon: Zap,
     collectionType: "urban_report",
   },
   {
@@ -117,7 +126,7 @@ const chips: PromptChip[] = [
 ];
 
 /** IDs dos chips principais exibidos sempre; o restante fica no dropdown "Ver todos" */
-const PRIMARY_CHIP_IDS = ["urban", "manual_report", "evaluate", "services", "audiencias", "estrutura"];
+const PRIMARY_CHIP_IDS = ["urban", "urban_quick", "manual_report", "evaluate", "services", "audiencias", "estrutura"];
 
 const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
   const primaryChips = chips.filter((c) => PRIMARY_CHIP_IDS.includes(c.id));
