@@ -6,6 +6,7 @@ import { handleDeterministicTransportAutoCreate } from "./lib-index-transport-au
 import { handleDeterministicUrbanAutoCreate } from "./lib-index-urban-auto.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import { getNextMissingField } from "./lib-next-missing-field.ts";
+import { compactFieldPrompt } from "./lib-prompt-ux.ts";
 
 type NextFieldInfo = { field: string | null; picker: string | null; prompt: string | null };
 
@@ -92,6 +93,12 @@ export async function orchestrateCollectionTurn(
       userId,
       lib,
     );
+    if (nextFieldInfo.field && nextFieldInfo.prompt) {
+      nextFieldInfo = {
+        ...nextFieldInfo,
+        prompt: compactFieldPrompt(nextFieldInfo.prompt),
+      };
+    }
     console.log("[ai-orchestrator] Deterministic next field:", nextFieldInfo.field);
 
     if (!nextFieldInfo.field && nextFieldInfo.prompt) {

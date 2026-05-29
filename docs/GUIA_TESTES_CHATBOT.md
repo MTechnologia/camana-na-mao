@@ -2,6 +2,8 @@
 
 Bateria automatizada em **4 camadas**, com cobertura transversal de conversação robusta, para garantir que o assistente compreende variações de linguagem do munícipe: typos, gíria, abreviações, baixa escrita, áudio transcrito, frustração, ofensa direta e risco.
 
+**Teste manual completo (checklist para QA/PO):** [MANUAL_TESTE_CHATBOT_COMPLETO.md](./MANUAL_TESTE_CHATBOT_COMPLETO.md)
+
 ## Estrutura
 
 ```text
@@ -33,6 +35,7 @@ src/lib/
 tests/e2e/
   chatbot-typo-urban.spec.ts
   chatbot-typo-transport.spec.ts
+  chat-journey-switch.spec.ts
   fixtures/chatbot-typo-scenarios.ts
   _helpers/chatOrchestratorMock.ts
 

@@ -27,23 +27,29 @@ import {
   resolveEffectiveAiChatModel,
 } from "./lib-ai-config-version.ts";
 import { buildChatCompletionsModel, isVertexAiProvider } from "../_shared/ai-provider.ts";
+import { buildCorsHeaders } from "./lib-cors.ts";
 
-// CORS para preflight: entrypoint NÃO importa lib para OPTIONS passar mesmo se lib falhar no cold start
-const PREFLIGHT_CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
+function logTurnEvent(event: string, payload: Record<string, unknown>) {
+  console.log(
+    "[ai-orchestrator][event]",
+    JSON.stringify({
+      event,
+      ts: new Date().toISOString(),
+      ...payload,
+    }),
+  );
+}
 
 serve(async (req) => {
+  const requestCors = buildCorsHeaders(req.headers.get("Origin"));
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: PREFLIGHT_CORS });
+    return new Response('ok', { status: 200, headers: requestCors });
   }
 
   try {
   const requestStartTime = Date.now();
   const lib = await import("./lib.ts");
+  Object.assign(lib.corsHeaders, requestCors);
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
   console.log('[ai-orchestrator] DEPLOY VERSION: 2026-06-04-v1 (ai_config_versions ativa + prompt institucional)');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
@@ -82,6 +88,14 @@ serve(async (req) => {
       vertexTokenObtained,
       vertexTokenUrl,
     } = bootstrapCtx;
+
+    logTurnEvent("turn.bootstrap.ready", {
+      conversation_id: typeof conversationId === "string" ? conversationId : null,
+      user_id: user.id,
+      frontend_collection_type: frontendCollectionType ?? null,
+      has_attachments: attachmentUrls.length > 0,
+      messages_count: chatMessages.length,
+    });
 
     const activeAiConfig = await loadActiveAiConfigVersion({
       supabaseAdmin: supabaseClassificationFeedbackRead,
@@ -144,6 +158,13 @@ serve(async (req) => {
     let collectionIntent: CollectionIntent | null = resolvedIntent.collectionIntent;
     const journeySwitched = resolvedIntent.journeySwitched;
     const journeyDeclined = resolvedIntent.journeyDeclined;
+    logTurnEvent("turn.intent.resolved", {
+      conversation_id: typeof conversationId === "string" ? conversationId : null,
+      user_id: user.id,
+      intent_type: collectionIntent?.type ?? null,
+      journey_switched: journeySwitched,
+      journey_declined: journeyDeclined,
+    });
     
     const accumulatedContext = await buildAccumulatedContext({
       chatHistoryTyped,
@@ -267,6 +288,14 @@ serve(async (req) => {
     }
     dynamicSystemPrompt = collectionTurn.dynamicSystemPrompt;
     let nextFieldInfo = collectionTurn.nextFieldInfo;
+    logTurnEvent("turn.collection.ready", {
+      conversation_id: typeof conversationId === "string" ? conversationId : null,
+      user_id: user.id,
+      intent_type: collectionIntent?.type ?? null,
+      next_field: nextFieldInfo.field ?? null,
+      next_picker: nextFieldInfo.picker ?? null,
+      elapsed_ms: Date.now() - requestStartTime,
+    });
     
     // === LIGHT JOURNEY: services — resposta determinística (perguntar tipo → CEP) ou chamar find_nearby_services
     if (collectionIntent?.type === 'services') {

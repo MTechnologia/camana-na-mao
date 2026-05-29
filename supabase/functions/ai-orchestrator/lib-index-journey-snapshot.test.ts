@@ -37,13 +37,32 @@ Deno.test("buildJourneySnapshotV1 remove valores não serializáveis", () => {
   assertEquals(snapshot.fields.list, ["a", 2]);
 });
 
-Deno.test("isJourneySnapshotMetadataEnabled reconhece flag", () => {
-  assertEquals(isJourneySnapshotMetadataEnabled(() => "true"), true);
-  assertEquals(isJourneySnapshotMetadataEnabled(() => "1"), true);
-  assertEquals(isJourneySnapshotMetadataEnabled(() => "false"), false);
+Deno.test("isJourneySnapshotMetadataEnabled ativo por padrão", () => {
+  assertEquals(isJourneySnapshotMetadataEnabled(() => undefined), true);
 });
 
-Deno.test("persistJourneySnapshotMetadata não persiste sem flag", async () => {
+Deno.test("isJourneySnapshotMetadataEnabled respeita disable explícito", () => {
+  assertEquals(
+    isJourneySnapshotMetadataEnabled((key) =>
+      key === "AI_ENABLE_JOURNEY_SNAPSHOT_METADATA" ? "true" : undefined
+    ),
+    true,
+  );
+  assertEquals(
+    isJourneySnapshotMetadataEnabled((key) =>
+      key === "AI_ENABLE_JOURNEY_SNAPSHOT_METADATA" ? "false" : undefined
+    ),
+    false,
+  );
+  assertEquals(
+    isJourneySnapshotMetadataEnabled((key) =>
+      key === "AI_DISABLE_JOURNEY_SNAPSHOT_METADATA" ? "true" : undefined
+    ),
+    false,
+  );
+});
+
+Deno.test("persistJourneySnapshotMetadata não persiste quando desabilitado", async () => {
   const snapshot = buildJourneySnapshotV1("general", { topic: "camara" });
   const result = await persistJourneySnapshotMetadata({
     // deno-lint-ignore no-explicit-any
@@ -51,7 +70,7 @@ Deno.test("persistJourneySnapshotMetadata não persiste sem flag", async () => {
     conversationId: "conv-1",
     userId: "user-1",
     snapshot,
-    envGet: () => "false",
+    envGet: (key) => (key === "AI_DISABLE_JOURNEY_SNAPSHOT_METADATA" ? "true" : undefined),
   });
   assertEquals(result, { persisted: false, reason: "feature_disabled" });
 });

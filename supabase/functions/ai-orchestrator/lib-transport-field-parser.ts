@@ -17,6 +17,7 @@ export function parseTransportFieldResponse(
   const response = userResponse.trim();
   const responseLower = response.toLowerCase();
   const result: Record<string, unknown> = {};
+  const skipPhrases = ["pular", "não sei", "nao sei", "não lembro", "nao lembro", "sem referência", "sem referencia"];
 
   switch (fieldType) {
     case "occurrence_time": {
@@ -111,12 +112,22 @@ export function parseTransportFieldResponse(
 
     case "stop_name": {
       const t = response.trim();
+      if (skipPhrases.some((p) => responseLower.includes(p))) {
+        result.stop_name = "não informado";
+        result._stop_name_skipped = true;
+        break;
+      }
       if (t.length >= 2 && t.length <= 200) result.stop_name = t;
       break;
     }
 
     case "stop_location": {
       const t = response.trim();
+      if (skipPhrases.some((p) => responseLower.includes(p))) {
+        result.stop_location = "não informado";
+        result._stop_location_skipped = true;
+        break;
+      }
       if (t.length >= 2 && t.length <= 500) result.stop_location = t;
       break;
     }

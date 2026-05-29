@@ -68,6 +68,7 @@ Deno.test("getNextMissingField não pergunta gravidade quando descrição não d
       applyUrbanNatureCategoryDefaults: () => {},
       generateLabelFromDescription: (d: string) => d,
       isCitySaoPaulo: () => true,
+      urbanNatureSkipsLocationCollection: () => false,
       autoInferRisk: () => ({ risk_level: null, confidence: 0 }),
       // deno-lint-ignore no-explicit-any
     } as any,
@@ -98,4 +99,39 @@ Deno.test("getNextMissingField pede localização na jornada leve de serviços",
     prompt:
       "[FIELD_REQUEST:location_method]Como você quer informar sua localização para buscar serviços próximos?",
   });
+});
+
+Deno.test("getNextMissingField não pede stop_name/stop_location quando usuário pulou", async () => {
+  const fields: Record<string, unknown> = {
+    description: "ônibus atrasado",
+    report_type: "atraso",
+    sub_category: "atraso_recorrente",
+    line_code: "875A",
+    _stop_name_skipped: true,
+    _stop_location_skipped: true,
+    occurrence_date: "2026-05-29",
+    occurrence_time: "08:30",
+    direction: "ida",
+    recurrence_frequency: "toda_semana",
+    personal_impact: 4,
+  };
+  const result = await getNextMissingField(
+    "transport_report",
+    fields,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      isGenericIntentText: () => false,
+      isValidDomainDescription: () => true,
+      getClassificationFromFeedback: async () => null,
+      inferTransportTypeFromText: () => null,
+      extractTransportFields: () => ({}),
+      isValidTransportSubcategory: () => true,
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+  assertEquals(result.field, null);
 });

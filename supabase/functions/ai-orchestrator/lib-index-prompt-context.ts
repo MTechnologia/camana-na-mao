@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildVertexPublisherModelId } from "../_shared/ai-provider.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
+import { isVertexRagEnabled } from "./lib-vertex-rag.ts";
 
 type PromptContextArgs = {
   accumulatedFields: Record<string, unknown>;
@@ -170,6 +171,7 @@ export async function buildPromptContextAndTools(
 
   if (
     collectionIntent?.type === "general" &&
+    isVertexRagEnabled() &&
     (vertexRagDatastore || vertexRagCorpus) &&
     finalAiApiKey &&
     lastUserMessage.trim().length > 3 &&

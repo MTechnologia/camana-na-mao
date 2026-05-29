@@ -141,6 +141,44 @@ Deno.test("orchestrateCollectionTurn injeta contexto de coleta quando há campos
   assertEquals(result.dynamicSystemPrompt.includes("ATENÇÃO - CONTEÚDO URGENTE / GRAVE"), true);
 });
 
+Deno.test("orchestrateCollectionTurn compacta prompt de FIELD_REQUEST para duas frases", async () => {
+  const result = await orchestrateCollectionTurn({
+    accumulatedFields: { description: "texto inicial" },
+    attachmentUrls: [],
+    baseSystemPrompt: "BASE_PROMPT",
+    chatMessages: [],
+    collectionIntent: { type: "urban_report", fields: {} },
+    conversationId: null,
+    dynamicSystemPrompt: "BASE_PROMPT",
+    getMessageText: () => "",
+    lastAssistantLower: "",
+    lastAssistantMessage: "",
+    lastUserMessage: "oi",
+    lightJourneyMarker: "",
+    msgLower: "oi",
+    requestStartTime: Date.now(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    // deno-lint-ignore no-explicit-any
+    supabaseClassificationFeedbackRead: null as any,
+    userId: "user-1",
+    deps: {
+      getNextMissingField: async () => ({
+        field: "description",
+        picker: null,
+        prompt:
+          "[FIELD_REQUEST:description]Primeira frase objetiva. Segunda frase curta para orientar. Terceira frase que deve ser removida da resposta final.",
+      }),
+    },
+    // deno-lint-ignore no-explicit-any
+    lib: createBaseLib() as any,
+  });
+
+  assertEquals(result.nextFieldInfo.prompt?.includes("Primeira frase objetiva."), true);
+  assertEquals(result.nextFieldInfo.prompt?.includes("Segunda frase curta para orientar."), true);
+  assertEquals(result.nextFieldInfo.prompt?.includes("Terceira frase"), false);
+});
+
 Deno.test("orchestrateCollectionTurn: duvida pronta não dispara auto-create e injeta modo resposta", async () => {
   let autoCreateCalled = false;
   const result = await orchestrateCollectionTurn({

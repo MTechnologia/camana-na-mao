@@ -395,7 +395,14 @@ export async function insertClassificationPredictionLog(
   if (error) {
     const code = (error as { code?: string }).code;
     if (code === "23505") {
-      console.warn("[insertClassificationPredictionLog] duplicate report_id+type, ignored");
+      console.warn(
+        "[CLASSIFICATION_METRIC]",
+        JSON.stringify({
+          event: "prediction_log_duplicate_ignored",
+          report_id: params.reportId,
+          report_type: params.reportType,
+        }),
+      );
       return;
     }
     console.warn("[insertClassificationPredictionLog] insert failed:", error.message);

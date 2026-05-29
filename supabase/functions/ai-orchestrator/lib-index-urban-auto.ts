@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createSseResponse } from "./lib-index-sse.ts";
+import {
+  URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+  URBAN_RISK_LEVEL_FIELD_PROMPT,
+} from "./lib-prompt-ux.ts";
 
 type ExecuteToolResult = {
   success: boolean;
@@ -137,7 +141,7 @@ export async function handleDeterministicUrbanAutoCreate(
     } else if (/^gravidad/.test(pickNorm)) {
       correctionReply = buildUrbanProgressContent(
         accumulatedFields,
-        "[FIELD_REQUEST:risk_level]Qual o **nível de gravidade** correto para este relato?[QUICK_REPLY:critical,moderate,low,none]",
+        URBAN_RISK_LEVEL_FIELD_PROMPT,
       );
     } else if (/^(tipos?_?de_?risco|tipos_risco|riscos)$/.test(pickNorm)) {
       correctionReply = buildUrbanProgressContent(
@@ -147,7 +151,7 @@ export async function handleDeterministicUrbanAutoCreate(
     } else if (/^afet/.test(pickNorm)) {
       correctionReply = buildUrbanProgressContent(
         accumulatedFields,
-        "[FIELD_REQUEST:affected_scope]Quem está sendo afetado? Toque em uma opção (ou descreva).[QUICK_REPLY:somente eu,toda a rua,bairro todo]",
+        URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
       );
     } else if (/^natureza$/.test(pickNorm)) {
       correctionReply = buildUrbanProgressContent(
@@ -307,7 +311,7 @@ export async function handleDeterministicUrbanAutoCreate(
   if (askedPhotoChoice && !userSaidNo) {
     const attachMsg = buildUrbanProgressContent(
       accumulatedFields,
-      "Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]",
+      "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]",
     );
     console.log("[ai-orchestrator] Urban report: user said yes or unclear → showing attach instructions");
     return { response: createSseResponse(attachMsg, lib.corsHeaders) };

@@ -47,8 +47,18 @@ export function buildJourneySnapshotV1(
 }
 
 export function isJourneySnapshotMetadataEnabled(envGet: (key: string) => string | undefined = Deno.env.get.bind(Deno.env)): boolean {
-  const raw = String(envGet("AI_ENABLE_JOURNEY_SNAPSHOT_METADATA") ?? "").trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+  const disabled = String(envGet("AI_DISABLE_JOURNEY_SNAPSHOT_METADATA") ?? "").trim().toLowerCase();
+  if (disabled === "1" || disabled === "true" || disabled === "yes" || disabled === "on") {
+    return false;
+  }
+  const legacyEnable = String(envGet("AI_ENABLE_JOURNEY_SNAPSHOT_METADATA") ?? "").trim().toLowerCase();
+  if (legacyEnable === "0" || legacyEnable === "false" || legacyEnable === "no" || legacyEnable === "off") {
+    return false;
+  }
+  if (legacyEnable === "1" || legacyEnable === "true" || legacyEnable === "yes" || legacyEnable === "on") {
+    return true;
+  }
+  return true;
 }
 
 export async function persistJourneySnapshotMetadata(args: {
