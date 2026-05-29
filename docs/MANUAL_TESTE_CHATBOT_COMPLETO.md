@@ -5,7 +5,8 @@ Guia passo a passo para validar o assistente conversacional após os refinamento
 ## Antes de começar
 
 1. Confirme que a Edge Function `ai-orchestrator` está publicada no ambiente.
-2. Variáveis úteis (opcionais):
+2. No Supabase do ambiente, confirme: RPC `append_ai_conversation_message` (migration `20260529120000_append_ai_conversation_message`) e coluna `metadata` (`20260606120000_ai_conversations_metadata`). Sem isso, o console pode mostrar `42703` / `404` na persistência do chat.
+3. Variáveis úteis (opcionais):
    - `AI_DISABLE_JOURNEY_SNAPSHOT_METADATA` — só use `true` para desligar snapshot no backend.
    - `VITE_DISABLE_JOURNEY_SNAPSHOT` — só use `true` para desligar hidratação no frontend.
    - `AI_CORS_ALLOWED_ORIGINS` — em produção, liste origens separadas por vírgula.
@@ -67,8 +68,10 @@ npm run test:chatbot:e2e
 
 | # | Passo | Resultado esperado |
 |---|--------|-------------------|
-| 5.0 | No hub, chip «Formulário manual (com foto)» | Abre `/relato-urbano/manual`. |
+| 5.0 | No hub, chip «Formulário manual (com foto)» | Abre `/relato-urbano/manual` **sem** erro 400/404 no console. |
 | 5.0b | Durante relato de **transporte** no chat, use o link «Preferir formulário manual» | Abre `/transporte/novo`. |
+| 5.0c | Abriu o manual a partir do chat com conversa ativa | Botão **Voltar ao chat** restaura a mesma conversa. |
+| 5.1 | Chip **Relato rápido** | Jornada urbano com menos perguntas de risco/escopo. |
 
 ## 6. Avaliação de serviço
 

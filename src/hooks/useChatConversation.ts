@@ -67,18 +67,36 @@ export function useChatConversation({
           setMessages([]);
         }
 
-        const { data, error } = await supabase
+        let row: { messages: unknown; metadata?: unknown } | null = null;
+        const withMetadata = await supabase
           .from("ai_conversations")
           .select("messages, metadata")
           .eq("id", conversationId)
           .single();
 
-        if (error) throw error;
+        if (withMetadata.error) {
+          const missingMetadataColumn =
+            withMetadata.error.code === "42703" ||
+            withMetadata.error.message?.includes("metadata");
+          if (missingMetadataColumn) {
+            const messagesOnly = await supabase
+              .from("ai_conversations")
+              .select("messages")
+              .eq("id", conversationId)
+              .single();
+            if (messagesOnly.error) throw messagesOnly.error;
+            row = messagesOnly.data;
+          } else {
+            throw withMetadata.error;
+          }
+        } else {
+          row = withMetadata.data;
+        }
 
-        const savedMessages = (data.messages as Array<Record<string, unknown>>) || [];
+        const savedMessages = (row?.messages as Array<Record<string, unknown>>) || [];
 
-        if (ENABLE_JOURNEY_SNAPSHOT) {
-          const snapshot = extractJourneySnapshotFromMetadata(data.metadata);
+        if (ENABLE_JOURNEY_SNAPSHOT && row && "metadata" in row) {
+          const snapshot = extractJourneySnapshotFromMetadata(row.metadata);
           if (
             snapshot?.schema_version === "journey_snapshot.v1" &&
             snapshot.journey_type &&
