@@ -142,7 +142,9 @@ export async function runAiPipeline(args: AiPipelineArgs): Promise<Response> {
       thoughtSignatureDetected,
       toolCallData,
       toolCallArguments,
-    } = await parseAiSseResponseImpl(response);
+    } = await parseAiSseResponseImpl(response, {
+      collectionType: collectionIntent?.type ?? null,
+    });
 
     if (thoughtSignatureDetected) {
       console.warn(
@@ -182,8 +184,13 @@ export async function runAiPipeline(args: AiPipelineArgs): Promise<Response> {
       }
     }
 
+    const normalizedChatMessages = chatMessages.map((m) => ({
+      role: String(m.role ?? ""),
+      content: String(m.content ?? ""),
+    }));
     return await handleAiStreamFallbackImpl({
       accumulatedFields,
+      chatMessages: normalizedChatMessages,
       collectionIntent,
       fullContent,
       lastUserMsg,

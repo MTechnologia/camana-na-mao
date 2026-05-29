@@ -1,5 +1,9 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { appendConversationClosingIfNeeded } from "./lib-conversation-closing.ts";
+import {
+  URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+  URBAN_RISK_LEVEL_FIELD_PROMPT,
+} from "./lib-prompt-ux.ts";
 import { URBAN_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
@@ -338,15 +342,14 @@ export async function handleCreateUrbanReport(
       const label = URBAN_RISK_CATEGORY_LABELS[String(eff.category)] || eff.category;
       return {
         success: false,
-        message: `[FIELD_REQUEST:risk_level]Para registrar com **criticidade correta**, qual o **nível de gravidade**? Toque em uma opção abaixo (ou descreva em uma frase). _(Categoria: ${label})_[QUICK_REPLY:critical,moderate,low,none]`,
+        message: `${URBAN_RISK_LEVEL_FIELD_PROMPT} _(Categoria: ${label})_`,
       };
     }
 
     if (!eff.affected_scope) {
       return {
         success: false,
-        message:
-          "[FIELD_REQUEST:affected_scope]Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?[QUICK_REPLY:somente eu,toda a rua,bairro todo]",
+        message: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
       };
     }
   }

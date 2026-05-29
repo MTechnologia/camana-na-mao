@@ -184,7 +184,22 @@ async function maybeInterceptTransportToolCall(
   return createSseResponse(buildTransportInterceptPreview(merged, lib), lib.corsHeaders);
 }
 
-export async function parseAiSseResponse(response: Response): Promise<ParsedAiSseResponse> {
+const STRUCTURED_JOURNEY_TYPES = new Set(["urban_report", "transport_report", "service_rating"]);
+
+export function resolveStreamTimeouts(collectionType?: string | null): {
+  streamTimeoutMs: number;
+  readTimeoutMs: number;
+} {
+  if (collectionType && STRUCTURED_JOURNEY_TYPES.has(collectionType)) {
+    return { streamTimeoutMs: 45_000, readTimeoutMs: 15_000 };
+  }
+  return { streamTimeoutMs: 30_000, readTimeoutMs: 10_000 };
+}
+
+export async function parseAiSseResponse(
+  response: Response,
+  options?: { collectionType?: string | null },
+): Promise<ParsedAiSseResponse> {
   const reader = response.body?.getReader();
   if (!reader) {
     return {
@@ -204,8 +219,8 @@ export async function parseAiSseResponse(response: Response): Promise<ParsedAiSs
   let toolCallArguments = "";
   let textBuffer = "";
   const streamStartTime = Date.now();
-  const STREAM_TIMEOUT_MS = 30000;
-  const READ_TIMEOUT_MS = 10000;
+  const { streamTimeoutMs: STREAM_TIMEOUT_MS, readTimeoutMs: READ_TIMEOUT_MS } =
+    resolveStreamTimeouts(options?.collectionType);
 
   while (true) {
     if (Date.now() - streamStartTime > STREAM_TIMEOUT_MS) {

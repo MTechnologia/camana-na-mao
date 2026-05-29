@@ -21,6 +21,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import type { CollectionType } from "./DataCollectionTracker";
 import type { StructuredAddress } from "@/components/address";
+import {
+  extractFieldRequestFromContent,
+  isPhotoAttachStepContent,
+} from "@/lib/chatOrchestratorClient";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -93,13 +97,7 @@ const AgentChatArea = () => {
     const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
     if (!lastAssistantMsg) return undefined;
     
-    // Procura pelo marcador [FIELD_REQUEST:field_name]
-    const fieldRequestMatch = lastAssistantMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
-    if (fieldRequestMatch) {
-      return fieldRequestMatch[1];
-    }
-    
-    return undefined;
+    return extractFieldRequestFromContent(lastAssistantMsg.content);
   }, [messages]);
 
   // Mostrar botões de anexar fotos apenas após "Você deseja anexar imagens?" e usuário ter respondido Sim (backend envia "Pode anexar até 3 fotos")
@@ -139,7 +137,7 @@ const AgentChatArea = () => {
   // Depois do envio, chatPhotoPreviews zera — se usássemos só hasReachedAttachPhotosStep,
   // o Registrar do resumo final ficaria desabilitado para sempre.
   const disableRegistrarUntilPhotosAttached = useMemo(() => {
-    if (!lastAssistantContent.includes("Pode anexar até 3 fotos")) return false;
+    if (!isPhotoAttachStepContent(lastAssistantContent)) return false;
     return chatPhotoPreviews.length === 0;
   }, [lastAssistantContent, chatPhotoPreviews.length]);
 

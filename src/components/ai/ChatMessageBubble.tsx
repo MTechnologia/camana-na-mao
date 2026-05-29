@@ -1727,6 +1727,8 @@ const ChatMessageBubble = ({
               return (
                 <Button
                   key={btn.value}
+                  type="button"
+                  tabIndex={0}
                   variant={isCorrigir || isEditarComentario ? "outline" : "default"}
                   size={
                     showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard
@@ -1736,7 +1738,7 @@ const ChatMessageBubble = ({
                   disabled={disabled}
                   onClick={() => !disabled && onSendMessage?.(btn.label)}
                   className={cn(
-                    "rounded-lg",
+                    "rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
                       (isConfirmar || isPublicar) &&
                       "min-h-11 px-5",
@@ -1776,6 +1778,9 @@ const ChatMessageBubble = ({
         {/* Journey Switch Confirmation Buttons */}
         {journeySwitchMatch && isLastAssistantMessage && !decisionMade && (
           <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
+            <p className="text-xs text-muted-foreground">
+              Ao trocar, o progresso da jornada atual pode ser descartado.
+            </p>
             <Button
               variant="default"
               size="sm"

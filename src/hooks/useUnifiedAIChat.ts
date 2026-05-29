@@ -18,56 +18,37 @@ import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
 import { createClientId } from "@/lib/clientId";
 import { extractCollectionProgressJsonObjects } from "@/lib/chatCollectionProgress";
+import {
+  appendMessageByIdIfMissing,
+  extractJourneySnapshotFromMetadata,
+  shouldEnterLightJourney,
+} from "@/lib/chatJourneyState";
+import {
+  describeAiOrchestratorFailure,
+  isStatementTimeoutFailure,
+  RATE_LIMIT_RETRY_DELAY_MS,
+  shouldIgnoreStaleCollectionProgress,
+  shouldRetryAfterRateLimit,
+  sleep,
+  STATEMENT_TIMEOUT_ASSISTANT_MESSAGE,
+} from "@/lib/chatOrchestratorClient";
+import { trackChatJourneyEvent } from "@/lib/chatAnalytics";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 const LIGHT_JOURNEY_TYPES: string[] = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 
-const STATEMENT_TIMEOUT_ASSISTANT_MESSAGE =
-  "O sistema demorou mais que o normal para responder. Por favor, aguarde alguns segundos e envie sua mensagem novamente.";
+const DISABLE_JOURNEY_SNAPSHOT =
+  String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "true" ||
+  String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "1";
+const LEGACY_ENABLE_JOURNEY_SNAPSHOT =
+  String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase();
 const ENABLE_JOURNEY_SNAPSHOT =
-  String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "true" ||
-  String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "1";
-
-/** Corpo de erro da Edge (HTML/JSON) → texto útil em português. */
-function describeAiOrchestratorFailure(status: number, body: string): string {
-  const b = body.trim();
-  if (b.startsWith("{")) {
-    try {
-      const j = JSON.parse(b) as { code?: string; message?: string };
-      if (j.code === "NOT_FOUND" || /function was not found|not found/i.test(String(j.message ?? ""))) {
-        return "A função ai-orchestrator não foi encontrada neste projeto. Publique a Edge Function e confira CAMARA_URL / VITE_SUPABASE_URL.";
-      }
-      if (j.message) return j.message;
-    } catch {
-      /* ignore */
-    }
-  }
-  if (
-    status === 404 ||
-    /trouble finding the resource|requested function was not found/i.test(b)
-  ) {
-    return "Serviço do assistente indisponível (404). Verifique o deploy de ai-orchestrator e se a URL do Supabase está correta.";
-  }
-  if (status === 401 || status === 403) {
-    return "Sessão expirada ou sem permissão. Faça login novamente.";
-  }
-  if (b.length > 400) return `${b.slice(0, 400)}…`;
-  return b || `Erro HTTP ${status}`;
-}
-
-function isStatementTimeoutFailure(body: string): boolean {
-  const b = body.trim();
-  if (/canceling statement due to statement timeout/i.test(b)) return true;
-  if (!b.startsWith("{")) return false;
-  try {
-    const j = JSON.parse(b) as { message?: string };
-    return /canceling statement due to statement timeout/i.test(String(j.message ?? ""));
-  } catch {
-    return false;
-  }
-}
+  !DISABLE_JOURNEY_SNAPSHOT &&
+  (LEGACY_ENABLE_JOURNEY_SNAPSHOT === "" ||
+    LEGACY_ENABLE_JOURNEY_SNAPSHOT === "true" ||
+    LEGACY_ENABLE_JOURNEY_SNAPSHOT === "1");
 
 interface Message {
   id: string;
@@ -79,26 +60,6 @@ interface Message {
   attachmentUrls?: string[];
 }
 
-type JourneySnapshotMetadata = {
-  schema_version?: string;
-  journey_type?: string;
-  fields?: Record<string, unknown>;
-};
-
-function extractJourneySnapshotFromMetadata(metadata: unknown): JourneySnapshotMetadata | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-  const root = metadata as Record<string, unknown>;
-  const rawSnapshot = root.journey_snapshot;
-  if (!rawSnapshot || typeof rawSnapshot !== "object" || Array.isArray(rawSnapshot)) return null;
-  const snapshot = rawSnapshot as Record<string, unknown>;
-  const schema_version = typeof snapshot.schema_version === "string" ? snapshot.schema_version : undefined;
-  const journey_type = typeof snapshot.journey_type === "string" ? snapshot.journey_type : undefined;
-  const fields = snapshot.fields && typeof snapshot.fields === "object" && !Array.isArray(snapshot.fields)
-    ? (snapshot.fields as Record<string, unknown>)
-    : undefined;
-  if (!schema_version || !journey_type || !fields) return null;
-  return { schema_version, journey_type, fields };
-}
 
 function messageFromSavedRow(msg: Record<string, unknown>): Message {
   const role: Message["role"] =
@@ -510,7 +471,10 @@ export const useUnifiedAIChat = (
     setMessages([userMessage]);
   }, []);
 
-  const sendMessage = useCallback(async (content: string, options?: { attachmentFiles?: File[] }) => {
+  const sendMessage = useCallback(async (
+    content: string,
+    options?: { attachmentFiles?: File[]; existingUserMessageId?: string },
+  ) => {
     // Heurísticas de UI: quando o assistente faz perguntas estruturadas, atualizamos o tracker
     // imediatamente no envio do usuário (sem depender de marcadores do backend).
     if (collectionType === 'urban_report') {
@@ -1196,7 +1160,7 @@ export const useUnifiedAIChat = (
     }
 
     const userMessage: Message = {
-      id: createClientId("chat-message"),
+      id: options?.existingUserMessageId ?? createClientId("chat-message"),
       role: "user",
       content: trimmedContent,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
@@ -1223,7 +1187,11 @@ export const useUnifiedAIChat = (
           .single();
 
         if (currentConv) {
-          const updatedMessages = [...((currentConv.messages as Array<Record<string, unknown>>) || []), userMessage];
+          const currentMessages = (currentConv.messages as Array<Record<string, unknown>>) || [];
+          const updatedMessages = appendMessageByIdIfMissing(
+            currentMessages,
+            userMessage as unknown as Record<string, unknown>,
+          );
           
           await supabase
             .from('ai_conversations')
@@ -1361,6 +1329,8 @@ export const useUnifiedAIChat = (
         console.warn("[useUnifiedAIChat] CAMARA_PUBLISHABLE_KEY / VITE_SUPABASE_PUBLISHABLE_KEY ausente — chamadas à Edge Function podem falhar.");
       }
 
+      const turnStartMs = Date.now();
+
       // Always call the unified orchestrator
       const response = await fetch(
         `${supabaseUrl}/functions/v1/ai-orchestrator`,
@@ -1380,6 +1350,12 @@ export const useUnifiedAIChat = (
         console.error('[useUnifiedAIChat] API error:', response.status, errorText);
 
         if (isStatementTimeoutFailure(errorText)) {
+          trackChatJourneyEvent("chat_turn_failed", {
+            conversation_id: conversationIdRef.current,
+            journey_type: collectionType || lightJourneyType,
+            error_kind: "statement_timeout",
+            latency_ms: Date.now() - turnStartMs,
+          });
           toast({
             title: "Sistema demorou para responder",
             description: "Aguarde alguns instantes e tente enviar novamente.",
@@ -1402,6 +1378,21 @@ export const useUnifiedAIChat = (
         const userFacingDetail = describeAiOrchestratorFailure(response.status, errorText);
         
         if (response.status === 429) {
+          const rateLimitKey = `rate_limit_retry_${userMessage.id}`;
+          if (shouldRetryAfterRateLimit(rateLimitKey)) {
+            trackChatJourneyEvent("chat_rate_limit_retry", {
+              conversation_id: conversationIdRef.current,
+              journey_type: collectionType || lightJourneyType,
+            });
+            toast({
+              title: "Muitas mensagens em sequência",
+              description: "Tentando enviar novamente em alguns segundos…",
+            });
+            setIsLoading(false);
+            await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+            await sendMessage(trimmedContent, { existingUserMessageId: userMessage.id });
+            return;
+          }
           toast({
             title: "Limite de uso atingido",
             description: "Aguarde um momento antes de tentar novamente.",
@@ -1480,14 +1471,12 @@ export const useUnifiedAIChat = (
                 // If the user just switched journeys, ignore COLLECTION_PROGRESS from different type
                 // This prevents the backend from overriding explicit user journey choice
                 const lastUserMsgContent = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-                const journeySwitchMatch = lastUserMsgContent.match(/\[JOURNEY_SWITCHED:(\w+)\]/);
-                
-                if (journeySwitchMatch) {
-                  const switchedToType = journeySwitchMatch[1];
-                  if (type !== switchedToType) {
-                    console.log('[useUnifiedAIChat] Ignoring stale COLLECTION_PROGRESS:', type, '- user switched to:', switchedToType);
-                    continue; // Skip this progress marker, user explicitly switched
-                  }
+                if (shouldIgnoreStaleCollectionProgress({
+                  progressType: type,
+                  lastUserMessageContent: lastUserMsgContent,
+                })) {
+                  console.log('[useUnifiedAIChat] Ignoring stale COLLECTION_PROGRESS:', type, '- user switched journey');
+                  continue;
                 }
                 
                 // === PHASE 2: Only update collectionType if it's a valid structured type ===
@@ -1505,6 +1494,9 @@ export const useUnifiedAIChat = (
 
                 if (VALID_TRACKER_TYPES.includes(type)) {
                   setCollectionType(type);
+                  if (lightJourneyType) {
+                    setLightJourneyType(null);
+                  }
                   setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
                 } else {
                   console.log('[useUnifiedAIChat] Ignoring non-structured type:', type, '- keeping current journey');
@@ -1531,12 +1523,26 @@ export const useUnifiedAIChat = (
             if (lightJourneyMatch) {
               const journey = lightJourneyMatch[1];
               if (LIGHT_JOURNEY_TYPES.includes(journey) && lightJourneyType !== journey) {
+                const lastUserMsgContent = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+                const explicitSwitchToLight = lastUserMsgContent.includes(`[JOURNEY_SWITCHED:${journey}]`);
+                const canEnterLightJourney = shouldEnterLightJourney({
+                  currentCollectionType: collectionType,
+                  validTrackerTypes: VALID_TRACKER_TYPES,
+                  explicitSwitchToLight,
+                });
+                if (!canEnterLightJourney) {
+                  console.log(
+                    '[useUnifiedAIChat] Ignoring LIGHT_JOURNEY marker to avoid clearing structured tracker:',
+                    journey,
+                  );
+                } else {
                 console.log('[useUnifiedAIChat] Light journey detected:', journey);
                 setLightJourneyType(journey);
                 // Clear structured journey when entering light journey
                 if (collectionType) {
                   setCollectionType(null);
                   setCollectedFields({});
+                }
                 }
               }
             }
@@ -1792,7 +1798,11 @@ export const useUnifiedAIChat = (
               source: "Assistente Câmara na Mão",
             };
 
-            const updatedMessages = [...((currentConv.messages as Array<Record<string, unknown>>) || []), finalAssistantMsg];
+            const currentMessages = (currentConv.messages as Array<Record<string, unknown>>) || [];
+            const updatedMessages = appendMessageByIdIfMissing(
+              currentMessages,
+              finalAssistantMsg as unknown as Record<string, unknown>,
+            );
             
             await supabase
               .from('ai_conversations')
@@ -1806,7 +1816,21 @@ export const useUnifiedAIChat = (
           console.error('Error saving assistant message:', error);
         }
       }
+
+      if (assistantMessage) {
+        trackChatJourneyEvent("chat_turn_completed", {
+          conversation_id: conversationIdRef.current,
+          journey_type: collectionType || lightJourneyType,
+          fields_count: Object.keys(collectedFields).length,
+          latency_ms: Date.now() - turnStartMs,
+        });
+      }
     } catch (error) {
+      trackChatJourneyEvent("chat_turn_failed", {
+        conversation_id: conversationIdRef.current,
+        journey_type: collectionType || lightJourneyType,
+        error_kind: error instanceof Error ? error.name : "unknown",
+      });
       console.error("[useUnifiedAIChat] Error sending message:", error);
       console.error("[useUnifiedAIChat] Error details:", {
         name: error instanceof Error ? error.name : 'Unknown',
@@ -1947,6 +1971,7 @@ export const useUnifiedAIChat = (
     if (decision === 'switch' && newJourney) {
       // Reset current collection and start new one
       const newCollectionType = newJourney as CollectionType;
+      setLightJourneyType(null);
       setCollectionType(newCollectionType);
       setCollectedFields({});
       setCreatedReport(null);
@@ -1964,7 +1989,14 @@ export const useUnifiedAIChat = (
       
       // Include marker for backend to recognize this as a confirmed journey switch
       // This triggers the appropriate picker (LINE_PICKER for transport, etc.)
-      await sendMessage(`[JOURNEY_SWITCHED:${newJourney}] Sim, quero iniciar ${journeyNames[newJourney] || newJourney}`);
+      trackChatJourneyEvent("chat_journey_switched", {
+        conversation_id: conversationIdRef.current,
+        from_journey: collectionType,
+        to_journey: newJourney,
+      });
+      await sendMessage(
+        `[JOURNEY_SWITCHED:${newJourney}] Sim, quero iniciar ${journeyNames[newJourney] || newJourney}. Estou ciente de que o progresso atual pode não ser salvo.`,
+      );
     } else if (newJourney) {
       // User declined to switch - include marker so backend knows to stop asking
       await sendMessage(`[JOURNEY_DECLINED:${newJourney}] Quero continuar o relato atual`);

@@ -9,6 +9,10 @@ import {
 Deno.test("handleAiStreamFallback usa nextFieldInfo quando conteúdo vem vazio", async () => {
   const result = await handleAiStreamFallback({
     accumulatedFields: { service_type: "ubs" },
+    chatMessages: [
+      { role: "assistant", content: "[FIELD_REQUEST:rating_dimensions]Avalie" },
+      { role: "user", content: "ok" },
+    ],
     collectionIntent: { type: "service_rating", fields: {} },
     fullContent: "",
     lastUserMsg: "quero avaliar",

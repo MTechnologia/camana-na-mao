@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { buildVisitCloseUpdate } from "@/lib/closeServiceVisitDeparture";
 import { getServiceDisplayName } from "@/lib/mapUtils";
+import { evaluationVisitErrorMessage, validateEvaluationVisit } from "@/lib/evaluationVisit";
 import { Star, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -70,8 +71,20 @@ export default function EvaluationPage() {
       }
 
       if (!data) {
-        toast.error("Visita não encontrada");
-        navigate("/");
+        toast.error(evaluationVisitErrorMessage("not_found"));
+        navigate("/avaliar");
+        return;
+      }
+
+      const visitCheck = validateEvaluationVisit({
+        id: data.id,
+        status: data.status,
+        expires_at: data.expires_at,
+        departed_at: data.departed_at,
+      });
+      if (!visitCheck.ok) {
+        toast.error(evaluationVisitErrorMessage(visitCheck.reason));
+        navigate("/avaliar");
         return;
       }
 

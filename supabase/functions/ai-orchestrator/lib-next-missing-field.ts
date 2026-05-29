@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { hasTransportAccessibilityDetails } from "./lib-index-transport-preview.ts";
+import { URBAN_AFFECTED_SCOPE_FIELD_PROMPT } from "./lib-prompt-ux.ts";
 
 export type NextFieldInfo = {
   field: string | null;
@@ -344,8 +345,7 @@ export async function getNextMissingField(
         return {
           field: "affected_scope",
           picker: null,
-          prompt:
-            "[FIELD_REQUEST:affected_scope]Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?[QUICK_REPLY:somente eu,toda a rua,bairro todo]",
+          prompt: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
         };
       }
     }
@@ -462,20 +462,20 @@ export async function getNextMissingField(
       };
     }
 
-    if (!fields.stop_name) {
+    if (!fields.stop_name && !fields._stop_name_skipped) {
       return {
         field: "stop_name",
         picker: null,
-        prompt: "Qual foi a **parada, ponto, terminal ou estação** específicos onde isso aconteceu?",
+        prompt:
+          "Qual foi a **parada/ponto/estação**? Se não souber, responda **pular** para continuar.",
       };
     }
 
-    if (!fields.stop_location) {
+    if (!fields.stop_location && !fields._stop_location_skipped) {
       return {
         field: "stop_location",
         picker: null,
-        prompt:
-          "Qual o **endereço, cruzamento ou referência** desse ponto? Se preferir, você também pode informar coordenadas `lat,lng`.",
+        prompt: "Qual o **endereço ou referência** do ponto? Se não souber, responda **pular**.",
       };
     }
 
