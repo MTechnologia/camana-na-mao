@@ -11,11 +11,7 @@ import {
 } from "../_shared/export-email-html.ts";
 import { readAppOriginFromFilters, resolveAppUrl } from "../_shared/resolve-app-url.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const STORAGE_BUCKET = "export-files";
 const SIGNED_URL_TTL = 60 * 60 * 24 * 7;
@@ -79,6 +75,7 @@ async function sendViaResend(to: string, subject: string, html: string): Promise
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 // Mapeamento de partidos para temas/comissões típicas
 const PARTY_THEMES: Record<string, string[]> = {
@@ -246,6 +243,7 @@ export function calculateMatchScore(vereador: VereadorData, report: ReportData):
 
 if (import.meta.main) {
   serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
