@@ -1,4 +1,5 @@
 import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
+import { resolveAllowedOrigin } from "../_shared/cors.ts";
 import {
   applyUrbanNatureCategoryDefaults,
   extractUrbanFields,
@@ -240,8 +241,9 @@ export {
   buildConversationToneInstruction,
 } from "./lib-conversation-tone.ts";
 
+// Valor inicial; sobrescrito por request via Object.assign(lib.corsHeaders, buildCorsHeaders(origin)) no index.ts.
 export const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': resolveAllowedOrigin(null),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
