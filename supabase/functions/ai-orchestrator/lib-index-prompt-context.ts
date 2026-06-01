@@ -186,8 +186,19 @@ export async function buildPromptContextAndTools(
       const project = match?.[1];
       const location = match?.[2];
       if (project && location) {
+        // O host deve vir da própria base URL: a location `global` usa
+        // `aiplatform.googleapis.com`, enquanto regiões usam
+        // `{region}-aiplatform.googleapis.com`. Reconstruir como
+        // `${location}-aiplatform...` gera `global-aiplatform...` (404).
+        // Ver bug 2026-06-01-vertex-rag-generatecontent-404.
+        let apiHost = `https://${location}-aiplatform.googleapis.com`;
+        try {
+          apiHost = new URL(finalAiBaseUrl).origin;
+        } catch (_e) {
+          // mantém o fallback regional acima
+        }
         const generateContentUrl =
-          `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${vertexPublisherModelId}:generateContent`;
+          `${apiHost}/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${vertexPublisherModelId}:generateContent`;
         let datastorePath = (vertexRagDatastore || "").trim();
         if (vertexRagDatastore && !datastorePath.startsWith("projects/")) {
           datastorePath =
