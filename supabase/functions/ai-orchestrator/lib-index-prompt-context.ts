@@ -132,8 +132,11 @@ export async function buildPromptContextAndTools(
         const excerpt = urbanDuvidaDescription.slice(0, 220);
         dynamicSystemPrompt = dynamicSystemPrompt +
           `\n\n[Contexto dúvida urbana — sem trecho na base]: A base da Câmara não trouxe trecho específico sobre: "${excerpt}".\n\nInstrução: Responda **diretamente** à pergunta com honestidade. Explique o papel da Câmara Municipal no tema (fiscalização, leis, audiências) sem inventar etapas operacionais do Executivo. Indique canais oficiais adequados (Prefeitura 156, PM 190, portais municipais). **Proibido** listar portal, presidência, vereadores, transparência ou biblioteca da Câmara nesta resposta.`;
+        // [rag-underuse] Guarda desviou do Vertex RAG e a KB Supabase não trouxe trecho:
+        // sinaliza turno onde o RAG poderia ter ajudado (decision RAG subutilizado, Option C).
         console.log(
-          "[ai-orchestrator] Urban duvida sem trecho relevante na KB; instrução anti-dump institucional",
+          "[rag-underuse] urban_duvida: KB Supabase sem trecho relevante — Vertex RAG poderia ajudar:",
+          urbanDuvidaDescription.slice(0, 120),
         );
       }
     } catch (e) {
@@ -157,8 +160,11 @@ export async function buildPromptContextAndTools(
           kbText.length,
         );
       } else {
+        // [rag-underuse] Câmara funcionamento roteado p/ KB Supabase (Vertex RAG pulado pela guarda),
+        // mas a KB não trouxe trecho — sinaliza turno onde o RAG poderia ter ajudado (Option C).
         console.log(
-          "[ai-orchestrator] Supabase KB (Câmara funcionamento) sem trechos específicos; modelo pode usar search_knowledge_base",
+          "[rag-underuse] general+funcionamento: KB Supabase sem trecho específico — Vertex RAG poderia ajudar:",
+          lastUserMessage.slice(0, 120),
         );
       }
     } catch (e) {
