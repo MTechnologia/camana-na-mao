@@ -1,3 +1,5 @@
+import { resolveAllowedOrigin } from "../_shared/cors.ts";
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -48,7 +50,7 @@ export function successResponse<T>(
 
   const responseHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': resolveAllowedOrigin(null),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'X-Request-ID': requestId,
@@ -120,7 +122,7 @@ export function errorResponse(
       status: httpStatus,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': resolveAllowedOrigin(null),
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'X-Request-ID': requestId,

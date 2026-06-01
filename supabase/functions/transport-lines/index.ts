@@ -15,12 +15,9 @@ import {
   type DbTransportLine,
 } from "../_shared/transport-line-catalog.ts";
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+// corsHeaders resolvido por request (reatribuído no início do handler).
+let corsHeaders: Record<string, string> = buildCorsHeaders();
 
 type SearchBody = { action: "search"; query: string; limit?: number };
 type ResolveBody = {
@@ -40,6 +37,7 @@ function json(body: unknown, status = 200) {
 }
 
 serve(async (req) => {
+  corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
