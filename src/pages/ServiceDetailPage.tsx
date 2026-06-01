@@ -31,14 +31,7 @@ import {
   OCCUPANCY_WINDOW_MINUTES,
 } from "@/lib/occupancySignals";
 import type { ServiceLike } from "@/lib/serviceCorrectionFields";
-
-/** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
-function sanitizeServicesOfferedHtml(html: string): string {
-  return html.replace(
-    /<(?!\/?(?:strong|p|br)\s*\/?\s*>)\/?\w+[^>]*>/gi,
-    ""
-  );
-}
+import { sanitizeRestrictedHtml } from "@/lib/sanitizeHtml";
 
 /** Horário padrão quando a fonte (GeoSampa) não fornece tx_horario_funcionamento. */
 const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
@@ -628,7 +621,7 @@ export default function ServiceDetailPage() {
                         <div
                           className="space-y-2 [&_strong]:font-semibold [&_p]:mb-0 [&_p:last-child]:mb-0"
                           dangerouslySetInnerHTML={{
-                            __html: sanitizeServicesOfferedHtml(offered),
+                            __html: sanitizeRestrictedHtml(offered),
                           }}
                         />
                       ) : (

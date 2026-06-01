@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNoticiaById } from "@/hooks/useNoticias";
 import { getCategoryConfig } from "@/data/noticias";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -167,7 +168,7 @@ const NoticiaDetailPage = () => {
         <div className="prose prose-slate max-w-none">
           <div 
             className="text-foreground leading-relaxed space-y-4"
-            dangerouslySetInnerHTML={{ __html: noticia.fullContent }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(noticia.fullContent) }}
           />
         </div>
 
