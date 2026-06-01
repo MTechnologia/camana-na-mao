@@ -401,31 +401,10 @@ export const useNearbyServices = ({
 
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
-          let query = supabase
-            .from("public_services")
-            .select(baseSelect)
-            .gte("latitude", box.minLat)
-            .lte("latitude", box.maxLat)
-            .gte("longitude", box.minLng)
-            .lte("longitude", box.maxLng)
-            .eq("service_type", singleType)
-            .is("duplicate_of", null);
 
-          if (shouldFilterEquipmentNatureOnServer) {
-            query = query.eq("equipment_nature", equipmentNature);
-          }
-
-          // Fast path: consulta REST direta por tipo com cap baixo.
-          const { data: bboxData, error: bboxError } = await withTimeout(
-            query.limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
-            queryTimeoutMs,
-            "public_services bbox unordered fallback",
-          );
-          if (!bboxError) {
-            return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
-          }
-
-          // Fallback: RPC bbox light (e quadrantes) quando REST falha em bbox grande.
+          // RPC-first em bbox grande: a RPC tem statement_timeout interno de 120s, evitando o
+          // 500 (~8s) do fast-path REST sob bbox grande (a tabela cresceu com o ETL GeoSampa).
+          // Alinha com fetchBboxCursorRowsMerged (many-types). REST fica como último recurso.
           const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) => {
             const args = {
               min_lat: b.minLat,
@@ -493,6 +472,28 @@ export const useNearbyServices = ({
           }
           if (byId.size > 0) {
             return { rows: [...byId.values()].slice(0, lim), error: null };
+          }
+
+          // Último recurso: REST direto (só chega aqui se a RPC falhou; bbox tende a ser menor).
+          let restQuery = supabase
+            .from("public_services")
+            .select(baseSelect)
+            .gte("latitude", box.minLat)
+            .lte("latitude", box.maxLat)
+            .gte("longitude", box.minLng)
+            .lte("longitude", box.maxLng)
+            .eq("service_type", singleType)
+            .is("duplicate_of", null);
+          if (shouldFilterEquipmentNatureOnServer) {
+            restQuery = restQuery.eq("equipment_nature", equipmentNature);
+          }
+          const { data: bboxData, error: bboxError } = await withTimeout(
+            restQuery.limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+            queryTimeoutMs,
+            "public_services bbox unordered last-resort",
+          );
+          if (!bboxError) {
+            return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
           }
           return { rows: [], error: rpcError ?? bboxError };
         }
