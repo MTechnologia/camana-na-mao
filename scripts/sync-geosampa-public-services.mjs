@@ -567,6 +567,17 @@ async function main() {
     }
   }
 
+  // Refresca estatísticas do planner após o bulk upsert (evita timeout em /servicos-proximos
+  // por estatísticas defasadas). RPC SECURITY DEFINER criada em 20260609120000.
+  if (!dryRun && totalInserted > 0) {
+    const { error: analyzeErr } = await supabase.rpc("analyze_public_services");
+    if (analyzeErr) {
+      console.warn("[sync] analyze_public_services falhou (não-fatal):", analyzeErr.message);
+    } else {
+      console.log("[sync] ANALYZE public_services concluído (estatísticas atualizadas).");
+    }
+  }
+
   console.log("Sync concluído. Inseridos/atualizados:", totalInserted, "Ignorados/erro:", totalSkipped);
 }
 
