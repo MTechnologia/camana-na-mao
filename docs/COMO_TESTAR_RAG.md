@@ -27,16 +27,24 @@ Guia rápido para validar se o **RAG (Vertex AI Search / data store)** está res
 
 ### 2. Perguntas que acionam o RAG
 
-O RAG é usado quando a **intenção** da mensagem é classificada como **"general"**. Perguntas abertas sobre a Câmara tendem a cair nisso.
+O Vertex RAG só é acionado quando a **intenção** é `general` **E** a pergunta **não** cai nas guardas que preferem a KB do Supabase ou outra jornada.
 
-**Exemplos de perguntas para testar:**
+> [!IMPORTANT]
+> **Nem toda pergunta sobre a Câmara aciona o Vertex RAG.** Perguntas de **funcionamento/estrutura** ("o que é a Câmara", "como funciona", "comissões", "mesa diretora", "tramitação") são roteadas para a **KB do Supabase** (busca lexical), e frases que soam como desabafo/feedback caem em `chamber_feedback` (vira relato). Essas **não** exercitam o data store do GCP.
 
-- "O que é a Câmara Municipal?"
-- "Como funciona uma audiência pública?"
-- "Quais são as atribuições dos vereadores?"
-- "O que é o Câmara na Mão?"
-- "Como posso participar das sessões?"
-- "Onde fica a Câmara Municipal de São Paulo?"
+**Perguntas que realmente acionam o Vertex RAG (intent `general`, fora das guardas):**
+
+- "Qual o telefone de contato da Câmara Municipal?"
+- "Quanto ganha um vereador de São Paulo?"
+- "Quais projetos de lei estão em tramitação?"
+
+**Perguntas que NÃO acionam o Vertex RAG (vão para a KB do Supabase / outra jornada):**
+
+- "O que é a Câmara Municipal?" / "Como funciona uma audiência pública?" → KB do Supabase
+- "Quais são as atribuições dos vereadores?" → KB do Supabase
+
+> [!NOTE]
+> Pré-requisito de infra (corrigido em 2026-06): a chamada `generateContent` do RAG deve usar o host correto para `location=global` (`aiplatform.googleapis.com`, sem prefixo regional). Ver `bugs/bug-2026-06-01-vertex-rag-generatecontent-404` no TeamMind.
 
 ### 3. O que verificar
 
