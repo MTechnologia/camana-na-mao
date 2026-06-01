@@ -9,10 +9,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 /** BRT = UTC-3 (sem horário de verão em SP). Monta Date em BRT a partir de data (YYYY-MM-DD) e hora (HH:MM ou HH:MM:SS). */
 function parseEventAtBRT(dataStr: string, horaStr: string | null): Date | null {
@@ -50,6 +47,7 @@ function getHojeAmanhaBRT(): [string, string] {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
