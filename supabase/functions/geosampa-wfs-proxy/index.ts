@@ -7,16 +7,13 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const GEOSAMPA_WFS_BASE =
   "https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs";
 
 serve(async (req) => {
+  const CORS_HEADERS = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }

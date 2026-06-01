@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 interface PlacePrediction {
   place: string;
@@ -28,6 +24,7 @@ interface AutocompleteResponse {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });

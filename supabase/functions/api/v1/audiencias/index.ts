@@ -1,11 +1,9 @@
 import { getUserFromRequest } from "../../../shared/auth.ts";
 import { fetchPageAndSubmit } from "./inscricao-ninja.ts";
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { buildCorsHeaders } from "../../../_shared/cors.ts";
+// CORS_HEADERS resolvido por request (reatribuído em postAudienciaInscricao).
+let CORS_HEADERS: Record<string, string> = buildCorsHeaders();
 
 interface InscricaoBody {
   nome: string;
@@ -55,6 +53,7 @@ function jsonResponse(
 }
 
 export async function postAudienciaInscricao(req: Request): Promise<Response> {
+  CORS_HEADERS = buildCorsHeaders(req);
   if (req.method !== "POST") {
     return jsonResponse({ ok: false, errors: ["Método não permitido."] }, 405);
   }

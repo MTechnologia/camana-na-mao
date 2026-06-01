@@ -15,11 +15,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { resolveAppUrl } from "../_shared/resolve-app-url.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+// corsHeaders resolvido por request (reatribuído no início do handler).
+let corsHeaders: Record<string, string> = buildCorsHeaders();
 
 /** Chamadas internas (cron) ou chaves Supabase; com verify_jwt=false no gateway. */
 function assertProcessExportAuthorized(req: Request): Response | null {
@@ -187,6 +185,7 @@ async function getUserRole(
 }
 
 serve(async (req) => {
+  corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

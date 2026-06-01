@@ -1,11 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { errorResponse } from "../shared/api-response.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 interface Route {
   method: string;
@@ -46,6 +41,7 @@ async function registerRoutes() {
 
 // Router principal
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -108,7 +104,8 @@ serve(async (req) => {
           return errorResponse(
             'INTERNAL_ERROR',
             message,
-            500
+            500,
+            { headers: corsHeaders }
           );
         }
       }
@@ -118,7 +115,8 @@ serve(async (req) => {
     return errorResponse(
       'NOT_FOUND',
       `Rota não encontrada: ${method} /${resourcePath}`,
-      404
+      404,
+      { headers: corsHeaders }
     );
   }
   
@@ -166,6 +164,7 @@ serve(async (req) => {
     `Caminho da API inválido. Use /functions/v1/api-router/{recurso} ou /functions/v1/api-router/api/v1/{recurso}. Exemplo: /functions/v1/api-router/vereadores. Pathname recebido: ${pathname}`,
     400,
     {
+      headers: corsHeaders,
       details: {
         validFormats: [
           '/functions/v1/api-router/vereadores',
