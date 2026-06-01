@@ -11,8 +11,12 @@ import {
 Deno.test("analyzeConversationTone diferencia palavrão sobre problema de ofensa direta", () => {
   const frustration = analyzeConversationTone("essa rua ta uma merda, tem lixo espalhado");
   assertEquals(frustration.kind, "frustrated");
-  assertEquals(frustration.expectedBehavior, "classificar");
-  assertEquals(frustration.shouldWarn, false);
+  assertEquals(frustration.expectedBehavior, "advertir_e_continuar");
+  assertEquals(frustration.shouldWarn, true);
+
+  const desgraca = analyzeConversationTone("quero saber a respeito da desgraça da cmsp");
+  assertEquals(desgraca.kind, "frustrated");
+  assertEquals(desgraca.shouldWarn, true);
 
   const directOffense = analyzeConversationTone("voces sao incompetentes, o onibus nao passou");
   assertEquals(directOffense.kind, "direct_offense");
@@ -33,6 +37,14 @@ Deno.test("buildConversationToneInstruction orienta advertir e continuar", () =>
   assertStringIncludes(instruction, "OFENSA DIRETA");
   assertStringIncludes(instruction, "continue ajudando normalmente");
   assertStringIncludes(instruction, "não encerre a jornada");
+});
+
+Deno.test("buildConversationToneInstruction adverte em palavrão de frustração", () => {
+  const analysis = analyzeConversationTone("que merda de servico, desgraça");
+  const instruction = buildConversationToneInstruction(analysis);
+  assertStringIncludes(instruction, "PALAVRÃO");
+  assertStringIncludes(instruction, "ressalva curta");
+  assertStringIncludes(instruction, "Não encerre a jornada");
 });
 
 Deno.test("buildConversationToneInstruction orienta emergencia sem encerrar coleta", () => {

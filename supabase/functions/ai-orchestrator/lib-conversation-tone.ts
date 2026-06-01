@@ -27,7 +27,7 @@ function normalizeForTone(text: string): string {
     .trim();
 }
 
-const PROFANITY_RE = /\b(merda|porcaria|caralho|porra|cacete|inferno|bosta|droga|lixo)\b/i;
+const PROFANITY_RE = /\b(merda|porcaria|caralho|porra|cacete|inferno|bosta|droga|lixo|desgraca|desgracad[oa]s?)\b/i;
 const DIRECT_OFFENSE_RE =
   /\b(voce|voces|vc|vcs|assistente|bot|robo|app|sistema|camara)\b.{0,48}\b(incompetentes?|burro|burra|idiota|imprestavel|ridiculo|ridicula|lixo|porcaria|merda)\b/i;
 const URGENT_RISK_RE =
@@ -68,8 +68,8 @@ export function analyzeConversationTone(input: string): ConversationToneAnalysis
     reasons.push("frustration_terms");
     return {
       kind: "frustrated",
-      expectedBehavior: "classificar",
-      shouldWarn: false,
+      expectedBehavior: "advertir_e_continuar",
+      shouldWarn: true,
       shouldOrientEmergency: false,
       hasProfanity,
       reasons,
@@ -105,8 +105,9 @@ export function buildConversationToneInstruction(analysis: ConversationToneAnaly
 
   if (analysis.kind === "frustrated") {
     return [
-      "=== TOM: FRUSTRACAO DO CIDADAO ===",
-      "A linguagem pode conter palavrão sobre a situação. Reconheça a frustração sem censurar nem repetir o termo, e siga a classificação/coleta normalmente.",
+      "=== TOM: LINGUAGEM COM PALAVRÃO ===",
+      "A mensagem contém palavrão. Faça uma ressalva curta e respeitosa (no máximo uma frase) pedindo para evitar esse tipo de linguagem e reconhecendo a frustração — sem repetir o termo nem censurar com asteriscos.",
+      "Em seguida continue ajudando normalmente com o próximo passo. Não encerre a jornada.",
     ].join("\n");
   }
 
