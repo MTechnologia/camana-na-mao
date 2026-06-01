@@ -417,11 +417,15 @@ export async function getServiceAddressByName(supabase: SupabaseClient, serviceN
   const nameTrim = serviceName.trim();
   if (nameTrim.length < 3) return null;
 
+  // Usa o índice full-text (idx_public_services_search_tsv) em vez de
+  // ILIKE '%...%', que fazia full table scan na public_services (~77k linhas do
+  // ETL GeoSampa) e estourava o statement_timeout. Ver bug
+  // 2026-06-01-public-services-getserviceaddress-timeout.
   const { data, error } = await supabase
     .from("public_services")
     .select("name, address, district, phone")
-    .ilike("name", `%${nameTrim}%`)
-    .limit(3);
+    .textSearch("search_tsv", nameTrim, { type: "plain", config: "portuguese" })
+    .limit(5);
 
   if (error) {
     console.warn("[getServiceAddressByName] DB error:", error.message);
@@ -429,8 +433,15 @@ export async function getServiceAddressByName(supabase: SupabaseClient, serviceN
   }
   if (!data?.length) return null;
 
-  const first = data[0];
-  const addressLine = [first.address, first.district].filter(Boolean).join(", ");
-  const phoneNote = first.phone ? `\n📞 ${first.phone}` : "";
-  return `${first.name}\n📍 ${addressLine}${phoneNote}`;
+  // FTS não garante ordem por relevância; prefere nome igual, depois que contém o termo.
+  const norm = (s: string | null | undefined) =>
+    (s || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").trim();
+  const q = norm(nameTrim);
+  const best = data.find((r) => norm(r.name) === q) ||
+    data.find((r) => norm(r.name).includes(q)) ||
+    data[0];
+
+  const addressLine = [best.address, best.district].filter(Boolean).join(", ");
+  const phoneNote = best.phone ? `\n📞 ${best.phone}` : "";
+  return `${best.name}\n📍 ${addressLine}${phoneNote}`;
 }
