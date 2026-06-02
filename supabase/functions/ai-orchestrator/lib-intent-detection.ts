@@ -268,7 +268,7 @@ export function isInformationalQuestionAboutVereadorOrCamara(userMessage: string
 
 /** Relato de transporte (não consulta Olho Vivo). */
 function hasTransportComplaintSignals(message: string): boolean {
-  return /(atraso|atrasou|demora|demorou|reclam|problema|n[aã]o\s+passou|nao\s+passou|lotad|superlotad|motorista\s+(rude|grosso)|perig|ass[eé]dio|freada|freou|sujo|fedor|cancelou|quebrou)/i
+  return /(atras|demora|demorou|reclam|problema|n[aã]o\s+passou|nao\s+passou|lotad|superlotad|motorista\s+(rude|grosso)|perig|ass[eé]dio|freada|freou|sujo|fedor|cancelou|quebrou)/i
     .test(message);
 }
 
@@ -295,6 +295,13 @@ export function isBusInformationalQuery(userMessage: string): boolean {
     /sentido\s+.+\s+hor[aá]rio|hor[aá]rio.*\bsentido\b/i,
     /\b(linha|ônibus|onibus)\s+[\d]+[a-z0-9-]*\b.*\b(hor[aá]rio|previs[aã]o|chegada|passa)\b/i,
     /\b(hor[aá]rio|previs[aã]o|chegada)\b.*\b(linha|ônibus|onibus)\s+[\d]+/i,
+    // "qual a linha de ônibus que passa na avenida X", "quais ônibus passam em Y", "que linha passa em Z"
+    // (sem \b ao redor de ônibus: o acento ô não é \w em JS regex e quebraria o boundary)
+    /\b(qual|quais|que)\b.*(linhas?|ônibus|onibus).*\bpassa[m]?\b/i,
+    // "linha de ônibus que passa em X", "ônibus que passam pela Y"
+    /(linhas?|ônibus|onibus).*\bque\s+passa[m]?\b/i,
+    // "ônibus/linha que passa(m) na/em/pela <local>"
+    /(linhas?|ônibus|onibus)[^.?!]*\bpassa[m]?\s+(na|no|em|pela|pelo|pelas|pelos|por|perto|pr[oó]ximo)\b/i,
   ];
   return patterns.some((p) => p.test(m));
 }

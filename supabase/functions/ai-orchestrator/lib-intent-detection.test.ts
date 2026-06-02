@@ -15,6 +15,30 @@ const baseDeps = {
   isCamaraFuncionamentoInternoQuery: (_userMessage: string) => false,
 };
 
+Deno.test("isBusInformationalQuery: reconhece 'qual a linha que passa em X' e variantes", () => {
+  assertEquals(
+    isBusInformationalQuery("Qual a linha de ônibus que passa na avenida Lineu de Paula Machado?"),
+    true,
+  );
+  assertEquals(isBusInformationalQuery("Quais ônibus passam na Lineu de Paula Machado?"), true);
+  assertEquals(isBusInformationalQuery("que linha passa em frente ao Jockey Club"), true);
+  assertEquals(isBusInformationalQuery("linha de ônibus que passa pela avenida Paulista"), true);
+});
+
+Deno.test("isBusInformationalQuery: NÃO captura reclamações de transporte", () => {
+  assertEquals(isBusInformationalQuery("a linha 477 que passa aqui está sempre atrasada"), false);
+  assertEquals(isBusInformationalQuery("o ônibus que passa na minha rua vive lotado"), false);
+});
+
+Deno.test("detectCollectionIntent: pergunta informacional de linha vira general, não transport_report", () => {
+  const result = detectCollectionIntent(
+    "Qual a linha de ônibus que passa na avenida Lineu de Paula Machado?",
+    [],
+    baseDeps,
+  );
+  assertEquals(result?.type, "general");
+});
+
 Deno.test("detectExistingJourney: encontra marcador de coleta mais recente", () => {
   const result = detectExistingJourney([
     { role: "assistant", content: "texto livre" },
