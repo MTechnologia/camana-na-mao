@@ -6,3 +6,4 @@ export { default as InlineRatingPicker } from "./InlineRatingPicker";
 export { default as MultiDimensionRatingPicker } from "./MultiDimensionRatingPicker";
 export { default as InlineServiceTypePicker } from "./InlineServiceTypePicker";
 export { default as InlineServicePicker } from "./InlineServicePicker";
+export { default as InlineVereadorPicker } from "./InlineVereadorPicker";

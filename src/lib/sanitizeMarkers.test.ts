@@ -18,4 +18,11 @@ describe("sanitizeMessageContent", () => {
   it("remove OPEN_MANUAL_REPORT do chip de formulário manual", () => {
     expect(sanitizeMessageContent("[OPEN_MANUAL_REPORT]")).toBe("");
   });
+
+  it("remove VEREADOR_PICKER (com e sem parâmetros) da mensagem visível", () => {
+    expect(sanitizeMessageContent("Sobre qual vereador você quer falar?[VEREADOR_PICKER]")).toBe(
+      "Sobre qual vereador você quer falar?",
+    );
+    expect(sanitizeMessageContent("[VEREADOR_PICKER:party=PT]Escolha")).toBe("Escolha");
+  });
 });
