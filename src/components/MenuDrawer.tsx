@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Newspaper,
   LayoutList,
+  LayoutDashboard,
   BarChart3,
   FileText,
   Shield,
@@ -103,6 +104,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       label: "Relatos",
       icon: FileText,
       route: "/relatos",
+    },
+    {
+      id: 2.7,
+      label: "Minha Cidade",
+      icon: LayoutDashboard,
+      route: "/minha-cidade",
     },
     ...(canViewDashboards
       ? [
