@@ -69,6 +69,10 @@ import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineVereadorPicker from "./InlineVereadorPicker";
+import {
+  CHAMBER_FEEDBACK_NATURE_VALUES,
+  looksLikeChamberFeedbackNatureQuestion,
+} from "@/lib/chamberFeedbackPrompts";
 import InlineSubcategoryPicker from "./InlineSubcategoryPicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import NearbyServicesFiltersInline, {
@@ -869,11 +873,21 @@ const ChatMessageBubble = ({
   const quickReplyButtons = useMemo(() => {
     if (isUser || !onSendMessage) return [];
     const match = message.content.match(/\[QUICK_REPLY:([^\]]+)\]/);
-    if (!match) return [];
-    const values = match[1]
-      .split(",")
-      .map((v) => v.trim().toLowerCase())
-      .filter(Boolean);
+    let values: string[];
+    if (match) {
+      values = match[1]
+        .split(",")
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean);
+    } else {
+      // Fallback (feedback à Câmara): a pergunta do tipo de feedback sobre o vereador
+      // costuma vir do LLM sem marcador. Detecta "...reclamação, sugestão ou elogio?" e
+      // mostra os 3 botões (sem "dúvida"), no mesmo padrão dos demais quick-replies.
+      if (!isLastAssistantMessage || !looksLikeChamberFeedbackNatureQuestion(message.content)) {
+        return [];
+      }
+      values = [...CHAMBER_FEEDBACK_NATURE_VALUES];
+    }
     const labels: Record<string, string> = {
       sim: "Sim",
       não: "Não",
@@ -931,7 +945,7 @@ const ChatMessageBubble = ({
       value,
       label: labels[value] || value.charAt(0).toUpperCase() + value.slice(1),
     }));
-  }, [isUser, message.content, onSendMessage]);
+  }, [isUser, message.content, onSendMessage, isLastAssistantMessage]);
 
   /** Relatos próximos (RPC) embutidos em Base64 no texto da assistente. */
   const similarUrbanReportsPayload = useMemo(

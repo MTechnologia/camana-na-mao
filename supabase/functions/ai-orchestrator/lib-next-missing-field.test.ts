@@ -35,6 +35,27 @@ Deno.test("getNextMissingField pede natureza no relato urbano", async () => {
   assertEquals(result.field, "report_nature");
 });
 
+Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (sem 'duvida') e tom de vereador", async () => {
+  const result = await getNextMissingField(
+    "urban_report",
+    { category: "feedback_camara" },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "report_nature");
+  assertEquals(result.prompt?.includes("[QUICK_REPLY:reclamacao,sugestao,elogio]"), true);
+  assertEquals(result.prompt?.includes("duvida"), false);
+  assertEquals(result.prompt?.toLowerCase().includes("vereador"), true);
+});
+
 Deno.test("getNextMissingField não pergunta gravidade quando descrição não dá pistas (default low) e segue pedindo afetação", async () => {
   const accumulated: Record<string, unknown> = {
     report_nature: "reclamacao",
