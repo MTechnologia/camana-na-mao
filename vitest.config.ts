@@ -8,6 +8,17 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
     css: true,
+    /**
+     * Credenciais dummy para os testes (A1.1): o client Supabase
+     * (src/integrations/supabase/client.ts) lança no import se faltar URL/key.
+     * Assim a suíte roda sem depender de um Supabase real nem de `.env` presente (CI).
+     */
+    env: {
+      VITE_SUPABASE_URL: "http://localhost:54321",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+      CAMARA_URL: "http://localhost:54321",
+      CAMARA_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary", "html"],
