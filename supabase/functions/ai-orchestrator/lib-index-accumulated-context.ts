@@ -45,8 +45,24 @@ export async function buildAccumulatedContext(
   let accumulatedFields: Record<string, unknown> = {};
   if (collectionIntent) {
     if (journeySwitched) {
-      accumulatedFields = {};
-      console.log("[ai-orchestrator] Journey switched, starting with fresh fields");
+      accumulatedFields = { ...(collectionIntent.fields ?? {}) };
+      // NREF004 — Perda de contexto: ao trocar para Avaliação de Serviço, preserva o
+      // tipo já dito ("quero avaliar o CEU/UBS/hospital…") para NÃO re-perguntar o
+      // tipo. O switch zera os demais campos de propósito, mas o tipo é contexto útil.
+      if (collectionIntent.type === "service_rating" && !accumulatedFields.service_type) {
+        for (let i = chatHistoryTyped.length - 1; i >= 0; i--) {
+          if (chatHistoryTyped[i].role !== "user") continue;
+          const inferred = lib.inferServiceTypeFromText(String(chatHistoryTyped[i].content ?? ""));
+          if (inferred) {
+            accumulatedFields.service_type = inferred;
+            break;
+          }
+        }
+      }
+      console.log(
+        "[ai-orchestrator] Journey switched, starting with fresh fields",
+        accumulatedFields.service_type ? `(service_type=${accumulatedFields.service_type})` : "",
+      );
     } else {
       accumulatedFields = lib.accumulateFieldsFromHistory(chatHistoryTyped, collectionIntent.type);
       accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
