@@ -316,7 +316,7 @@ export function aggregate(
   let totalVideo = 0;
   let totalEscritas = 0;
   let audienciasComInscricoes = 0;
-  let somaOcupacao = 0;
+  let somaOcupacaoPct = 0;
   let countOcupacao = 0;
 
   const rankings: AudienciaRanking[] = [];
@@ -338,8 +338,12 @@ export function aggregate(
     if (totalEng > 0) audienciasComInscricoes += 1;
 
     const oc = ocupacao(totalEng, a.vagas_disponiveis);
-    if (oc !== null) {
-      somaOcupacao += oc;
+    // Percentual inteiro por audiência (o mesmo exibido em ocupacaoPct). A média
+    // é feita sobre estes inteiros — evita erro de ponto flutuante ao somar
+    // frações (ex.: 0.01 + 0.06 = 0.06999… faria Math.round(3.4999…) cair p/ 3).
+    const ocPct = oc !== null ? Math.round(oc * 100) : null;
+    if (ocPct !== null) {
+      somaOcupacaoPct += ocPct;
       countOcupacao += 1;
     }
 
@@ -370,7 +374,7 @@ export function aggregate(
       videoconferencias: video,
       escritas: escrita,
       vagas: a.vagas_disponiveis,
-      ocupacaoPct: oc !== null ? Math.round(oc * 100) : null,
+      ocupacaoPct: ocPct,
       zona,
       aberta: isAudienciaAberta(a, todayIso),
     });
@@ -399,7 +403,7 @@ export function aggregate(
     .slice(0, 20);
 
   const ocupacaoMediaPct =
-    countOcupacao > 0 ? Math.round((somaOcupacao / countOcupacao) * 100) : 0;
+    countOcupacao > 0 ? Math.round(somaOcupacaoPct / countOcupacao) : 0;
 
   const byTipoEngajamento: BreakdownItem[] = [
     { label: "Lembrete", count: totalLembretes },

@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render as baseRender, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
+
+// Um descendente usa useLocation; embrulha em MemoryRouter para os testes.
+const render = (ui: ReactElement) => baseRender(ui, { wrapper: MemoryRouter });
 
 vi.mock("@/hooks/useResponseTimeAnalytics", () => ({
   useResponseTimeAnalytics: vi.fn(),

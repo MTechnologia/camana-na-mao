@@ -42,11 +42,13 @@ export const EMPTY_BASE_FILTERS: BaseAnalyticsFilters = {
 
 /** Conta quantos filtros base estão ativos. Útil pra badge no UI. */
 export function countActiveBaseFilters(f: BaseAnalyticsFilters): number {
+  // Cada DIMENSÃO ativa conta como 1 (não cada valor selecionado), consistente
+  // com os contadores de facet (countActiveCriticidadeFacet etc.) usados no badge.
   let n = 0;
   if (f.startDate || f.endDate) n += 1;
-  n += f.categories.length;
-  n += f.regions.length;
-  n += f.zones.length;
+  if (f.categories.length > 0) n += 1;
+  if (f.regions.length > 0) n += 1;
+  if (f.zones.length > 0) n += 1;
   return n;
 }
 
@@ -216,6 +218,12 @@ export function facetToParams(
  * Lê os params de um facet (do prefixo `f.{key}.`) e retorna objeto.
  * Caller é responsável por cast para o tipo correto.
  */
+/**
+ * Campos multi-select (sempre array), mesmo com um único valor — não há vírgula
+ * para distinguir `["high"]` de um escalar `"high"` na ida-volta da URL.
+ */
+const ARRAY_FACET_FIELDS = new Set(["severities", "statuses", "comissoes"]);
+
 export function paramsToFacet(
   key: FacetKey,
   params: URLSearchParams,
@@ -225,7 +233,9 @@ export function paramsToFacet(
   for (const [name, value] of params.entries()) {
     if (!name.startsWith(prefix)) continue;
     const field = name.slice(prefix.length);
-    if (value === "1" || value === "0") {
+    if (ARRAY_FACET_FIELDS.has(field)) {
+      out[field] = value.split(",").filter(Boolean);
+    } else if (value === "1" || value === "0") {
       out[field] = value === "1";
     } else if (value.includes(",")) {
       out[field] = value.split(",").filter(Boolean);

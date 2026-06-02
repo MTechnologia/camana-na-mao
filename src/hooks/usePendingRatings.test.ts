@@ -34,6 +34,8 @@ function createSelectChain(result: { data: unknown; error: unknown | null }) {
   self.gt = vi.fn(() => self);
   self.order = vi.fn(() => self);
   self.limit = vi.fn(() => self);
+  // closeServiceVisitWithDeparture carrega `departed_at` via .maybeSingle() antes do update.
+  self.maybeSingle = vi.fn(() => Promise.resolve(result));
   return self;
 }
 

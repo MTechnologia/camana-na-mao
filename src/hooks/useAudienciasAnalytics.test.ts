@@ -4,6 +4,11 @@ import { renderHook, waitFor } from "@testing-library/react";
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: vi.fn(),
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    })),
+    removeChannel: vi.fn(),
   },
 }));
 
@@ -403,11 +408,11 @@ describe("useAudienciasAnalytics (hook)", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    // Sem participações, ainda assim retorna dados de inscrições
+    // Engajamento total = 1 lembrete (inscrição) + 1 videoconferência + 1 escrito = 3.
     expect(result.current.error).toBeNull();
-    expect(result.current.stats.totalInscricoes).toBe(1);
+    expect(result.current.stats.totalInscricoes).toBe(3);
     expect(result.current.stats.totalLembretes).toBe(1);
-    expect(result.current.stats.totalVideoconferencias).toBe(0);
+    expect(result.current.stats.totalVideoconferencias).toBe(1);
   });
 
   it("propaga erro de Supabase em audiencias", async () => {

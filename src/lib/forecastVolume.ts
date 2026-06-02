@@ -94,8 +94,11 @@ export function forecastVolume(
   history: VolumePoint[],
   horizonDays: number,
 ): ForecastResult {
-  // Defesa: vazio ou horizonte <= 0
-  if (history.length === 0 || horizonDays <= 0) {
+  // Defesa: histórico vazio não tem o que ajustar.
+  // Obs.: horizonDays <= 0 é VÁLIDO — produz forecast vazio (o laço abaixo não
+  // executa) mas ainda calcula os diagnostics. detectAnomalies depende disso
+  // (chama forecastVolume(history, 0) só para obter trend/weekday/residualStdDev).
+  if (history.length === 0) {
     return {
       history,
       forecast: [],

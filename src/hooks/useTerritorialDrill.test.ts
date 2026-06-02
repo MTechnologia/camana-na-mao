@@ -40,9 +40,12 @@ function rec(overrides: Partial<RawReport> = {}): RawReport {
 
 describe("levelOf / nextLevelOf", () => {
   it("levelOf identifica corretamente o nível atual", () => {
+    // currentLevel = o nível do RECORTE selecionado (o escopo dos KPIs):
+    // nada selecionado → "zona"; zona selecionada → "zona" (KPIs descrevem a zona);
+    // bairro selecionado → "bairro"; rua selecionada → "rua" (folha).
     expect(levelOf({})).toBe("zona");
-    expect(levelOf({ zona: "Zona Leste" })).toBe("bairro");
-    expect(levelOf({ zona: "Zona Leste", bairro: "Tatuapé" })).toBe("rua");
+    expect(levelOf({ zona: "Zona Leste" })).toBe("zona");
+    expect(levelOf({ zona: "Zona Leste", bairro: "Tatuapé" })).toBe("bairro");
     expect(levelOf({ zona: "Zona Leste", bairro: "Tatuapé", rua: "Rua A" })).toBe("rua");
   });
 
@@ -152,7 +155,9 @@ describe("aggregate", () => {
     ];
     const r = aggregate(records, { zona: "Zona Leste" });
     expect(r.total).toBe(2);
-    expect(r.nextLevel).toBe("rua");
+    // Com a zona selecionada, os nextItems SÃO bairros → clicar define `bairro`,
+    // logo nextLevel = "bairro" (o componente usa isso em handleNextClick).
+    expect(r.nextLevel).toBe("bairro");
     const labels = r.nextItems.map((n) => n.label);
     expect(labels).toContain("Tatuapé");
     expect(labels).toContain("Penha");
