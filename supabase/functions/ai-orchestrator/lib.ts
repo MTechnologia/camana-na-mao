@@ -331,18 +331,35 @@ export function accumulateFieldsFromHistory(
     // "Vereador(a): Nome (PARTIDO)". Esse formato é exclusivo desse fluxo, então
     // marca a jornada como feedback_camara — assim a coleta não pede CEP/endereço
     // como um relato urbano comum e o relato é criado com o vereador correto.
+    let chamberSelected = false;
     for (const m of messages) {
       if (m.role !== 'user') continue;
       const sel = getHistoryMessageText(m).match(
         /vereador(?:\(a\)|a)?\s*:\s*(.+?)\s*\(([^)]+)\)/i,
       );
       if (sel) {
+        chamberSelected = true;
         accumulated.category = 'feedback_camara';
         accumulated.council_member_name = sel[1].trim();
         accumulated.council_member_party = sel[2].trim();
         if (!accumulated.subcategory) {
           accumulated.subcategory = `Feedback: ${sel[1].trim()}`;
         }
+      }
+    }
+
+    if (chamberSelected) {
+      // A frase de intenção ("quero dar um feedback sobre um vereador") e a própria
+      // seleção do picker NÃO são a descrição do feedback. Sem isso, o bot achava
+      // que já tinha a descrição e pulava direto para a conclusão sem o cidadão
+      // contar o que quer reclamar/sugerir/elogiar.
+      const desc = String(accumulated.description ?? '').toLowerCase().trim();
+      const looksLikeIntentOrSelection =
+        desc.length < 12 ||
+        /feedback\s+sobre\s+(um|o|a)?\s*vereador/.test(desc) ||
+        /^vereador(?:\(a\)|a)?\s*:/.test(desc);
+      if (looksLikeIntentOrSelection) {
+        delete accumulated.description;
       }
     }
   }
