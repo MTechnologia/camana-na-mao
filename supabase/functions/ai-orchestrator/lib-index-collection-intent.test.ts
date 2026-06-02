@@ -1,6 +1,40 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
-import { LIGHT_JOURNEY_TYPES, resolveCollectionIntent } from "./lib-index-collection-intent.ts";
+import {
+  inferSwitchedServiceType,
+  LIGHT_JOURNEY_TYPES,
+  resolveCollectionIntent,
+} from "./lib-index-collection-intent.ts";
+import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
+
+Deno.test("inferSwitchedServiceType: NREF004 — carrega o tipo dito antes da troca (CEU)", () => {
+  const history = [
+    { role: "user", content: "Quero falar sobre a cidade" },
+    { role: "user", content: "Como posso fazer para me inscrever no SESC?" },
+    { role: "user", content: "Quero avaliar o ceu aqui de casa" },
+  ];
+  const lastUserMsg = "Sim, quero iniciar Avaliação de Serviço. Estou ciente de que o progresso atual pode não ser salvo.";
+  assertEquals(inferSwitchedServiceType(history, lastUserMsg, inferServiceTypeFromText), "ceu");
+});
+
+Deno.test("inferSwitchedServiceType: sem tipo mencionado → undefined", () => {
+  const history = [{ role: "user", content: "Quero avaliar um serviço" }];
+  assertEquals(
+    inferSwitchedServiceType(history, "Sim, quero iniciar Avaliação de Serviço", inferServiceTypeFromText),
+    undefined,
+  );
+});
+
+Deno.test("inferSwitchedServiceType: pega o tipo mais recente (UBS) ignorando a confirmação", () => {
+  const history = [
+    { role: "user", content: "quero avaliar o ceu" },
+    { role: "user", content: "na verdade quero avaliar a UBS perto de casa" },
+  ];
+  assertEquals(
+    inferSwitchedServiceType(history, "Sim, quero iniciar Avaliação de Serviço", inferServiceTypeFromText),
+    "ubs",
+  );
+});
 
 function createLibMock(overrides: Record<string, unknown> = {}) {
   return {

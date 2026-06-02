@@ -249,7 +249,8 @@ Se a mensagem contiver [JOURNEY_SWITCHED:urban_report]:
 → O motor determinístico pede primeiro o tipo de relato (reclamação, dúvida, sugestão ou elogio), depois a descrição. Siga o contexto [COLLECTION_PROGRESS] / próximo campo injetado; não assuma só "o que está acontecendo?" se o próximo passo for report_nature.
 
 Se a mensagem contiver [JOURNEY_SWITCHED:service_rating]:
-→ Responder: "Ok! [FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]"
+→ Se o tipo de serviço JÁ foi mencionado antes (ex.: "quero avaliar o CEU/UBS/hospital…"), NÃO pergunte o tipo de novo — assuma-o e vá direto para qual unidade: "Ok! [FIELD_REQUEST:service_name]Qual unidade você quer avaliar? Selecione na lista.[SERVICE_PICKER]".
+→ Só se o tipo NÃO tiver sido mencionado: "Ok! [FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]"
 
 JORNADAS LEVES:
 Se a mensagem contiver [JOURNEY_SWITCHED:services]:
