@@ -138,7 +138,7 @@ async function validateManualEntryNotRatedToday(
   if (term.length < 2) return { blocked: false };
 
   const applyType = (strict: boolean) => {
-    let q = supabase.from("public_services").select("id, name, district").is("duplicate_of", null).limit(40);
+    const q = supabase.from("public_services").select("id, name, district").is("duplicate_of", null).limit(40);
     if (!st) return q;
     if (strict) return q.eq("service_type", st);
     if (st === "hospital") return q.in("service_type", ["hospital", "other"] as string[]);

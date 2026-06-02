@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 const TestTask4 = () => {
   const navigate = useNavigate();
   const [inputValue, setInputValue] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{ status: string; finalValue: string; bypassed: boolean } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

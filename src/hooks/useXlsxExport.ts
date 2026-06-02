@@ -195,7 +195,7 @@ export function useXlsxExport(): UseXlsxExportResult {
       const zones = config.filters?.zones ?? [];
 
       try {
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
           if (cancelRef.current) throw new Error("CANCELLED");
           if (offset >= XLSX_EXPORT_MAX_ROWS) break;

@@ -68,7 +68,7 @@ export function usePerformanceMark(
 
         // Log local pra dev acompanhar no console.
         if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
+           
           console.debug(
             `[perf] ${marker} (${route}): ${duration}ms`,
             duration > 3000 ? "❌ SLA fail" : "✅",
@@ -77,7 +77,7 @@ export function usePerformanceMark(
       } catch (err) {
         // Silencioso.
         if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
+           
           console.debug("[perf] insert failed:", err);
         }
       }

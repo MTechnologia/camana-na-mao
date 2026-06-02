@@ -74,7 +74,7 @@ export async function compressChatPhoto(
 
   const originalBase = (file.name || "imagem")
     .replace(/\.[^.]+$/, "")
-    .replace(/[^\w\-]+/g, "_")
+    .replace(/[^\w-]+/g, "_")
     .slice(0, 60);
   const safeName = `${originalBase || "imagem"}_chat.jpg`;
   return new File([blob], safeName, { type: "image/jpeg", lastModified: Date.now() });

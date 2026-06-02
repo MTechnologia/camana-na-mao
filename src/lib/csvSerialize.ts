@@ -6,7 +6,7 @@
  *  - Separador de linha: \r\n
  *  - Campos com vírgula, aspas duplas ou quebra de linha → cercados por aspas duplas
  *  - Aspas duplas dentro do campo → escapadas duplicando ("")
- *  - Prefixa BOM UTF-8 (﻿) pra Excel detectar UTF-8 corretamente
+ *  - Prefixa BOM UTF-8 (U+FEFF) pra Excel detectar UTF-8 corretamente
  *  - null/undefined → string vazia
  *  - Objetos/arrays → JSON.stringify
  */

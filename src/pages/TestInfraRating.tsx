@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 
 const TestInfraRating = () => {
   const navigate = useNavigate();
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{ displayLabel: string; score: number } | null>(null);
 
   const FIVE_LEVEL_LABELS = [
     "Péssimo",

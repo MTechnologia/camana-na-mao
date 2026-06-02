@@ -42,7 +42,10 @@ describe("usePendingRatings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser as any, loading: false } as any);
+    vi.mocked(useAuth).mockReturnValue({
+      user: mockUser,
+      loading: false,
+    } as unknown as ReturnType<typeof useAuth>);
   });
 
   it("deve buscar avaliações pendentes com sucesso", async () => {

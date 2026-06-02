@@ -152,7 +152,7 @@ export function useCsvExport(): UseCsvExportResult {
       const allRows: Array<Record<string, unknown>> = [];
       let offset = 0;
       try {
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
           if (cancelRef.current) throw new Error("CANCELLED");
           if (offset >= CSV_EXPORT_MAX_ROWS) break;

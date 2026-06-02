@@ -96,9 +96,13 @@ export const GoogleMapView = ({
           ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
           : null;
 
-      if (!mapCtor && typeof (window.google.maps as any)?.importLibrary === 'function') {
+      type MapCtor = new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map;
+      const mapsApi = window.google.maps as typeof window.google.maps & {
+        importLibrary?: (name: string) => Promise<{ Map?: MapCtor }>;
+      };
+      if (!mapCtor && typeof mapsApi.importLibrary === 'function') {
         try {
-          const mapsLib = await (window.google.maps as any).importLibrary('maps');
+          const mapsLib = await mapsApi.importLibrary('maps');
           mapCtor = mapsLib?.Map ?? null;
         } catch (e) {
           console.error('[GoogleMapView] importLibrary("maps") falhou:', e);
