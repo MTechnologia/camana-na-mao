@@ -113,6 +113,11 @@ const MinhaCidade = () => {
     satisfaction: t.satisfaction,
   }));
   const categoryData = summary?.category_distribution ?? [];
+  const totalCategory = categoryData.reduce((sum, c) => sum + c.value, 0);
+  const categoryLegend = categoryData.map((c) => {
+    const rounded = totalCategory > 0 ? Math.round((c.value / totalCategory) * 100) : 0;
+    return { name: c.name, pctLabel: c.value > 0 && rounded === 0 ? "<1%" : `${rounded}%` };
+  });
   const heatmapData =
     heatmapCells.length > 0 ? heatmapCells : [{ x: "—", y: "—", value: 0 }];
 
@@ -247,24 +252,49 @@ const MinhaCidade = () => {
             subtitle="Distribuição dos relatos por categoria"
             lastUpdated={lastUpdated}
           >
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={categoryData.length ? categoryData : [{ name: "Sem dados", value: 1 }]}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={95}
-                  dataKey="value"
-                >
-                  {categoryData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="w-full sm:w-1/2">
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData.length ? categoryData : [{ name: "Sem dados", value: 1 }]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={88}
+                      paddingAngle={1}
+                      dataKey="value"
+                    >
+                      {categoryData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => [`${value} relatos`, ""]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {categoryLegend.length > 0 && (
+                <ul className="w-full sm:w-1/2 space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+                  {categoryLegend.map((c, index) => (
+                    <li
+                      key={c.name}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="h-2.5 w-2.5 rounded-sm flex-shrink-0"
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="truncate">{c.name}</span>
+                      </span>
+                      <span className="text-muted-foreground tabular-nums flex-shrink-0">
+                        {c.pctLabel}
+                      </span>
+                    </li>
                   ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+                </ul>
+              )}
+            </div>
           </ChartCard>
         </div>
 
