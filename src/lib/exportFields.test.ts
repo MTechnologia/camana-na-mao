@@ -2,10 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   DATASET_LIST,
   EXPORT_DATASETS,
+  EXPORT_ROW_CAPS,
+  canAccessField,
+  filterFieldsByRole,
   getAllFieldIds,
   getBasicPresetFieldIds,
   getDataset,
+  getRowCap,
   groupFields,
+  type ExportRole,
 } from "./exportFields";
 
 describe("EXPORT_DATASETS", () => {
@@ -88,5 +93,60 @@ describe("getDataset()", () => {
   it("retorna o dataset correto por id", () => {
     expect(getDataset("urban_reports").label).toBe("Relatos urbanos");
     expect(getDataset("transport_reports").label).toBe("Relatos de transporte");
+  });
+});
+
+describe("getRowCap (regressão 'gestor sem relatório')", () => {
+  it("gestor recebe cap > 0 em ambos os formatos (não fica sem relatório)", () => {
+    expect(getRowCap("gestor", "xlsx")).toBeGreaterThan(0);
+    expect(getRowCap("gestor", "csv")).toBeGreaterThan(0);
+  });
+
+  it("admin recebe cap > 0 em ambos os formatos", () => {
+    expect(getRowCap("admin", "xlsx")).toBeGreaterThan(0);
+    expect(getRowCap("admin", "csv")).toBeGreaterThan(0);
+  });
+
+  it("role nula → cap 0 (condição que o UI/edge usa para barrar export sem perfil)", () => {
+    expect(getRowCap(null, "xlsx")).toBe(0);
+    expect(getRowCap(null, "csv")).toBe(0);
+  });
+
+  it("admin tem cap >= gestor (precedência de volume)", () => {
+    expect(getRowCap("admin", "csv")).toBeGreaterThanOrEqual(getRowCap("gestor", "csv"));
+    expect(getRowCap("admin", "xlsx")).toBeGreaterThanOrEqual(getRowCap("gestor", "xlsx"));
+  });
+
+  it("a tabela de caps cobre TODA role válida nos 2 formatos (evita undefined[format] em runtime)", () => {
+    const roles: ExportRole[] = ["admin", "gestor"];
+    for (const role of roles) {
+      expect(EXPORT_ROW_CAPS[role]).toBeDefined();
+      expect(typeof EXPORT_ROW_CAPS[role].csv).toBe("number");
+      expect(typeof EXPORT_ROW_CAPS[role].xlsx).toBe("number");
+      // E getRowCap não lança para nenhuma combinação válida.
+      expect(() => getRowCap(role, "csv")).not.toThrow();
+      expect(() => getRowCap(role, "xlsx")).not.toThrow();
+    }
+  });
+});
+
+describe("filterFieldsByRole / canAccessField", () => {
+  it("gestor enxerga ao menos os campos do preset básico (lista não vazia)", () => {
+    const visible = filterFieldsByRole(EXPORT_DATASETS.urban_reports.fields, "gestor");
+    expect(visible.length).toBeGreaterThan(0);
+    const basic = getBasicPresetFieldIds(EXPORT_DATASETS.urban_reports);
+    const visibleIds = new Set(visible.map((f) => f.id));
+    for (const id of basic) {
+      expect(visibleIds.has(id)).toBe(true);
+    }
+  });
+
+  it("role nula só enxerga campos não-restritos", () => {
+    const fields = EXPORT_DATASETS.urban_reports.fields;
+    const visible = filterFieldsByRole(fields, null);
+    for (const f of visible) {
+      expect(canAccessField(f, null)).toBe(true);
+      expect(f.restrictedToRoles?.length ?? 0).toBe(0);
+    }
   });
 });
