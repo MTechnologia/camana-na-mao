@@ -27,7 +27,7 @@ export const PendingRatingsBanner = () => {
                 <Star className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
 
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-foreground mb-1">
                   {pendingRatings.length === 1
                     ? "Você tem uma avaliação pendente"

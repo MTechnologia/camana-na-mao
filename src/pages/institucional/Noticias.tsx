@@ -39,8 +39,8 @@ const Noticias = () => {
       <InstitutionalLayout title="Notícias" category="Comunicação">
         <div className="space-y-6">
           <div>
-            <Skeleton className="h-9 w-64 mb-2" />
-            <Skeleton className="h-5 w-96" />
+            <Skeleton className="h-9 w-64 max-w-full mb-2" />
+            <Skeleton className="h-5 w-full max-w-sm" />
           </div>
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
