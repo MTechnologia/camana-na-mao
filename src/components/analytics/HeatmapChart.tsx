@@ -10,12 +10,23 @@ interface HeatmapData {
 interface HeatmapChartProps {
   data: HeatmapData[];
   onCellClick?: (cell: HeatmapData) => void;
+  /** Ordem explícita das colunas/linhas. Sem isso, mantém a ordenação alfabética. */
+  xOrder?: readonly string[];
+  yOrder?: readonly string[];
 }
 
-export const HeatmapChart = ({ data, onCellClick }: HeatmapChartProps) => {
+/** Ordena os rótulos conforme `order` (quando fornecido); o resto, alfabético. */
+function orderLabels(labels: string[], order?: readonly string[]): string[] {
+  if (!order || order.length === 0) return [...labels].sort();
+  const known = order.filter((o) => labels.includes(o));
+  const rest = labels.filter((l) => !order.includes(l)).sort();
+  return [...known, ...rest];
+}
+
+export const HeatmapChart = ({ data, onCellClick, xOrder, yOrder }: HeatmapChartProps) => {
   // Get unique x and y values
-  const xLabels = Array.from(new Set(data.map((d) => d.x))).sort();
-  const yLabels = Array.from(new Set(data.map((d) => d.y))).sort();
+  const xLabels = orderLabels(Array.from(new Set(data.map((d) => d.x))), xOrder);
+  const yLabels = orderLabels(Array.from(new Set(data.map((d) => d.y))), yOrder);
 
   // Calculate max value for color scale
   const maxValue = Math.max(...data.map((d) => d.value));

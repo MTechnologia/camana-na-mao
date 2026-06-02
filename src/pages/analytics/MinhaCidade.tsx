@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { useAnalyticsDashboardSummary } from "@/hooks/useAnalyticsDashboardSummary";
 import { useWorstServicesByDimension } from "@/hooks/useWorstServicesByDimension";
+import { useCityZoneHeatmap, HEATMAP_WEEKDAY_ORDER } from "@/hooks/useCityZoneHeatmap";
 import {
   SERVICE_RATING_DIMENSION_KEYS,
   SERVICE_RATING_DIMENSION_LABELS,
@@ -94,6 +95,7 @@ const MinhaCidade = () => {
   const range = useMemo(() => rangeFromPreset(period), [period]);
   const { data: summary, loading, error } = useAnalyticsDashboardSummary(range);
   const { rows: worstServices, loading: worstLoading } = useWorstServicesByDimension(dimension, 5);
+  const { cells: heatmapCells, zoneOrder: heatmapZoneOrder } = useCityZoneHeatmap(range);
 
   const kpis = summary?.kpis;
   const topRegions = useMemo(() => summary?.top_regions ?? [], [summary]);
@@ -112,7 +114,7 @@ const MinhaCidade = () => {
   }));
   const categoryData = summary?.category_distribution ?? [];
   const heatmapData =
-    summary?.heatmap && summary.heatmap.length > 0 ? summary.heatmap : [{ x: "—", y: "—", value: 0 }];
+    heatmapCells.length > 0 ? heatmapCells : [{ x: "—", y: "—", value: 0 }];
 
   const lastUpdated = summary?.range?.end
     ? new Date(summary.range.end).toLocaleString("pt-BR")
@@ -268,11 +270,15 @@ const MinhaCidade = () => {
 
         <ChartCard
           title="Onde se concentra"
-          subtitle="Relatos por região e dia da semana"
+          subtitle="Relatos urbanos por zona da cidade e dia da semana"
           lastUpdated={lastUpdated}
           className="mb-6"
         >
-          <HeatmapChart data={heatmapData} />
+          <HeatmapChart
+            data={heatmapData}
+            xOrder={heatmapZoneOrder}
+            yOrder={HEATMAP_WEEKDAY_ORDER}
+          />
         </ChartCard>
 
         <ChartCard
