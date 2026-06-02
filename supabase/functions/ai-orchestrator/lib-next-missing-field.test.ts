@@ -56,6 +56,41 @@ Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (se
   assertEquals(result.prompt?.toLowerCase().includes("vereador"), true);
 });
 
+Deno.test("getNextMissingField: feedback_camara não pede localização (pula CEP/endereço) e conclui", async () => {
+  const accumulated: Record<string, unknown> = {
+    report_nature: "reclamacao",
+    description: "O vereador não respondeu meus pedidos sobre a praça do bairro",
+    category: "feedback_camara",
+    subcategory: "Feedback: Amanda Paschoal",
+    council_member_name: "Amanda Paschoal",
+  };
+  const result = await getNextMissingField(
+    "urban_report",
+    accumulated,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      URBAN_RISK_COLLECTION_CATEGORIES: ["via_publica"],
+      isBareUrbanReportNatureReply: () => false,
+      isValidUrbanReportDescription: () => true,
+      applyUrbanNatureCategoryDefaults: () => {},
+      generateLabelFromDescription: (d: string) => d,
+      isCitySaoPaulo: () => true,
+      // mesmo com reclamação (que normalmente pede local), feedback_camara pula
+      urbanNatureSkipsLocationCollection: () => false,
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  // Não deve pedir location_method/cep — conclui direto para criação
+  assertEquals(result.field, null);
+  assertEquals(result.picker, null);
+});
+
 Deno.test("getNextMissingField não pergunta gravidade quando descrição não dá pistas (default low) e segue pedindo afetação", async () => {
   const accumulated: Record<string, unknown> = {
     report_nature: "reclamacao",
