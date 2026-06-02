@@ -5,6 +5,7 @@ import {
   isBusInformationalQuery,
   messageLooksLikeTransportProblemReport,
 } from "./lib-intent-detection.ts";
+import { isCamaraFuncionamentoInternoQuery } from "./lib-citizen-support.ts";
 
 const baseDeps = {
   extractTransportFields: (_context: string) => ({ report_type: "atraso" }),
@@ -157,4 +158,36 @@ Deno.test("detectCollectionIntent: relato de ônibus em jornada urbana → trans
   ];
   const result = detectCollectionIntent("O ônibus está atrasando demais", history, baseDeps);
   assertEquals(result?.type, "transport_report");
+});
+
+// Deps com o detector REAL de funcionamento interno da Câmara (em produção é o
+// lib.ts que o injeta; os testes acima usam `=> false`, por isso não pegavam
+// este caso). Regressão do bug: consulta institucional virava relato urbano.
+const camaraDeps = { ...baseDeps, isCamaraFuncionamentoInternoQuery };
+
+Deno.test("detectCollectionIntent: consulta estrutural/institucional sobre a Câmara → general (não relato urbano)", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
+      [],
+      camaraDeps,
+    )?.type,
+    "general",
+  );
+  assertEquals(detectCollectionIntent("Conheça a Câmara", [], camaraDeps)?.type, "general");
+  assertEquals(
+    detectCollectionIntent("Como a Câmara é organizada?", [], camaraDeps)?.type,
+    "general",
+  );
+});
+
+Deno.test("detectCollectionIntent: relato urbano legítimo continua urban_report com detector ligado", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "Tem um buraco enorme na minha rua",
+      [{ role: "user", content: "Tem um buraco enorme na minha rua" }],
+      camaraDeps,
+    )?.type,
+    "urban_report",
+  );
 });
