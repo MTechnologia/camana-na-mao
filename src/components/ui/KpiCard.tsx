@@ -1,6 +1,6 @@
-import { ParameterInfoTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import { Card, CardContent } from '@/components/ui/card';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
+import { ParameterInfoTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import { Card, CardContent } from "@/components/ui/card";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
 
 type KpiCardProps = {
   label: string;
@@ -24,14 +24,16 @@ export function KpiCard({
 
   return (
     <Card
-      className={interactive ? 'h-full cursor-pointer transition-colors hover:bg-muted/40' : 'h-full'}
-      role={interactive ? 'button' : undefined}
+      className={
+        interactive ? "h-full cursor-pointer transition-colors hover:bg-muted/40" : "h-full"
+      }
+      role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={interactive ? onOpenDetail : undefined}
       onKeyDown={
         interactive
           ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+              if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 onOpenDetail?.();
               }
@@ -45,10 +47,7 @@ export function KpiCard({
             {label}
           </p>
           {parameter ? (
-            <ParameterInfoTrigger
-              item={parameter}
-              stopPropagation={stopParameterPropagation}
-            />
+            <ParameterInfoTrigger item={parameter} stopPropagation={stopParameterPropagation} />
           ) : null}
         </div>
         <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-foreground">

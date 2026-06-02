@@ -2,7 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StandardDatePicker } from "@/components/ui/standard-date-picker";
 import { CalendarIcon, Users, Palette, Briefcase } from "lucide-react";
 import { formatDateLocal, parseDateLocal } from "@/lib/datePickerConstants";
@@ -28,9 +34,9 @@ const DemographicsForm = ({ userId, onSaved }: DemographicsFormProps) => {
   const loadDemographics = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('user_demographics')
-        .select('*')
-        .eq('user_id', userId)
+        .from("user_demographics")
+        .select("*")
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (error) throw error;
@@ -67,33 +73,31 @@ const DemographicsForm = ({ userId, onSaved }: DemographicsFormProps) => {
       setLoading(true);
 
       const { data: existing } = await supabase
-        .from('user_demographics')
-        .select('id')
-        .eq('user_id', userId)
+        .from("user_demographics")
+        .select("id")
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (existing) {
         const { error } = await supabase
-          .from('user_demographics')
+          .from("user_demographics")
           .update({
             birth_date: birthDate ? formatDateLocal(birthDate) : null,
             gender: validated.gender,
             race: validated.race,
             social_class: validated.socialClass,
           })
-          .eq('user_id', userId);
+          .eq("user_id", userId);
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('user_demographics')
-          .insert({
-            user_id: userId,
-            birth_date: birthDate ? formatDateLocal(birthDate) : null,
-            gender: validated.gender,
-            race: validated.race,
-            social_class: validated.socialClass,
-          });
+        const { error } = await supabase.from("user_demographics").insert({
+          user_id: userId,
+          birth_date: birthDate ? formatDateLocal(birthDate) : null,
+          gender: validated.gender,
+          race: validated.race,
+          social_class: validated.socialClass,
+        });
 
         if (error) throw error;
       }
@@ -111,7 +115,7 @@ const DemographicsForm = ({ userId, onSaved }: DemographicsFormProps) => {
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
       if (err?.errors) {
-        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
+        err.errors.forEach((e) => toast.error(e.message ?? "Erro"));
       } else {
         toast.error(err?.message || "Erro ao salvar dados");
       }
@@ -129,7 +133,8 @@ const DemographicsForm = ({ userId, onSaved }: DemographicsFormProps) => {
             Dados Demográficos
           </CardTitle>
           <CardDescription>
-            Esses dados ajudam a entender melhor as necessidades da população e são usados de forma anônima para estatísticas.
+            Esses dados ajudam a entender melhor as necessidades da população e são usados de forma
+            anônima para estatísticas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -217,9 +222,7 @@ const DemographicsForm = ({ userId, onSaved }: DemographicsFormProps) => {
         {loading ? "Salvando..." : "Salvar Dados Demográficos"}
       </Button>
 
-      <p className="text-xs text-muted-foreground text-center">
-        * Campos obrigatórios
-      </p>
+      <p className="text-xs text-muted-foreground text-center">* Campos obrigatórios</p>
     </div>
   );
 };

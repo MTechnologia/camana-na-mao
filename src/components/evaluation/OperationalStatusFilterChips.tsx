@@ -25,7 +25,7 @@ export function OperationalStatusFilterChips({
         variant={value === "all" ? "default" : "outline"}
         className={cn(
           "cursor-pointer whitespace-nowrap transition-all",
-          value === "all" ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+          value === "all" ? "bg-primary text-primary-foreground" : "hover:bg-secondary",
         )}
         onClick={() => onChange("all")}
       >
@@ -37,7 +37,7 @@ export function OperationalStatusFilterChips({
           "cursor-pointer whitespace-nowrap transition-all",
           value === "open"
             ? "bg-emerald-600 text-white hover:bg-emerald-700"
-            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20",
         )}
         onClick={() => onChange("open")}
       >
@@ -49,7 +49,7 @@ export function OperationalStatusFilterChips({
           "cursor-pointer whitespace-nowrap transition-all",
           value === "closed"
             ? "bg-rose-600 text-white hover:bg-rose-700"
-            : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20"
+            : "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20",
         )}
         onClick={() => onChange("closed")}
       >
@@ -61,7 +61,7 @@ export function OperationalStatusFilterChips({
           "cursor-pointer whitespace-nowrap transition-all",
           value === "maintenance"
             ? "bg-amber-500 text-black hover:bg-amber-400"
-            : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+            : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20",
         )}
         onClick={() => onChange("maintenance")}
       >
@@ -70,4 +70,3 @@ export function OperationalStatusFilterChips({
     </div>
   );
 }
-

@@ -1,31 +1,28 @@
-import { useMemo, useState } from 'react';
-import { useGlobalShortcutPeriod } from '@/hooks/useGlobalShortcutPeriod';
-import { PageShell } from '@/components/ui/PageShell';
-import { RN_ANL_003_TRENDS_LEGEND } from '@/lib/analyticsParameterLegends';
-import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { useMemo, useState } from "react";
+import { useGlobalShortcutPeriod } from "@/hooks/useGlobalShortcutPeriod";
+import { PageShell } from "@/components/ui/PageShell";
+import { RN_ANL_003_TRENDS_LEGEND } from "@/lib/analyticsParameterLegends";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { TrendCategoryLineChart } from '@/components/admin/TrendCategoryLineChart';
-import {
-  useReportsTrend,
-  type ReportsTrendTypeFilter,
-} from '@/hooks/useReportsTrend';
-import { useTransportLines } from '@/hooks/useTransportLines';
-import { buildTrendChartRows } from '@/lib/buildTrendChartRows';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
-import { ExecutiveKpiSection } from '@/components/admin/analytics/ExecutiveKpiSection';
-import { AnalyticsDrillBreadcrumb } from '@/components/admin/analytics/AnalyticsDrillBreadcrumb';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendCategoryLineChart } from "@/components/admin/TrendCategoryLineChart";
+import { useReportsTrend, type ReportsTrendTypeFilter } from "@/hooks/useReportsTrend";
+import { useTransportLines } from "@/hooks/useTransportLines";
+import { buildTrendChartRows } from "@/lib/buildTrendChartRows";
+import { RefreshCw, AlertTriangle } from "lucide-react";
+import { ExecutiveKpiSection } from "@/components/admin/analytics/ExecutiveKpiSection";
+import { AnalyticsDrillBreadcrumb } from "@/components/admin/analytics/AnalyticsDrillBreadcrumb";
 
 export function TrendDashboardPage() {
-  const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>("all");
   const [lineId, setLineId] = useState<string | null>(null);
   const period = useGlobalShortcutPeriod();
 
@@ -41,7 +38,7 @@ export function TrendDashboardPage() {
     return buildTrendChartRows(data.points, data.granularity);
   }, [data]);
 
-  const lineFilterVisible = typeFilter === 'all' || typeFilter === 'transport';
+  const lineFilterVisible = typeFilter === "all" || typeFilter === "transport";
 
   return (
     <PageShell title="Tendências temporais" titleInfo={RN_ANL_003_TRENDS_LEGEND}>
@@ -51,7 +48,7 @@ export function TrendDashboardPage() {
 
         <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -64,7 +61,7 @@ export function TrendDashboardPage() {
                 value={typeFilter}
                 onValueChange={(v) => {
                   setTypeFilter(v as ReportsTrendTypeFilter);
-                  if (v !== 'all' && v !== 'transport') setLineId(null);
+                  if (v !== "all" && v !== "transport") setLineId(null);
                 }}
               >
                 <SelectTrigger id="trend-type">
@@ -82,12 +79,12 @@ export function TrendDashboardPage() {
             <div className="space-y-2">
               <Label htmlFor="trend-line">Linha (transporte)</Label>
               <Select
-                value={lineId ?? '__all__'}
-                onValueChange={(v) => setLineId(v === '__all__' ? null : v)}
+                value={lineId ?? "__all__"}
+                onValueChange={(v) => setLineId(v === "__all__" ? null : v)}
                 disabled={!lineFilterVisible || linesLoading}
               >
                 <SelectTrigger id="trend-line">
-                  <SelectValue placeholder={linesLoading ? 'Carregando…' : 'Todas as linhas'} />
+                  <SelectValue placeholder={linesLoading ? "Carregando…" : "Todas as linhas"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas as linhas</SelectItem>
@@ -119,8 +116,16 @@ export function TrendDashboardPage() {
 
           {data && (
             <p className="mt-4 text-xs text-muted-foreground">
-              Agregação: {data.granularity === 'day' ? 'por dia' : data.granularity === 'week' ? 'por semana' : 'por mês'}.
-              {data.start_at ? ` A partir de ${new Date(data.start_at).toLocaleString('pt-BR')}.` : ''}
+              Agregação:{" "}
+              {data.granularity === "day"
+                ? "por dia"
+                : data.granularity === "week"
+                  ? "por semana"
+                  : "por mês"}
+              .
+              {data.start_at
+                ? ` A partir de ${new Date(data.start_at).toLocaleString("pt-BR")}.`
+                : ""}
             </p>
           )}
         </Card>

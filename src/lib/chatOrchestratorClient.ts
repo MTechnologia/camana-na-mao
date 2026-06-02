@@ -8,7 +8,10 @@ export function describeAiOrchestratorFailure(status: number, body: string): str
   if (b.startsWith("{")) {
     try {
       const j = JSON.parse(b) as { code?: string; message?: string };
-      if (j.code === "NOT_FOUND" || /function was not found|not found/i.test(String(j.message ?? ""))) {
+      if (
+        j.code === "NOT_FOUND" ||
+        /function was not found|not found/i.test(String(j.message ?? ""))
+      ) {
         return "A função ai-orchestrator não foi encontrada neste projeto. Publique a Edge Function e confira CAMARA_URL / VITE_SUPABASE_URL.";
       }
       if (j.message) return j.message;
@@ -16,10 +19,7 @@ export function describeAiOrchestratorFailure(status: number, body: string): str
       /* ignore */
     }
   }
-  if (
-    status === 404 ||
-    /trouble finding the resource|requested function was not found/i.test(b)
-  ) {
+  if (status === 404 || /trouble finding the resource|requested function was not found/i.test(b)) {
     return "Serviço do assistente indisponível (404). Verifique o deploy de ai-orchestrator e se a URL do Supabase está correta.";
   }
   if (status === 401 || status === 403) {
@@ -75,7 +75,10 @@ function journeySwitchTarget(content: string): string | null {
   return match?.[1] ?? null;
 }
 
-export function shouldRetryAfterRateLimit(storageKey: string, storage: Storage = sessionStorage): boolean {
+export function shouldRetryAfterRateLimit(
+  storageKey: string,
+  storage: Storage = sessionStorage,
+): boolean {
   if (storage.getItem(storageKey)) return false;
   storage.setItem(storageKey, "1");
   return true;

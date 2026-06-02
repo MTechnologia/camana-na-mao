@@ -1,22 +1,37 @@
-import { KpiCard } from '@/components/ui/KpiCard';
-import { REPORTS_WORKFLOW_KPI_LEGENDS } from '@/lib/analyticsParameterLegends';
-import type { ReportQueueTab } from '@/types/urbanReportManagement';
-import { cn } from '@/lib/utils';
+import { KpiCard } from "@/components/ui/KpiCard";
+import { REPORTS_WORKFLOW_KPI_LEGENDS } from "@/lib/analyticsParameterLegends";
+import type { ReportQueueTab } from "@/types/urbanReportManagement";
+import { cn } from "@/lib/utils";
 
 export function ReportsWorkflowKpis({
   counts,
   activeKpiTab,
   onSelectKpi,
 }: {
-  counts: ReturnType<typeof import('@/lib/urbanReportLabels').countByStage>;
+  counts: ReturnType<typeof import("@/lib/urbanReportLabels").countByStage>;
   activeKpiTab: ReportQueueTab | null;
   onSelectKpi: (tab: ReportQueueTab) => void;
 }) {
-  const items: { tab: ReportQueueTab; label: string; value: number; legend: keyof typeof REPORTS_WORKFLOW_KPI_LEGENDS }[] = [
-    { tab: 'triage', label: 'Aguardando triagem', value: counts.awaiting_triage, legend: 'awaitingTriage' },
-    { tab: 'tracking', label: 'Triados (sem envio)', value: counts.triaged, legend: 'triaged' },
-    { tab: 'referrals', label: 'Em encaminhamento', value: counts.referred + counts.in_analysis, legend: 'inReferral' },
-    { tab: 'all', label: 'Concluídos', value: counts.resolved, legend: 'resolved' },
+  const items: {
+    tab: ReportQueueTab;
+    label: string;
+    value: number;
+    legend: keyof typeof REPORTS_WORKFLOW_KPI_LEGENDS;
+  }[] = [
+    {
+      tab: "triage",
+      label: "Aguardando triagem",
+      value: counts.awaiting_triage,
+      legend: "awaitingTriage",
+    },
+    { tab: "tracking", label: "Triados (sem envio)", value: counts.triaged, legend: "triaged" },
+    {
+      tab: "referrals",
+      label: "Em encaminhamento",
+      value: counts.referred + counts.in_analysis,
+      legend: "inReferral",
+    },
+    { tab: "all", label: "Concluídos", value: counts.resolved, legend: "resolved" },
   ];
 
   return (
@@ -28,12 +43,12 @@ export function ReportsWorkflowKpis({
           tabIndex={0}
           aria-pressed={activeKpiTab === item.tab}
           className={cn(
-            'cursor-pointer rounded-xl text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            activeKpiTab === item.tab && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+            "cursor-pointer rounded-xl text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            activeKpiTab === item.tab && "ring-2 ring-primary ring-offset-2 ring-offset-background",
           )}
           onClick={() => onSelectKpi(item.tab)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+            if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               onSelectKpi(item.tab);
             }
@@ -41,7 +56,7 @@ export function ReportsWorkflowKpis({
         >
           <KpiCard
             label={item.label}
-            value={item.value.toLocaleString('pt-BR')}
+            value={item.value.toLocaleString("pt-BR")}
             parameter={REPORTS_WORKFLOW_KPI_LEGENDS[item.legend]}
             stopParameterPropagation
           />

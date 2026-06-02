@@ -1,21 +1,11 @@
-import type { ReferralDestination } from '@/lib/referralDestinations';
-import type {
-  ReferralRoutingRules,
-  ScoredReferralDestination,
-} from '@/types/referralRoutingRules';
+import type { ReferralDestination } from "@/lib/referralDestinations";
+import type { ReferralRoutingRules, ScoredReferralDestination } from "@/types/referralRoutingRules";
 
 function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '');
+  return text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 }
 
-function themeMatchesCategory(
-  category: string,
-  themes: string[],
-  minTokenLength: number,
-): boolean {
+function themeMatchesCategory(category: string, themes: string[], minTokenLength: number): boolean {
   const cat = normalize(category);
   return themes.some((theme) => {
     const t = normalize(theme);
@@ -37,11 +27,7 @@ export function scoreDestination(
   let score = 0;
 
   if (rules.prioritizeThemeMatch) {
-    const matched = themeMatchesCategory(
-      category,
-      destination.themes,
-      rules.minThemeTokenLength,
-    );
+    const matched = themeMatchesCategory(category, destination.themes, rules.minThemeTokenLength);
     if (matched) score += rules.themeMatchWeight;
   }
 
@@ -77,7 +63,7 @@ export function rankDestinations(
         ? a.activeReferrals - b.activeReferrals
         : b.activeReferrals - a.activeReferrals;
     }
-    return a.name.localeCompare(b.name, 'pt-BR');
+    return a.name.localeCompare(b.name, "pt-BR");
   });
 }
 

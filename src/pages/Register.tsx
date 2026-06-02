@@ -83,14 +83,17 @@ const Register = () => {
   });
 
   const handleChange = (field: keyof FormData, value: string | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: "" };
-    const metRequirements = passwordRequirements.filter((requirement) => requirement.test(password)).length;
+    const metRequirements = passwordRequirements.filter((requirement) =>
+      requirement.test(password),
+    ).length;
     if (metRequirements < 3) return { strength: 33, label: "Fraca", color: "bg-red-500" };
-    if (metRequirements < passwordRequirements.length) return { strength: 66, label: "Média", color: "bg-yellow-500" };
+    if (metRequirements < passwordRequirements.length)
+      return { strength: 66, label: "Média", color: "bg-yellow-500" };
     return { strength: 100, label: "Forte", color: "bg-green-500" };
   };
 
@@ -118,7 +121,9 @@ const Register = () => {
       });
 
       if (!formData.acceptedTerms || !formData.acceptedPrivacy) {
-        toast.error("Você precisa aceitar os termos de uso e a política de privacidade para continuar");
+        toast.error(
+          "Você precisa aceitar os termos de uso e a política de privacidade para continuar",
+        );
         return;
       }
 
@@ -176,7 +181,7 @@ const Register = () => {
   const toggleInterest = (interestId: string) => {
     const current = formData.interests;
     const updated = current.includes(interestId)
-      ? current.filter(id => id !== interestId)
+      ? current.filter((id) => id !== interestId)
       : [...current, interestId];
     handleChange("interests", updated);
   };
@@ -187,7 +192,12 @@ const Register = () => {
       return;
     }
 
-    if (!formData.birthDate?.trim() || !formData.gender?.trim() || !formData.race?.trim() || !formData.incomeRange?.trim()) {
+    if (
+      !formData.birthDate?.trim() ||
+      !formData.gender?.trim() ||
+      !formData.race?.trim() ||
+      !formData.incomeRange?.trim()
+    ) {
       toast.error("Preencha todos os campos da etapa Sobre você.");
       return;
     }
@@ -224,7 +234,9 @@ const Register = () => {
 
       // Token: preferir sessão (atualizada), depois anon key (produção pode não ter env no build)
       await supabase.auth.refreshSession();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token ?? supabaseAnonKey;
       if (!token) {
         toast.error("Sessão expirada. Faça login novamente e complete o cadastro em Perfil.");
@@ -243,7 +255,9 @@ const Register = () => {
       const data = (await res.json().catch(() => ({}))) as { error?: string; details?: string };
       if (!res.ok) {
         console.error("complete-registration error:", res.status, data);
-        toast.error(data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.");
+        toast.error(
+          data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.",
+        );
         return;
       }
       if (data?.error) {
@@ -271,17 +285,21 @@ const Register = () => {
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 1: return { main: "Olá!", sub: "Seja bem vindo a Câmara na Mão - Crie sua conta aqui" };
-      case 2: return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
-      case 3: return { main: "Onde você", sub: "mora?" };
-      case 4: return { main: "Por fim,", sub: "seus interesses" };
-      default: return { main: "", sub: "" };
+      case 1:
+        return { main: "Olá!", sub: "Seja bem vindo a Câmara na Mão - Crie sua conta aqui" };
+      case 2:
+        return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
+      case 3:
+        return { main: "Onde você", sub: "mora?" };
+      case 4:
+        return { main: "Por fim,", sub: "seus interesses" };
+      default:
+        return { main: "", sub: "" };
     }
   };
 
   const emailFieldValid =
-    formData.email.length > 0 &&
-    registerStep1Schema.shape.email.safeParse(formData.email).success;
+    formData.email.length > 0 && registerStep1Schema.shape.email.safeParse(formData.email).success;
   const passwordFieldValid = validatePasswordPolicy(formData.password);
   const passwordsMatch =
     formData.password.length > 0 && formData.password === formData.confirmPassword;
@@ -300,7 +318,8 @@ const Register = () => {
           <ChevronLeft size={24} strokeWidth={2} />
         </button>
         <h1 className="text-3xl font-bold text-foreground leading-tight whitespace-pre-line">
-          {title.main}<br />
+          {title.main}
+          <br />
           {title.sub}
         </h1>
       </div>
@@ -330,9 +349,7 @@ const Register = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  E-mail
-                </label>
+                <label className="text-sm font-medium text-foreground mb-2 block">E-mail</label>
                 <Input
                   type="email"
                   placeholder="seuemail@exemplo.com"
@@ -354,9 +371,7 @@ const Register = () => {
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Celular
-                </label>
+                <label className="text-sm font-medium text-foreground mb-2 block">Celular</label>
                 <Input
                   type="tel"
                   placeholder="(11) 99999-9999"
@@ -370,9 +385,7 @@ const Register = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Senha
-                </label>
+                <label className="text-sm font-medium text-foreground mb-2 block">Senha</label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
@@ -459,7 +472,9 @@ const Register = () => {
                   <Checkbox
                     id="privacy"
                     checked={formData.acceptedPrivacy}
-                    onCheckedChange={(checked) => handleChange("acceptedPrivacy", checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      handleChange("acceptedPrivacy", checked as boolean)
+                    }
                     className="mt-1"
                   />
                   <label
@@ -495,7 +510,6 @@ const Register = () => {
             </form>
           </>
         )}
-
 
         {currentStep === 2 && (
           <AboutYouStep

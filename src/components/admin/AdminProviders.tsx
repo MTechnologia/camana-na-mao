@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
-import { AnalyticsFiltersProvider } from '@/contexts/AnalyticsFiltersContext';
-import { WidgetThemeProvider } from '@/contexts/WidgetThemeContext';
+import type { ReactNode } from "react";
+import { AnalyticsFiltersProvider } from "@/contexts/AnalyticsFiltersContext";
+import { WidgetThemeProvider } from "@/contexts/WidgetThemeContext";
 
 /**
  * Providers compartilhados das rotas admin.

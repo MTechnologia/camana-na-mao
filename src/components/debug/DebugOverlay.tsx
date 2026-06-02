@@ -75,9 +75,7 @@ export const DebugOverlay = () => {
         </div>
         <div className="flex justify-between">
           <span className="text-gray-400">authLoading:</span>
-          <span className={loading ? "text-yellow-400" : "text-green-400"}>
-            {String(loading)}
-          </span>
+          <span className={loading ? "text-yellow-400" : "text-green-400"}>{String(loading)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-400">user.id:</span>

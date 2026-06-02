@@ -1,15 +1,17 @@
-import { lazy, Suspense, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart } from 'lucide-react';
-import { SimulatedMap } from './SimulatedMap';
-import type { MapFocusOnService } from './GoogleMapView';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { MapOverlayLayersPanel } from './MapOverlayLayersPanel';
-import { useGeoSampaOverlay } from '@/hooks/useGeoSampaOverlay';
-import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
+import { lazy, Suspense, useState } from "react";
+import { Link } from "react-router-dom";
+import { Heart } from "lucide-react";
+import { SimulatedMap } from "./SimulatedMap";
+import type { MapFocusOnService } from "./GoogleMapView";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { MapOverlayLayersPanel } from "./MapOverlayLayersPanel";
+import { useGeoSampaOverlay } from "@/hooks/useGeoSampaOverlay";
+import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 
-const GoogleMapView = lazy(() => import('./GoogleMapView').then(module => ({ default: module.GoogleMapView })));
+const GoogleMapView = lazy(() =>
+  import("./GoogleMapView").then((module) => ({ default: module.GoogleMapView })),
+);
 
 interface Service {
   id: string;

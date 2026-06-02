@@ -155,9 +155,7 @@ function daysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function useTriageKanban(
-  filters: KanbanFilters = {},
-): UseTriageKanbanResult {
+export function useTriageKanban(filters: KanbanFilters = {}): UseTriageKanbanResult {
   const [items, setItems] = useState<KanbanItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -303,22 +301,20 @@ export function useTriageKanban(
 
         const urbanIds = [
           ...new Set(
-            refList
-              .filter((r) => r.source_table === "urban_reports")
-              .map((r) => r.report_id),
+            refList.filter((r) => r.source_table === "urban_reports").map((r) => r.report_id),
           ),
         ];
         const transportIds = [
           ...new Set(
-            refList
-              .filter((r) => r.source_table === "transport_reports")
-              .map((r) => r.report_id),
+            refList.filter((r) => r.source_table === "transport_reports").map((r) => r.report_id),
           ),
         ];
 
         [urbanRows, transportRows] = await Promise.all([
           wantsUrban ? fetchUrbanByIds(urbanIds) : Promise.resolve([] as UrbanRow[]),
-          wantsTransport ? fetchTransportByIds(transportIds) : Promise.resolve([] as TransportRow[]),
+          wantsTransport
+            ? fetchTransportByIds(transportIds)
+            : Promise.resolve([] as TransportRow[]),
         ]);
 
         const urbanIdSet = new Set(urbanRows.map((r) => r.id));
@@ -377,10 +373,7 @@ export function useTriageKanban(
         if (uTri.error) throw uTri.error;
         if (tTri.error) throw tTri.error;
 
-        triageRows = [
-          ...((uTri.data ?? []) as TriageRow[]),
-          ...((tTri.data ?? []) as TriageRow[]),
-        ];
+        triageRows = [...((uTri.data ?? []) as TriageRow[]), ...((tTri.data ?? []) as TriageRow[])];
       }
 
       const triageByKey = new Map<string, TriageRow>();
@@ -493,8 +486,8 @@ export function useTriageKanban(
       // Ordena: prioridade desc, então updatedAt desc.
       const priorityRank: Record<string, number> = { P0: 4, P1: 3, P2: 2, P3: 1 };
       filtered.sort((a, b) => {
-        const ra = a.priority ? priorityRank[a.priority] ?? 0 : 0;
-        const rb = b.priority ? priorityRank[b.priority] ?? 0 : 0;
+        const ra = a.priority ? (priorityRank[a.priority] ?? 0) : 0;
+        const rb = b.priority ? (priorityRank[b.priority] ?? 0) : 0;
         if (rb !== ra) return rb - ra;
         return b.updatedAt.localeCompare(a.updatedAt);
       });
@@ -556,8 +549,7 @@ function buildItem(
   const triageCommission = triage?.responsible_commission_id
     ? {
         commissionId: triage.responsible_commission_id,
-        commissionName:
-          nameByCommission.get(triage.responsible_commission_id) ?? "Comissão",
+        commissionName: nameByCommission.get(triage.responsible_commission_id) ?? "Comissão",
       }
     : undefined;
   const effectiveCommission = triageCommission ?? commission;
@@ -576,9 +568,7 @@ function buildItem(
     priority: effectiveReportTriagePriority(triage?.priority, severity),
     assigneeId: triage?.responsible_commission_id ?? triage?.assignee_id ?? null,
     assigneeName: effectiveCommission?.commissionName ?? null,
-    triagedByName: triage?.triaged_by
-      ? nameByUser.get(triage.triaged_by) ?? null
-      : null,
+    triagedByName: triage?.triaged_by ? (nameByUser.get(triage.triaged_by) ?? null) : null,
     triagedById: triage?.triaged_by ?? null,
     commissionId: effectiveCommission?.commissionId ?? null,
     commissionName: effectiveCommission?.commissionName ?? null,

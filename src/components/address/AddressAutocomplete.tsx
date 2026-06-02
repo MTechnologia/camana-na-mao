@@ -43,7 +43,7 @@ export function AddressAutocomplete({
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sessionTokenRef = useRef<string>(createClientId("places-session"));
@@ -51,20 +51,20 @@ export function AddressAutocomplete({
 
   // Formata valor do input como CEP (00000-000) quando o usuário digita só números
   const formatCepDisplay = (value: string): string => {
-    const digits = value.replace(/\D/g, '');
+    const digits = value.replace(/\D/g, "");
     if (digits.length <= 5) return digits;
     return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
   };
 
   // Check if input looks like a CEP (8 digits, optionally with hyphen)
   const isCepFormat = (input: string): boolean => {
-    const cleaned = input.replace(/\D/g, '');
+    const cleaned = input.replace(/\D/g, "");
     return cleaned.length === 8;
   };
 
   // Fetch address from ViaCEP
   const fetchFromViaCep = useCallback(async (cep: string): Promise<StructuredAddress | null> => {
-    const cleaned = cep.replace(/\D/g, '');
+    const cleaned = cep.replace(/\D/g, "");
     try {
       const result = await lookupCepAddress(cleaned);
       if (!result.ok) {
@@ -72,11 +72,11 @@ export function AddressAutocomplete({
       }
 
       return {
-        street: result.address.street || '',
-        streetNumber: '',
-        neighborhood: result.address.neighborhood || '',
-        city: result.address.city || '',
-        state: result.address.state || '',
+        street: result.address.street || "",
+        streetNumber: "",
+        neighborhood: result.address.neighborhood || "",
+        city: result.address.city || "",
+        state: result.address.state || "",
         cep: result.address.cep || cleaned,
         formattedAddress: [
           result.address.street,
@@ -89,7 +89,7 @@ export function AddressAutocomplete({
         longitude: 0,
       };
     } catch (err) {
-      console.error('ViaCEP error:', err);
+      console.error("ViaCEP error:", err);
       return null;
     }
   }, []);
@@ -110,22 +110,27 @@ export function AddressAutocomplete({
       const viaCepAddress = await fetchFromViaCep(searchQuery);
       const hasAddressData = !!(
         viaCepAddress &&
-        (viaCepAddress.street || viaCepAddress.neighborhood || viaCepAddress.city || viaCepAddress.state)
+        (viaCepAddress.street ||
+          viaCepAddress.neighborhood ||
+          viaCepAddress.city ||
+          viaCepAddress.state)
       );
 
       if (viaCepAddress && hasAddressData) {
         // Create a synthetic prediction for the CEP result
-        setPredictions([{
-          placeId: `viacep-${viaCepAddress.cep}`,
-          description: viaCepAddress.formattedAddress,
-          mainText: viaCepAddress.street || `CEP ${viaCepAddress.cep}`,
-          secondaryText: [
-            viaCepAddress.neighborhood,
-            [viaCepAddress.city, viaCepAddress.state].filter(Boolean).join(" - "),
-          ]
-            .filter(Boolean)
-            .join(", "),
-        }]);
+        setPredictions([
+          {
+            placeId: `viacep-${viaCepAddress.cep}`,
+            description: viaCepAddress.formattedAddress,
+            mainText: viaCepAddress.street || `CEP ${viaCepAddress.cep}`,
+            secondaryText: [
+              viaCepAddress.neighborhood,
+              [viaCepAddress.city, viaCepAddress.state].filter(Boolean).join(" - "),
+            ]
+              .filter(Boolean)
+              .join(", "),
+          },
+        ]);
         setShowDropdown(true);
         setSelectedIndex(-1);
       } else {
@@ -146,7 +151,7 @@ export function AddressAutocomplete({
             query: searchQuery,
             sessionToken: sessionTokenRef.current,
           },
-        }
+        },
       );
 
       if (fnError) {
@@ -195,8 +200,8 @@ export function AddressAutocomplete({
     setQuery(prediction.description);
 
     // Check if this is a ViaCEP result (synthetic placeId)
-    if (prediction.placeId.startsWith('viacep-')) {
-      const cep = prediction.placeId.replace('viacep-', '');
+    if (prediction.placeId.startsWith("viacep-")) {
+      const cep = prediction.placeId.replace("viacep-", "");
       const viaCepAddress = await fetchFromViaCep(cep);
       if (viaCepAddress) {
         onSelect(viaCepAddress);
@@ -209,15 +214,12 @@ export function AddressAutocomplete({
 
     // Use Google Places for regular selection
     try {
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "google-places-details",
-        {
-          body: {
-            placeId: prediction.placeId,
-            sessionToken: sessionTokenRef.current,
-          },
-        }
-      );
+      const { data, error: fnError } = await supabase.functions.invoke("google-places-details", {
+        body: {
+          placeId: prediction.placeId,
+          sessionToken: sessionTokenRef.current,
+        },
+      });
 
       // Generate new session token for next search
       sessionTokenRef.current = createClientId("places-session");
@@ -243,9 +245,7 @@ export function AddressAutocomplete({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < predictions.length - 1 ? prev + 1 : prev
-        );
+        setSelectedIndex((prev) => (prev < predictions.length - 1 ? prev + 1 : prev));
         break;
       case "ArrowUp":
         e.preventDefault();
@@ -293,7 +293,7 @@ export function AddressAutocomplete({
           value={query}
           onChange={(e) => {
             const raw = e.target.value;
-            const digits = raw.replace(/\D/g, '');
+            const digits = raw.replace(/\D/g, "");
             // Se contém só números (e no máximo um hífen), aplicar máscara CEP (00000-000)
             if (/^[\d-]*$/.test(raw) && digits.length <= 8) {
               setQuery(digits.length <= 5 ? digits : formatCepDisplay(digits));
@@ -312,9 +312,7 @@ export function AddressAutocomplete({
         )}
       </div>
 
-      {error && (
-        <p className="text-xs text-destructive mt-1">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
 
       {showDropdown && predictions.length > 0 && (
         <div
@@ -327,15 +325,13 @@ export function AddressAutocomplete({
               type="button"
               className={cn(
                 "w-full px-3 py-3 text-left flex items-start gap-3 hover:bg-muted transition-colors",
-                index === selectedIndex && "bg-muted"
+                index === selectedIndex && "bg-muted",
               )}
               onClick={() => handleSelect(prediction)}
             >
               <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {prediction.mainText}
-                </p>
+                <p className="text-sm font-medium truncate">{prediction.mainText}</p>
                 {prediction.secondaryText && (
                   <p className="text-xs text-muted-foreground truncate">
                     {prediction.secondaryText}

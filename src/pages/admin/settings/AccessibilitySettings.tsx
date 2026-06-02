@@ -1,41 +1,47 @@
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Eye, Type, Save, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
-import { useSystemSettings } from '@/hooks/useSystemSettings';
-import { Skeleton } from '@/components/ui/skeleton';
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Eye, Type, Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
+import { Skeleton } from "@/components/ui/skeleton";
 
-type FontSize = 'small' | 'medium' | 'large';
+type FontSize = "small" | "medium" | "large";
 
 const AccessibilitySettings = () => {
   const { getSetting, updateSetting, loading } = useSystemSettings();
-  const [fontSize, setFontSize] = useState<FontSize>('medium');
+  const [fontSize, setFontSize] = useState<FontSize>("medium");
   const [readingMode, setReadingMode] = useState(false);
   const [textSpacing, setTextSpacing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!loading) {
-      setFontSize(getSetting('accessibility.fontSize', 'medium'));
-      setReadingMode(getSetting('accessibility.readingMode', false));
-      setTextSpacing(getSetting('accessibility.textSpacing', false));
+      setFontSize(getSetting("accessibility.fontSize", "medium"));
+      setReadingMode(getSetting("accessibility.readingMode", false));
+      setTextSpacing(getSetting("accessibility.textSpacing", false));
     }
   }, [loading, getSetting]);
 
   const saveSettings = async () => {
     setIsSaving(true);
     try {
-      await updateSetting('accessibility.fontSize', fontSize);
-      await updateSetting('accessibility.readingMode', readingMode);
-      await updateSetting('accessibility.textSpacing', textSpacing);
-      toast.success('Configurações salvas com sucesso');
+      await updateSetting("accessibility.fontSize", fontSize);
+      await updateSetting("accessibility.readingMode", readingMode);
+      await updateSetting("accessibility.textSpacing", textSpacing);
+      toast.success("Configurações salvas com sucesso");
     } catch (error) {
-      toast.error('Erro ao salvar configurações');
+      toast.error("Erro ao salvar configurações");
     } finally {
       setIsSaving(false);
     }
@@ -46,7 +52,9 @@ const AccessibilitySettings = () => {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Configurações de Acessibilidade</h1>
-          <p className="text-muted-foreground">Configure opções globais de acessibilidade do sistema</p>
+          <p className="text-muted-foreground">
+            Configure opções globais de acessibilidade do sistema
+          </p>
         </div>
 
         {loading ? (
@@ -76,15 +84,9 @@ const AccessibilitySettings = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="text-spacing">Espaçamento Aumentado</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Melhora a legibilidade
-                  </p>
+                  <p className="text-xs text-muted-foreground">Melhora a legibilidade</p>
                 </div>
-                <Switch 
-                  id="text-spacing" 
-                  checked={textSpacing} 
-                  onCheckedChange={setTextSpacing} 
-                />
+                <Switch id="text-spacing" checked={textSpacing} onCheckedChange={setTextSpacing} />
               </div>
             </div>
           </Card>
@@ -103,15 +105,9 @@ const AccessibilitySettings = () => {
             <div className="flex items-center justify-between">
               <div>
                 <Label htmlFor="reading-mode">Alto Contraste</Label>
-                <p className="text-xs text-muted-foreground">
-                  Cores de alto contraste
-                </p>
+                <p className="text-xs text-muted-foreground">Cores de alto contraste</p>
               </div>
-              <Switch 
-                id="reading-mode" 
-                checked={readingMode} 
-                onCheckedChange={setReadingMode} 
-              />
+              <Switch id="reading-mode" checked={readingMode} onCheckedChange={setReadingMode} />
             </div>
           </Card>
         )}

@@ -30,16 +30,12 @@ describe("interestAudienciaMapping", () => {
 
   it("casa audiência por tema, título ou descrição", () => {
     expect(
-      audienciaMatchesInterestTerms(
-        { tema: "Políticas de Saúde", titulo: "Audiência X" },
-        ["Saúde"],
-      ),
+      audienciaMatchesInterestTerms({ tema: "Políticas de Saúde", titulo: "Audiência X" }, [
+        "Saúde",
+      ]),
     ).toBe(true);
     expect(
-      audienciaMatchesInterestTerms(
-        { tema: "Outro", titulo: "Mobilidade urbana" },
-        ["Mobilidade"],
-      ),
+      audienciaMatchesInterestTerms({ tema: "Outro", titulo: "Mobilidade urbana" }, ["Mobilidade"]),
     ).toBe(true);
     expect(
       audienciaMatchesInterestTerms(
@@ -47,8 +43,6 @@ describe("interestAudienciaMapping", () => {
         interestCategoriesToSearchTerms(["mobilidade"]),
       ),
     ).toBe(true);
-    expect(
-      audienciaMatchesInterestTerms({ tema: "Cultura", titulo: "Y" }, ["Saúde"]),
-    ).toBe(false);
+    expect(audienciaMatchesInterestTerms({ tema: "Cultura", titulo: "Y" }, ["Saúde"])).toBe(false);
   });
 });

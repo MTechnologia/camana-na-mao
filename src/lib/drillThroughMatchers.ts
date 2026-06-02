@@ -1,5 +1,5 @@
-import { regionLabel } from '@/lib/analyticsLabels';
-import { bairroParaZona } from '@/lib/regionMapping';
+import { regionLabel } from "@/lib/analyticsLabels";
+import { bairroParaZona } from "@/lib/regionMapping";
 import {
   DISTRICT_FALLBACK_ID,
   DISTRICT_LABEL_FALLBACK,
@@ -8,17 +8,15 @@ import {
   STREET_LABEL_FALLBACK,
   streetLabelFromTerritoryRow,
   territoryLabelsMatch,
-} from '@/lib/reportsAnalyticsAggregates';
-import { WIDGET_THEMES } from '@/lib/widgetThemes';
-import type { ChartBarPoint } from '@/types/analyticsDrill';
+} from "@/lib/reportsAnalyticsAggregates";
+import { WIDGET_THEMES } from "@/lib/widgetThemes";
+import type { ChartBarPoint } from "@/types/analyticsDrill";
 
 export const TRANSPORT_REPORT_TYPES = new Set(
   WIDGET_THEMES.flatMap((t) => t.transportSubcategories),
 );
 
-export const PUBLIC_SERVICE_TYPES = new Set(
-  WIDGET_THEMES.flatMap((t) => t.publicServiceTypes),
-);
+export const PUBLIC_SERVICE_TYPES = new Set(WIDGET_THEMES.flatMap((t) => t.publicServiceTypes));
 
 export function drillThroughResultLimit(barValue: number): number {
   const n = Math.round(barValue);
@@ -29,26 +27,23 @@ export function drillThroughResultLimit(barValue: number): number {
 export function normalizeDistrictToken(value: string): string {
   return value
     .trim()
-    .replace(/\s*-\s*$/g, '')
+    .replace(/\s*-\s*$/g, "")
     .toLowerCase();
 }
 
 /** Escapa valor para filtros ilike do PostgREST. */
 export function escapeForIlike(value: string): string {
-  return value.replace(/[%_\\]/g, '\\$&').trim();
+  return value.replace(/[%_\\]/g, "\\$&").trim();
 }
 
-function districtMatchCandidates(
-  neighborhood?: string | null,
-  location?: string | null,
-): string[] {
+function districtMatchCandidates(neighborhood?: string | null, location?: string | null): string[] {
   const candidates: string[] = [];
-  const nb = neighborhood?.trim().replace(/\s*-\s*$/g, '');
+  const nb = neighborhood?.trim().replace(/\s*-\s*$/g, "");
   if (nb) candidates.push(nb);
   const loc = location?.trim();
   if (loc) {
-    for (const part of loc.split(',')) {
-      const piece = part.trim().replace(/\s*-\s*$/g, '');
+    for (const part of loc.split(",")) {
+      const piece = part.trim().replace(/\s*-\s*$/g, "");
       if (piece) candidates.push(piece);
     }
     candidates.push(loc);
@@ -82,7 +77,7 @@ function effectiveZoneFilter(
   filtersRegion: string | undefined,
   activeRegion?: string,
 ): string | null {
-  if (filtersRegion && filtersRegion !== 'all') {
+  if (filtersRegion && filtersRegion !== "all") {
     return regionLabel(filtersRegion);
   }
   if (activeRegion) return regionLabel(activeRegion);
@@ -90,8 +85,8 @@ function effectiveZoneFilter(
 }
 
 export function parseStreetBarLabel(label: string): { street: string; number?: string } {
-  const trimmed = label.trim().replace(/\s*-\s*$/g, '');
-  const commaIdx = trimmed.lastIndexOf(',');
+  const trimmed = label.trim().replace(/\s*-\s*$/g, "");
+  const commaIdx = trimmed.lastIndexOf(",");
   if (commaIdx > 0) {
     const street = trimmed.slice(0, commaIdx).trim();
     const number = trimmed.slice(commaIdx + 1).trim();
@@ -100,11 +95,8 @@ export function parseStreetBarLabel(label: string): { street: string; number?: s
   return { street: trimmed };
 }
 
-export function locationText(
-  neighborhood?: string | null,
-  location?: string | null,
-): string {
-  return [neighborhood, location].filter(Boolean).join(' ');
+export function locationText(neighborhood?: string | null, location?: string | null): string {
+  return [neighborhood, location].filter(Boolean).join(" ");
 }
 
 export function zoneForLocation(
@@ -121,12 +113,10 @@ export function matchesDistrictBar(
   neighborhood?: string | null,
   location?: string | null,
 ): boolean {
-  if (bar.filterKey !== 'district') return true;
+  if (bar.filterKey !== "district") return true;
 
   if (isDistrictFallbackBar(bar)) {
-    return (
-      districtLabelFromGeoRow({ neighborhood, location }) === DISTRICT_LABEL_FALLBACK
-    );
+    return districtLabelFromGeoRow({ neighborhood, location }) === DISTRICT_LABEL_FALLBACK;
   }
 
   const targets = barTerritoryTargets(bar);
@@ -150,7 +140,7 @@ export function matchesTerritoryBar(
   const zone = zoneForLocation(neighborhood, location, lat, lng);
   const zoneFilter = effectiveZoneFilter(filtersRegion, activeRegion);
 
-  if (bar.filterKey === 'region') {
+  if (bar.filterKey === "region") {
     return zone === bar.label;
   }
 
@@ -158,7 +148,7 @@ export function matchesTerritoryBar(
     return false;
   }
 
-  if (zoneFilter && (bar.filterKey === 'district' || bar.filterKey === 'region')) {
+  if (zoneFilter && (bar.filterKey === "district" || bar.filterKey === "region")) {
     return zone === zoneFilter;
   }
 
@@ -173,14 +163,14 @@ export function matchesStreetBar(
   streetNumber?: string | null,
   activeDistrict?: string,
 ): boolean {
-  if (bar.filterKey !== 'street') return true;
+  if (bar.filterKey !== "street") return true;
 
   if (activeDistrict) {
     const districtBar: ChartBarPoint = {
       id: activeDistrict,
       label: activeDistrict,
       value: 0,
-      filterKey: 'district',
+      filterKey: "district",
       filterValue: activeDistrict,
     };
     if (!matchesDistrictBar(districtBar, neighborhood, location)) {
@@ -221,7 +211,7 @@ export function matchesTerritoryBarWithStreet(
   activeDistrict?: string,
   activeRegion?: string,
 ): boolean {
-  if (bar.filterKey === 'street') {
+  if (bar.filterKey === "street") {
     const zone = zoneForLocation(neighborhood, location, lat, lng);
     const zoneFilter = effectiveZoneFilter(filtersRegion, activeRegion);
     if (!matchesStreetBar(bar, neighborhood, location, street, streetNumber, activeDistrict)) {
@@ -230,15 +220,7 @@ export function matchesTerritoryBarWithStreet(
     if (zoneFilter) return zone === zoneFilter;
     return true;
   }
-  return matchesTerritoryBar(
-    bar,
-    filtersRegion,
-    neighborhood,
-    location,
-    lat,
-    lng,
-    activeRegion,
-  );
+  return matchesTerritoryBar(bar, filtersRegion, neighborhood, location, lat, lng, activeRegion);
 }
 
 /** Categorias de barra que devem buscar em transport_reports (report_type). */

@@ -3,7 +3,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
@@ -16,7 +24,11 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProtectedAdminRoute, ProtectedAdminOnlyRoute } from "@/components/admin/ProtectedRoutes";
 import { AdminAppLayout } from "@/components/admin/AdminAppLayout";
 import { PaineisLayout } from "@/components/admin/PaineisLayout";
-import { PaineisAvancadoRoute, PaineisCriarRoute, PaineisIndexRoute } from "@/components/admin/PaineisRoutes";
+import {
+  PaineisAvancadoRoute,
+  PaineisCriarRoute,
+  PaineisIndexRoute,
+} from "@/components/admin/PaineisRoutes";
 import { ConfigEnvironmentProvider } from "@/contexts/ConfigEnvironmentContext";
 import { ProtectedVereadorRoute } from "@/components/vereador/ProtectedVereadorRoute";
 import { usePrefetch } from "@/components/navigation/PrefetchLink";
@@ -65,7 +77,6 @@ const SubscriptionsPage = lazy(() => import("./pages/profile/SubscriptionsPage")
 // ============================================
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
 const SearchPage = lazy(() => import("./pages/Search"));
-
 
 // ============================================
 // AUDIENCIAS PAGES - Lazy loaded
@@ -122,7 +133,9 @@ const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 const AnalyticsDashboard = lazy(() => import("./pages/analytics/AnalyticsDashboard"));
 const AdvancedAnalytics = lazy(() => import("./pages/analytics/AdvancedAnalytics"));
 const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
-const WorstServicesByDimensionPage = lazy(() => import("./pages/analytics/WorstServicesByDimensionPage"));
+const WorstServicesByDimensionPage = lazy(
+  () => import("./pages/analytics/WorstServicesByDimensionPage"),
+);
 
 // ============================================
 // ADMIN PAGES (mapeamento PO) — lazy loaded
@@ -136,7 +149,9 @@ const AdminIndexRedirect = lazy(() =>
   })),
 );
 const AdminNotificationsPage = lazy(() =>
-  import("./pages/admin/AdminNotificationsPage").then((m) => ({ default: m.AdminNotificationsPage })),
+  import("./pages/admin/AdminNotificationsPage").then((m) => ({
+    default: m.AdminNotificationsPage,
+  })),
 );
 const ReportsAnalyticsPage = lazy(() =>
   import("./pages/admin/ReportsAnalyticsPage").then((m) => ({ default: m.ReportsAnalyticsPage })),
@@ -159,7 +174,9 @@ const ReportsManagementPage = lazy(() =>
   import("./pages/admin/ReportsManagementPage").then((m) => ({ default: m.ReportsManagementPage })),
 );
 const ReferralsManagementPage = lazy(() =>
-  import("./pages/admin/ReferralsManagementPage").then((m) => ({ default: m.ReferralsManagementPage })),
+  import("./pages/admin/ReferralsManagementPage").then((m) => ({
+    default: m.ReferralsManagementPage,
+  })),
 );
 const CommissionsPage = lazy(() =>
   import("./pages/admin/CommissionsPage").then((m) => ({ default: m.CommissionsPage })),
@@ -171,7 +188,9 @@ const PublicHearingsPage = lazy(() =>
   import("./pages/admin/PublicHearingsPage").then((m) => ({ default: m.PublicHearingsPage })),
 );
 const PublicDocumentationPageAdmin = lazy(() =>
-  import("./pages/admin/PublicDocumentationPage").then((m) => ({ default: m.PublicDocumentationPage })),
+  import("./pages/admin/PublicDocumentationPage").then((m) => ({
+    default: m.PublicDocumentationPage,
+  })),
 );
 const UserManagementPage = lazy(() =>
   import("./pages/admin/UserManagementPage").then((m) => ({ default: m.UserManagementPage })),
@@ -180,7 +199,9 @@ const AuditLogsPage = lazy(() =>
   import("./pages/admin/AuditLogsPage").then((m) => ({ default: m.AuditLogsPage })),
 );
 const ServiceCorrectionsPage = lazy(() =>
-  import("./pages/admin/ServiceCorrectionsPage").then((m) => ({ default: m.ServiceCorrectionsPage })),
+  import("./pages/admin/ServiceCorrectionsPage").then((m) => ({
+    default: m.ServiceCorrectionsPage,
+  })),
 );
 const AccessibilitySettingsPage = lazy(() =>
   import("./pages/admin/AccessibilitySettingsPage").then((m) => ({
@@ -191,10 +212,14 @@ const AiConfigPage = lazy(() =>
   import("./pages/admin/settings/AiConfigPage").then((m) => ({ default: m.AiConfigPage })),
 );
 const SystemParametersPage = lazy(() =>
-  import("./pages/admin/settings/SystemParametersPage").then((m) => ({ default: m.SystemParametersPage })),
+  import("./pages/admin/settings/SystemParametersPage").then((m) => ({
+    default: m.SystemParametersPage,
+  })),
 );
 const ApiIntegrationsPage = lazy(() =>
-  import("./pages/admin/settings/ApiIntegrationsPage").then((m) => ({ default: m.ApiIntegrationsPage })),
+  import("./pages/admin/settings/ApiIntegrationsPage").then((m) => ({
+    default: m.ApiIntegrationsPage,
+  })),
 );
 const ReferralRoutingRulesPage = lazy(() =>
   import("./pages/admin/settings/ReferralRoutingRulesPage").then((m) => ({
@@ -202,7 +227,9 @@ const ReferralRoutingRulesPage = lazy(() =>
   })),
 );
 // Rotas legadas (deep links / bookmarks)
-const SchedulesManagementPage = lazy(() => import("./pages/admin/settings/SchedulesManagementPage"));
+const SchedulesManagementPage = lazy(
+  () => import("./pages/admin/settings/SchedulesManagementPage"),
+);
 const PatternsManagementPage = lazy(() => import("./pages/admin/PatternsManagementPage"));
 const ForecastPage = lazy(() => import("./pages/admin/ForecastPage"));
 const AnomaliesPage = lazy(() => import("./pages/admin/AnomaliesPage"));
@@ -220,7 +247,6 @@ const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"
 const DebugRBAC = lazy(() => import("./pages/debug/DebugRBAC"));
 const ReportsHub = lazy(() => import("./pages/reports/ReportsHub"));
 
-
 // Prefetch common routes on app load
 const RoutePrefetcher = () => {
   const { prefetchMultiple } = usePrefetch();
@@ -229,11 +255,7 @@ const RoutePrefetcher = () => {
   useEffect(() => {
     // Prefetch common routes after initial render
     const timer = setTimeout(() => {
-      prefetchMultiple([
-        "/perfil",
-        "/notificacoes",
-        "/audiencias",
-      ]);
+      prefetchMultiple(["/perfil", "/notificacoes", "/audiencias"]);
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -264,17 +286,17 @@ const RoutePrefetcher = () => {
 
 const AppContent = () => {
   const location = useLocation();
-  
+
   // Handle Supabase auth redirects with hash tokens
   useEffect(() => {
     // Check if we have auth tokens in the hash (from email links)
     if (location.hash) {
       const hashParams = new URLSearchParams(location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const type = hashParams.get('type');
-      
+      const accessToken = hashParams.get("access_token");
+      const type = hashParams.get("type");
+
       // If it's a recovery token and we're not already on the password update page
-      if (accessToken && type === 'recovery' && location.pathname !== '/nova-senha') {
+      if (accessToken && type === "recovery" && location.pathname !== "/nova-senha") {
         // Redirect to password update page with the hash
         window.location.replace(`/nova-senha${location.hash}`);
         return;
@@ -283,13 +305,13 @@ const AppContent = () => {
       // HU-11.1 — Convite: redireciona para a página de completar cadastro
       // (definir senha + nome + telefone). Se não fizer isso aqui, o usuário
       // cai direto na home logado.
-      if (accessToken && type === 'invite' && location.pathname !== '/completar-convite') {
+      if (accessToken && type === "invite" && location.pathname !== "/completar-convite") {
         window.location.replace(`/completar-convite${location.hash}`);
         return;
       }
 
       // If it's a signup confirmation and we're on home, let it process normally
-      if (accessToken && type === 'signup' && location.pathname === '/') {
+      if (accessToken && type === "signup" && location.pathname === "/") {
         // Supabase will handle this automatically
         return;
       }
@@ -333,12 +355,27 @@ const AppContent = () => {
             <Route path="/perfil/direitos" element={<UserRightsPage />} />
             <Route path="/configuracoes/acessibilidade" element={<AccessibilityPage />} />
             <Route path="/profile" element={<Navigate to="/perfil" replace />} />
-            <Route path="/profile/personal" element={<Navigate to="/perfil/dados-pessoais" replace />} />
-            <Route path="/profile/interests" element={<Navigate to="/perfil/interesses" replace />} />
-            <Route path="/profile/demographics" element={<Navigate to="/perfil/dados-demograficos" replace />} />
+            <Route
+              path="/profile/personal"
+              element={<Navigate to="/perfil/dados-pessoais" replace />}
+            />
+            <Route
+              path="/profile/interests"
+              element={<Navigate to="/perfil/interesses" replace />}
+            />
+            <Route
+              path="/profile/demographics"
+              element={<Navigate to="/perfil/dados-demograficos" replace />}
+            />
             <Route path="/profile/address" element={<Navigate to="/perfil/endereco" replace />} />
-            <Route path="/profile/preferences" element={<Navigate to="/perfil/preferencias" replace />} />
-            <Route path="/settings/accessibility" element={<Navigate to="/configuracoes/acessibilidade" replace />} />
+            <Route
+              path="/profile/preferences"
+              element={<Navigate to="/perfil/preferencias" replace />}
+            />
+            <Route
+              path="/settings/accessibility"
+              element={<Navigate to="/configuracoes/acessibilidade" replace />}
+            />
             <Route path="/notificacoes" element={<Notifications />} />
             <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
             <Route path="/busca" element={<SearchPage />} />
@@ -348,7 +385,10 @@ const AppContent = () => {
             <Route path="/audiencias" element={<Audiencias />} />
             <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
             <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
-            <Route path="/audiencias/minhas-inscricoes" element={<Navigate to="/perfil/inscricoes?aba=audiencias" replace />} />
+            <Route
+              path="/audiencias/minhas-inscricoes"
+              element={<Navigate to="/perfil/inscricoes?aba=audiencias" replace />}
+            />
             <Route path="/institucional/agenda" element={<AgendaCMSP />} />
             <Route path="/institucional/vereadores" element={<Vereadores />} />
             <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
@@ -367,7 +407,10 @@ const AppContent = () => {
             <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
             <Route path="/transporte/novo" element={<NewReportPage />} />
             <Route path="/transporte/padroes" element={<PatternsPage />} />
-            <Route path="/relatos/padroes" element={<Navigate to="/transporte/padroes" replace />} />
+            <Route
+              path="/relatos/padroes"
+              element={<Navigate to="/transporte/padroes" replace />}
+            />
             <Route path="/transporte/historico" element={<MyReportsPage />} />
             {/* Alias usado em deep links (notificações, mensagem pós-registro no chat, docs) */}
             <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
@@ -379,11 +422,38 @@ const AppContent = () => {
               <Route path="piores-servicos" element={<WorstServicesByDimensionPage />} />
             </Route>
             <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
-            <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
-            <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
-            <Route path="/gabinete" element={<ProtectedVereadorRoute><GabineteDashboard /></ProtectedVereadorRoute>} />
-            <Route path="/gabinete/manifestacoes" element={<ProtectedVereadorRoute><GabineteManifestacoes /></ProtectedVereadorRoute>} />
-            <Route path="/gabinete/encaminhamentos" element={<ProtectedVereadorRoute><GabineteEncaminhamentos /></ProtectedVereadorRoute>} />
+            <Route
+              path="/analytics/advanced"
+              element={<Navigate to="/paineis/avancado" replace />}
+            />
+            <Route
+              path="/analytics/criar-painel"
+              element={<Navigate to="/paineis/criar" replace />}
+            />
+            <Route
+              path="/gabinete"
+              element={
+                <ProtectedVereadorRoute>
+                  <GabineteDashboard />
+                </ProtectedVereadorRoute>
+              }
+            />
+            <Route
+              path="/gabinete/manifestacoes"
+              element={
+                <ProtectedVereadorRoute>
+                  <GabineteManifestacoes />
+                </ProtectedVereadorRoute>
+              }
+            />
+            <Route
+              path="/gabinete/encaminhamentos"
+              element={
+                <ProtectedVereadorRoute>
+                  <GabineteEncaminhamentos />
+                </ProtectedVereadorRoute>
+              }
+            />
             <Route path="/relato-urbano" element={<UrbanReportPage />} />
             <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
             <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
@@ -396,11 +466,26 @@ const AppContent = () => {
 
           {/* Redirects legados → rotas PO */}
           <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
-          <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/analytics/general" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/analytics/demograficos" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
+          <Route
+            path="/admin/reports-analytics"
+            element={<Navigate to="/admin/analytics" replace />}
+          />
+          <Route
+            path="/admin/analytics/general"
+            element={<Navigate to="/admin/analytics" replace />}
+          />
+          <Route
+            path="/admin/analytics/demograficos"
+            element={<Navigate to="/admin/analytics" replace />}
+          />
+          <Route
+            path="/admin/analytics/advanced"
+            element={<Navigate to="/admin/analytics" replace />}
+          />
+          <Route
+            path="/admin/sentiment-analysis"
+            element={<Navigate to="/admin/analytics" replace />}
+          />
           <Route
             path="/admin/avaliacoes-polarizacao"
             element={<Navigate to="/admin/reports-heatmap?metric=avaliacoes" replace />}
@@ -413,7 +498,10 @@ const AppContent = () => {
           <Route path="/admin/previsoes" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/anomalias" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/comissions" element={<Navigate to="/admin/commissions" replace />} />
-          <Route path="/admin/configuracoes/agendamentos" element={<Navigate to="/admin/exports" replace />} />
+          <Route
+            path="/admin/configuracoes/agendamentos"
+            element={<Navigate to="/admin/exports" replace />}
+          />
           <Route path="/admin/docs" element={<Navigate to="/admin/docs/overview" replace />} />
 
           <Route element={<ProtectedAdminRoute />}>

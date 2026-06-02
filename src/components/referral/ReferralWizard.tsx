@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { CouncilMemberCard } from './CouncilMemberCard';
-import { useCouncilMemberSuggestions } from '@/hooks/useCouncilMemberSuggestions';
-import { Vereador } from '@/hooks/useVereadores';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CouncilMemberCard } from "./CouncilMemberCard";
+import { useCouncilMemberSuggestions } from "@/hooks/useCouncilMemberSuggestions";
+import { Vereador } from "@/hooks/useVereadores";
+import { supabase } from "@/integrations/supabase/client";
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,12 +18,12 @@ import {
   FileText,
   AlertTriangle,
   Users,
-} from 'lucide-react';
-import { CitizenSeverityBadge } from '@/components/citizen/CitizenSeverityBadge';
+} from "lucide-react";
+import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 
 interface ReportSummary {
   id: string;
-  type: 'transport' | 'urban' | 'service';
+  type: "transport" | "urban" | "service";
   title: string;
   description?: string;
   category?: string;
@@ -40,7 +40,7 @@ interface ReferralWizardProps {
   onCancel: () => void;
 }
 
-type WizardStep = 'review' | 'commission' | 'select' | 'message' | 'success';
+type WizardStep = "review" | "commission" | "select" | "message" | "success";
 
 type LegislativeCommissionRow = {
   id: string;
@@ -50,16 +50,18 @@ type LegislativeCommissionRow = {
 };
 
 export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardProps) => {
-  const [step, setStep] = useState<WizardStep>('review');
+  const [step, setStep] = useState<WizardStep>("review");
   const [selectedVereador, setSelectedVereador] = useState<{
     vereador: Vereador;
     matchScore: number;
     matchReasons: string[];
   } | null>(null);
-  const [selectedCommission, setSelectedCommission] = useState<LegislativeCommissionRow | null>(null);
+  const [selectedCommission, setSelectedCommission] = useState<LegislativeCommissionRow | null>(
+    null,
+  );
   const [commissions, setCommissions] = useState<LegislativeCommissionRow[]>([]);
   const [commissionsLoading, setCommissionsLoading] = useState(true);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const { suggestions, loading, getSuggestions, submitReferral } = useCouncilMemberSuggestions();
@@ -69,10 +71,10 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
     (async () => {
       setCommissionsLoading(true);
       const { data, error } = await supabase
-        .from('legislative_commissions')
-        .select('id,name,description,match_keywords')
-        .eq('active', true)
-        .order('sort_order', { ascending: true });
+        .from("legislative_commissions")
+        .select("id,name,description,match_keywords")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
       if (cancelled) return;
       if (!error && data) {
         setCommissions(data as LegislativeCommissionRow[]);
@@ -121,14 +123,14 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
     });
 
     if (success) {
-      setStep('success');
+      setStep("success");
     }
     setSubmitting(false);
   };
 
   const renderStep = () => {
     switch (step) {
-      case 'review':
+      case "review":
         return (
           <div className="space-y-6">
             <div className="text-center">
@@ -144,18 +146,20 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                   <div>
                     <h3 className="font-semibold">{report.title}</h3>
                     {report.category && (
-                      <Badge variant="outline" className="mt-1">{report.category}</Badge>
+                      <Badge variant="outline" className="mt-1">
+                        {report.category}
+                      </Badge>
                     )}
                   </div>
-                  {report.severity && (
-                    <CitizenSeverityBadge severity={report.severity} />
-                  )}
+                  {report.severity && <CitizenSeverityBadge severity={report.severity} />}
                 </div>
 
                 {report.description && (
                   <div className="flex items-start gap-2">
                     <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
-                    <p className="text-sm text-muted-foreground line-clamp-3">{report.description}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-3">
+                      {report.description}
+                    </p>
                   </div>
                 )}
 
@@ -179,7 +183,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
               <Button variant="outline" onClick={onCancel} className="flex-1">
                 Cancelar
               </Button>
-              <Button onClick={() => setStep('commission')} className="flex-1">
+              <Button onClick={() => setStep("commission")} className="flex-1">
                 Continuar
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -187,13 +191,14 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
           </div>
         );
 
-      case 'commission':
+      case "commission":
         return (
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-xl font-semibold">Comissão da Câmara</h2>
               <p className="text-muted-foreground text-sm mt-1">
-                Opcional: escolha a comissão mais relacionada ao tema — melhoramos a sugestão de vereadores.
+                Opcional: escolha a comissão mais relacionada ao tema — melhoramos a sugestão de
+                vereadores.
               </p>
             </div>
 
@@ -219,7 +224,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                       type="button"
                       onClick={() => setSelectedCommission(selected ? null : c)}
                       className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                        selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'
+                        selected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -227,7 +232,9 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                         <div>
                           <p className="font-medium text-sm">{c.name}</p>
                           {c.description ? (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {c.description}
+                            </p>
                           ) : null}
                         </div>
                       </div>
@@ -238,7 +245,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
             )}
 
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-              <Button variant="outline" onClick={() => setStep('review')} className="flex-1">
+              <Button variant="outline" onClick={() => setStep("review")} className="flex-1">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
               </Button>
@@ -258,7 +265,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                     report_type: report.report_type,
                     location: report.location,
                   });
-                  setStep('select');
+                  setStep("select");
                 }}
               >
                 Pular — sugestão automática
@@ -269,7 +276,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                 onClick={async () => {
                   setSelectedVereador(null);
                   await getSuggestions(buildReportData());
-                  setStep('select');
+                  setStep("select");
                 }}
               >
                 Continuar
@@ -279,7 +286,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
           </div>
         );
 
-      case 'select':
+      case "select":
         return (
           <div className="space-y-6">
             <div className="text-center">
@@ -291,9 +298,9 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
 
             <div className="space-y-3">
               {loading ? (
-                Array(3).fill(0).map((_, i) => (
-                  <Skeleton key={i} className="h-32 w-full" />
-                ))
+                Array(3)
+                  .fill(0)
+                  .map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
               ) : suggestions.length > 0 ? (
                 suggestions.map((suggestion, idx) => (
                   <CouncilMemberCard
@@ -316,12 +323,12 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep('commission')} className="flex-1">
+              <Button variant="outline" onClick={() => setStep("commission")} className="flex-1">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
               </Button>
-              <Button 
-                onClick={() => setStep('message')} 
+              <Button
+                onClick={() => setStep("message")}
                 className="flex-1"
                 disabled={!selectedVereador}
               >
@@ -332,7 +339,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
           </div>
         );
 
-      case 'message':
+      case "message":
         return (
           <div className="space-y-6">
             <div className="text-center">
@@ -353,7 +360,9 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                     </div>
                     <div>
                       <p className="font-medium">{selectedVereador.vereador.name}</p>
-                      <p className="text-xs text-muted-foreground">{selectedVereador.vereador.party}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedVereador.vereador.party}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -369,33 +378,29 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
             />
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep('select')} className="flex-1">
+              <Button variant="outline" onClick={() => setStep("select")} className="flex-1">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
               </Button>
-              <Button 
-                onClick={handleSubmit} 
-                className="flex-1"
-                disabled={submitting}
-              >
-                {submitting ? 'Enviando...' : 'Encaminhar'}
+              <Button onClick={handleSubmit} className="flex-1" disabled={submitting}>
+                {submitting ? "Enviando..." : "Encaminhar"}
                 <Send className="w-4 h-4 ml-2" />
               </Button>
             </div>
           </div>
         );
 
-      case 'success':
+      case "success":
         return (
           <div className="space-y-6 text-center py-8">
             <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10 text-green-600" />
             </div>
-            
+
             <div>
               <h2 className="text-xl font-semibold">Relato Encaminhado!</h2>
               <p className="text-muted-foreground mt-2">
-                Seu relato foi enviado para{' '}
+                Seu relato foi enviado para{" "}
                 <span className="font-medium text-foreground">
                   {selectedVereador?.vereador.name}
                 </span>
@@ -407,8 +412,8 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                 <h4 className="font-medium mb-2">O que acontece agora?</h4>
                 <ul className="text-sm text-muted-foreground space-y-2">
                   <li className="flex items-start gap-2">
-                    <span className="text-primary">1.</span>
-                    O gabinete do vereador receberá seu relato
+                    <span className="text-primary">1.</span>O gabinete do vereador receberá seu
+                    relato
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-primary">2.</span>
@@ -433,32 +438,32 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
   return (
     <div className="p-6">
       {/* Progress indicator */}
-      {step !== 'success' && (
+      {step !== "success" && (
         <div className="flex items-center justify-center gap-2 mb-6">
-          {(['review', 'commission', 'select', 'message'] as const).map((s, idx) => {
-            const order = ['review', 'commission', 'select', 'message'] as const;
-            const activeIdx = order.indexOf(step === 'success' ? 'message' : step);
+          {(["review", "commission", "select", "message"] as const).map((s, idx) => {
+            const order = ["review", "commission", "select", "message"] as const;
+            const activeIdx = order.indexOf(step === "success" ? "message" : step);
             return (
-            <div key={s} className="flex items-center">
-              <div 
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step === s 
-                    ? 'bg-primary text-primary-foreground' 
-                    : activeIdx > idx
-                      ? 'bg-primary/20 text-primary'
-                      : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {idx + 1}
+              <div key={s} className="flex items-center">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step === s
+                      ? "bg-primary text-primary-foreground"
+                      : activeIdx > idx
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {idx + 1}
+                </div>
+                {idx < 3 && (
+                  <div
+                    className={`w-8 h-0.5 mx-0.5 sm:w-12 sm:mx-1 ${
+                      activeIdx > idx ? "bg-primary/50" : "bg-muted"
+                    }`}
+                  />
+                )}
               </div>
-              {idx < 3 && (
-                <div className={`w-8 h-0.5 mx-0.5 sm:w-12 sm:mx-1 ${
-                  activeIdx > idx 
-                    ? 'bg-primary/50' 
-                    : 'bg-muted'
-                }`} />
-              )}
-            </div>
             );
           })}
         </div>

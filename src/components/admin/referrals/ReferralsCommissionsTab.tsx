@@ -1,16 +1,16 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { ReferralDestinationsTable } from '@/components/admin/referrals/ReferralDestinationsTable';
-import { CommissionQueueBarChart } from '@/components/admin/referrals/CommissionQueueBarChart';
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { ReferralDestinationsTable } from "@/components/admin/referrals/ReferralDestinationsTable";
+import { CommissionQueueBarChart } from "@/components/admin/referrals/CommissionQueueBarChart";
 import {
   COMMISSION_TAB_FILTER_LABELS,
   ReportsResponsibleFilter,
-} from '@/components/admin/reports/ReportsResponsibleFilter';
-import { ChartCard } from '@/components/admin/charts/ChartShell';
-import { SECTION_CHART_LEGENDS } from '@/lib/analyticsParameterLegends';
-import { reportsManagementUrlForCommission } from '@/lib/commissionFilterNavigation';
-import { useReferralsCommissionsTab } from '@/hooks/useReferralsCommissionsTab';
+} from "@/components/admin/reports/ReportsResponsibleFilter";
+import { ChartCard } from "@/components/admin/charts/ChartShell";
+import { SECTION_CHART_LEGENDS } from "@/lib/analyticsParameterLegends";
+import { reportsManagementUrlForCommission } from "@/lib/commissionFilterNavigation";
+import { useReferralsCommissionsTab } from "@/hooks/useReferralsCommissionsTab";
 
 function sortCommissionIds(
   ids: string[],
@@ -19,7 +19,7 @@ function sortCommissionIds(
   return [...ids].sort((a, b) => {
     const nameA = catalog.find((c) => c.commissionId === a)?.name ?? a;
     const nameB = catalog.find((c) => c.commissionId === b)?.name ?? b;
-    return nameA.localeCompare(nameB, 'pt-BR');
+    return nameA.localeCompare(nameB, "pt-BR");
   });
 }
 
@@ -46,9 +46,7 @@ export function ReferralsCommissionsTab() {
   const toggleCommission = (commissionId: string) => {
     setSelectedCommissionIds((prev) => {
       const exists = prev.includes(commissionId);
-      const next = exists
-        ? prev.filter((id) => id !== commissionId)
-        : [...prev, commissionId];
+      const next = exists ? prev.filter((id) => id !== commissionId) : [...prev, commissionId];
       return sortCommissionIds(next, catalog);
     });
   };
@@ -56,7 +54,7 @@ export function ReferralsCommissionsTab() {
   const openReportsForCommission = (commissionId: string) => {
     navigate(
       reportsManagementUrlForCommission(commissionId, {
-        queueTab: 'all',
+        queueTab: "all",
         global: { period, region, category },
       }),
     );
@@ -67,7 +65,9 @@ export function ReferralsCommissionsTab() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           Encaminhamentos temáticos no recorte global
-          {isLoading ? ' · carregando…' : ` · ${resultCount} registro${resultCount === 1 ? '' : 's'}`}
+          {isLoading
+            ? " · carregando…"
+            : ` · ${resultCount} registro${resultCount === 1 ? "" : "s"}`}
         </p>
         <ReportsResponsibleFilter
           catalog={filterCatalog}

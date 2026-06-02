@@ -40,8 +40,8 @@ export function normalizeReportCoordinates(
   lat: number | string | null | undefined,
   lng: number | string | null | undefined,
 ): { lat: number | null; lng: number | null } {
-  const la = lat == null || lat === '' ? NaN : Number(lat);
-  const lo = lng == null || lng === '' ? NaN : Number(lng);
+  const la = lat == null || lat === "" ? NaN : Number(lat);
+  const lo = lng == null || lng === "" ? NaN : Number(lng);
   if (!Number.isFinite(la) || !Number.isFinite(lo)) {
     return { lat: null, lng: null };
   }

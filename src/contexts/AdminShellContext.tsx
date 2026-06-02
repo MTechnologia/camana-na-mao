@@ -1,13 +1,6 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
-const STORAGE_KEY = 'admin-sidebar-collapsed';
+const STORAGE_KEY = "admin-sidebar-collapsed";
 
 type AdminShellContextValue = {
   sidebarCollapsed: boolean;
@@ -22,7 +15,7 @@ const AdminShellContext = createContext<AdminShellContextValue | null>(null);
 
 function readCollapsedPreference(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === '1';
+    return localStorage.getItem(STORAGE_KEY) === "1";
   } catch {
     return false;
   }
@@ -35,7 +28,7 @@ export function AdminShellProvider({ children }: { children: ReactNode }) {
   const setSidebarCollapsed = useCallback((value: boolean) => {
     setSidebarCollapsedState(value);
     try {
-      localStorage.setItem(STORAGE_KEY, value ? '1' : '0');
+      localStorage.setItem(STORAGE_KEY, value ? "1" : "0");
     } catch {
       /* ignore */
     }
@@ -73,7 +66,7 @@ export function AdminShellProvider({ children }: { children: ReactNode }) {
 export function useAdminShell() {
   const ctx = useContext(AdminShellContext);
   if (!ctx) {
-    throw new Error('useAdminShell must be used within AdminShellProvider');
+    throw new Error("useAdminShell must be used within AdminShellProvider");
   }
   return ctx;
 }

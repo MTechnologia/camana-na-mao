@@ -33,9 +33,7 @@ export function PasswordRequirementsChecklist({
               <span
                 className={cn(
                   "flex h-4 w-4 items-center justify-center rounded-full border",
-                  isMet
-                    ? "border-green-600 bg-green-600 text-white"
-                    : "border-muted-foreground/40",
+                  isMet ? "border-green-600 bg-green-600 text-white" : "border-muted-foreground/40",
                 )}
               >
                 {isMet && <Check size={12} strokeWidth={3} />}

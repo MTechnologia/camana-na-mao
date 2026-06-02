@@ -4,7 +4,9 @@
  */
 export const CITIZEN_PROTOCOL_LABEL = "Código de acompanhamento";
 
-export function formatCitizenProtocolForDisplay(protocolCode: string | null | undefined): string | null {
+export function formatCitizenProtocolForDisplay(
+  protocolCode: string | null | undefined,
+): string | null {
   const t = protocolCode?.trim();
   return t && t.length > 0 ? t : null;
 }

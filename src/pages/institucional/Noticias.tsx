@@ -64,9 +64,7 @@ const Noticias = () => {
     return (
       <InstitutionalLayout title="Notícias" category="Comunicação">
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-muted-foreground mb-4">
-            Não foi possível carregar as notícias.
-          </p>
+          <p className="text-muted-foreground mb-4">Não foi possível carregar as notícias.</p>
           <Button variant="outline" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Tentar novamente
@@ -80,20 +78,15 @@ const Noticias = () => {
     <InstitutionalLayout title="Notícias" category="Comunicação">
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Notícias da Câmara
-          </h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Notícias da Câmara</h1>
           <p className="text-muted-foreground">
-            Fique por dentro das últimas ações legislativas e novidades da
-            Câmara Municipal
+            Fique por dentro das últimas ações legislativas e novidades da Câmara Municipal
           </p>
         </div>
 
         {noticias.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              Nenhuma notícia disponível no momento.
-            </p>
+            <p className="text-muted-foreground">Nenhuma notícia disponível no momento.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -107,10 +100,7 @@ const Noticias = () => {
                 >
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={`inline-block ${config.color}`}
-                      >
+                      <Badge variant="outline" className={`inline-block ${config.color}`}>
                         {config.label}
                       </Badge>
                       {isRecent(noticia.pubDate) && (
@@ -119,7 +109,7 @@ const Noticias = () => {
                         </Badge>
                       )}
                     </div>
-                    
+
                     <h3 className="font-semibold text-foreground leading-tight mb-2">
                       {noticia.title}
                     </h3>

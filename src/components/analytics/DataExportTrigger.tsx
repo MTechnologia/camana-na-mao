@@ -1,18 +1,18 @@
-import { useMemo, useState } from 'react';
-import { Download } from 'lucide-react';
-import { Button, type ButtonProps } from '@/components/ui/button';
-import { DataExportDialog, type ExportFormat } from '@/components/analytics/DataExportDialog';
-import { useUserRole } from '@/hooks/useUserRole';
-import type { DataExportDefaultFilters } from '@/lib/buildDataExportFilters';
-import type { ExportDataset } from '@/lib/exportFields';
-import { cn } from '@/lib/utils';
+import { useMemo, useState } from "react";
+import { Download } from "lucide-react";
+import { Button, type ButtonProps } from "@/components/ui/button";
+import { DataExportDialog, type ExportFormat } from "@/components/analytics/DataExportDialog";
+import { useUserRole } from "@/hooks/useUserRole";
+import type { DataExportDefaultFilters } from "@/lib/buildDataExportFilters";
+import type { ExportDataset } from "@/lib/exportFields";
+import { cn } from "@/lib/utils";
 
 type DataExportTriggerProps = {
   defaultFilters?: DataExportDefaultFilters;
   defaultDataset?: ExportDataset;
   defaultFormat?: ExportFormat;
-  variant?: ButtonProps['variant'];
-  size?: ButtonProps['size'];
+  variant?: ButtonProps["variant"];
+  size?: ButtonProps["size"];
   className?: string;
   /** Texto visível em telas ≥ sm. */
   label?: string;
@@ -24,12 +24,12 @@ type DataExportTriggerProps = {
  */
 export function DataExportTrigger({
   defaultFilters,
-  defaultDataset = 'urban_reports',
+  defaultDataset = "urban_reports",
   defaultFormat,
-  variant = 'outline',
-  size = 'sm',
+  variant = "outline",
+  size = "sm",
   className,
-  label = 'Exportar dados',
+  label = "Exportar dados",
   showIcon = true,
 }: DataExportTriggerProps) {
   const { canExportData, loading } = useUserRole();
@@ -45,11 +45,11 @@ export function DataExportTrigger({
         type="button"
         variant={variant}
         size={size}
-        className={cn('gap-1.5', className)}
+        className={cn("gap-1.5", className)}
         onClick={() => setOpen(true)}
       >
         {showIcon ? <Download className="h-4 w-4 shrink-0" aria-hidden /> : null}
-        <span className={cn(!label && 'sr-only')}>{label}</span>
+        <span className={cn(!label && "sr-only")}>{label}</span>
       </Button>
       <DataExportDialog
         open={open}

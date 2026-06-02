@@ -11,7 +11,10 @@ import {
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
 import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { EquipmentNatureFilterChips } from "@/components/evaluation/EquipmentNatureFilterChips";
-import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
+import {
+  ServiceSortSelect,
+  type ServiceSortOption,
+} from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import {
   useNearbyServices,
@@ -30,13 +33,31 @@ import { Input } from "@/components/ui/input";
 import { StandardTimeInput } from "@/components/ui/standard-time-input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Loader2 } from "lucide-react";
+import {
+  MapPin,
+  AlertCircle,
+  Map,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  WifiOff,
+  Database,
+  Loader2,
+} from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
-import { LocationSearchCard, type NearbyLocationUiPhase } from "@/components/map/LocationSearchCard";
+import {
+  LocationSearchCard,
+  type NearbyLocationUiPhase,
+} from "@/components/map/LocationSearchCard";
 import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSearchInput";
 import type { CepCenter } from "@/components/map/CepSearchCard";
-import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
+import {
+  getServiceDisplayName,
+  getOpeningHoursTextWithDefault,
+  parseOpeningHoursToRange,
+} from "@/lib/mapUtils";
 import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
 import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
@@ -62,13 +83,16 @@ export default function NearbyServicesPage() {
   const { user, loading: authLoading } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
-  const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
-  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(
-    () => [...DEFAULT_NEARBY_SERVICE_TYPES],
-  );
+  const [operationalStatusFilter, setOperationalStatusFilter] = useState<
+    "all" | "open" | "closed" | "maintenance"
+  >("all");
+  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(() => [
+    ...DEFAULT_NEARBY_SERVICE_TYPES,
+  ]);
   const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
-  const [equipmentNatureFilter, setEquipmentNatureFilter] = useState<EquipmentNatureFilterValue>("all");
+  const [equipmentNatureFilter, setEquipmentNatureFilter] =
+    useState<EquipmentNatureFilterValue>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
@@ -86,10 +110,15 @@ export default function NearbyServicesPage() {
 
   const PAGE_SIZE = 20;
 
-  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation } =
-    useGeolocation({ autoRequest: false, maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS });
-  const searchLat = locationMode === "gps" ? latitude : cepCenter?.latitude ?? null;
-  const searchLng = locationMode === "gps" ? longitude : cepCenter?.longitude ?? null;
+  const {
+    latitude,
+    longitude,
+    loading: geoLoading,
+    error: geoError,
+    refetch: refetchLocation,
+  } = useGeolocation({ autoRequest: false, maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS });
+  const searchLat = locationMode === "gps" ? latitude : (cepCenter?.latitude ?? null);
+  const searchLng = locationMode === "gps" ? longitude : (cepCenter?.longitude ?? null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -128,14 +157,12 @@ export default function NearbyServicesPage() {
   }, [authLoading, user?.id]);
 
   const skipNearbyFetch =
-    authLoading ||
-    (!!user?.id && !addressBootstrapDone) ||
-    searchLat == null ||
-    searchLng == null;
+    authLoading || (!!user?.id && !addressBootstrapDone) || searchLat == null || searchLng == null;
 
   const lockedLabel = useMemo(() => {
     if (locationUiPhase !== "locked") return null;
-    if (locationMode === "gps" && latitude != null && longitude != null) return "Minha localização atual";
+    if (locationMode === "gps" && latitude != null && longitude != null)
+      return "Minha localização atual";
     if (cepCenter?.label) return cepCenter.label;
     return null;
   }, [locationUiPhase, locationMode, latitude, longitude, cepCenter]);
@@ -175,7 +202,9 @@ export default function NearbyServicesPage() {
         if (result.reason === "not_found") {
           toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
         } else {
-          toast.error("Seu endereço cadastrado ainda não possui coordenadas. Atualize o endereço em Perfil → Endereço.");
+          toast.error(
+            "Seu endereço cadastrado ainda não possui coordenadas. Atualize o endereço em Perfil → Endereço.",
+          );
         }
       }
     } catch (e) {
@@ -215,7 +244,12 @@ export default function NearbyServicesPage() {
   /** Mínimo da faixa em anel para a RPC (0 = não envia). Sempre que a faixa tiver mínimo > 0. */
   const minRadiusForHook = distanceBand.min > 0 ? distanceBand.min : undefined;
 
-  const { services, loading: servicesLoading, loadingMore: servicesLoadingMore, error: servicesError } = useNearbyServices({
+  const {
+    services,
+    loading: servicesLoading,
+    loadingMore: servicesLoadingMore,
+    error: servicesError,
+  } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
@@ -225,9 +259,9 @@ export default function NearbyServicesPage() {
     equipmentNature: equipmentNatureFilter,
     skipFetch: skipNearbyFetch,
   });
-  const isCacheOrOfflineMessage = servicesError != null && (
-    servicesError.includes("cache") || servicesError.includes("Sem conexão")
-  );
+  const isCacheOrOfflineMessage =
+    servicesError != null &&
+    (servicesError.includes("cache") || servicesError.includes("Sem conexão"));
   /** Faixa em anel conforme o preset (independente de filtro de tipo). */
   const servicesInBand = useMemo(() => {
     return services.filter((s) => {
@@ -236,9 +270,10 @@ export default function NearbyServicesPage() {
     });
   }, [services, distanceBand.min, distanceBand.max]);
 
-  const filteredByRating = minRating === "all"
-    ? servicesInBand
-    : servicesInBand.filter((s) => (s.average_rating ?? 0) >= minRating);
+  const filteredByRating =
+    minRating === "all"
+      ? servicesInBand
+      : servicesInBand.filter((s) => (s.average_rating ?? 0) >= minRating);
 
   // Em raio grande, resolver endereço para muitos itens pode ficar lento (várias chamadas de geocoding).
   // Priorizamos os mais próximos para manter a lista responsiva.
@@ -247,7 +282,7 @@ export default function NearbyServicesPage() {
       [...filteredByRating]
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
         .slice(0, MAX_REVERSE_GEOCODE_ITEMS),
-    [filteredByRating]
+    [filteredByRating],
   );
 
   // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco.
@@ -260,10 +295,11 @@ export default function NearbyServicesPage() {
   /** Base de ordenação por distância em linha reta (Haversine). */
   const sortedServicesByHaversine = useMemo(
     () => [...filteredByRating].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
-    [filteredByRating]
+    [filteredByRating],
   );
 
-  const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
+  const mapCenter =
+    searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
   /** Referência estável para o mapa (evita reexecução desnecessária de efeitos no GoogleMap). */
   const stableMapUserLocation = useMemo(
     () =>
@@ -272,9 +308,10 @@ export default function NearbyServicesPage() {
   );
 
   const [equipmentMapFocusKey, setEquipmentMapFocusKey] = useState(0);
-  const [equipmentMapFocusCoords, setEquipmentMapFocusCoords] = useState<{ lat: number; lng: number } | null>(
-    null,
-  );
+  const [equipmentMapFocusCoords, setEquipmentMapFocusCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   const sortedServices = useMemo(() => {
     const inBand = (d: number) => d >= distanceBand.min && d <= distanceBand.max;
@@ -303,7 +340,9 @@ export default function NearbyServicesPage() {
   const filteredByOpeningHours = useMemo(() => {
     let list = filteredByOperationalStatus;
     if (onlyWithOpeningHours) {
-      list = list.filter((s) => getOpeningHoursTextWithDefault(s.opening_hours, s.service_type) != null);
+      list = list.filter(
+        (s) => getOpeningHoursTextWithDefault(s.opening_hours, s.service_type) != null,
+      );
     }
     const openFilterMinutes = openingTimeFilter
       ? (() => {
@@ -399,7 +438,10 @@ export default function NearbyServicesPage() {
   useEffect(() => {
     if (!loneTextFilterMatch) return;
     const t = window.setTimeout(() => {
-      setEquipmentMapFocusCoords({ lat: loneTextFilterMatch.latitude, lng: loneTextFilterMatch.longitude });
+      setEquipmentMapFocusCoords({
+        lat: loneTextFilterMatch.latitude,
+        lng: loneTextFilterMatch.longitude,
+      });
       setEquipmentMapFocusKey((k) => k + 1);
     }, 450);
     return () => clearTimeout(t);
@@ -428,7 +470,18 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, operationalStatusFilter, equipmentNatureFilter, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
+  }, [
+    searchByName,
+    selectedTypes,
+    radiusMeters,
+    minRating,
+    sortBy,
+    operationalStatusFilter,
+    equipmentNatureFilter,
+    onlyWithOpeningHours,
+    openingTimeFilter,
+    closingTimeFilter,
+  ]);
 
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
@@ -436,11 +489,16 @@ export default function NearbyServicesPage() {
       servicesInBand.map((s) => ({
         id: s.id,
         name: s.name,
-        displayName: getServiceDisplayName({ name: s.name, address: s.address, district: s.district, service_type: s.service_type }),
+        displayName: getServiceDisplayName({
+          name: s.name,
+          address: s.address,
+          district: s.district,
+          service_type: s.service_type,
+        }),
         latitude: s.latitude,
         longitude: s.longitude,
       })),
-    [servicesInBand]
+    [servicesInBand],
   );
 
   const visitDetectionEnabled = useVisitDetectionEnabled(user?.id);
@@ -468,26 +526,22 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     if (!detectedVisit) return;
-    toast.info(
-      `Você visitou ${detectedVisit.serviceName}. Gostaria de avaliar?`,
-      {
-        duration: 15_000,
-        id: "visit-detected",
-        action: {
-          label: "Avaliar",
-          onClick: handleVisitAvaliar,
-        },
-      }
-    );
+    toast.info(`Você visitou ${detectedVisit.serviceName}. Gostaria de avaliar?`, {
+      duration: 15_000,
+      id: "visit-detected",
+      action: {
+        label: "Avaliar",
+        onClick: handleVisitAvaliar,
+      },
+    });
   }, [detectedVisit, handleVisitAvaliar]);
   const isInitialLoading = servicesLoading && services.length === 0;
-  const isListRefreshing =
-    (servicesLoading && services.length > 0) || servicesLoadingMore;
+  const isListRefreshing = (servicesLoading && services.length > 0) || servicesLoadingMore;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
       <PageHeader title="Perto de Você" />
-      
+
       <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
         {!isOnline && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
@@ -497,7 +551,8 @@ export default function NearbyServicesPage() {
                 Você está offline
               </p>
               <p className="text-xs text-muted-foreground">
-                Os dados exibidos podem ser do último acesso. Ative a internet para atualizar a lista.
+                Os dados exibidos podem ser do último acesso. Ative a internet para atualizar a
+                lista.
               </p>
             </div>
           </div>
@@ -507,9 +562,7 @@ export default function NearbyServicesPage() {
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
             <Database className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                Dados em cache
-              </p>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Dados em cache</p>
               <p className="text-xs text-muted-foreground">{servicesError}</p>
             </div>
           </div>
@@ -522,7 +575,7 @@ export default function NearbyServicesPage() {
           </div>
         )}
 
-        {(searchLat != null && searchLng != null) && (
+        {searchLat != null && searchLng != null && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -537,7 +590,9 @@ export default function NearbyServicesPage() {
             </div>
             {(onlyWithOpeningHours || openingTimeFilter || closingTimeFilter) && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
-                <span>Filtros de horário ativos podem reduzir os resultados dentro do raio selecionado.</span>
+                <span>
+                  Filtros de horário ativos podem reduzir os resultados dentro do raio selecionado.
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -555,7 +610,8 @@ export default function NearbyServicesPage() {
             )}
             {user && locationMode === "gps" && services.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
+                Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso
+                de avaliação.
               </p>
             )}
           </>
@@ -589,7 +645,8 @@ export default function NearbyServicesPage() {
             label="Natureza:"
           />
           <p className="text-xs text-muted-foreground">
-            Classificação baseada em dados oficiais do GeoSampa e, quando disponível, na esfera administrativa do equipamento.
+            Classificação baseada em dados oficiais do GeoSampa e, quando disponível, na esfera
+            administrativa do equipamento.
           </p>
         </div>
 
@@ -612,10 +669,14 @@ export default function NearbyServicesPage() {
               variant={onlyWithOpeningHours ? "default" : "outline"}
               className={cn(
                 "cursor-pointer whitespace-nowrap transition-all",
-                onlyWithOpeningHours ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                onlyWithOpeningHours ? "bg-primary text-primary-foreground" : "hover:bg-secondary",
               )}
               onClick={() => setOnlyWithOpeningHours((v) => !v)}
-              title={onlyWithOpeningHours ? "Exibir todos (remover filtro)" : "Mostrar apenas equipamentos com horário de funcionamento cadastrado"}
+              title={
+                onlyWithOpeningHours
+                  ? "Exibir todos (remover filtro)"
+                  : "Mostrar apenas equipamentos com horário de funcionamento cadastrado"
+              }
             >
               Com horário informado
             </Badge>
@@ -625,7 +686,10 @@ export default function NearbyServicesPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <label htmlFor="opening-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+              <label
+                htmlFor="opening-time-filter"
+                className="text-sm text-muted-foreground whitespace-nowrap"
+              >
                 Abertura a partir de
               </label>
               <StandardTimeInput
@@ -637,7 +701,10 @@ export default function NearbyServicesPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <label htmlFor="closing-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+              <label
+                htmlFor="closing-time-filter"
+                className="text-sm text-muted-foreground whitespace-nowrap"
+              >
                 Fechamento até
               </label>
               <StandardTimeInput
@@ -694,7 +761,11 @@ export default function NearbyServicesPage() {
           </div>
         )}
 
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
+        <Tabs
+          value={viewMode}
+          onValueChange={(v) => setViewMode(v as "list" | "map")}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="list" className="flex items-center gap-2">
               <List className="w-4 h-4" />
@@ -724,87 +795,92 @@ export default function NearbyServicesPage() {
                     ? "Tente outro termo de busca ou relaxe os filtros."
                     : equipmentNatureFilter !== "all"
                       ? "Nenhum serviço dessa natureza foi encontrado neste raio. Tente outro filtro ou aumente o raio."
-                    : operationalStatusFilter !== "all"
-                      ? "Nenhum serviço com esse status operacional neste raio. Tente outro status ou aumente o raio."
-                      : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
-                      ? "Nenhum serviço atende aos filtros de horário neste raio. Tente aumentar o raio, ajustar ou limpar os horários de abertura/fechamento."
-                      : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
+                      : operationalStatusFilter !== "all"
+                        ? "Nenhum serviço com esse status operacional neste raio. Tente outro status ou aumente o raio."
+                        : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
+                          ? "Nenhum serviço atende aos filtros de horário neste raio. Tente aumentar o raio, ajustar ou limpar os horários de abertura/fechamento."
+                          : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
                 </p>
               </div>
             ) : (
               <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-                {paginatedServices.map((service) => (
-                  <ServiceCard
-                    key={service.id}
-                    id={service.id}
-                    name={getServiceDisplayName({ name: service.name, address: service.address, district: service.district, service_type: service.service_type })}
-                    serviceType={service.service_type}
-                    address={resolvedAddresses[service.id] ?? service.address}
-                    district={resolvedAddresses[service.id] ? undefined : service.district}
-                    distance={service.distance}
-                    distanceLabel={distanceLabelMode}
-                    averageRating={service.average_rating}
-                    totalRatings={service.total_ratings}
-                    phone={service.phone}
-                    latitude={service.latitude}
-                    longitude={service.longitude}
-                    userLatitude={searchLat ?? undefined}
-                    userLongitude={searchLng ?? undefined}
-                    openingHours={service.opening_hours}
-                    servicesOffered={service.services_offered}
-                    operationalStatus={service.operational_status}
-                    equipmentNature={service.equipment_nature}
-                    isFavorite={user ? favoriteIds.has(service.id) : false}
-                    favoriteDisabled={favoriteBusyId === service.id}
-                    onFavoriteClick={async () => {
-                      if (!user) {
-                        toast.error("Faça login para usar favoritos.");
-                        return;
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {paginatedServices.map((service) => (
+                    <ServiceCard
+                      key={service.id}
+                      id={service.id}
+                      name={getServiceDisplayName({
+                        name: service.name,
+                        address: service.address,
+                        district: service.district,
+                        service_type: service.service_type,
+                      })}
+                      serviceType={service.service_type}
+                      address={resolvedAddresses[service.id] ?? service.address}
+                      district={resolvedAddresses[service.id] ? undefined : service.district}
+                      distance={service.distance}
+                      distanceLabel={distanceLabelMode}
+                      averageRating={service.average_rating}
+                      totalRatings={service.total_ratings}
+                      phone={service.phone}
+                      latitude={service.latitude}
+                      longitude={service.longitude}
+                      userLatitude={searchLat ?? undefined}
+                      userLongitude={searchLng ?? undefined}
+                      openingHours={service.opening_hours}
+                      servicesOffered={service.services_offered}
+                      operationalStatus={service.operational_status}
+                      equipmentNature={service.equipment_nature}
+                      isFavorite={user ? favoriteIds.has(service.id) : false}
+                      favoriteDisabled={favoriteBusyId === service.id}
+                      onFavoriteClick={async () => {
+                        if (!user) {
+                          toast.error("Faça login para usar favoritos.");
+                          return;
+                        }
+                        setFavoriteBusyId(service.id);
+                        try {
+                          await toggleFavorite(service.id);
+                        } finally {
+                          setFavoriteBusyId(null);
+                        }
+                      }}
+                      onClick={() =>
+                        navigate(`/servico/${service.id}`, {
+                          state: {
+                            originLat: searchLat ?? null,
+                            originLng: searchLng ?? null,
+                          },
+                        })
                       }
-                      setFavoriteBusyId(service.id);
-                      try {
-                        await toggleFavorite(service.id);
-                      } finally {
-                        setFavoriteBusyId(null);
-                      }
-                    }}
-                    onClick={() =>
-                      navigate(`/servico/${service.id}`, {
-                        state: {
-                          originLat: searchLat ?? null,
-                          originLng: searchLng ?? null,
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </div>
-              {totalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage <= 1}
-                  >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    Anterior
-                  </Button>
-                  <span className="text-sm text-muted-foreground px-2">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage >= totalPages}
-                  >
-                    Próxima
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
+                    />
+                  ))}
                 </div>
-              )}
+                {totalPages > 1 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Anterior
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Próxima
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </TabsContent>
@@ -822,10 +898,14 @@ export default function NearbyServicesPage() {
             </div>
             {!isOnline ? (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-8 text-center">
-                <WifiOff className="mx-auto h-12 w-12 text-amber-600 dark:text-amber-400 mb-3" aria-hidden />
+                <WifiOff
+                  className="mx-auto h-12 w-12 text-amber-600 dark:text-amber-400 mb-3"
+                  aria-hidden
+                />
                 <h3 className="font-semibold text-foreground mb-1">Mapa indisponível offline</h3>
                 <p className="text-sm text-muted-foreground">
-                  O mapa precisa de conexão para carregar. Use a aba <strong>Lista</strong> para ver os equipamentos em cache.
+                  O mapa precisa de conexão para carregar. Use a aba <strong>Lista</strong> para ver
+                  os equipamentos em cache.
                 </p>
               </div>
             ) : isInitialLoading ? (
@@ -848,15 +928,12 @@ export default function NearbyServicesPage() {
                 <p className="text-sm text-muted-foreground mb-3">
                   Informe um CEP acima ou ative sua localização para ver o mapa
                 </p>
-                <Button onClick={refetchLocation}>
-                  Ativar localização
-                </Button>
+                <Button onClick={refetchLocation}>Ativar localização</Button>
               </div>
             )}
           </TabsContent>
         </Tabs>
       </div>
-
     </div>
   );
 }

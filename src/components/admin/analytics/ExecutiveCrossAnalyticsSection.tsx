@@ -1,6 +1,6 @@
-import { CrossAnalyticsTab } from '@/components/analytics/CrossAnalyticsTab';
-import { ParameterLegend } from '@/components/admin/analytics/ParameterLegend';
-import { EXECUTIVE_CROSS_ANALYTICS_LEGENDS } from '@/lib/analyticsParameterLegends';
+import { CrossAnalyticsTab } from "@/components/analytics/CrossAnalyticsTab";
+import { ParameterLegend } from "@/components/admin/analytics/ParameterLegend";
+import { EXECUTIVE_CROSS_ANALYTICS_LEGENDS } from "@/lib/analyticsParameterLegends";
 
 /**
  * HU-3.4 / HU-3.5 — Drill-across no dashboard executivo (/admin).

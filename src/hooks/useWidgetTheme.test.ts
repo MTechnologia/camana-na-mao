@@ -74,15 +74,12 @@ describe("useWidgetTheme (via WidgetThemeProvider)", () => {
   it("setTheme dispara upsert após debounce e propaga para outros consumidores", async () => {
     const selectChain = mockSelect({ data: null, error: null });
     const upsertChain = mockUpsert({ error: null });
-    supabaseFromMock
-      .mockReturnValueOnce(selectChain)
-      .mockReturnValueOnce(upsertChain);
+    supabaseFromMock.mockReturnValueOnce(selectChain).mockReturnValueOnce(upsertChain);
 
     // Dois consumidores compartilhando o mesmo Provider.
-    const { result } = renderHook(
-      () => ({ a: useWidgetTheme(), b: useWidgetTheme() }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => ({ a: useWidgetTheme(), b: useWidgetTheme() }), {
+      wrapper,
+    });
 
     await act(async () => {
       await Promise.resolve();
@@ -127,9 +124,7 @@ describe("useWidgetTheme (via WidgetThemeProvider)", () => {
   it("useWidgetTheme fora do Provider lança erro descritivo", () => {
     // Suprime erro do React no console pra não poluir o teste.
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    expect(() => renderHook(() => useWidgetTheme())).toThrow(
-      /WidgetThemeProvider/i,
-    );
+    expect(() => renderHook(() => useWidgetTheme())).toThrow(/WidgetThemeProvider/i);
     consoleError.mockRestore();
   });
 });

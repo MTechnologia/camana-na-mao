@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { bairroParaZona } from '@/lib/regionMapping';
-import { centroidForZone } from '@/lib/saoPauloZoneCentroids';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { bairroParaZona } from "@/lib/regionMapping";
+import { centroidForZone } from "@/lib/saoPauloZoneCentroids";
 
-export type WaitTimePeriod = '30d' | '90d' | '12m' | 'all';
+export type WaitTimePeriod = "30d" | "90d" | "12m" | "all";
 
 export interface ZoneWaitTime {
   zone: string;
@@ -15,9 +15,9 @@ export interface ZoneWaitTime {
 }
 
 const PERIOD_DAYS: Record<WaitTimePeriod, number | null> = {
-  '30d': 30,
-  '90d': 90,
-  '12m': 365,
+  "30d": 30,
+  "90d": 90,
+  "12m": 365,
   all: null,
 };
 
@@ -48,12 +48,12 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
 
       for (let page = 0; page < MAX_PAGES; page += 1) {
         let query = supabase
-          .from('service_ratings')
-          .select('wait_time_score, public_services(district)')
-          .not('wait_time_score', 'is', null)
-          .order('created_at', { ascending: false })
+          .from("service_ratings")
+          .select("wait_time_score, public_services(district)")
+          .not("wait_time_score", "is", null)
+          .order("created_at", { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-        if (startAt) query = query.gte('created_at', startAt);
+        if (startAt) query = query.gte("created_at", startAt);
         const { data, error: qErr } = await query;
         if (qErr) throw qErr;
         const rows = data ?? [];
@@ -93,8 +93,8 @@ export function useWaitTimeByZone(params: { period: WaitTimePeriod }) {
       setZones(next);
       setIsTruncated(truncated);
     } catch (e) {
-      console.error('[useWaitTimeByZone]', e);
-      setError(e instanceof Error ? e.message : 'Erro ao carregar tempos de espera.');
+      console.error("[useWaitTimeByZone]", e);
+      setError(e instanceof Error ? e.message : "Erro ao carregar tempos de espera.");
       setZones([]);
       setIsTruncated(false);
     } finally {

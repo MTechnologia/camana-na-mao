@@ -44,7 +44,9 @@ function serviceVisitsTableMock(visitIdForInsert: string) {
 function defaultFromMock(visitIdForInsert = "visit-999") {
   vi.mocked(supabase.from).mockImplementation((table: string) => {
     if (table === "notifications") {
-      return { insert: vi.fn().mockResolvedValue({ error: null }) } as ReturnType<typeof supabase.from>;
+      return { insert: vi.fn().mockResolvedValue({ error: null }) } as ReturnType<
+        typeof supabase.from
+      >;
     }
     return serviceVisitsTableMock(visitIdForInsert) as ReturnType<typeof supabase.from>;
   });
@@ -113,10 +115,15 @@ describe("useVisitDetection", () => {
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === "notifications") {
-        return { insert: vi.fn().mockResolvedValue({ error: null }) } as ReturnType<typeof supabase.from>;
+        return { insert: vi.fn().mockResolvedValue({ error: null }) } as ReturnType<
+          typeof supabase.from
+        >;
       }
       if (table === "service_visits") {
-        const base = serviceVisitsTableMock(mockVisitId) as Record<string, ReturnType<typeof vi.fn>>;
+        const base = serviceVisitsTableMock(mockVisitId) as Record<
+          string,
+          ReturnType<typeof vi.fn>
+        >;
         base.insert = mockInsert;
         return base as ReturnType<typeof supabase.from>;
       }
@@ -159,17 +166,14 @@ describe("useVisitDetection", () => {
   });
 
   it("deve resetar o timer se o usuário sair do raio", async () => {
-    const { result, rerender } = renderHook(
-      (props) => useVisitDetection(props),
-      {
-        initialProps: {
-          latitude: -23.5505,
-          longitude: -46.6333,
-          services: [mockService],
-          userId: mockUserId,
-        },
+    const { result, rerender } = renderHook((props) => useVisitDetection(props), {
+      initialProps: {
+        latitude: -23.5505,
+        longitude: -46.6333,
+        services: [mockService],
+        userId: mockUserId,
       },
-    );
+    });
 
     await act(async () => {
       await Promise.resolve();

@@ -1,50 +1,76 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  Building2, Bus, Star, MessageSquare, MapPin, Calendar, Clock,
-  Download, Trash2, Forward, ExternalLink, Send,
-  CheckCircle2, AlertCircle, Image as ImageIcon, Activity, Edit3, History
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { formatShortDate, formatLongDateTime, formatDateTime, formatCompactDateTime } from '@/lib/dateUtils';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { UnifiedManifest, ManifestType } from '@/hooks/useReportsAdmin';
+import { useState, useEffect, useCallback } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Building2,
+  Bus,
+  Star,
+  MessageSquare,
+  MapPin,
+  Calendar,
+  Clock,
+  Download,
+  Trash2,
+  Forward,
+  ExternalLink,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  Image as ImageIcon,
+  Activity,
+  Edit3,
+  History,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  formatShortDate,
+  formatLongDateTime,
+  formatDateTime,
+  formatCompactDateTime,
+} from "@/lib/dateUtils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { UnifiedManifest, ManifestType } from "@/hooks/useReportsAdmin";
 
 const ADMIN_CATEGORY_OPTIONS = [
-  { value: 'iluminacao', label: 'Iluminação Pública' },
-  { value: 'calcada', label: 'Calçada' },
-  { value: 'via_publica', label: 'Via Pública' },
-  { value: 'sinalizacao', label: 'Sinalização' },
-  { value: 'drenagem', label: 'Drenagem' },
-  { value: 'lixo', label: 'Lixo e Limpeza' },
-  { value: 'esgoto', label: 'Esgoto/Bueiro' },
-  { value: 'area_verde', label: 'Área Verde' },
-  { value: 'higiene_urbana', label: 'Higiene Urbana' },
-  { value: 'animais', label: 'Animais' },
-  { value: 'poluicao', label: 'Poluição/Barulho' },
-  { value: 'feedback_camara', label: 'Feedback Câmara' },
-  { value: 'outro', label: 'Outro' },
+  { value: "iluminacao", label: "Iluminação Pública" },
+  { value: "calcada", label: "Calçada" },
+  { value: "via_publica", label: "Via Pública" },
+  { value: "sinalizacao", label: "Sinalização" },
+  { value: "drenagem", label: "Drenagem" },
+  { value: "lixo", label: "Lixo e Limpeza" },
+  { value: "esgoto", label: "Esgoto/Bueiro" },
+  { value: "area_verde", label: "Área Verde" },
+  { value: "higiene_urbana", label: "Higiene Urbana" },
+  { value: "animais", label: "Animais" },
+  { value: "poluicao", label: "Poluição/Barulho" },
+  { value: "feedback_camara", label: "Feedback Câmara" },
+  { value: "outro", label: "Outro" },
 ];
 
 /** Tipos de `transport_reports.report_type` + feedback loop (alinhado ao orquestrador) */
 const ADMIN_TRANSPORT_REPORT_TYPE_OPTIONS = [
-  { value: 'atraso', label: 'Atraso' },
-  { value: 'lotacao', label: 'Lotação' },
-  { value: 'seguranca', label: 'Segurança' },
-  { value: 'acessibilidade', label: 'Acessibilidade' },
-  { value: 'limpeza', label: 'Limpeza' },
-  { value: 'conducao', label: 'Condução / motorista' },
-  { value: 'outro', label: 'Outro' },
+  { value: "atraso", label: "Atraso" },
+  { value: "lotacao", label: "Lotação" },
+  { value: "seguranca", label: "Segurança" },
+  { value: "acessibilidade", label: "Acessibilidade" },
+  { value: "limpeza", label: "Limpeza" },
+  { value: "conducao", label: "Condução / motorista" },
+  { value: "outro", label: "Outro" },
 ];
 
 interface UnifiedReportDrawerProps {
@@ -52,7 +78,11 @@ interface UnifiedReportDrawerProps {
   onOpenChange: (open: boolean) => void;
   manifest: UnifiedManifest | null;
   onStatusChange: (id: string, type: ManifestType, status: string) => void;
-  onCategoryCorrected?: (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => Promise<void>;
+  onCategoryCorrected?: (
+    manifest: UnifiedManifest,
+    newCategory: string,
+    newSubcategory: string | null,
+  ) => Promise<void>;
   onDelete: (manifest: UnifiedManifest) => void;
   onReferral: () => void;
   /** Após aprovar publicação de avaliação (moderação) */
@@ -69,50 +99,66 @@ interface Response {
 }
 
 const typeConfig: Record<ManifestType, { label: string; icon: typeof Building2; color: string }> = {
-  urban: { label: 'Urbana', icon: Building2, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
-  transport: { label: 'Transporte', icon: Bus, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
-  evaluation: { label: 'Avaliação', icon: Star, color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-  feedback: { label: 'Feedback', icon: MessageSquare, color: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20' },
+  urban: {
+    label: "Urbana",
+    icon: Building2,
+    color: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  },
+  transport: {
+    label: "Transporte",
+    icon: Bus,
+    color: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  },
+  evaluation: {
+    label: "Avaliação",
+    icon: Star,
+    color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  },
+  feedback: {
+    label: "Feedback",
+    icon: MessageSquare,
+    color: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  },
 };
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-  in_progress: { label: 'Em Andamento', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
-  resolved: { label: 'Resolvido', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
-  rejected: { label: 'Rejeitado', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  completed: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  pending: { label: "Pendente", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
+  in_progress: { label: "Em Andamento", color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  resolved: { label: "Resolvido", color: "bg-green-500/10 text-green-600 border-green-500/20" },
+  rejected: { label: "Rejeitado", color: "bg-red-500/10 text-red-600 border-red-500/20" },
+  completed: { label: "Concluída", color: "bg-green-500/10 text-green-600 border-green-500/20" },
 };
 
 const severityConfig: Record<string, { label: string; color: string }> = {
-  critical: { label: 'Crítica', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  high: { label: 'Alta', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
-  medium: { label: 'Média', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-  low: { label: 'Baixa', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  critical: { label: "Crítica", color: "bg-red-500/10 text-red-600 border-red-500/20" },
+  high: { label: "Alta", color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
+  medium: { label: "Média", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
+  low: { label: "Baixa", color: "bg-green-500/10 text-green-600 border-green-500/20" },
 };
 
 const riskLevelConfig: Record<string, { label: string; color: string }> = {
-  critical: { label: 'Crítico', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  moderate: { label: 'Moderado', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
-  low: { label: 'Baixo', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
-  none: { label: 'Nenhum', color: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
+  critical: { label: "Crítico", color: "bg-red-500/10 text-red-600 border-red-500/20" },
+  moderate: { label: "Moderado", color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
+  low: { label: "Baixo", color: "bg-green-500/10 text-green-600 border-green-500/20" },
+  none: { label: "Nenhum", color: "bg-gray-500/10 text-gray-600 border-gray-500/20" },
 };
 
 /** Severidade de transporte (baixa/media/alta/critica) */
 const transportSeverityConfig: Record<string, { label: string; color: string }> = {
-  baixa: { label: 'Baixa', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
-  media: { label: 'Média', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-  alta: { label: 'Alta', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
-  critica: { label: 'Crítica', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
+  baixa: { label: "Baixa", color: "bg-green-500/10 text-green-600 border-green-500/20" },
+  media: { label: "Média", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
+  alta: { label: "Alta", color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
+  critica: { label: "Crítica", color: "bg-red-500/10 text-red-600 border-red-500/20" },
 };
 
 const affectedScopeLabels: Record<string, string> = {
-  individual: 'Individual (1-5 pessoas)',
-  street: 'Rua toda',
-  building: 'Prédio/Vizinhança',
-  block: 'Quarteirão',
-  neighborhood: 'Bairro todo',
-  zone: 'Zona da cidade',
-  city: 'Cidade toda',
+  individual: "Individual (1-5 pessoas)",
+  street: "Rua toda",
+  building: "Prédio/Vizinhança",
+  block: "Quarteirão",
+  neighborhood: "Bairro todo",
+  zone: "Zona da cidade",
+  city: "Cidade toda",
 };
 
 export const UnifiedReportDrawer = ({
@@ -127,38 +173,40 @@ export const UnifiedReportDrawer = ({
 }: UnifiedReportDrawerProps) => {
   const [responses, setResponses] = useState<Response[]>([]);
   const [loadingResponses, setLoadingResponses] = useState(false);
-  const [newResponse, setNewResponse] = useState('');
+  const [newResponse, setNewResponse] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [editCategory, setEditCategory] = useState('');
-  const [editSubcategory, setEditSubcategory] = useState('');
-  const [editTransportReportType, setEditTransportReportType] = useState('');
-  const [editTransportSubLabel, setEditTransportSubLabel] = useState('');
+  const [editCategory, setEditCategory] = useState("");
+  const [editSubcategory, setEditSubcategory] = useState("");
+  const [editTransportReportType, setEditTransportReportType] = useState("");
+  const [editTransportSubLabel, setEditTransportSubLabel] = useState("");
   const [savingCategory, setSavingCategory] = useState(false);
   const [publishingEvaluation, setPublishingEvaluation] = useState(false);
-  const [severityAuditLogs, setSeverityAuditLogs] = useState<{
-    id: string;
-    metric: string;
-    previous_value: string | null;
-    new_value: string;
-    justification: string;
-    created_at: string;
-  }[]>([]);
+  const [severityAuditLogs, setSeverityAuditLogs] = useState<
+    {
+      id: string;
+      metric: string;
+      previous_value: string | null;
+      new_value: string;
+      justification: string;
+      created_at: string;
+    }[]
+  >([]);
   const [loadingSeverityAudit, setLoadingSeverityAudit] = useState(false);
 
   const fetchSeverityAuditLog = useCallback(async () => {
-    if (!manifest || (manifest.type !== 'urban' && manifest.type !== 'transport')) return;
+    if (!manifest || (manifest.type !== "urban" && manifest.type !== "transport")) return;
     setLoadingSeverityAudit(true);
     try {
-      const col = manifest.type === 'urban' ? 'urban_report_id' : 'transport_report_id';
+      const col = manifest.type === "urban" ? "urban_report_id" : "transport_report_id";
       const { data, error } = await supabase
-        .from('report_severity_audit_log')
-        .select('id, metric, previous_value, new_value, justification, created_at')
+        .from("report_severity_audit_log")
+        .select("id, metric, previous_value, new_value, justification, created_at")
         .eq(col, manifest.id)
-        .order('created_at', { ascending: true });
+        .order("created_at", { ascending: true });
       if (error) throw error;
       setSeverityAuditLogs(data || []);
     } catch (e) {
-      console.error('Error fetching severity audit log:', e);
+      console.error("Error fetching severity audit log:", e);
       setSeverityAuditLogs([]);
     } finally {
       setLoadingSeverityAudit(false);
@@ -170,55 +218,57 @@ export const UnifiedReportDrawer = ({
     setLoadingResponses(true);
     try {
       const { data, error } = await supabase
-        .from('transport_report_responses')
-        .select('*')
-        .eq('report_id', manifest.id)
-        .order('created_at', { ascending: false });
+        .from("transport_report_responses")
+        .select("*")
+        .eq("report_id", manifest.id)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      const responderIds = [...new Set(data?.map(r => r.responder_id) || [])];
+      const responderIds = [...new Set(data?.map((r) => r.responder_id) || [])];
       const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', responderIds);
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", responderIds);
 
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profilesMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
-      setResponses((data || []).map(r => ({
-        ...r,
-        responder: profilesMap.get(r.responder_id) || null,
-      })));
+      setResponses(
+        (data || []).map((r) => ({
+          ...r,
+          responder: profilesMap.get(r.responder_id) || null,
+        })),
+      );
     } catch (error) {
-      console.error('Error fetching responses:', error);
+      console.error("Error fetching responses:", error);
     } finally {
       setLoadingResponses(false);
     }
   }, [manifest]);
 
   useEffect(() => {
-    if (open && manifest && manifest.type === 'transport') {
+    if (open && manifest && manifest.type === "transport") {
       fetchResponses();
     }
   }, [open, manifest, fetchResponses]);
 
   useEffect(() => {
-    if (open && manifest && (manifest.type === 'urban' || manifest.type === 'transport')) {
+    if (open && manifest && (manifest.type === "urban" || manifest.type === "transport")) {
       fetchSeverityAuditLog();
     }
   }, [open, manifest, fetchSeverityAuditLog]);
 
   useEffect(() => {
     if (open && manifest?.urban_data) {
-      setEditCategory(manifest.urban_data.category || '');
-      setEditSubcategory(manifest.urban_data.subcategory || '');
+      setEditCategory(manifest.urban_data.category || "");
+      setEditSubcategory(manifest.urban_data.subcategory || "");
     }
   }, [open, manifest?.id, manifest?.urban_data?.category, manifest?.urban_data?.subcategory]);
 
   useEffect(() => {
-    if (open && manifest?.type === 'transport' && manifest.transport_data) {
-      setEditTransportReportType(manifest.transport_data.report_type || '');
-      setEditTransportSubLabel('');
+    if (open && manifest?.type === "transport" && manifest.transport_data) {
+      setEditTransportReportType(manifest.transport_data.report_type || "");
+      setEditTransportSubLabel("");
     }
   }, [open, manifest?.id, manifest?.type, manifest?.transport_data?.report_type]);
 
@@ -226,35 +276,35 @@ export const UnifiedReportDrawer = ({
     if (!manifest || !newResponse.trim()) return;
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
 
-      const { error } = await supabase
-        .from('transport_report_responses')
-        .insert({
-          report_id: manifest.id,
-          responder_id: user.id,
-          response_text: newResponse,
-          response_type: 'answer',
-          is_public: true,
-        });
+      const { error } = await supabase.from("transport_report_responses").insert({
+        report_id: manifest.id,
+        responder_id: user.id,
+        response_text: newResponse,
+        response_type: "answer",
+        is_public: true,
+      });
 
       if (error) throw error;
 
       // Update responded_at
       if (!manifest.transport_data?.responded_at) {
         await supabase
-          .from('transport_reports')
+          .from("transport_reports")
           .update({ responded_at: new Date().toISOString() })
-          .eq('id', manifest.id);
+          .eq("id", manifest.id);
       }
 
-      toast.success('Resposta enviada');
-      setNewResponse('');
+      toast.success("Resposta enviada");
+      setNewResponse("");
       fetchResponses();
     } catch (error) {
-      console.error('Error submitting response:', error);
-      toast.error('Erro ao enviar resposta');
+      console.error("Error submitting response:", error);
+      toast.error("Erro ao enviar resposta");
     } finally {
       setSubmitting(false);
     }
@@ -266,23 +316,23 @@ export const UnifiedReportDrawer = ({
       for (const [i, url] of manifest.urban_data.photos.entries()) {
         const response = await fetch(url);
         const blob = await response.blob();
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         link.download = `foto-${i + 1}.jpg`;
         link.click();
       }
-      toast.success('Fotos baixadas');
+      toast.success("Fotos baixadas");
     } catch {
-      toast.error('Erro ao baixar fotos');
+      toast.error("Erro ao baixar fotos");
     }
   };
 
   if (!manifest) return null;
 
   const TypeIcon = typeConfig[manifest.type].icon;
-  const hasLocation = manifest.type === 'urban' && manifest.urban_data?.latitude;
-  const hasPhotos = manifest.type === 'urban' && manifest.urban_data?.photos?.length;
-  const hasResponses = manifest.type === 'transport';
+  const hasLocation = manifest.type === "urban" && manifest.urban_data?.latitude;
+  const hasPhotos = manifest.type === "urban" && manifest.urban_data?.photos?.length;
+  const hasResponses = manifest.type === "transport";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -359,153 +409,178 @@ export const UnifiedReportDrawer = ({
               {/* Description */}
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h4>
-                <p className="text-sm whitespace-pre-wrap">{manifest.description || 'Sem descrição'}</p>
+                <p className="text-sm whitespace-pre-wrap">
+                  {manifest.description || "Sem descrição"}
+                </p>
               </div>
 
               {/* Type-specific info */}
-              {(manifest.type === 'urban' || manifest.type === 'feedback') && manifest.urban_data && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Categoria</h4>
-                      <p className="text-sm">{manifest.urban_data.category}</p>
-                    </div>
-                    {manifest.urban_data.subcategory && (
+              {(manifest.type === "urban" || manifest.type === "feedback") &&
+                manifest.urban_data && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Subcategoria</h4>
-                        <p className="text-sm">{manifest.urban_data.subcategory}</p>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                          Categoria
+                        </h4>
+                        <p className="text-sm">{manifest.urban_data.category}</p>
+                      </div>
+                      {manifest.urban_data.subcategory && (
+                        <div>
+                          <h4 className="text-sm font-medium text-muted-foreground mb-1">
+                            Subcategoria
+                          </h4>
+                          <p className="text-sm">{manifest.urban_data.subcategory}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Correção de categoria (feedback loop IA) */}
+                    {onCategoryCorrected && (
+                      <div className="p-4 rounded-lg border border-dashed bg-muted/20">
+                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <Edit3 className="h-4 w-4" />
+                          Corrigir categoria (melhora a classificação da IA)
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Categoria</Label>
+                            <Select value={editCategory} onValueChange={setEditCategory}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ADMIN_CATEGORY_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Subcategoria (opcional)</Label>
+                            <Input
+                              className="h-9"
+                              value={editSubcategory}
+                              onChange={(e) => setEditSubcategory(e.target.value)}
+                              placeholder="Ex.: Poste apagado"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="mt-3"
+                          disabled={
+                            savingCategory ||
+                            (editCategory === (manifest.urban_data?.category ?? "") &&
+                              editSubcategory === (manifest.urban_data?.subcategory ?? ""))
+                          }
+                          onClick={async () => {
+                            setSavingCategory(true);
+                            try {
+                              await onCategoryCorrected(
+                                manifest,
+                                editCategory,
+                                editSubcategory.trim() || null,
+                              );
+                            } finally {
+                              setSavingCategory(false);
+                            }
+                          }}
+                        >
+                          {savingCategory ? "Salvando…" : "Salvar correção"}
+                        </Button>
                       </div>
                     )}
-                  </div>
 
-                  {/* Correção de categoria (feedback loop IA) */}
-                  {onCategoryCorrected && (
-                    <div className="p-4 rounded-lg border border-dashed bg-muted/20">
-                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                        <Edit3 className="h-4 w-4" />
-                        Corrigir categoria (melhora a classificação da IA)
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs">Categoria</Label>
-                          <Select
-                            value={editCategory}
-                            onValueChange={setEditCategory}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ADMIN_CATEGORY_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs">Subcategoria (opcional)</Label>
-                          <Input
-                            className="h-9"
-                            value={editSubcategory}
-                            onChange={(e) => setEditSubcategory(e.target.value)}
-                            placeholder="Ex.: Poste apagado"
-                          />
+                    {/* Structured Address Section */}
+                    {manifest.urban_data.street && (
+                      <div className="p-4 rounded-lg border bg-muted/30">
+                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <MapPin className="h-4 w-4" />
+                          Endereço Completo
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Logradouro</p>
+                            <p>
+                              {manifest.urban_data.street}
+                              {manifest.urban_data.street_number
+                                ? `, ${manifest.urban_data.street_number}`
+                                : ""}
+                            </p>
+                          </div>
+                          {manifest.urban_data.neighborhood && (
+                            <div>
+                              <p className="text-muted-foreground text-xs">Bairro</p>
+                              <p>{manifest.urban_data.neighborhood}</p>
+                            </div>
+                          )}
+                          {manifest.urban_data.cep && (
+                            <div>
+                              <p className="text-muted-foreground text-xs">CEP</p>
+                              <p className="font-mono">{manifest.urban_data.cep}</p>
+                            </div>
+                          )}
+                          {manifest.urban_data.reference_point && (
+                            <div className="col-span-2">
+                              <p className="text-muted-foreground text-xs">Ponto de Referência</p>
+                              <p>{manifest.urban_data.reference_point}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        className="mt-3"
-                        disabled={savingCategory || (editCategory === (manifest.urban_data?.category ?? '') && editSubcategory === (manifest.urban_data?.subcategory ?? ''))}
-                        onClick={async () => {
-                          setSavingCategory(true);
-                          try {
-                            await onCategoryCorrected(manifest, editCategory, editSubcategory.trim() || null);
-                          } finally {
-                            setSavingCategory(false);
-                          }
-                        }}
-                      >
-                        {savingCategory ? 'Salvando…' : 'Salvar correção'}
-                      </Button>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Structured Address Section */}
-                  {manifest.urban_data.street && (
-                    <div className="p-4 rounded-lg border bg-muted/30">
-                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Endereço Completo
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground text-xs">Logradouro</p>
-                          <p>{manifest.urban_data.street}{manifest.urban_data.street_number ? `, ${manifest.urban_data.street_number}` : ''}</p>
+                    {/* Impact Assessment Section */}
+                    {manifest.urban_data.risk_level && (
+                      <div className="p-4 rounded-lg border bg-muted/30">
+                        <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          Avaliação de Impacto
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Nível de Risco</p>
+                            <Badge
+                              variant="outline"
+                              className={
+                                riskLevelConfig[manifest.urban_data.risk_level]?.color || ""
+                              }
+                            >
+                              {riskLevelConfig[manifest.urban_data.risk_level]?.label ||
+                                manifest.urban_data.risk_level}
+                            </Badge>
+                          </div>
+                          {manifest.urban_data.affected_scope && (
+                            <div>
+                              <p className="text-muted-foreground text-xs">Escopo Afetado</p>
+                              <p>
+                                {affectedScopeLabels[manifest.urban_data.affected_scope] ||
+                                  manifest.urban_data.affected_scope}
+                              </p>
+                            </div>
+                          )}
+                          {manifest.urban_data.affected_estimate && (
+                            <div>
+                              <p className="text-muted-foreground text-xs">Pessoas Afetadas</p>
+                              <p>~{manifest.urban_data.affected_estimate}</p>
+                            </div>
+                          )}
+                          {manifest.urban_data.urgency_reason && (
+                            <div className="col-span-2">
+                              <p className="text-muted-foreground text-xs">Motivo da Urgência</p>
+                              <p>{manifest.urban_data.urgency_reason}</p>
+                            </div>
+                          )}
                         </div>
-                        {manifest.urban_data.neighborhood && (
-                          <div>
-                            <p className="text-muted-foreground text-xs">Bairro</p>
-                            <p>{manifest.urban_data.neighborhood}</p>
-                          </div>
-                        )}
-                        {manifest.urban_data.cep && (
-                          <div>
-                            <p className="text-muted-foreground text-xs">CEP</p>
-                            <p className="font-mono">{manifest.urban_data.cep}</p>
-                          </div>
-                        )}
-                        {manifest.urban_data.reference_point && (
-                          <div className="col-span-2">
-                            <p className="text-muted-foreground text-xs">Ponto de Referência</p>
-                            <p>{manifest.urban_data.reference_point}</p>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </>
+                )}
 
-                  {/* Impact Assessment Section */}
-                  {manifest.urban_data.risk_level && (
-                    <div className="p-4 rounded-lg border bg-muted/30">
-                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4" />
-                        Avaliação de Impacto
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground text-xs">Nível de Risco</p>
-                          <Badge variant="outline" className={riskLevelConfig[manifest.urban_data.risk_level]?.color || ''}>
-                            {riskLevelConfig[manifest.urban_data.risk_level]?.label || manifest.urban_data.risk_level}
-                          </Badge>
-                        </div>
-                        {manifest.urban_data.affected_scope && (
-                          <div>
-                            <p className="text-muted-foreground text-xs">Escopo Afetado</p>
-                            <p>{affectedScopeLabels[manifest.urban_data.affected_scope] || manifest.urban_data.affected_scope}</p>
-                          </div>
-                        )}
-                        {manifest.urban_data.affected_estimate && (
-                          <div>
-                            <p className="text-muted-foreground text-xs">Pessoas Afetadas</p>
-                            <p>~{manifest.urban_data.affected_estimate}</p>
-                          </div>
-                        )}
-                        {manifest.urban_data.urgency_reason && (
-                          <div className="col-span-2">
-                            <p className="text-muted-foreground text-xs">Motivo da Urgência</p>
-                            <p>{manifest.urban_data.urgency_reason}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                </>
-              )}
-
-              {manifest.type === 'transport' && manifest.transport_data && (
+              {manifest.type === "transport" && manifest.transport_data && (
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -517,7 +592,8 @@ export const UnifiedReportDrawer = ({
                         <Bus className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
                           Linha {manifest.transport_data.line_code}
-                          {manifest.transport_data.line_name && ` - ${manifest.transport_data.line_name}`}
+                          {manifest.transport_data.line_name &&
+                            ` - ${manifest.transport_data.line_name}`}
                         </span>
                       </div>
                     )}
@@ -551,12 +627,16 @@ export const UnifiedReportDrawer = ({
                         Corrigir tipo do relato (melhora a classificação da IA)
                       </h4>
                       <p className="text-xs text-muted-foreground mb-3">
-                        O tipo é salvo no relato e registrado para relatos futuros com descrição parecida.
+                        O tipo é salvo no relato e registrado para relatos futuros com descrição
+                        parecida.
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <Label className="text-xs">Tipo de problema</Label>
-                          <Select value={editTransportReportType} onValueChange={setEditTransportReportType}>
+                          <Select
+                            value={editTransportReportType}
+                            onValueChange={setEditTransportReportType}
+                          >
                             <SelectTrigger className="h-9">
                               <SelectValue placeholder="Selecione" />
                             </SelectTrigger>
@@ -584,7 +664,8 @@ export const UnifiedReportDrawer = ({
                         className="mt-3"
                         disabled={
                           savingCategory ||
-                          (editTransportReportType === (manifest.transport_data?.report_type ?? '') &&
+                          (editTransportReportType ===
+                            (manifest.transport_data?.report_type ?? "") &&
                             !editTransportSubLabel.trim())
                         }
                         onClick={async () => {
@@ -593,33 +674,37 @@ export const UnifiedReportDrawer = ({
                             await onCategoryCorrected(
                               manifest,
                               editTransportReportType,
-                              editTransportSubLabel.trim() || null
+                              editTransportSubLabel.trim() || null,
                             );
                           } finally {
                             setSavingCategory(false);
                           }
                         }}
                       >
-                        {savingCategory ? 'Salvando…' : 'Salvar correção'}
+                        {savingCategory ? "Salvando…" : "Salvar correção"}
                       </Button>
                     </div>
                   )}
                 </>
               )}
 
-              {manifest.type === 'evaluation' && manifest.evaluation_data && (
+              {manifest.type === "evaluation" && manifest.evaluation_data && (
                 <>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(manifest.evaluation_data.publication_status || 'published') === 'pending_review' && (
+                    {(manifest.evaluation_data.publication_status || "published") ===
+                      "pending_review" && (
                       <Badge className="bg-amber-500/15 text-amber-800 border-amber-500/30">
                         Comentário em revisão (não público)
                       </Badge>
                     )}
-                    {(manifest.evaluation_data.publication_status || 'published') === 'rejected' && (
-                      <Badge variant="destructive">Comentário não publicável</Badge>
-                    )}
-                    {(manifest.evaluation_data.publication_status || 'published') === 'published' && (
-                      <Badge variant="outline" className="text-green-700 border-green-600/30 bg-green-500/10">
+                    {(manifest.evaluation_data.publication_status || "published") ===
+                      "rejected" && <Badge variant="destructive">Comentário não publicável</Badge>}
+                    {(manifest.evaluation_data.publication_status || "published") ===
+                      "published" && (
+                      <Badge
+                        variant="outline"
+                        className="text-green-700 border-green-600/30 bg-green-500/10"
+                      >
                         Comentário publicado
                       </Badge>
                     )}
@@ -627,11 +712,14 @@ export const UnifiedReportDrawer = ({
                   <div className="p-4 rounded-lg border bg-muted/30">
                     <div className="flex items-center gap-2 mb-2">
                       <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
-                      <span className="text-2xl font-bold">{manifest.evaluation_data.rating_stars}</span>
+                      <span className="text-2xl font-bold">
+                        {manifest.evaluation_data.rating_stars}
+                      </span>
                       <span className="text-muted-foreground">/ 5 estrelas</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {manifest.evaluation_data.service_name} ({manifest.evaluation_data.service_type})
+                      {manifest.evaluation_data.service_name} (
+                      {manifest.evaluation_data.service_type})
                     </p>
                   </div>
                   {manifest.evaluation_data.sentiment && (
@@ -640,7 +728,7 @@ export const UnifiedReportDrawer = ({
                       <Badge variant="outline">{manifest.evaluation_data.sentiment}</Badge>
                     </div>
                   )}
-                  {manifest.evaluation_data.publication_status === 'pending_review' && (
+                  {manifest.evaluation_data.publication_status === "pending_review" && (
                     <Button
                       type="button"
                       variant="default"
@@ -649,15 +737,15 @@ export const UnifiedReportDrawer = ({
                       onClick={async () => {
                         setPublishingEvaluation(true);
                         const { error } = await supabase
-                          .from('service_ratings')
-                          .update({ publication_status: 'published' })
-                          .eq('id', manifest.id);
+                          .from("service_ratings")
+                          .update({ publication_status: "published" })
+                          .eq("id", manifest.id);
                         setPublishingEvaluation(false);
                         if (error) {
                           toast.error(error.message);
                           return;
                         }
-                        toast.success('Comentário aprovado e publicado.');
+                        toast.success("Comentário aprovado e publicado.");
                         onEvaluationModerated?.();
                       }}
                     >
@@ -668,7 +756,7 @@ export const UnifiedReportDrawer = ({
               )}
 
               {/* Histórico de ajustes de severidade (IA) */}
-              {(manifest.type === 'urban' || manifest.type === 'transport') && (
+              {(manifest.type === "urban" || manifest.type === "transport") && (
                 <div className="p-4 rounded-lg border bg-muted/30">
                   <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                     <History className="h-4 w-4" />
@@ -684,34 +772,43 @@ export const UnifiedReportDrawer = ({
                     <div className="space-y-3">
                       {severityAuditLogs.map((entry) => {
                         const metricLabels: Record<string, string> = {
-                          risk_level: 'Nível de risco',
-                          severity_proximity_adjustment: 'Ajuste por proximidade',
-                          severity: 'Severidade',
+                          risk_level: "Nível de risco",
+                          severity_proximity_adjustment: "Ajuste por proximidade",
+                          severity: "Severidade",
                         };
                         const label = metricLabels[entry.metric] || entry.metric;
                         const valueConfig =
-                          entry.metric === 'risk_level'
+                          entry.metric === "risk_level"
                             ? riskLevelConfig
-                            : entry.metric === 'severity' && manifest.type === 'transport'
+                            : entry.metric === "severity" && manifest.type === "transport"
                               ? transportSeverityConfig
                               : severityConfig;
-                        const prevLabel = entry.previous_value ? valueConfig[entry.previous_value]?.label || entry.previous_value : null;
+                        const prevLabel = entry.previous_value
+                          ? valueConfig[entry.previous_value]?.label || entry.previous_value
+                          : null;
                         const newLabel = valueConfig[entry.new_value]?.label || entry.new_value;
                         return (
-                          <div key={entry.id} className="text-sm border-l-2 border-muted-foreground/30 pl-3 py-1">
+                          <div
+                            key={entry.id}
+                            className="text-sm border-l-2 border-muted-foreground/30 pl-3 py-1"
+                          >
                             <p className="font-medium text-muted-foreground">{label}</p>
                             <p className="mt-0.5">
                               {prevLabel ? (
                                 <>
-                                  <span className="line-through text-muted-foreground">{prevLabel}</span>
-                                  {' → '}
+                                  <span className="line-through text-muted-foreground">
+                                    {prevLabel}
+                                  </span>
+                                  {" → "}
                                   <span className="font-medium">{newLabel}</span>
                                 </>
                               ) : (
                                 <span className="font-medium">{newLabel}</span>
                               )}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-1">{entry.justification}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {entry.justification}
+                            </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {formatDateTime(entry.created_at)}
                             </p>
@@ -729,7 +826,7 @@ export const UnifiedReportDrawer = ({
               <TabsContent value="location" className="mt-4 space-y-4">
                 <div className="flex items-start gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
-                  <p className="text-sm">{manifest.location || 'Endereço não informado'}</p>
+                  <p className="text-sm">{manifest.location || "Endereço não informado"}</p>
                 </div>
                 {manifest.urban_data?.latitude && manifest.urban_data?.longitude && (
                   <>
@@ -781,11 +878,7 @@ export const UnifiedReportDrawer = ({
                       rel="noopener noreferrer"
                       className="block rounded-lg overflow-hidden border hover:border-primary transition-colors"
                     >
-                      <img
-                        src={photo}
-                        alt={`Foto ${i + 1}`}
-                        className="w-full h-32 object-cover"
-                      />
+                      <img src={photo} alt={`Foto ${i + 1}`} className="w-full h-32 object-cover" />
                     </a>
                   ))}
                 </div>
@@ -831,10 +924,12 @@ export const UnifiedReportDrawer = ({
                           <Avatar className="h-6 w-6">
                             <AvatarImage src={response.responder?.avatar_url || undefined} />
                             <AvatarFallback className="text-xs">
-                              {response.responder?.full_name?.slice(0, 2).toUpperCase() || '??'}
+                              {response.responder?.full_name?.slice(0, 2).toUpperCase() || "??"}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm font-medium">{response.responder?.full_name || 'Admin'}</span>
+                          <span className="text-sm font-medium">
+                            {response.responder?.full_name || "Admin"}
+                          </span>
                           <span className="text-xs text-muted-foreground">
                             {formatCompactDateTime(response.created_at)}
                           </span>

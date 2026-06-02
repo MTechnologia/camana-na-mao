@@ -1,4 +1,8 @@
-import { bairroParaZona, ZONA_DESCONHECIDA, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
+import {
+  bairroParaZona,
+  ZONA_DESCONHECIDA,
+  type ZonaVolumeOuDesconhecida,
+} from "@/lib/regionMapping";
 
 /**
  * HU-3.5 — Biblioteca de dimensões analíticas para drill-across.
@@ -60,7 +64,8 @@ const NOT_INFORMED = "not_informed";
 function normalizeStatus(value: string | null): string {
   const s = (value ?? "").toLowerCase().trim();
   if (!s) return "Pendente";
-  if (s === "resolved" || s === "resolvido" || s === "concluido" || s === "concluído") return "Resolvido";
+  if (s === "resolved" || s === "resolvido" || s === "concluido" || s === "concluído")
+    return "Resolvido";
   if (s === "rejected" || s === "rejeitado") return "Rejeitado";
   if (s.includes("andamento") || s === "in_progress") return "Em andamento";
   if (s === "pending" || s.includes("pendente")) return "Pendente";
@@ -97,8 +102,18 @@ function ageToGroup(age: number | null): string {
 }
 
 const MONTH_LABELS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -139,14 +154,22 @@ const RACE_LABELS: Record<string, string> = {
 };
 
 const CLASS_LABELS: Record<string, string> = {
-  A: "Classe A", B: "Classe B", AB: "Classe AB",
-  C: "Classe C", D: "Classe D", E: "Classe E",
+  A: "Classe A",
+  B: "Classe B",
+  AB: "Classe AB",
+  C: "Classe C",
+  D: "Classe D",
+  E: "Classe E",
   [NOT_INFORMED]: "Não informado",
 };
 
 const AGE_LABELS: Record<string, string> = {
-  under_18: "Menos de 18", "18_24": "18-24", "25_34": "25-34",
-  "35_44": "35-44", "45_54": "45-54", "55_64": "55-64",
+  under_18: "Menos de 18",
+  "18_24": "18-24",
+  "25_34": "25-34",
+  "35_44": "35-44",
+  "45_54": "45-54",
+  "55_64": "55-64",
   "65_plus": "65 ou mais",
   [NOT_INFORMED]: "Não informado",
 };

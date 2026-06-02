@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 import {
   Area,
   Bar,
@@ -15,31 +15,31 @@ import {
   XAxis,
   YAxis,
   ZAxis,
-} from 'recharts';
-import { useAnalyticsChartData } from '@/hooks/useAnalyticsChartData';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+} from "recharts";
+import { useAnalyticsChartData } from "@/hooks/useAnalyticsChartData";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   CHART_COLORS,
   chartTooltipStyle,
   formatChartNumber,
-} from '@/components/admin/analytics/chartTheme';
-import { ParameterLegend } from '@/components/admin/analytics/ParameterLegend';
-import { PatternsByRegionList } from '@/components/admin/analytics/PatternsByRegionList';
-import { SentimentPolarityPiesGrid } from '@/components/admin/analytics/SentimentPolarityPiesGrid';
-import { SENTIMENT_POLARITY_PREPEND_SECTION } from '@/lib/analyticsParameterLegends';
-import { CHART_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
-import { buildAiInsightsFromStats } from '@/lib/reportsAnalyticsAggregates';
-import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
-import { useMemo } from 'react';
+} from "@/components/admin/analytics/chartTheme";
+import { ParameterLegend } from "@/components/admin/analytics/ParameterLegend";
+import { PatternsByRegionList } from "@/components/admin/analytics/PatternsByRegionList";
+import { SentimentPolarityPiesGrid } from "@/components/admin/analytics/SentimentPolarityPiesGrid";
+import { SENTIMENT_POLARITY_PREPEND_SECTION } from "@/lib/analyticsParameterLegends";
+import { CHART_PARAMETER_LEGENDS } from "@/lib/analyticsParameterLegends";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
+import { buildAiInsightsFromStats } from "@/lib/reportsAnalyticsAggregates";
+import { useUrbanReportsAnalyticsFilters } from "@/contexts/UrbanReportsAnalyticsFiltersContext";
+import { useMemo } from "react";
 
 function ChartCard({
   title,
   subtitle,
   legend,
   legendTitle,
-  legendVariant = 'collapsible',
+  legendVariant = "collapsible",
   showSentimentPolarity = false,
   children,
   className,
@@ -48,7 +48,7 @@ function ChartCard({
   subtitle?: string;
   legend?: ParameterLegendItem[];
   legendTitle?: string;
-  legendVariant?: 'collapsible' | 'always';
+  legendVariant?: "collapsible" | "always";
   /** Exibe positivo, neutro e negativo sempre visíveis (gráficos de sentimento). */
   showSentimentPolarity?: boolean;
   children: ReactNode;
@@ -66,7 +66,7 @@ function ChartCard({
           <ParameterLegend
             items={legend ?? []}
             prependSection={showSentimentPolarity ? SENTIMENT_POLARITY_PREPEND_SECTION : undefined}
-            title={legendTitle ?? 'Parâmetros'}
+            title={legendTitle ?? "Parâmetros"}
             variant={legendVariant}
             className="mt-3"
           />
@@ -81,7 +81,8 @@ function ChartHeight({ children }: { children: ReactNode }) {
 }
 
 export function VolumeTabPanel() {
-  const { volumeTimeSeries, volumeByCategory, statusBreakdown, isLoading } = useAnalyticsChartData();
+  const { volumeTimeSeries, volumeByCategory, statusBreakdown, isLoading } =
+    useAnalyticsChartData();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -97,38 +98,41 @@ export function VolumeTabPanel() {
               Sem relatos urbanos no período selecionado.
             </p>
           ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={volumeTimeSeries} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                interval={volumeTimeSeries.length > 14 ? 'preserveStartEnd' : 0}
-              />
-              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
-              <Tooltip contentStyle={chartTooltipStyle} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area
-                type="monotone"
-                dataKey="volume"
-                name="Novos relatos"
-                fill={CHART_COLORS[0]}
-                fillOpacity={0.15}
-                stroke={CHART_COLORS[0]}
-                strokeWidth={2}
-              />
-              <Line
-                type="monotone"
-                dataKey="resolved"
-                name="Resolvidos"
-                stroke={CHART_COLORS[4]}
-                strokeWidth={2}
-                dot={false}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart
+                data={volumeTimeSeries}
+                margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={volumeTimeSeries.length > 14 ? "preserveStartEnd" : 0}
+                />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Area
+                  type="monotone"
+                  dataKey="volume"
+                  name="Novos relatos"
+                  fill={CHART_COLORS[0]}
+                  fillOpacity={0.15}
+                  stroke={CHART_COLORS[0]}
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="resolved"
+                  name="Resolvidos"
+                  stroke={CHART_COLORS[4]}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
           )}
         </ChartHeight>
       </ChartCard>
@@ -146,7 +150,7 @@ export function VolumeTabPanel() {
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                formatter={(v) => [formatChartNumber(Number(v)), 'Relatos']}
+                formatter={(v) => [formatChartNumber(Number(v)), "Relatos"]}
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {volumeByCategory.map((entry, i) => (
@@ -185,14 +189,11 @@ export function VolumeTabPanel() {
               />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                formatter={(v) => [formatChartNumber(Number(v)), 'Quantidade']}
+                formatter={(v) => [formatChartNumber(Number(v)), "Quantidade"]}
               />
               <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                 {statusBreakdown.map((entry, i) => (
-                  <Cell
-                    key={entry.label ?? i}
-                    fill={CHART_COLORS[i % CHART_COLORS.length]}
-                  />
+                  <Cell key={entry.label ?? i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Bar>
             </BarChart>
@@ -254,40 +255,40 @@ export function PatternsTabPanel() {
         ...CHART_PARAMETER_LEGENDS.patternsByRegion,
       ]}
     >
-        {!isLoading && chartData.length > 0 ? (
-          <p className="mb-2 text-[11px] text-muted-foreground">
-            {chartData.length} tema(s) no ranking · {formatChartNumber(chartSum)} relato(s) somados
-            nos temas · {formatChartNumber(kpis.volume)} relato(s) no volume do recorte
+      {!isLoading && chartData.length > 0 ? (
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          {chartData.length} tema(s) no ranking · {formatChartNumber(chartSum)} relato(s) somados
+          nos temas · {formatChartNumber(kpis.volume)} relato(s) no volume do recorte
+        </p>
+      ) : null}
+      <ChartHeight>
+        {!isLoading && chartData.length === 0 ? (
+          <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Nenhum padrão ou categoria recorrente no recorte.
           </p>
-        ) : null}
-        <ChartHeight>
-          {!isLoading && chartData.length === 0 ? (
-            <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Nenhum padrão ou categoria recorrente no recorte.
-            </p>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={chartData}
-                margin={{ top: 8, right: 16, left: 4, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={140}
-                  tick={{ fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<PatternsChartTooltip />} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={CHART_COLORS[2]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </ChartHeight>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              layout="vertical"
+              data={chartData}
+              margin={{ top: 8, right: 16, left: 4, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={140}
+                tick={{ fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip content={<PatternsChartTooltip />} />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={CHART_COLORS[2]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </ChartHeight>
 
       <PatternsByRegionList
         items={patternsByRegion}
@@ -320,7 +321,12 @@ export function CorrelationTabPanel() {
                 tick={{ fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
-                label={{ value: 'Volume de relatos', position: 'insideBottom', offset: -4, fontSize: 11 }}
+                label={{
+                  value: "Volume de relatos",
+                  position: "insideBottom",
+                  offset: -4,
+                  fontSize: 11,
+                }}
               />
               <YAxis
                 type="number"
@@ -330,20 +336,25 @@ export function CorrelationTabPanel() {
                 tickLine={false}
                 axisLine={false}
                 unit=" h"
-                label={{ value: 'Tempo médio (h)', angle: -90, position: 'insideLeft', fontSize: 11 }}
+                label={{
+                  value: "Tempo médio (h)",
+                  angle: -90,
+                  position: "insideLeft",
+                  fontSize: 11,
+                }}
               />
               <ZAxis type="number" dataKey="sentimentPct" range={[80, 400]} />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                cursor={{ strokeDasharray: '3 3' }}
+                cursor={{ strokeDasharray: "3 3" }}
                 formatter={(value, name) => {
-                  if (name === 'responseHours') return [`${value} h`, 'Tempo médio'];
-                  if (name === 'sentimentPct') return [`${value}%`, 'Sentimento'];
-                  return [formatChartNumber(Number(value)), 'Volume'];
+                  if (name === "responseHours") return [`${value} h`, "Tempo médio"];
+                  if (name === "sentimentPct") return [`${value}%`, "Sentimento"];
+                  return [formatChartNumber(Number(value)), "Volume"];
                 }}
                 labelFormatter={(_, payload) => {
                   const row = payload?.[0]?.payload as { label?: string } | undefined;
-                  return row?.label ?? '';
+                  return row?.label ?? "";
                 }}
               />
               <Scatter data={correlationPoints} fill={CHART_COLORS[0]}>
@@ -358,10 +369,7 @@ export function CorrelationTabPanel() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {correlationPoints.map((p, i) => (
-          <div
-            key={p.id}
-            className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm"
-          >
+          <div key={p.id} className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm">
             <p className="font-medium text-foreground">{p.label}</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
               <div>
@@ -437,7 +445,7 @@ export function TerritoryTabPanel() {
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
               <Tooltip
                 contentStyle={chartTooltipStyle}
-                formatter={(v) => [formatChartNumber(Number(v)), 'Relatos']}
+                formatter={(v) => [formatChartNumber(Number(v)), "Relatos"]}
               />
               <Bar dataKey="volume" radius={[4, 4, 0, 0]}>
                 {territoryIntensity.map((entry, i) => (
@@ -453,9 +461,9 @@ export function TerritoryTabPanel() {
 }
 
 const AI_INSIGHT_KIND_LABELS: Record<string, string> = {
-  pattern: 'Padrão',
-  anomaly: 'Anomalia',
-  forecast: 'Tendência',
+  pattern: "Padrão",
+  anomaly: "Anomalia",
+  forecast: "Tendência",
 };
 
 export function AiInsightsPanel() {
@@ -469,15 +477,23 @@ export function AiInsightsPanel() {
       <ParameterLegend items={CHART_PARAMETER_LEGENDS.aiSummaryCards} />
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-primary/20 bg-accent p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Volume (recorte)</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{kpis.volume.toLocaleString('pt-BR')}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Volume (recorte)
+          </p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">
+            {kpis.volume.toLocaleString("pt-BR")}
+          </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Padrão em destaque</p>
-          <p className="mt-1 text-sm font-medium leading-snug">{top?.label ?? '—'}</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Padrão em destaque
+          </p>
+          <p className="mt-1 text-sm font-medium leading-snug">{top?.label ?? "—"}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Origem dos dados</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Origem dos dados
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
             urban_reports, report_patterns e RPC demografia
           </p>
@@ -504,15 +520,20 @@ export function AiInsightsPanel() {
               >
                 <strong className="text-foreground">
                   {AI_INSIGHT_KIND_LABELS[item.kind] ?? item.kind}:
-                </strong>{' '}
+                </strong>{" "}
                 {item.title}
                 <span className="mt-1 block text-xs text-muted-foreground">{item.detail}</span>
-                <span className="mt-0.5 block text-[10px] text-muted-foreground">Fonte: {item.source}</span>
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                  Fonte: {item.source}
+                </span>
               </li>
             ))}
           </ul>
         )}
-        <ParameterLegend items={CHART_PARAMETER_LEGENDS.aiInsights} className="mt-3 bg-background/50" />
+        <ParameterLegend
+          items={CHART_PARAMETER_LEGENDS.aiInsights}
+          className="mt-3 bg-background/50"
+        />
       </div>
     </div>
   );

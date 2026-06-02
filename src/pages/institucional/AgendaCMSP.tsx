@@ -91,15 +91,14 @@ const AgendaCMSP = () => {
     const startDate = new Date(`${item.eventDate}T${item.eventTime || "10:00"}:00`);
     const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
 
-    const formatGoogleDate = (d: Date) =>
-      d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const formatGoogleDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 
     const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-      item.title
+      item.title,
     )}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(
-      endDate
+      endDate,
     )}&location=${encodeURIComponent(item.location)}&details=${encodeURIComponent(
-      `Evento da Câmara Municipal de São Paulo\n\nLocal: ${item.location}\n\n${item.description}`
+      `Evento da Câmara Municipal de São Paulo\n\nLocal: ${item.location}\n\n${item.description}`,
     )}`;
 
     window.open(googleUrl, "_blank");
@@ -113,7 +112,8 @@ const AgendaCMSP = () => {
   const filteredAgenda = useMemo(() => {
     return agendaData.filter((item) => {
       // Search filter
-      const matchesSearch = searchQuery === "" || 
+      const matchesSearch =
+        searchQuery === "" ||
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -179,7 +179,8 @@ const AgendaCMSP = () => {
       });
   }, [filteredAgenda, today]);
 
-  const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0 || !!dateRange?.from || !!dateRange?.to;
+  const hasActiveFilters =
+    searchQuery !== "" || selectedTypes.length > 0 || !!dateRange?.from || !!dateRange?.to;
 
   // Use upcomingAgenda for the result count display
   const displayCount = upcomingAgenda.length;
@@ -215,7 +216,12 @@ const AgendaCMSP = () => {
       items: filteredAgenda,
       filters: {
         dateRange,
-        type: selectedTypes.length === 1 ? selectedTypes[0] : selectedTypes.length === 0 ? "all" : "multi",
+        type:
+          selectedTypes.length === 1
+            ? selectedTypes[0]
+            : selectedTypes.length === 0
+              ? "all"
+              : "multi",
         search: searchQuery || undefined,
       },
       filename: "agenda_cmsp.pdf",
@@ -223,18 +229,15 @@ const AgendaCMSP = () => {
   };
 
   return (
-    <InstitutionalLayout
-      title="Agenda CMSP"
-      category="Institucional"
-    >
+    <InstitutionalLayout title="Agenda CMSP" category="Institucional">
       <ContentArticle
         title="Agenda da Câmara Municipal"
         date="Atualizado automaticamente"
         readTime="Fonte: Portal da Câmara"
       >
         <p className="text-muted-foreground">
-          Acompanhe todas as atividades legislativas da Câmara Municipal de São Paulo.
-          Sessões plenárias, reuniões de comissões e audiências públicas.
+          Acompanhe todas as atividades legislativas da Câmara Municipal de São Paulo. Sessões
+          plenárias, reuniões de comissões e audiências públicas.
         </p>
 
         {/* Filters Section */}
@@ -258,7 +261,6 @@ const AgendaCMSP = () => {
                 maxYear={2030}
               />
             </div>
-
 
             <div className="flex flex-col gap-2 sm:flex-row lg:ml-auto">
               <Button onClick={applyFilters} className="h-11 rounded-xl px-8">
@@ -306,7 +308,7 @@ const AgendaCMSP = () => {
           {hasActiveFilters && (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="gap-1">
-                {upcomingAgenda.length} resultado{upcomingAgenda.length !== 1 ? 's' : ''}
+                {upcomingAgenda.length} resultado{upcomingAgenda.length !== 1 ? "s" : ""}
               </Badge>
               <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
                 <X className="h-3 w-3 mr-1" />
@@ -344,9 +346,7 @@ const AgendaCMSP = () => {
             {/* Error State */}
             {error && !isLoading && (
               <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">
-                  Não foi possível carregar a agenda
-                </p>
+                <p className="text-muted-foreground mb-4">Não foi possível carregar a agenda</p>
                 <Button variant="outline" onClick={() => refetch()}>
                   <Loader2 className="h-4 w-4 mr-2" />
                   Tentar novamente
@@ -371,12 +371,14 @@ const AgendaCMSP = () => {
             )}
 
             {/* Events List */}
-            {!isLoading && !error && upcomingAgenda.length > 0 && (
+            {!isLoading &&
+              !error &&
+              upcomingAgenda.length > 0 &&
               upcomingAgenda.map((item) => {
                 const typeConfig = getEventTypeConfig(item.eventType);
                 return (
-                  <Card 
-                    key={item.id} 
+                  <Card
+                    key={item.id}
                     onClick={() => setSelectedEvent(item)}
                     className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden"
                   >
@@ -384,18 +386,18 @@ const AgendaCMSP = () => {
                       {/* Image section - only show if imageUrl exists */}
                       {item.imageUrl && (
                         <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
-                          <img 
-                            src={item.imageUrl} 
+                          <img
+                            src={item.imageUrl}
                             alt={item.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               // Hide the image container if it fails to load
-                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                              (e.target as HTMLElement).parentElement!.style.display = "none";
                             }}
                           />
                         </div>
                       )}
-                      
+
                       {/* Content section */}
                       <div className="flex-1 p-4 space-y-3">
                         <Badge
@@ -404,9 +406,7 @@ const AgendaCMSP = () => {
                         >
                           {typeConfig.label}
                         </Badge>
-                        <h3 className="font-semibold text-foreground mb-2">
-                          {item.title}
-                        </h3>
+                        <h3 className="font-semibold text-foreground mb-2">{item.title}</h3>
 
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
@@ -426,7 +426,7 @@ const AgendaCMSP = () => {
                             <span>{item.location}</span>
                           </div>
 
-                          {item.organizer && item.organizer !== 'Câmara Municipal de São Paulo' && (
+                          {item.organizer && item.organizer !== "Câmara Municipal de São Paulo" && (
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Users className="h-4 w-4" />
                               <span>{item.organizer}</span>
@@ -437,8 +437,7 @@ const AgendaCMSP = () => {
                     </div>
                   </Card>
                 );
-              })
-            )}
+              })}
           </TabsContent>
 
           <TabsContent value="mes" className="space-y-4 mt-4">
@@ -461,36 +460,36 @@ const AgendaCMSP = () => {
             {/* Empty State */}
             {!isLoading && !error && thisMonthAgenda.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  Nenhum evento programado para este mês
-                </p>
+                <p className="text-muted-foreground">Nenhum evento programado para este mês</p>
               </div>
             )}
 
             {/* Events List */}
-            {!isLoading && !error && thisMonthAgenda.length > 0 && (
+            {!isLoading &&
+              !error &&
+              thisMonthAgenda.length > 0 &&
               thisMonthAgenda.map((item) => {
                 const typeConfig = getEventTypeConfig(item.eventType);
                 return (
-                  <Card 
-                    key={item.id} 
+                  <Card
+                    key={item.id}
                     onClick={() => setSelectedEvent(item)}
                     className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden"
                   >
                     <div className="flex">
                       {item.imageUrl && (
                         <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
-                          <img 
-                            src={item.imageUrl} 
+                          <img
+                            src={item.imageUrl}
                             alt={item.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                              (e.target as HTMLElement).parentElement!.style.display = "none";
                             }}
                           />
                         </div>
                       )}
-                      
+
                       <div className="flex-1 p-4 space-y-3">
                         <Badge
                           variant="outline"
@@ -498,9 +497,7 @@ const AgendaCMSP = () => {
                         >
                           {typeConfig.label}
                         </Badge>
-                        <h3 className="font-semibold text-foreground mb-2">
-                          {item.title}
-                        </h3>
+                        <h3 className="font-semibold text-foreground mb-2">{item.title}</h3>
 
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
@@ -524,8 +521,7 @@ const AgendaCMSP = () => {
                     </div>
                   </Card>
                 );
-              })
-            )}
+              })}
           </TabsContent>
 
           <TabsContent value="anteriores" className="space-y-4 mt-4">
@@ -562,29 +558,31 @@ const AgendaCMSP = () => {
             )}
 
             {/* Events List */}
-            {!isLoading && !error && pastAgenda.length > 0 && (
+            {!isLoading &&
+              !error &&
+              pastAgenda.length > 0 &&
               pastAgenda.map((item) => {
                 const typeConfig = getEventTypeConfig(item.eventType);
                 return (
-                  <Card 
-                    key={item.id} 
+                  <Card
+                    key={item.id}
                     onClick={() => setSelectedEvent(item)}
                     className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden opacity-80"
                   >
                     <div className="flex">
                       {item.imageUrl && (
                         <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
-                          <img 
-                            src={item.imageUrl} 
+                          <img
+                            src={item.imageUrl}
                             alt={item.title}
                             className="w-full h-full object-cover grayscale"
                             onError={(e) => {
-                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                              (e.target as HTMLElement).parentElement!.style.display = "none";
                             }}
                           />
                         </div>
                       )}
-                      
+
                       <div className="flex-1 p-4 space-y-3">
                         <Badge
                           variant="outline"
@@ -592,9 +590,7 @@ const AgendaCMSP = () => {
                         >
                           {typeConfig.label}
                         </Badge>
-                        <h3 className="font-semibold text-foreground mb-2">
-                          {item.title}
-                        </h3>
+                        <h3 className="font-semibold text-foreground mb-2">{item.title}</h3>
 
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
@@ -618,15 +614,20 @@ const AgendaCMSP = () => {
                     </div>
                   </Card>
                 );
-              })
-            )}
+              })}
           </TabsContent>
         </Tabs>
 
         <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-          <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
-          <p><strong>Atualização:</strong> Automática via API</p>
-          <p><strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.</p>
+          <p>
+            <strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo
+          </p>
+          <p>
+            <strong>Atualização:</strong> Automática via API
+          </p>
+          <p>
+            <strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.
+          </p>
         </div>
       </ContentArticle>
 
@@ -642,12 +643,8 @@ const AgendaCMSP = () => {
                 >
                   {getEventTypeConfig(selectedEvent.eventType).label}
                 </Badge>
-                <SheetTitle className="text-xl">
-                  {selectedEvent.title}
-                </SheetTitle>
-                <SheetDescription>
-                  Detalhes do evento da Câmara Municipal
-                </SheetDescription>
+                <SheetTitle className="text-xl">{selectedEvent.title}</SheetTitle>
+                <SheetDescription>Detalhes do evento da Câmara Municipal</SheetDescription>
               </SheetHeader>
 
               <Separator className="my-4" />
@@ -660,7 +657,9 @@ const AgendaCMSP = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Data</p>
                     <p className="font-medium capitalize">{formatDate(selectedEvent.eventDate)}</p>
-                    <p className="text-sm text-muted-foreground">{formatShortDate(selectedEvent.eventDate)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatShortDate(selectedEvent.eventDate)}
+                    </p>
                   </div>
                 </div>
 
@@ -707,10 +706,7 @@ const AgendaCMSP = () => {
               </div>
 
               <div className="flex gap-3 mt-6 pb-4">
-                <Button
-                  className="flex-1"
-                  onClick={() => handleAddToCalendar(selectedEvent)}
-                >
+                <Button className="flex-1" onClick={() => handleAddToCalendar(selectedEvent)}>
                   <CalendarPlus className="h-4 w-4 mr-2" />
                   Adicionar ao Calendário
                 </Button>

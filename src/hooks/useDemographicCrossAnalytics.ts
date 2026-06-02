@@ -81,7 +81,7 @@ const SOCIAL_CLASS_LABELS: Record<string, string> = {
 };
 
 const AGE_GROUP_LABELS: Record<string, string> = {
-  "under_18": "Menos de 18",
+  under_18: "Menos de 18",
   "18_24": "18-24",
   "25_34": "25-34",
   "35_44": "35-44",
@@ -99,7 +99,10 @@ function labelFor(axis: DemoAxis, value: string): string {
   return value;
 }
 
-const REPORT_TYPES: Array<{ category: ReportCategory; rpcType: "urban" | "transport" | "evaluation" }> = [
+const REPORT_TYPES: Array<{
+  category: ReportCategory;
+  rpcType: "urban" | "transport" | "evaluation";
+}> = [
   { category: "Urbano", rpcType: "urban" },
   { category: "Transporte", rpcType: "transport" },
   { category: "Avaliação", rpcType: "evaluation" },
@@ -130,9 +133,7 @@ export function useDemographicCrossAnalytics(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const startDateISO = options.startDate
-    ? new Date(options.startDate).toISOString()
-    : null;
+  const startDateISO = options.startDate ? new Date(options.startDate).toISOString() : null;
   const endDateISO = options.endDate ? new Date(options.endDate).toISOString() : null;
 
   const fetchMatrix = useCallback(async () => {
@@ -141,18 +142,15 @@ export function useDemographicCrossAnalytics(
     try {
       const responses = await Promise.all(
         REPORT_TYPES.map(async ({ category, rpcType }) => {
-          const { data, error: rpcError } = await supabase.rpc(
-            "get_reports_with_demographics",
-            {
-              p_gender: null,
-              p_race: null,
-              p_social_class: null,
-              p_age_group: null,
-              p_report_type: rpcType,
-              p_start_date: startDateISO,
-              p_end_date: endDateISO,
-            },
-          );
+          const { data, error: rpcError } = await supabase.rpc("get_reports_with_demographics", {
+            p_gender: null,
+            p_race: null,
+            p_social_class: null,
+            p_age_group: null,
+            p_report_type: rpcType,
+            p_start_date: startDateISO,
+            p_end_date: endDateISO,
+          });
           if (rpcError) throw rpcError;
           const rpc = (data ?? {}) as RpcResponse;
           return { category, demoMap: rpc.demographics?.[axis] ?? {}, total: rpc.total ?? 0 };

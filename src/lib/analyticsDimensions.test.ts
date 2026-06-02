@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { DIMENSIONS, DIMENSION_KEYS, __test__, type UnifiedReport } from "./analyticsDimensions";
 
-const { normalizeStatus, normalizeSeverity, normalizeSentiment, ageToGroup, NOT_INFORMED } = __test__;
+const { normalizeStatus, normalizeSeverity, normalizeSentiment, ageToGroup, NOT_INFORMED } =
+  __test__;
 
 function rep(overrides: Partial<UnifiedReport> = {}): UnifiedReport {
   return {
@@ -77,7 +78,9 @@ describe("DIMENSIONS — extratores", () => {
   });
 
   it("zone usa bairroParaZona", () => {
-    const z = DIMENSIONS.zone.extract(rep({ neighborhood: "Tatuapé", latitude: -23.54, longitude: -46.57 }));
+    const z = DIMENSIONS.zone.extract(
+      rep({ neighborhood: "Tatuapé", latitude: -23.54, longitude: -46.57 }),
+    );
     // qualquer string válida (depende do mapeamento real); só não pode ser vazia
     expect(typeof z).toBe("string");
     expect(z.length).toBeGreaterThan(0);
@@ -91,7 +94,9 @@ describe("DIMENSIONS — extratores", () => {
 
   it("time_weekday retorna nome do dia", () => {
     // 2026-04-15 é uma quarta-feira
-    expect(DIMENSIONS.time_weekday.extract(rep({ createdAt: "2026-04-15T13:00:00Z" }))).toBe("Quarta");
+    expect(DIMENSIONS.time_weekday.extract(rep({ createdAt: "2026-04-15T13:00:00Z" }))).toBe(
+      "Quarta",
+    );
   });
 
   it("time_hour retorna hora local 0-23", () => {

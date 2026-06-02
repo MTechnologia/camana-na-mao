@@ -34,7 +34,8 @@ export function useTransportSubscriptions() {
     setLoading(true);
     const { data, error } = await supabase
       .from("transport_subscriptions")
-      .select(`
+      .select(
+        `
         *,
         transport_lines (
           id,
@@ -42,7 +43,8 @@ export function useTransportSubscriptions() {
           line_name,
           line_type
         )
-      `)
+      `,
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -59,11 +61,7 @@ export function useTransportSubscriptions() {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
 
-  const toggleSubscription = async (
-    lineId: string,
-    active: boolean,
-    type: string = "alert",
-  ) => {
+  const toggleSubscription = async (lineId: string, active: boolean, type: string = "alert") => {
     if (!user?.id) return;
     if (!lineId?.trim()) {
       toast.error("Não foi possível identificar a linha para acompanhar.");
@@ -75,7 +73,7 @@ export function useTransportSubscriptions() {
         .from("transport_subscriptions")
         .upsert(
           { user_id: user.id, line_id: lineId, subscription_type: type },
-          { onConflict: 'user_id,line_id,subscription_type' }
+          { onConflict: "user_id,line_id,subscription_type" },
         );
 
       if (error) {

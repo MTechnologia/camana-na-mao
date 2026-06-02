@@ -9,14 +9,14 @@ afterEach(cleanup);
 describe("DataCollectionTracker", () => {
   it("não renderiza nada quando não há coleta ativa", () => {
     const { container } = render(
-      <DataCollectionTracker collectionType={null} collectedFields={{}} />
+      <DataCollectionTracker collectionType={null} collectedFields={{}} />,
     );
     expect(container.firstChild).toBeNull();
   });
 
   it("mostra 0% e o título da jornada para um relato urbano vazio (modo recolhido)", () => {
     const { getByTestId, container } = render(
-      <DataCollectionTracker collectionType="urban_report" collectedFields={{}} />
+      <DataCollectionTracker collectionType="urban_report" collectedFields={{}} />,
     );
     expect(getByTestId("tracker-collapsed")).toBeTruthy();
     expect(container.textContent).toContain("0%");
@@ -26,7 +26,7 @@ describe("DataCollectionTracker", () => {
   it("calcula o progresso a partir dos campos coletados (2 de 7 → 29%)", () => {
     const collected: CollectedFields = { service_type: "ubs", service_name: "UBS Vila X" };
     const { container } = render(
-      <DataCollectionTracker collectionType="service_rating" collectedFields={collected} />
+      <DataCollectionTracker collectionType="service_rating" collectedFields={collected} />,
     );
     expect(container.textContent).toContain("29%");
   });
@@ -37,7 +37,7 @@ describe("DataCollectionTracker", () => {
         collectionType="urban_report"
         collectedFields={{}}
         currentField="category"
-      />
+      />,
     );
     // dica do campo atual: "→ Categoria"
     expect(container.textContent).toContain("Categoria");
@@ -53,7 +53,7 @@ describe("DataCollectionTracker", () => {
       rating_text: "Atendimento ótimo",
     };
     const { container } = render(
-      <DataCollectionTracker collectionType="service_rating" collectedFields={collected} />
+      <DataCollectionTracker collectionType="service_rating" collectedFields={collected} />,
     );
     expect(container.textContent).toContain("Pronto");
   });
@@ -61,7 +61,7 @@ describe("DataCollectionTracker", () => {
   it("expande e mostra a contagem coletados/total e os indicadores de campo", () => {
     const collected: CollectedFields = { service_type: "ubs", service_name: "UBS Vila X" };
     const { getByTestId, queryByTestId, container } = render(
-      <DataCollectionTracker collectionType="service_rating" collectedFields={collected} />
+      <DataCollectionTracker collectionType="service_rating" collectedFields={collected} />,
     );
     expect(queryByTestId("tracker-expanded")).toBeNull();
     fireEvent.click(getByTestId("tracker-collapsed"));

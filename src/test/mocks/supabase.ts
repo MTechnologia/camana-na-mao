@@ -31,11 +31,34 @@ const DEFAULT_RESULT: QueryResult = { data: [], error: null };
  * Como a cadeia é thenable, dar `await` após QUALQUER um resolve para o result.
  */
 const CHAINABLE_METHODS = [
-  "select", "insert", "update", "upsert", "delete",
-  "eq", "neq", "gt", "gte", "lt", "lte",
-  "like", "ilike", "is", "in", "not", "or", "filter",
-  "match", "contains", "containedBy", "overlaps", "textSearch",
-  "order", "limit", "range", "returns", "abortSignal",
+  "select",
+  "insert",
+  "update",
+  "upsert",
+  "delete",
+  "eq",
+  "neq",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "like",
+  "ilike",
+  "is",
+  "in",
+  "not",
+  "or",
+  "filter",
+  "match",
+  "contains",
+  "containedBy",
+  "overlaps",
+  "textSearch",
+  "order",
+  "limit",
+  "range",
+  "returns",
+  "abortSignal",
 ] as const;
 
 /** Terminadores que resolvem direto para o result (não encadeiam). */
@@ -120,9 +143,7 @@ export function createSupabaseMock(options: SupabaseMockOptions = {}) {
     auth: {
       getUser: vi.fn(() => Promise.resolve({ data: { user }, error: null })),
       getSession: vi.fn(() => Promise.resolve({ data: { session }, error: null })),
-      signInWithPassword: vi.fn(() =>
-        Promise.resolve({ data: { user, session }, error: null }),
-      ),
+      signInWithPassword: vi.fn(() => Promise.resolve({ data: { user, session }, error: null })),
       signInWithOtp: vi.fn(() =>
         Promise.resolve({ data: { user: null, session: null }, error: null }),
       ),
@@ -140,9 +161,7 @@ export function createSupabaseMock(options: SupabaseMockOptions = {}) {
         download: vi.fn(() => Promise.resolve({ data: null, error: null })),
         remove: vi.fn(() => Promise.resolve({ data: [], error: null })),
         getPublicUrl: vi.fn(() => ({ data: { publicUrl: "" } })),
-        createSignedUrl: vi.fn(() =>
-          Promise.resolve({ data: { signedUrl: "" }, error: null }),
-        ),
+        createSignedUrl: vi.fn(() => Promise.resolve({ data: { signedUrl: "" }, error: null })),
         list: vi.fn(() => Promise.resolve({ data: [], error: null })),
       })),
     },

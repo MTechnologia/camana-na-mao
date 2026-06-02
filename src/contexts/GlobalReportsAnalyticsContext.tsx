@@ -1,17 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  type ReactNode,
-} from 'react';
-import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import {
-  useReportsAnalytics,
-  type ReportsAnalyticsStats,
-} from '@/hooks/useReportsAnalytics';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { useRegisterAnalyticsLive } from "@/hooks/useRegisterAnalyticsLive";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { globalFiltersToReportsAnalytics } from "@/lib/globalFiltersToAnalytics";
+import { useReportsAnalytics, type ReportsAnalyticsStats } from "@/hooks/useReportsAnalytics";
 
 export type GlobalReportsAnalyticsValue = {
   stats: ReportsAnalyticsStats | null;
@@ -21,8 +12,7 @@ export type GlobalReportsAnalyticsValue = {
   refresh: () => void;
 };
 
-const GlobalReportsAnalyticsContext =
-  createContext<GlobalReportsAnalyticsValue | null>(null);
+const GlobalReportsAnalyticsContext = createContext<GlobalReportsAnalyticsValue | null>(null);
 
 /** Uma única carga de analytics com filtros globais (evita N subscriptions). */
 export function GlobalReportsAnalyticsProvider({ children }: { children: ReactNode }) {
@@ -36,7 +26,7 @@ export function GlobalReportsAnalyticsProvider({ children }: { children: ReactNo
   );
   const { stats, isLoading, error, refresh, lastUpdate } = useReportsAnalytics(filters);
 
-  useRegisterAnalyticsLive('global-analytics', { lastUpdate, refresh });
+  useRegisterAnalyticsLive("global-analytics", { lastUpdate, refresh });
 
   const value = useMemo<GlobalReportsAnalyticsValue>(
     () => ({ stats, isLoading, error, lastUpdate, refresh }),
@@ -53,9 +43,7 @@ export function GlobalReportsAnalyticsProvider({ children }: { children: ReactNo
 export function useGlobalReportsAnalytics(): GlobalReportsAnalyticsValue {
   const ctx = useContext(GlobalReportsAnalyticsContext);
   if (!ctx) {
-    throw new Error(
-      'useGlobalReportsAnalytics must be used within GlobalReportsAnalyticsProvider',
-    );
+    throw new Error("useGlobalReportsAnalytics must be used within GlobalReportsAnalyticsProvider");
   }
   return ctx;
 }

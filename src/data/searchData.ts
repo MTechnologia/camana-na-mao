@@ -1,7 +1,14 @@
 // Interface unificada de resultado de busca
 export interface SearchResult {
   id: string;
-  type: 'servico' | 'transporte' | 'relato_urbano' | 'recomendacao' | 'noticia' | 'vereador' | 'audiencia';
+  type:
+    | "servico"
+    | "transporte"
+    | "relato_urbano"
+    | "recomendacao"
+    | "noticia"
+    | "vereador"
+    | "audiencia";
   title: string;
   description: string;
   icon: string;
@@ -27,8 +34,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 87,
       phone: "(11) 3106-0600",
       latitude: -23.5489,
-      longitude: -46.6358
-    }
+      longitude: -46.6358,
+    },
   },
   {
     id: "ama-se",
@@ -45,8 +52,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 134,
       phone: "(11) 3106-0700",
       latitude: -23.5495,
-      longitude: -46.6345
-    }
+      longitude: -46.6345,
+    },
   },
   {
     id: "escola-centro",
@@ -63,8 +70,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 156,
       phone: "(11) 3113-7800",
       latitude: -23.5521,
-      longitude: -46.6301
-    }
+      longitude: -46.6301,
+    },
   },
   {
     id: "ubs-1",
@@ -81,8 +88,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 156,
       phone: "(11) 5549-1234",
       latitude: -23.5876,
-      longitude: -46.6385
-    }
+      longitude: -46.6385,
+    },
   },
   {
     id: "ubs-2",
@@ -99,8 +106,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 89,
       phone: "(11) 5831-7890",
       latitude: -23.6542,
-      longitude: -46.7456
-    }
+      longitude: -46.7456,
+    },
   },
   {
     id: "escola-1",
@@ -117,8 +124,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 203,
       phone: "(11) 5574-3456",
       latitude: -23.5812,
-      longitude: -46.6421
-    }
+      longitude: -46.6421,
+    },
   },
   {
     id: "escola-2",
@@ -135,8 +142,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 312,
       phone: "(11) 2723-4567",
       latitude: -23.5456,
-      longitude: -46.5089
-    }
+      longitude: -46.5089,
+    },
   },
   {
     id: "escola-3",
@@ -153,8 +160,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 145,
       phone: "(11) 3832-5678",
       latitude: -23.5123,
-      longitude: -46.7012
-    }
+      longitude: -46.7012,
+    },
   },
   {
     id: "hospital-1",
@@ -171,8 +178,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 178,
       phone: "(11) 5084-5678",
       latitude: -23.5891,
-      longitude: -46.6352
-    }
+      longitude: -46.6352,
+    },
   },
   {
     id: "hospital-2",
@@ -189,8 +196,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 267,
       phone: "(11) 2297-6789",
       latitude: -23.4923,
-      longitude: -46.4512
-    }
+      longitude: -46.4512,
+    },
   },
   {
     id: "ubs-3",
@@ -207,8 +214,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 98,
       phone: "(11) 5666-8901",
       latitude: -23.6012,
-      longitude: -46.6789
-    }
+      longitude: -46.6789,
+    },
   },
   {
     id: "cras-1",
@@ -225,8 +232,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 134,
       phone: "(11) 2557-8901",
       latitude: -23.4856,
-      longitude: -46.4389
-    }
+      longitude: -46.4389,
+    },
   },
   {
     id: "ubs-4",
@@ -243,8 +250,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 221,
       phone: "(11) 5819-0123",
       latitude: -23.6698,
-      longitude: -46.7812
-    }
+      longitude: -46.7812,
+    },
   },
   {
     id: "biblioteca-1",
@@ -261,8 +268,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 412,
       phone: "(11) 3775-0002",
       latitude: -23.5464,
-      longitude: -46.6450
-    }
+      longitude: -46.645,
+    },
   },
   {
     id: "biblioteca-2",
@@ -279,8 +286,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 289,
       phone: "(11) 3024-2500",
       latitude: -23.5456,
-      longitude: -46.7189
-    }
+      longitude: -46.7189,
+    },
   },
   {
     id: "esporte-1",
@@ -297,8 +304,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 178,
       phone: "(11) 2295-3344",
       latitude: -23.5389,
-      longitude: -46.5678
-    }
+      longitude: -46.5678,
+    },
   },
   {
     id: "esporte-2",
@@ -315,8 +322,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 234,
       phone: "(11) 5574-8139",
       latitude: -23.5875,
-      longitude: -46.6572
-    }
+      longitude: -46.6572,
+    },
   },
   {
     id: "ceu-2",
@@ -333,8 +340,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 198,
       phone: "(11) 3768-5601",
       latitude: -23.5734,
-      longitude: -46.7289
-    }
+      longitude: -46.7289,
+    },
   },
   // === NOVOS SERVIÇOS PRÓXIMOS AO CENTRO (Praça da Sé) ===
   // UBS - Unidades Básicas de Saúde
@@ -353,8 +360,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 142,
       phone: "(11) 3221-1234",
       latitude: -23.5415,
-      longitude: -46.6458
-    }
+      longitude: -46.6458,
+    },
   },
   {
     id: "ubs-bom-retiro",
@@ -371,8 +378,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 98,
       phone: "(11) 3311-5678",
       latitude: -23.5285,
-      longitude: -46.6378
-    }
+      longitude: -46.6378,
+    },
   },
   {
     id: "ubs-bela-vista",
@@ -389,8 +396,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 167,
       phone: "(11) 3105-4321",
       latitude: -23.5598,
-      longitude: -46.6452
-    }
+      longitude: -46.6452,
+    },
   },
   {
     id: "ubs-bras",
@@ -407,8 +414,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 112,
       phone: "(11) 3315-8765",
       latitude: -23.5445,
-      longitude: -46.6098
-    }
+      longitude: -46.6098,
+    },
   },
   {
     id: "ubs-liberdade",
@@ -425,8 +432,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 189,
       phone: "(11) 3208-9012",
       latitude: -23.5589,
-      longitude: -46.6345
-    }
+      longitude: -46.6345,
+    },
   },
   // Escolas - EMEFs
   {
@@ -444,8 +451,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 234,
       phone: "(11) 3104-5678",
       latitude: -23.5505,
-      longitude: -46.6338
-    }
+      longitude: -46.6338,
+    },
   },
   {
     id: "emef-duque-caxias",
@@ -462,8 +469,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 178,
       phone: "(11) 3209-1234",
       latitude: -23.5612,
-      longitude: -46.6289
-    }
+      longitude: -46.6289,
+    },
   },
   {
     id: "emef-padre-anchieta",
@@ -480,8 +487,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 156,
       phone: "(11) 3207-5678",
       latitude: -23.5578,
-      longitude: -46.6298
-    }
+      longitude: -46.6298,
+    },
   },
   {
     id: "emef-republica-paraguai",
@@ -498,8 +505,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 145,
       phone: "(11) 3223-9012",
       latitude: -23.5356,
-      longitude: -46.6545
-    }
+      longitude: -46.6545,
+    },
   },
   // CEUs - Centros Educacionais Unificados
   {
@@ -517,8 +524,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 267,
       phone: "(11) 2063-1234",
       latitude: -23.5812,
-      longitude: -46.6078
-    }
+      longitude: -46.6078,
+    },
   },
   {
     id: "ceu-consolacao",
@@ -535,8 +542,8 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 312,
       phone: "(11) 3256-5678",
       latitude: -23.5512,
-      longitude: -46.6567
-    }
+      longitude: -46.6567,
+    },
   },
   {
     id: "ceu-pari",
@@ -553,9 +560,9 @@ export const servicosProximos: SearchResult[] = [
       totalRatings: 198,
       phone: "(11) 3315-9012",
       latitude: -23.5234,
-      longitude: -46.6189
-    }
-  }
+      longitude: -46.6189,
+    },
+  },
 ];
 
 // Linhas de Transporte
@@ -572,8 +579,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "bus",
       lineCode: "8500-10",
       regions: ["Zona Leste"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "linha-2",
@@ -587,8 +594,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "bus",
       lineCode: "675T-10",
       regions: ["Zona Sul"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "metro-1",
@@ -602,8 +609,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "metro",
       lineCode: "Linha 1",
       regions: ["Zona Sul", "Centro", "Zona Norte"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "metro-2",
@@ -617,8 +624,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "metro",
       lineCode: "Linha 3",
       regions: ["Zona Oeste", "Centro", "Zona Leste"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "linha-3",
@@ -632,8 +639,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "bus",
       lineCode: "5300-10",
       regions: ["Zona Oeste"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "linha-4",
@@ -647,8 +654,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "bus",
       lineCode: "7000-10",
       regions: ["Zona Oeste", "Centro"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "linha-5",
@@ -662,8 +669,8 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "bus",
       lineCode: "6400-10",
       regions: ["Zona Sul"],
-      status: "operando"
-    }
+      status: "operando",
+    },
   },
   {
     id: "corredor-1",
@@ -677,9 +684,9 @@ export const linhasTransporte: SearchResult[] = [
       lineType: "corridor",
       lineCode: "ABD",
       regions: ["Zona Leste", "Centro"],
-      status: "operando"
-    }
-  }
+      status: "operando",
+    },
+  },
 ];
 
 // Relatos Urbanos
@@ -696,8 +703,8 @@ export const relatosUrbanos: SearchResult[] = [
       status: "pending",
       severity: "medium",
       district: "Bela Vista",
-      createdAt: "2025-11-25"
-    }
+      createdAt: "2025-11-25",
+    },
   },
   {
     id: "relato-2",
@@ -711,8 +718,8 @@ export const relatosUrbanos: SearchResult[] = [
       status: "pending",
       severity: "high",
       district: "Consolação",
-      createdAt: "2025-11-24"
-    }
+      createdAt: "2025-11-24",
+    },
   },
   {
     id: "relato-3",
@@ -726,8 +733,8 @@ export const relatosUrbanos: SearchResult[] = [
       status: "pending",
       severity: "medium",
       district: "Mooca",
-      createdAt: "2025-11-23"
-    }
+      createdAt: "2025-11-23",
+    },
   },
   {
     id: "relato-4",
@@ -741,8 +748,8 @@ export const relatosUrbanos: SearchResult[] = [
       status: "pending",
       severity: "high",
       district: "Vila Mariana",
-      createdAt: "2025-11-22"
-    }
+      createdAt: "2025-11-22",
+    },
   },
   {
     id: "relato-5",
@@ -756,8 +763,8 @@ export const relatosUrbanos: SearchResult[] = [
       status: "pending",
       severity: "high",
       district: "Pinheiros",
-      createdAt: "2025-11-21"
-    }
+      createdAt: "2025-11-21",
+    },
   },
   {
     id: "relato-6",
@@ -771,9 +778,9 @@ export const relatosUrbanos: SearchResult[] = [
       status: "pending",
       severity: "low",
       district: "Sé",
-      createdAt: "2025-11-20"
-    }
-  }
+      createdAt: "2025-11-20",
+    },
+  },
 ];
 
 // Recomendações
@@ -788,8 +795,8 @@ export const recomendacoes: SearchResult[] = [
     path: "/servicos/ubs-1",
     metadata: {
       confidence: 92,
-      reason: "Mais próxima do seu endereço com ótima avaliação"
-    }
+      reason: "Mais próxima do seu endereço com ótima avaliação",
+    },
   },
   {
     id: "rec-2",
@@ -801,8 +808,8 @@ export const recomendacoes: SearchResult[] = [
     path: "/audiencias",
     metadata: {
       confidence: 85,
-      reason: "Você demonstrou interesse em temas de transporte"
-    }
+      reason: "Você demonstrou interesse em temas de transporte",
+    },
   },
   {
     id: "rec-3",
@@ -814,8 +821,8 @@ export const recomendacoes: SearchResult[] = [
     path: "/transporte/linha-1",
     metadata: {
       confidence: 78,
-      reason: "Linha mais consultada nos últimos 30 dias"
-    }
+      reason: "Linha mais consultada nos últimos 30 dias",
+    },
   },
   {
     id: "rec-4",
@@ -827,8 +834,8 @@ export const recomendacoes: SearchResult[] = [
     path: "/servicos/escola-2",
     metadata: {
       confidence: 88,
-      reason: "Alta avaliação e oferece atividades do seu interesse"
-    }
+      reason: "Alta avaliação e oferece atividades do seu interesse",
+    },
   },
   {
     id: "rec-5",
@@ -840,57 +847,57 @@ export const recomendacoes: SearchResult[] = [
     path: "/notificacoes",
     metadata: {
       confidence: 70,
-      reason: "Receba atualizações sobre serviços próximos"
-    }
-  }
+      reason: "Receba atualizações sobre serviços próximos",
+    },
+  },
 ];
 
 // Função auxiliar para buscar em uma lista
 export const searchInList = (list: SearchResult[], query: string): SearchResult[] => {
-  if (!query || query.trim() === '') return [];
-  
+  if (!query || query.trim() === "") return [];
+
   const lowerQuery = query.toLowerCase().trim();
-  
-  return list.filter(item => {
+
+  return list.filter((item) => {
     const titleMatch = item.title.toLowerCase().includes(lowerQuery);
     const descriptionMatch = item.description.toLowerCase().includes(lowerQuery);
     const categoryMatch = item.category.toLowerCase().includes(lowerQuery);
-    
+
     return titleMatch || descriptionMatch || categoryMatch;
   });
 };
 
 // Função para buscar em todas as categorias
 export const searchAll = (query: string): SearchResult[] => {
-  if (!query || query.trim() === '') return [];
-  
+  if (!query || query.trim() === "") return [];
+
   return [
     ...searchInList(servicosProximos, query),
     ...searchInList(linhasTransporte, query),
     ...searchInList(relatosUrbanos, query),
-    ...searchInList(recomendacoes, query)
+    ...searchInList(recomendacoes, query),
   ];
 };
 
 // Categorias de filtro
 export const filterCategories = [
-  { id: 'all', label: 'Todos', icon: '🔍' },
-  { id: 'servico', label: 'Perto de Mim', icon: '📍' },
-  { id: 'transporte', label: 'Transporte', icon: '🚌' },
-  { id: 'relato_urbano', label: 'Relatos', icon: '📝' },
-  { id: 'recomendacao', label: 'Recomendações', icon: '⭐' },
-  { id: 'noticia', label: 'Notícias', icon: '📰' },
-  { id: 'vereador', label: 'Vereadores', icon: '👤' },
-  { id: 'audiencia', label: 'Audiências', icon: '🎙️' },
+  { id: "all", label: "Todos", icon: "🔍" },
+  { id: "servico", label: "Perto de Mim", icon: "📍" },
+  { id: "transporte", label: "Transporte", icon: "🚌" },
+  { id: "relato_urbano", label: "Relatos", icon: "📝" },
+  { id: "recomendacao", label: "Recomendações", icon: "⭐" },
+  { id: "noticia", label: "Notícias", icon: "📰" },
+  { id: "vereador", label: "Vereadores", icon: "👤" },
+  { id: "audiencia", label: "Audiências", icon: "🎙️" },
 ];
 
 // Mapa de labels para tipos
 export const typeLabels: Record<string, string> = {
-  servico: 'Serviços Públicos',
-  transporte: 'Transporte',
-  relato_urbano: 'Relatos Urbanos',
-  recomendacao: 'Recomendações',
-  noticia: 'Notícias',
-  vereador: 'Vereadores',
-  audiencia: 'Audiências'
+  servico: "Serviços Públicos",
+  transporte: "Transporte",
+  relato_urbano: "Relatos Urbanos",
+  recomendacao: "Recomendações",
+  noticia: "Notícias",
+  vereador: "Vereadores",
+  audiencia: "Audiências",
 };

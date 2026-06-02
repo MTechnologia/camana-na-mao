@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
+import { describe, expect, it } from "vitest";
+import type { ReportsAnalyticsStats } from "@/hooks/useReportsAnalytics";
 import {
   buildCategoryDistributionFromTerritoryRows,
   buildMetricTrendsFromStats,
@@ -7,8 +7,8 @@ import {
   countRecurringThemesFromCategories,
   patternRankFromAlerts,
   patternsFromCategories,
-} from '@/lib/reportsAnalyticsAggregates';
-import type { TerritoryGeoRow } from '@/lib/reportsAnalyticsAggregates';
+} from "@/lib/reportsAnalyticsAggregates";
+import type { TerritoryGeoRow } from "@/lib/reportsAnalyticsAggregates";
 
 function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnalyticsStats {
   return {
@@ -24,10 +24,10 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
     criticalTrend: 0,
     pendingTrend: 0,
     timeline: [
-      { date: '2026-05-01', urban: 2, transport: 0, evaluation: 0, total: 2, resolved: 1 },
-      { date: '2026-05-02', urban: 3, transport: 1, evaluation: 0, total: 4, resolved: 2 },
+      { date: "2026-05-01", urban: 2, transport: 0, evaluation: 0, total: 2, resolved: 1 },
+      { date: "2026-05-02", urban: 3, transport: 1, evaluation: 0, total: 4, resolved: 2 },
     ],
-    byStatus: [{ status: 'Pendente', count: 3, color: '' }],
+    byStatus: [{ status: "Pendente", count: 3, color: "" }],
     categories: [],
     volumeByZone: [],
     demographics: {
@@ -35,7 +35,7 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
       byRace: [],
       bySocialClass: [],
       byAgeGroup: [],
-      byRegion: [{ region: 'Sé', count: 5, sentiment: 60 }],
+      byRegion: [{ region: "Sé", count: 5, sentiment: 60 }],
     },
     engagement: {
       totalLikes: 0,
@@ -50,7 +50,7 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
     criticality: {
       criticalScore: 0,
       bySeverity: [],
-      patterns: [{ id: 'p1', type: 'frequency', severity: 'info', title: 'A', description: 'd' }],
+      patterns: [{ id: "p1", type: "frequency", severity: "info", title: "A", description: "d" }],
       criticalPendingReports: [],
     },
     territoryPatterns: [],
@@ -61,8 +61,8 @@ function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnaly
   };
 }
 
-describe('buildMetricTrendsFromStats', () => {
-  it('gera um ponto por dia na timeline com os quatro indicadores', () => {
+describe("buildMetricTrendsFromStats", () => {
+  it("gera um ponto por dia na timeline com os quatro indicadores", () => {
     const series = buildMetricTrendsFromStats(mockStats());
     expect(series).toHaveLength(2);
     expect(series[0]).toMatchObject({
@@ -70,10 +70,10 @@ describe('buildMetricTrendsFromStats', () => {
       sentiment: 60,
       patterns: 1,
     });
-    expect(series[0].response).toBeTypeOf('number');
+    expect(series[0].response).toBeTypeOf("number");
   });
 
-  it('fallback com um ponto quando não há timeline mas há total', () => {
+  it("fallback com um ponto quando não há timeline mas há total", () => {
     const series = buildMetricTrendsFromStats(
       mockStats({ timeline: [], total: 7, urban: 7, transport: 0 }),
     );
@@ -82,73 +82,75 @@ describe('buildMetricTrendsFromStats', () => {
   });
 });
 
-describe('patterns analytics helpers', () => {
-  it('patternsFromCategories usa rótulos legíveis', () => {
+describe("patterns analytics helpers", () => {
+  it("patternsFromCategories usa rótulos legíveis", () => {
     const alerts = patternsFromCategories([
-      { category: 'via_publica', count: 5 },
-      { category: 'atraso', count: 3 },
+      { category: "via_publica", count: 5 },
+      { category: "atraso", count: 3 },
     ]);
-    expect(alerts[0].title).toBe('Via pública');
-    expect(alerts[1].title).toBe('Atraso');
+    expect(alerts[0].title).toBe("Via pública");
+    expect(alerts[1].title).toBe("Atraso");
   });
 
-  it('patternRankFromAlerts agrega rótulos duplicados', () => {
+  it("patternRankFromAlerts agrega rótulos duplicados", () => {
     const rows = patternRankFromAlerts([
       {
-        id: '1',
-        type: 'frequency',
-        severity: 'info',
-        title: 'atraso',
-        description: 'a',
-        suggestedAction: '',
+        id: "1",
+        type: "frequency",
+        severity: "info",
+        title: "atraso",
+        description: "a",
+        suggestedAction: "",
         count: 4,
       },
       {
-        id: '2',
-        type: 'frequency',
-        severity: 'info',
-        title: 'atraso',
-        description: 'b',
-        suggestedAction: '',
+        id: "2",
+        type: "frequency",
+        severity: "info",
+        title: "atraso",
+        description: "b",
+        suggestedAction: "",
         count: 6,
       },
     ]);
     expect(rows).toHaveLength(1);
-    expect(rows[0].label).toBe('Atraso');
+    expect(rows[0].label).toBe("Atraso");
     expect(rows[0].count).toBe(10);
   });
 
-  it('countRecurringThemesFromCategories exige repetição mínima', () => {
+  it("countRecurringThemesFromCategories exige repetição mínima", () => {
     expect(
       countRecurringThemesFromCategories([
-        { category: 'a', count: 5 },
-        { category: 'b', count: 1 },
-        { category: 'c', count: 2 },
+        { category: "a", count: 5 },
+        { category: "b", count: 1 },
+        { category: "c", count: 2 },
       ]),
     ).toBe(2);
   });
 
-  it('buildCategoryDistributionFromTerritoryRows reflete apenas o recorte', () => {
+  it("buildCategoryDistributionFromTerritoryRows reflete apenas o recorte", () => {
     const dist = buildCategoryDistributionFromTerritoryRows([
-      { neighborhood: 'Sé', source: 'urbano', category: 'lixo' },
-      { neighborhood: 'Sé', source: 'urbano', category: 'lixo' },
-      { neighborhood: 'Sé', source: 'transporte', category: 'atraso' },
+      { neighborhood: "Sé", source: "urbano", category: "lixo" },
+      { neighborhood: "Sé", source: "urbano", category: "lixo" },
+      { neighborhood: "Sé", source: "transporte", category: "atraso" },
     ]);
     expect(dist).toHaveLength(2);
-    expect(dist[0]).toEqual({ category: 'lixo', count: 2 });
+    expect(dist[0]).toEqual({ category: "lixo", count: 2 });
   });
 
-  it('buildTerritoryPatternSummaries agrupa por bairro e tema', () => {
+  it("buildTerritoryPatternSummaries agrupa por bairro e tema", () => {
     const rows: TerritoryGeoRow[] = [
-      { neighborhood: 'Sé', source: 'urbano', category: 'via_publica' },
-      { neighborhood: 'Sé', source: 'urbano', category: 'via_publica' },
-      { neighborhood: 'Sé', source: 'urbano', category: 'lixo' },
-      { neighborhood: 'Pinheiros', source: 'urbano', category: 'lixo' },
+      { neighborhood: "Sé", source: "urbano", category: "via_publica" },
+      { neighborhood: "Sé", source: "urbano", category: "via_publica" },
+      { neighborhood: "Sé", source: "urbano", category: "lixo" },
+      { neighborhood: "Pinheiros", source: "urbano", category: "lixo" },
     ];
     const summaries = buildTerritoryPatternSummaries(rows);
-    const se = summaries.find((s) => s.regionLabel === 'Sé');
-    expect(se?.primaryPattern).toBe('Via pública');
+    const se = summaries.find((s) => s.regionLabel === "Sé");
+    expect(se?.primaryPattern).toBe("Via pública");
     expect(se?.count).toBe(2);
-    expect(summaries.find((s) => s.regionLabel === 'Pinheiros')?.primaryPattern).toBe('Lixo e limpeza');
+    expect(summaries.find((s) => s.regionLabel === "Pinheiros")?.primaryPattern).toBe(
+      "Lixo e limpeza",
+    );
   });
 });

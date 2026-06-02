@@ -1,15 +1,12 @@
-import {
-  WIDGET_THEMES_BY_ID,
-  type WidgetThemeId,
-} from '@/lib/widgetThemes';
+import { WIDGET_THEMES_BY_ID, type WidgetThemeId } from "@/lib/widgetThemes";
 
 /** Valores do select em `GlobalFiltersBar` → tema de widget com listas de categorias reais. */
 const FILTER_VALUE_TO_THEME: Record<string, WidgetThemeId> = {
-  mobilidade: 'transporte',
-  saude: 'saude',
-  cultura: 'cultura_lazer',
-  urbanismo: 'infraestrutura',
-  seguranca: 'seguranca',
+  mobilidade: "transporte",
+  saude: "saude",
+  cultura: "cultura_lazer",
+  urbanismo: "infraestrutura",
+  seguranca: "seguranca",
 };
 
 export type GlobalCategoryFilterSlice = {
@@ -19,8 +16,10 @@ export type GlobalCategoryFilterSlice = {
   publicServiceTypes: string[];
 };
 
-export function resolveGlobalCategoryFilter(category: string | undefined): GlobalCategoryFilterSlice {
-  if (!category || category === 'all') {
+export function resolveGlobalCategoryFilter(
+  category: string | undefined,
+): GlobalCategoryFilterSlice {
+  if (!category || category === "all") {
     return {
       isAll: true,
       urbanCategories: [],

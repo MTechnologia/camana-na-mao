@@ -1,21 +1,16 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Download, Expand, MoreVertical, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Download, Expand, MoreVertical, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { downloadCsv, serializeCsv, type CsvHeader } from '@/lib/csvSerialize';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dropdown-menu";
+import { downloadCsv, serializeCsv, type CsvHeader } from "@/lib/csvSerialize";
+import { cn } from "@/lib/utils";
 
 export type ChartExportConfig = {
   filename: string;
@@ -75,10 +70,7 @@ export const ChartCard = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={cn(
-          'bg-card rounded-xl border border-border p-6',
-          className
-        )}
+        className={cn("bg-card rounded-xl border border-border p-6", className)}
       >
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -134,9 +126,7 @@ export const ChartCard = ({
         <DialogContent className="max-w-[min(96vw,1200px)] w-full max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
-            {subtitle && (
-              <p className="text-sm text-muted-foreground">{subtitle}</p>
-            )}
+            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
           </DialogHeader>
           <div className="min-h-[min(70vh,560px)]">{children}</div>
         </DialogContent>

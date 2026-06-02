@@ -1,7 +1,7 @@
-import { PageShell } from '@/components/ui/PageShell';
-import { useClassificationAccuracyMetrics } from '@/hooks/useClassificationAccuracyMetrics';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageShell } from "@/components/ui/PageShell";
+import { useClassificationAccuracyMetrics } from "@/hooks/useClassificationAccuracyMetrics";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -9,20 +9,38 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, RefreshCw, Target, CheckCircle2, XCircle, Database, Info } from 'lucide-react';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertTriangle,
+  RefreshCw,
+  Target,
+  CheckCircle2,
+  XCircle,
+  Database,
+  Info,
+} from "lucide-react";
 
 const reportTypeLabel = (t: string | null) =>
-  t === 'urban' ? 'Urbano' : t === 'transport' ? 'Transporte' : t ?? '—';
+  t === "urban" ? "Urbano" : t === "transport" ? "Transporte" : (t ?? "—");
 
 export function ClassificationAccuracyPage() {
-  const { accuracyBySource, recentEvaluations, predictionsPending, summary, isLoading, error, refresh } =
-    useClassificationAccuracyMetrics();
+  const {
+    accuracyBySource,
+    recentEvaluations,
+    predictionsPending,
+    summary,
+    isLoading,
+    error,
+    refresh,
+  } = useClassificationAccuracyMetrics();
 
   return (
-    <PageShell title="Acurácia da classificação" description="Predições da IA comparadas com correções no painel.">
+    <PageShell
+      title="Acurácia da classificação"
+      description="Predições da IA comparadas com correções no painel."
+    >
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -36,7 +54,7 @@ export function ClassificationAccuracyPage() {
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -47,29 +65,42 @@ export function ClassificationAccuracyPage() {
               <p className="font-medium text-foreground">Nenhuma predição registrada ainda</p>
               <p>
                 Esta tela mede relatos que gravaram a categoria prevista no envio (
-                <code className="bg-muted px-1 rounded text-xs">report_classification_prediction_log</code>
+                <code className="bg-muted px-1 rounded text-xs">
+                  report_classification_prediction_log
+                </code>
                 ) e depois foram corrigidos no painel (
-                <code className="bg-muted px-1 rounded text-xs">report_classification_feedback</code>
+                <code className="bg-muted px-1 rounded text-xs">
+                  report_classification_feedback
+                </code>
                 ).
               </p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>
-                  <strong>Novos relatos</strong> via chat (ai-orchestrator) ou formulário manual passam a
-                  registrar predição automaticamente.
+                  <strong>Novos relatos</strong> via chat (ai-orchestrator) ou formulário manual
+                  passam a registrar predição automaticamente.
                 </li>
                 <li>
-                  <strong>Relatos antigos</strong> não têm log — use o script{' '}
-                  <code className="bg-muted px-1 rounded text-xs">scripts/backfill_classification_prediction_log.sql</code>{' '}
+                  <strong>Relatos antigos</strong> não têm log — use o script{" "}
+                  <code className="bg-muted px-1 rounded text-xs">
+                    scripts/backfill_classification_prediction_log.sql
+                  </code>{" "}
                   no SQL Editor (homolog) para popular o contador.
                 </li>
                 <li>
-                  Para ver <strong>taxa de acerto</strong>, abra um relato em{' '}
-                  <strong>Gestão de relatos</strong>, altere categoria (urbano) ou tipo (transporte) e salve.
+                  Para ver <strong>taxa de acerto</strong>, abra um relato em{" "}
+                  <strong>Gestão de relatos</strong>, altere categoria (urbano) ou tipo (transporte)
+                  e salve.
                 </li>
               </ul>
               <p className="text-xs">
-                Diagnóstico no banco: <code className="bg-muted px-1 rounded">scripts/diagnose_classification_accuracy.sql</code>
-                . Migration de permissão: <code className="bg-muted px-1 rounded">20260527160000_classification_accuracy_rls.sql</code>
+                Diagnóstico no banco:{" "}
+                <code className="bg-muted px-1 rounded">
+                  scripts/diagnose_classification_accuracy.sql
+                </code>
+                . Migration de permissão:{" "}
+                <code className="bg-muted px-1 rounded">
+                  20260527160000_classification_accuracy_rls.sql
+                </code>
               </p>
             </CardContent>
           </Card>
@@ -83,9 +114,17 @@ export function ClassificationAccuracyPage() {
                 <p className="font-medium text-destructive">Não foi possível carregar os dados</p>
                 <p className="text-sm text-muted-foreground mt-1">{error}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Confirme as migrações <code className="bg-muted px-1 rounded">report_classification_prediction_log</code> e{' '}
-                  <code className="bg-muted px-1 rounded">20260527160000_classification_accuracy_rls.sql</code>, e se o usuário tem{' '}
-                  <code className="bg-muted px-1 rounded">analytics.view_advanced</code> ou papel admin/gestor.
+                  Confirme as migrações{" "}
+                  <code className="bg-muted px-1 rounded">
+                    report_classification_prediction_log
+                  </code>{" "}
+                  e{" "}
+                  <code className="bg-muted px-1 rounded">
+                    20260527160000_classification_accuracy_rls.sql
+                  </code>
+                  , e se o usuário tem{" "}
+                  <code className="bg-muted px-1 rounded">analytics.view_advanced</code> ou papel
+                  admin/gestor.
                 </p>
               </div>
             </CardContent>
@@ -146,7 +185,7 @@ export function ClassificationAccuracyPage() {
                   <CardTitle className="text-2xl tabular-nums">
                     {summary?.globalCategoryAccuracyPct != null
                       ? `${summary.globalCategoryAccuracyPct}%`
-                      : '—'}
+                      : "—"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground">
@@ -165,9 +204,10 @@ export function ClassificationAccuracyPage() {
                 Predições aguardando correção
               </CardTitle>
               <CardDescription>
-                Para alimentar as métricas de acurácia, abra cada relato em <strong>Relatos</strong>, localize pelo
-                protocolo e <strong>altere a categoria ou tipo</strong> (urbano: Categoria; transporte: Tipo). O salvamento
-                grava a correção e ela entra nas tabelas abaixo.
+                Para alimentar as métricas de acurácia, abra cada relato em <strong>Relatos</strong>
+                , localize pelo protocolo e <strong>altere a categoria ou tipo</strong> (urbano:
+                Categoria; transporte: Tipo). O salvamento grava a correção e ela entra nas tabelas
+                abaixo.
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
@@ -185,7 +225,7 @@ export function ClassificationAccuracyPage() {
                   {predictionsPending.map((row, i) => (
                     <TableRow key={row.report_id ?? `pending-${i}`}>
                       <TableCell className="font-mono font-medium">
-                        {row.protocol_code ?? row.report_id?.slice(0, 8) + '…'}
+                        {row.protocol_code ?? row.report_id?.slice(0, 8) + "…"}
                       </TableCell>
                       <TableCell>{reportTypeLabel(row.report_type)}</TableCell>
                       <TableCell>
@@ -196,19 +236,21 @@ export function ClassificationAccuracyPage() {
                       <TableCell>
                         <span className="font-medium">{row.predicted_category}</span>
                         {row.predicted_subcategory && (
-                          <span className="text-muted-foreground text-sm ml-1">({row.predicted_subcategory})</span>
+                          <span className="text-muted-foreground text-sm ml-1">
+                            ({row.predicted_subcategory})
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {row.created_at ? new Date(row.created_at).toLocaleString('pt-BR') : '—'}
+                        {row.created_at ? new Date(row.created_at).toLocaleString("pt-BR") : "—"}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               <p className="text-xs text-muted-foreground mt-3">
-                Vá em <strong>Relatos</strong> → busque o protocolo ou filtre por data → abra o relato → altere
-                Categoria (urbano) ou Tipo (transporte) → Salvar.
+                Vá em <strong>Relatos</strong> → busque o protocolo ou filtre por data → abra o
+                relato → altere Categoria (urbano) ou Tipo (transporte) → Salvar.
               </p>
             </CardContent>
           </Card>
@@ -261,7 +303,7 @@ export function ClassificationAccuracyPage() {
                         {row.category_misses ?? 0}
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        {row.category_accuracy_pct != null ? `${row.category_accuracy_pct}%` : '—'}
+                        {row.category_accuracy_pct != null ? `${row.category_accuracy_pct}%` : "—"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -322,15 +364,15 @@ export function ClassificationAccuracyPage() {
                         </span>
                         {row.predicted_subcategory || row.corrected_subcategory ? (
                           <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {(row.predicted_subcategory ?? '—') +
-                              ' → ' +
-                              (row.corrected_subcategory ?? '—')}
+                            {(row.predicted_subcategory ?? "—") +
+                              " → " +
+                              (row.corrected_subcategory ?? "—")}
                           </p>
                         ) : null}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs font-normal">
-                          {row.correction_source ?? '—'}
+                          {row.correction_source ?? "—"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -346,8 +388,8 @@ export function ClassificationAccuracyPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {row.corrected_at
-                          ? new Date(row.corrected_at).toLocaleString('pt-BR')
-                          : '—'}
+                          ? new Date(row.corrected_at).toLocaleString("pt-BR")
+                          : "—"}
                       </TableCell>
                     </TableRow>
                   ))}

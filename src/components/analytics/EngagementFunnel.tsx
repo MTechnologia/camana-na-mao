@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export interface FunnelStep {
   label: string;
@@ -17,10 +17,10 @@ export const EngagementFunnel = ({ steps, onStepClick }: EngagementFunnelProps) 
   const maxCount = steps[0]?.count || 1;
 
   const colors = [
-    'hsl(var(--chart-2))',
-    'hsl(var(--chart-6))',
-    'hsl(var(--chart-3))',
-    'hsl(var(--chart-1))',
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-6))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-1))",
   ];
 
   return (
@@ -28,7 +28,7 @@ export const EngagementFunnel = ({ steps, onStepClick }: EngagementFunnelProps) 
       {steps.map((step, index) => {
         const width = (step.count / maxCount) * 100;
         const color = step.color || colors[index % colors.length];
-        
+
         return (
           <motion.div
             key={step.label}

@@ -1,7 +1,7 @@
-import { AnalyticsLiveBadge } from '@/components/analytics/AnalyticsLiveBadge';
-import { useAnalyticsLive } from '@/contexts/AnalyticsLiveContext';
-import { useGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
-import { cn } from '@/lib/utils';
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
+import { useAnalyticsLive } from "@/contexts/AnalyticsLiveContext";
+import { useGlobalReportsAnalytics } from "@/contexts/GlobalReportsAnalyticsContext";
+import { cn } from "@/lib/utils";
 
 type UnifiedAnalyticsLiveBadgeProps = {
   className?: string;

@@ -1,5 +1,15 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Share2, Building2, Users, Loader2, Briefcase } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  Phone,
+  Mail,
+  Share2,
+  Building2,
+  Users,
+  Loader2,
+  Briefcase,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +24,7 @@ const VereadorDetailPage = () => {
   const navigate = useNavigate();
 
   const { vereador, isLoading, error } = useVereador(id);
-  
+
   // Show vereador data when available
   const displayVereador = vereador;
 
@@ -73,9 +83,7 @@ const VereadorDetailPage = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="font-medium text-sm truncate max-w-[200px]">
-            {displayVereador.name}
-          </h1>
+          <h1 className="font-medium text-sm truncate max-w-[200px]">{displayVereador.name}</h1>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" onClick={handleShare}>
               <Share2 className="h-5 w-5" />
@@ -96,9 +104,7 @@ const VereadorDetailPage = () => {
               </AvatarFallback>
             </Avatar>
 
-            <h2 className="text-xl font-bold text-foreground mb-2">
-              {displayVereador.name}
-            </h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">{displayVereador.name}</h2>
 
             <Badge variant="outline" className="mb-4">
               {displayVereador.party}
@@ -196,16 +202,17 @@ const VereadorDetailPage = () => {
 
         {/* Footer Info */}
         <div className="mt-6 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-          <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
-          <p><strong>Atualização:</strong> Dados atualizados semanalmente</p>
+          <p>
+            <strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo
+          </p>
+          <p>
+            <strong>Atualização:</strong> Dados atualizados semanalmente
+          </p>
         </div>
 
         {/* Back Button */}
         <div className="mt-6 text-center">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/institucional/vereadores")}
-          >
+          <Button variant="outline" onClick={() => navigate("/institucional/vereadores")}>
             Ver todos os vereadores
           </Button>
         </div>

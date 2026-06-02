@@ -7,9 +7,9 @@ import ProfilePageHeader from "@/components/profile/ProfilePageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  Download, 
-  FileJson, 
+import {
+  Download,
+  FileJson,
   Loader2,
   CheckCircle,
   Info,
@@ -17,7 +17,7 @@ import {
   Database,
   FileText,
   Calendar,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 
 const DataExportPage = () => {
@@ -35,15 +35,17 @@ const DataExportPage = () => {
     setLoading(true);
     try {
       // Get session token
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token;
 
       if (!token) {
-        throw new Error('Token de autenticação não encontrado');
+        throw new Error("Token de autenticação não encontrado");
       }
 
       // Call Edge Function
-      const { data, error } = await supabase.functions.invoke('export-user-data', {
+      const { data, error } = await supabase.functions.invoke("export-user-data", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -54,13 +56,13 @@ const DataExportPage = () => {
       }
 
       // Create blob and download
-      const blob = new Blob([JSON.stringify(data, null, 2)], { 
-        type: 'application/json' 
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
       });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `dados-pessoais-${user.id}-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `dados-pessoais-${user.id}-${new Date().toISOString().split("T")[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -69,8 +71,10 @@ const DataExportPage = () => {
       setExported(true);
       toast.success("Dados exportados com sucesso!");
     } catch (error: unknown) {
-      console.error('Error exporting data:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao exportar dados. Tente novamente.');
+      console.error("Error exporting data:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao exportar dados. Tente novamente.",
+      );
     } finally {
       setLoading(false);
     }
@@ -79,43 +83,43 @@ const DataExportPage = () => {
   const dataCategories = [
     {
       icon: Database,
-      title: 'Dados da Conta',
-      description: 'Email, telefone, data de criação',
+      title: "Dados da Conta",
+      description: "Email, telefone, data de criação",
     },
     {
       icon: FileText,
-      title: 'Perfil',
-      description: 'Nome, foto, biografia',
+      title: "Perfil",
+      description: "Nome, foto, biografia",
     },
     {
       icon: Calendar,
-      title: 'Dados Demográficos',
-      description: 'Idade, gênero, raça, classe social',
+      title: "Dados Demográficos",
+      description: "Idade, gênero, raça, classe social",
     },
     {
       icon: Database,
-      title: 'Endereços',
-      description: 'Todos os endereços cadastrados',
+      title: "Endereços",
+      description: "Todos os endereços cadastrados",
     },
     {
       icon: FileText,
-      title: 'Relatos',
-      description: 'Relatos urbanos e de transporte',
+      title: "Relatos",
+      description: "Relatos urbanos e de transporte",
     },
     {
       icon: FileText,
-      title: 'Avaliações',
-      description: 'Avaliações de serviços públicos',
+      title: "Avaliações",
+      description: "Avaliações de serviços públicos",
     },
     {
       icon: Database,
-      title: 'Consentimentos',
-      description: 'Histórico de consentimentos LGPD',
+      title: "Consentimentos",
+      description: "Histórico de consentimentos LGPD",
     },
     {
       icon: Database,
-      title: 'Preferências',
-      description: 'Configurações de privacidade e notificações',
+      title: "Preferências",
+      description: "Configurações de privacidade e notificações",
     },
   ];
 
@@ -132,13 +136,11 @@ const DataExportPage = () => {
             <div className="flex items-start gap-3">
               <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
               <div className="space-y-2">
-                <p className="text-sm text-foreground font-medium">
-                  Seu direito à portabilidade
-                </p>
+                <p className="text-sm text-foreground font-medium">Seu direito à portabilidade</p>
                 <p className="text-xs text-muted-foreground">
-                  Você tem o direito de receber seus dados pessoais em formato 
-                  estruturado e interoperável. Os dados serão exportados em formato JSON, 
-                  que pode ser facilmente lido e importado em outros sistemas.
+                  Você tem o direito de receber seus dados pessoais em formato estruturado e
+                  interoperável. Os dados serão exportados em formato JSON, que pode ser facilmente
+                  lido e importado em outros sistemas.
                 </p>
               </div>
             </div>
@@ -155,18 +157,11 @@ const DataExportPage = () => {
               {dataCategories.map((category, index) => {
                 const Icon = category.icon;
                 return (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 p-2 rounded-lg bg-muted/50"
-                  >
+                  <div key={index} className="flex items-start gap-2 p-2 rounded-lg bg-muted/50">
                     <Icon className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="text-xs font-medium text-foreground">
-                        {category.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {category.description}
-                      </p>
+                      <p className="text-xs font-medium text-foreground">{category.title}</p>
+                      <p className="text-xs text-muted-foreground">{category.description}</p>
                     </div>
                   </div>
                 );
@@ -185,8 +180,8 @@ const DataExportPage = () => {
                   Proteja seus dados
                 </p>
                 <p className="text-xs text-yellow-800 dark:text-yellow-300">
-                  O arquivo exportado contém informações pessoais sensíveis. 
-                  Mantenha-o seguro e não compartilhe com terceiros não autorizados.
+                  O arquivo exportado contém informações pessoais sensíveis. Mantenha-o seguro e não
+                  compartilhe com terceiros não autorizados.
                 </p>
               </div>
             </div>
@@ -221,8 +216,8 @@ const DataExportPage = () => {
                       Exportar meus dados
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Clique no botão abaixo para baixar todos os seus dados pessoais 
-                      em formato JSON. O processo pode levar alguns segundos.
+                      Clique no botão abaixo para baixar todos os seus dados pessoais em formato
+                      JSON. O processo pode levar alguns segundos.
                     </p>
                   </div>
                 </>
@@ -268,24 +263,20 @@ const DataExportPage = () => {
               <div className="flex items-start gap-3">
                 <Shield className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-foreground">
-                    Segurança
-                  </p>
+                  <p className="text-xs font-medium text-foreground">Segurança</p>
                   <p className="text-xs text-muted-foreground">
-                    Os dados são exportados apenas para você. Nenhum dado é compartilhado 
-                    com terceiros durante o processo de exportação.
+                    Os dados são exportados apenas para você. Nenhum dado é compartilhado com
+                    terceiros durante o processo de exportação.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <FileJson className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-foreground">
-                    Formato JSON
-                  </p>
+                  <p className="text-xs font-medium text-foreground">Formato JSON</p>
                   <p className="text-xs text-muted-foreground">
-                    O arquivo JSON pode ser aberto em qualquer editor de texto ou 
-                    visualizador JSON. É um formato padrão e interoperável.
+                    O arquivo JSON pode ser aberto em qualquer editor de texto ou visualizador JSON.
+                    É um formato padrão e interoperável.
                   </p>
                 </div>
               </div>
@@ -295,11 +286,7 @@ const DataExportPage = () => {
 
         {/* Botão voltar */}
         <div className="pt-4">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/perfil")}
-            className="w-full"
-          >
+          <Button variant="outline" onClick={() => navigate("/perfil")} className="w-full">
             Voltar ao Perfil
           </Button>
         </div>

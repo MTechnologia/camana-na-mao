@@ -48,11 +48,7 @@ export async function closeServiceVisitWithDeparture(
     return { error: new Error("Visita não encontrada") };
   }
 
-  const patch = buildVisitCloseUpdate(
-    status,
-    (data.departed_at as string | null) ?? null,
-    at,
-  );
+  const patch = buildVisitCloseUpdate(status, (data.departed_at as string | null) ?? null, at);
 
   const { error: updateError } = await supabase
     .from("service_visits")

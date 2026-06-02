@@ -1,7 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { MapPin } from "lucide-react";
-import { NEARBY_RADIUS_PRESETS, clampNearbyRadiusMeters, nearbyBandHint } from "@/lib/nearbyRadiusBands";
+import {
+  NEARBY_RADIUS_PRESETS,
+  clampNearbyRadiusMeters,
+  nearbyBandHint,
+} from "@/lib/nearbyRadiusBands";
 
 interface RadiusSelectorProps {
   radius: number;
@@ -52,9 +56,10 @@ export const RadiusSelector = ({ radius, onRadiusChange, showBandHint }: RadiusS
               onClick={() => onRadiusChange(option)}
               className={`
                 flex-1 min-w-[4.5rem] px-3 py-1.5 text-xs rounded-md transition-colors
-                ${safeRadius === option
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                ${
+                  safeRadius === option
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }
               `}
             >
@@ -64,7 +69,9 @@ export const RadiusSelector = ({ radius, onRadiusChange, showBandHint }: RadiusS
         </div>
 
         {showBandHint && (
-          <p className="mt-3 text-xs text-muted-foreground leading-snug">{nearbyBandHint(safeRadius)}</p>
+          <p className="mt-3 text-xs text-muted-foreground leading-snug">
+            {nearbyBandHint(safeRadius)}
+          </p>
         )}
       </CardContent>
     </Card>

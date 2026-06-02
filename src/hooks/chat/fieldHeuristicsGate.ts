@@ -1,14 +1,20 @@
 import { ENABLE_JOURNEY_SNAPSHOT } from "@/hooks/chat/chatJourneyConfig";
 
 const DISABLE_LOCAL_HEURISTICS =
-  String(import.meta.env.VITE_DISABLE_LOCAL_FIELD_HEURISTICS ?? "").trim().toLowerCase() ===
-    "true" ||
-  String(import.meta.env.VITE_DISABLE_LOCAL_FIELD_HEURISTICS ?? "").trim().toLowerCase() === "1";
+  String(import.meta.env.VITE_DISABLE_LOCAL_FIELD_HEURISTICS ?? "")
+    .trim()
+    .toLowerCase() === "true" ||
+  String(import.meta.env.VITE_DISABLE_LOCAL_FIELD_HEURISTICS ?? "")
+    .trim()
+    .toLowerCase() === "1";
 
 const ENABLE_FULL_LOCAL_HEURISTICS =
-  String(import.meta.env.VITE_ENABLE_FULL_LOCAL_FIELD_HEURISTICS ?? "").trim().toLowerCase() ===
-    "true" ||
-  String(import.meta.env.VITE_ENABLE_FULL_LOCAL_FIELD_HEURISTICS ?? "").trim().toLowerCase() === "1";
+  String(import.meta.env.VITE_ENABLE_FULL_LOCAL_FIELD_HEURISTICS ?? "")
+    .trim()
+    .toLowerCase() === "true" ||
+  String(import.meta.env.VITE_ENABLE_FULL_LOCAL_FIELD_HEURISTICS ?? "")
+    .trim()
+    .toLowerCase() === "1";
 
 export type OutgoingFieldHeuristicsMode = "none" | "minimal" | "full";
 

@@ -8,11 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,12 +43,7 @@ interface AudienciasFacetPickerProps {
   disabled?: boolean;
 }
 
-const STATUSES: AudienciaStatus[] = [
-  "agendada",
-  "realizada",
-  "cancelada",
-  "adiada",
-];
+const STATUSES: AudienciaStatus[] = ["agendada", "realizada", "cancelada", "adiada"];
 
 export function AudienciasFacetPicker({
   value,
@@ -90,8 +81,7 @@ export function AudienciasFacetPicker({
     });
   };
 
-  const clearComissoes = () =>
-    onChange({ ...value, comissoes: [] });
+  const clearComissoes = () => onChange({ ...value, comissoes: [] });
 
   return (
     <div className="space-y-3">
@@ -137,9 +127,7 @@ export function AudienciasFacetPicker({
                   <CommandEmpty>Nenhuma comissão encontrada.</CommandEmpty>
                   <CommandGroup>
                     {availableComissoes
-                      .filter((c) =>
-                        c.toLowerCase().includes(query.toLowerCase()),
-                      )
+                      .filter((c) => c.toLowerCase().includes(query.toLowerCase()))
                       .map((c) => {
                         const selected = selectedComissoes.has(c);
                         return (

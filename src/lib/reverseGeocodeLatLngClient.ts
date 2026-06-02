@@ -26,7 +26,7 @@ export function getCachedReverseGeocodeClient(lat: number, lng: number): string 
 export async function reverseGeocodeLatLngClient(
   lat: number,
   lng: number,
-  apiKeyOverride?: string
+  apiKeyOverride?: string,
 ): Promise<string | null> {
   const apiKey = (apiKeyOverride ?? getGoogleMapsApiKey())?.trim();
   if (!apiKey || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;

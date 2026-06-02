@@ -208,13 +208,18 @@ async function fetchParticipacoes(audienciaIds: string[]): Promise<ParticipacaoR
     const slice = audienciaIds.slice(i, i + CHUNK);
     // `audiencia_participacoes` pode não estar nos types gerados — usamos
     // cast genérico via supabase.from(<string>).
-    const { data, error } = await (supabase as unknown as {
-      from: (table: string) => {
-        select: (cols: string) => {
-          in: (col: string, vals: string[]) => Promise<{ data: ParticipacaoRow[] | null; error: unknown }>;
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => {
+            in: (
+              col: string,
+              vals: string[],
+            ) => Promise<{ data: ParticipacaoRow[] | null; error: unknown }>;
+          };
         };
-      };
-    })
+      }
+    )
       .from("audiencia_participacoes")
       .select("audiencia_id, user_id, tipo")
       .in("audiencia_id", slice);
@@ -235,7 +240,10 @@ function ocupacao(inscritos: number, vagas: number | null): number | null {
 }
 
 /** Alinhado a Audiencias.tsx / ChatMessageBubble — inscrições aceitas e data não passada. */
-export function isAudienciaAberta(a: Pick<AudienciaRow, "data" | "status" | "inscricoes_abertas">, todayIso: string): boolean {
+export function isAudienciaAberta(
+  a: Pick<AudienciaRow, "data" | "status" | "inscricoes_abertas">,
+  todayIso: string,
+): boolean {
   const dataStr = a.data.slice(0, 10);
   if (dataStr < todayIso) return false;
   if (a.inscricoes_abertas === false) return false;
@@ -382,9 +390,7 @@ export function aggregate(
 
   const allAudiencias = [...rankings].sort((a, b) => b.data.localeCompare(a.data));
 
-  const topAudiencias = [...rankings]
-    .sort((a, b) => b.inscricoes - a.inscricoes)
-    .slice(0, 10);
+  const topAudiencias = [...rankings].sort((a, b) => b.inscricoes - a.inscricoes).slice(0, 10);
 
   const zeroInscritosProximas = rankings
     .filter((r) => r.inscricoes === 0 && isProximaDentroDe(r.data, PROXIMA_AUDIENCIA_DIAS))
@@ -402,8 +408,7 @@ export function aggregate(
     .sort((a, b) => (a.ocupacaoPct || 0) - (b.ocupacaoPct || 0))
     .slice(0, 20);
 
-  const ocupacaoMediaPct =
-    countOcupacao > 0 ? Math.round(somaOcupacaoPct / countOcupacao) : 0;
+  const ocupacaoMediaPct = countOcupacao > 0 ? Math.round(somaOcupacaoPct / countOcupacao) : 0;
 
   const byTipoEngajamento: BreakdownItem[] = [
     { label: "Lembrete", count: totalLembretes },
@@ -422,9 +427,7 @@ export function aggregate(
     audienciasAbertas,
     audienciasComInscricoes,
     pctComInscricoes:
-      audiencias.length > 0
-        ? Math.round((audienciasComInscricoes / audiencias.length) * 100)
-        : 0,
+      audiencias.length > 0 ? Math.round((audienciasComInscricoes / audiencias.length) * 100) : 0,
     ocupacaoMediaPct,
     usuariosUnicos: usuariosUnicos.size,
     byComissao: rank(comissaoMap),
@@ -517,11 +520,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
 }
 
 // HU-5.3 — tabelas observadas (referência estável).
-const REALTIME_TABLES = [
-  "audiencias",
-  "audiencia_inscricoes",
-  "audiencia_participacoes",
-] as const;
+const REALTIME_TABLES = ["audiencias", "audiencia_inscricoes", "audiencia_participacoes"] as const;
 
 export const __test__ = {
   aggregate,

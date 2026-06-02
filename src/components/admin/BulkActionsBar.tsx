@@ -1,7 +1,7 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, X, Trash2 } from 'lucide-react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, XCircle, Clock, X, Trash2 } from "lucide-react";
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -27,7 +27,7 @@ export const BulkActionsBar = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-base font-semibold">
-            {selectedCount} {selectedCount === 1 ? 'relato selecionado' : 'relatos selecionados'}
+            {selectedCount} {selectedCount === 1 ? "relato selecionado" : "relatos selecionados"}
           </Badge>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -58,21 +58,11 @@ export const BulkActionsBar = ({
             <XCircle className="h-4 w-4 lg:mr-1" />
             <span className="hidden lg:inline">Rejeitar</span>
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDelete}
-            className="h-8 px-2 lg:px-3"
-          >
+          <Button variant="destructive" size="sm" onClick={onDelete} className="h-8 px-2 lg:px-3">
             <Trash2 className="h-4 w-4 lg:mr-1" />
             <span className="hidden lg:inline">Excluir</span>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClear}
-            className="h-8 px-2 lg:px-3"
-          >
+          <Button variant="ghost" size="sm" onClick={onClear} className="h-8 px-2 lg:px-3">
             <X className="h-4 w-4 lg:mr-1" />
             <span className="hidden lg:inline">Limpar</span>
           </Button>

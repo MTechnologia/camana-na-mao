@@ -1,54 +1,45 @@
-import { useMemo, useState } from 'react';
-import { Check, Loader2, RotateCcw, Save, Search, Shield, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { PageShell } from '@/components/ui/PageShell';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { useMemo, useState } from "react";
+import { Check, Loader2, RotateCcw, Save, Search, Shield, X } from "lucide-react";
+import { toast } from "sonner";
+import { PageShell } from "@/components/ui/PageShell";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import {
   ALL_ROLES,
   DOMAIN_LABELS,
   PERMISSIONS,
   ROLE_LABELS,
   type PermissionDomain,
-} from '@/lib/permissions';
+} from "@/lib/permissions";
 import {
   ADMIN_REQUIRED_PERMISSION_KEYS,
   isPermissionGranted,
   matrixEquals,
   togglePermission,
-} from '@/lib/rolePermissionsMatrix';
-import { useRolePermissionsMatrix } from '@/hooks/useRolePermissionsMatrix';
-import type { UserRole } from '@/hooks/useUserRole';
+} from "@/lib/rolePermissionsMatrix";
+import { useRolePermissionsMatrix } from "@/hooks/useRolePermissionsMatrix";
+import type { UserRole } from "@/hooks/useUserRole";
 
 const ROLE_BADGE_CLASS: Record<UserRole, string> = {
-  admin: 'bg-red-500/10 text-red-700 border-red-500/30',
-  gestor: 'bg-purple-500/10 text-purple-700 border-purple-500/30',
-  vereador: 'bg-blue-500/10 text-blue-700 border-blue-500/30',
-  assessor: 'bg-green-500/10 text-green-700 border-green-500/30',
-  cidadao_engajado: 'bg-amber-500/10 text-amber-700 border-amber-500/30',
-  cidadao: 'bg-gray-500/10 text-gray-700 border-gray-500/30',
+  admin: "bg-red-500/10 text-red-700 border-red-500/30",
+  gestor: "bg-purple-500/10 text-purple-700 border-purple-500/30",
+  vereador: "bg-blue-500/10 text-blue-700 border-blue-500/30",
+  assessor: "bg-green-500/10 text-green-700 border-green-500/30",
+  cidadao_engajado: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+  cidadao: "bg-gray-500/10 text-gray-700 border-gray-500/30",
 };
 
 /**
  * HU-11.2 — Matriz de permissões (edição + persistência em role_permissions).
  */
 export function PermissionsMatrixPage() {
-  const {
-    saved,
-    draft,
-    setDraft,
-    isLoading,
-    isSaving,
-    error,
-    load,
-    save,
-    resetDraft,
-  } = useRolePermissionsMatrix();
-  const [search, setSearch] = useState('');
+  const { saved, draft, setDraft, isLoading, isSaving, error, load, save, resetDraft } =
+    useRolePermissionsMatrix();
+  const [search, setSearch] = useState("");
 
   const dirty = useMemo(() => {
     if (!saved || !draft) return false;
@@ -87,11 +78,11 @@ export function PermissionsMatrixPage() {
     if (!draft) return;
     const granted = isPermissionGranted(draft, role, permissionKey);
     if (
-      !granted
-      && role === 'admin'
-      && (ADMIN_REQUIRED_PERMISSION_KEYS as readonly string[]).includes(permissionKey)
+      !granted &&
+      role === "admin" &&
+      (ADMIN_REQUIRED_PERMISSION_KEYS as readonly string[]).includes(permissionKey)
     ) {
-      toast.message('Esta permissão é obrigatória para o papel Admin.');
+      toast.message("Esta permissão é obrigatória para o papel Admin.");
       return;
     }
     setDraft(togglePermission(draft, role, permissionKey, !granted));
@@ -100,10 +91,10 @@ export function PermissionsMatrixPage() {
   const handleSave = async () => {
     const ok = await save();
     if (ok) {
-      toast.success('Matriz de permissões salva.');
+      toast.success("Matriz de permissões salva.");
       void load();
     } else {
-      toast.error('Não foi possível salvar a matriz.');
+      toast.error("Não foi possível salvar a matriz.");
     }
   };
 
@@ -125,7 +116,7 @@ export function PermissionsMatrixPage() {
             disabled={!dirty || isSaving || isLoading}
             onClick={() => {
               resetDraft();
-              toast.message('Alterações descartadas.');
+              toast.message("Alterações descartadas.");
             }}
           >
             <RotateCcw className="h-4 w-4 mr-1" />
@@ -154,9 +145,7 @@ export function PermissionsMatrixPage() {
         </p>
       ) : null}
 
-      {error ? (
-        <p className="mb-3 text-sm text-destructive">{error}</p>
-      ) : null}
+      {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
 
       <Card className="p-3 mb-4">
         <div className="relative max-w-md">
@@ -188,13 +177,10 @@ export function PermissionsMatrixPage() {
                     <tr className="text-left text-xs text-muted-foreground">
                       <th className="px-4 py-2 font-medium min-w-[280px]">Permissão</th>
                       {ALL_ROLES.map((role) => (
-                        <th
-                          key={role}
-                          className="px-2 py-2 font-medium text-center w-[100px]"
-                        >
+                        <th key={role} className="px-2 py-2 font-medium text-center w-[100px]">
                           <Badge
                             variant="outline"
-                            className={cn('text-[10px] h-5', ROLE_BADGE_CLASS[role])}
+                            className={cn("text-[10px] h-5", ROLE_BADGE_CLASS[role])}
                           >
                             {ROLE_LABELS[role]}
                           </Badge>
@@ -217,24 +203,22 @@ export function PermissionsMatrixPage() {
                         {ALL_ROLES.map((role) => {
                           const allowed = isPermissionGranted(draft, role, p.key);
                           const locked =
-                            role === 'admin'
-                            && (ADMIN_REQUIRED_PERMISSION_KEYS as readonly string[]).includes(
-                              p.key,
-                            );
+                            role === "admin" &&
+                            (ADMIN_REQUIRED_PERMISSION_KEYS as readonly string[]).includes(p.key);
                           return (
                             <td key={role} className="px-2 py-2 text-center">
                               <button
                                 type="button"
                                 className={cn(
-                                  'mx-auto flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
+                                  "mx-auto flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
                                   allowed
-                                    ? 'border-green-500/40 bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/30'
-                                    : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted',
-                                  locked && 'cursor-not-allowed opacity-80',
+                                    ? "border-green-500/40 bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/30"
+                                    : "border-border bg-muted/30 text-muted-foreground hover:bg-muted",
+                                  locked && "cursor-not-allowed opacity-80",
                                 )}
                                 title={
                                   locked
-                                    ? 'Obrigatória para Admin'
+                                    ? "Obrigatória para Admin"
                                     : allowed
                                       ? `Remover de ${ROLE_LABELS[role]}`
                                       : `Conceder a ${ROLE_LABELS[role]}`

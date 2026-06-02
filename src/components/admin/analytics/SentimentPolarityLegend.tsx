@@ -1,5 +1,5 @@
-import { ParameterLegend } from '@/components/admin/analytics/ParameterLegend';
-import { SENTIMENT_POLARITY_PREPEND_SECTION } from '@/lib/analyticsParameterLegends';
+import { ParameterLegend } from "@/components/admin/analytics/ParameterLegend";
+import { SENTIMENT_POLARITY_PREPEND_SECTION } from "@/lib/analyticsParameterLegends";
 
 type SentimentPolarityLegendProps = {
   className?: string;

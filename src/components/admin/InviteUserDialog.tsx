@@ -46,19 +46,9 @@ interface CouncilMemberOption {
   party: string;
 }
 
-const INVITE_ROLES: UserRole[] = [
-  "admin",
-  "gestor",
-  "vereador",
-  "assessor",
-  "cidadao_engajado",
-];
+const INVITE_ROLES: UserRole[] = ["admin", "gestor", "vereador", "assessor", "cidadao_engajado"];
 
-export function InviteUserDialog({
-  open,
-  onOpenChange,
-  onInvited,
-}: InviteUserDialogProps) {
+export function InviteUserDialog({ open, onOpenChange, onInvited }: InviteUserDialogProps) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<UserRole>("gestor");
@@ -161,8 +151,8 @@ export function InviteUserDialog({
             Convidar novo usuário
           </DialogTitle>
           <DialogDescription>
-            Um email de convite será enviado para o endereço informado. O
-            usuário cria a senha ao acessar o link e já recebe o papel definido.
+            Um email de convite será enviado para o endereço informado. O usuário cria a senha ao
+            acessar o link e já recebe o papel definido.
           </DialogDescription>
         </DialogHeader>
 
@@ -183,9 +173,7 @@ export function InviteUserDialog({
               />
             </div>
             {email && !emailValid && (
-              <p className="text-[11px] text-destructive mt-1">
-                Email inválido.
-              </p>
+              <p className="text-[11px] text-destructive mt-1">Email inválido.</p>
             )}
           </div>
 
@@ -231,9 +219,7 @@ export function InviteUserDialog({
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue
-                    placeholder={
-                      loadingCouncil ? "Carregando..." : "Selecione o vereador"
-                    }
+                    placeholder={loadingCouncil ? "Carregando..." : "Selecione o vereador"}
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,17 +240,10 @@ export function InviteUserDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={!formValid || submitting}
-          >
+          <Button onClick={() => void handleSubmit()} disabled={!formValid || submitting}>
             {submitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

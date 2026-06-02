@@ -1,4 +1,4 @@
-import type { ExportRole } from '@/lib/exportFields';
+import type { ExportRole } from "@/lib/exportFields";
 
 /** Cap de linhas e campos restritos: admin vs demais perfis staff (gestor/assessor/vereador). */
 export function effectiveExportRole(flags: {
@@ -7,7 +7,7 @@ export function effectiveExportRole(flags: {
   isAssessor: boolean;
   isVereador: boolean;
 }): ExportRole | null {
-  if (flags.isAdmin) return 'admin';
-  if (flags.isGestor || flags.isAssessor || flags.isVereador) return 'gestor';
+  if (flags.isAdmin) return "admin";
+  if (flags.isGestor || flags.isAssessor || flags.isVereador) return "gestor";
   return null;
 }

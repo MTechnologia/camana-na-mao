@@ -1,16 +1,16 @@
-import { useNavigate } from 'react-router-dom';
-import { ReferralFunnelBarChart } from '@/components/admin/referrals/ReferralFunnelBarChart';
-import { ChartCard, ChartHeight } from '@/components/admin/charts/ChartShell';
-import { KpiCard } from '@/components/ui/KpiCard';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { useSectionChartData } from '@/hooks/useSectionChartData';
-import type { CouncilReferralKpis } from '@/lib/referralsGlobalFilters';
-import { REFERRAL_KPI_LEGENDS, SECTION_CHART_LEGENDS } from '@/lib/analyticsParameterLegends';
+import { useNavigate } from "react-router-dom";
+import { ReferralFunnelBarChart } from "@/components/admin/referrals/ReferralFunnelBarChart";
+import { ChartCard, ChartHeight } from "@/components/admin/charts/ChartShell";
+import { KpiCard } from "@/components/ui/KpiCard";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { useSectionChartData } from "@/hooks/useSectionChartData";
+import type { CouncilReferralKpis } from "@/lib/referralsGlobalFilters";
+import { REFERRAL_KPI_LEGENDS, SECTION_CHART_LEGENDS } from "@/lib/analyticsParameterLegends";
 import {
   reportsManagementUrlForCouncilReferral,
   type CouncilReferralFilter,
-} from '@/lib/commissionFilterNavigation';
-import { cn } from '@/lib/utils';
+} from "@/lib/commissionFilterNavigation";
+import { cn } from "@/lib/utils";
 import {
   CartesianGrid,
   Legend,
@@ -20,8 +20,8 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import { chartTooltipStyle, CHART_COLORS } from '@/components/admin/analytics/chartTheme';
+} from "recharts";
+import { chartTooltipStyle, CHART_COLORS } from "@/components/admin/analytics/chartTheme";
 
 const KPI_ITEMS: {
   key: keyof CouncilReferralKpis;
@@ -29,10 +29,10 @@ const KPI_ITEMS: {
   filter: CouncilReferralFilter;
   legend: keyof typeof REFERRAL_KPI_LEGENDS;
 }[] = [
-  { key: 'total', label: 'Total', filter: 'any', legend: 'total' },
-  { key: 'pending', label: 'Pendentes', filter: 'pending', legend: 'pending' },
-  { key: 'sent', label: 'Enviados', filter: 'sent', legend: 'sent' },
-  { key: 'resolved', label: 'Resolvidos', filter: 'resolved', legend: 'resolved' },
+  { key: "total", label: "Total", filter: "any", legend: "total" },
+  { key: "pending", label: "Pendentes", filter: "pending", legend: "pending" },
+  { key: "sent", label: "Enviados", filter: "sent", legend: "sent" },
+  { key: "resolved", label: "Resolvidos", filter: "resolved", legend: "resolved" },
 ];
 
 /** Aba Fluxo — KPIs e funil clicáveis para Gestão de relatos. */
@@ -44,7 +44,7 @@ export function ReferralsFlowTab({ kpis }: { kpis: CouncilReferralKpis }) {
   const openFiltered = (filter: CouncilReferralFilter) => {
     navigate(
       reportsManagementUrlForCouncilReferral(filter, {
-        queueTab: 'all',
+        queueTab: "all",
         global: { period, region, category },
       }),
     );
@@ -59,12 +59,12 @@ export function ReferralsFlowTab({ kpis }: { kpis: CouncilReferralKpis }) {
             role="button"
             tabIndex={0}
             className={cn(
-              'cursor-pointer rounded-xl text-left transition-shadow',
-              'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              "cursor-pointer rounded-xl text-left transition-shadow",
+              "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
             onClick={() => openFiltered(item.filter)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+              if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 openFiltered(item.filter);
               }
@@ -96,10 +96,7 @@ export function ReferralsFlowTab({ kpis }: { kpis: CouncilReferralKpis }) {
         >
           <ChartHeight>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={referralTimeline}
-                margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
-              >
+              <LineChart data={referralTimeline} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />

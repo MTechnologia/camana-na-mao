@@ -9,10 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { tituloHistoricoAudiencia } from "@/lib/audienciaDisplay";
-import {
-  PERFIL_INSCRICOES_AUDIENCIAS_BACK,
-  withAudienciaFrom,
-} from "@/lib/audienciaNavigation";
+import { PERFIL_INSCRICOES_AUDIENCIAS_BACK, withAudienciaFrom } from "@/lib/audienciaNavigation";
 
 interface AudienciaRef {
   id: string;
@@ -55,13 +52,17 @@ export default function MyAudienciaInscricoesPage() {
       const [resInsc, resPart] = await Promise.all([
         supabase
           .from("audiencia_inscricoes")
-          .select("id, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
+          .select(
+            "id, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)",
+          )
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
           .from("audiencia_participacoes")
-          .select("id, tipo, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
+          .select(
+            "id, tipo, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)",
+          )
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(50),
@@ -75,7 +76,9 @@ export default function MyAudienciaInscricoesPage() {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   const formatData = (dateStr: string) => {
@@ -92,15 +95,23 @@ export default function MyAudienciaInscricoesPage() {
   };
 
   const tipoLabel = (tipo: string) =>
-    tipo === "videoconferencia" ? "Videoconferência" : tipo === "escrito" ? "Manifestação escrita" : tipo;
+    tipo === "videoconferencia"
+      ? "Videoconferência"
+      : tipo === "escrito"
+        ? "Manifestação escrita"
+        : tipo;
 
   if (!user) {
     return (
       <div className="min-h-screen bg-background">
         <PageHeader title="Minhas inscrições em audiências" backTo="/relatos" />
         <div className="pt-[60px] p-6 text-center">
-          <p className="text-muted-foreground mb-4">Faça login para ver suas inscrições e participações em audiências públicas.</p>
-          <Button onClick={() => navigate("/login", { state: { from: "/audiencias/minhas-inscricoes" } })}>
+          <p className="text-muted-foreground mb-4">
+            Faça login para ver suas inscrições e participações em audiências públicas.
+          </p>
+          <Button
+            onClick={() => navigate("/login", { state: { from: "/audiencias/minhas-inscricoes" } })}
+          >
             Entrar
           </Button>
         </div>
@@ -113,7 +124,8 @@ export default function MyAudienciaInscricoesPage() {
       <PageHeader title="Minhas inscrições em audiências" backTo="/relatos" />
       <div className="pt-[60px] p-6 max-w-2xl mx-auto space-y-6">
         <p className="text-sm text-muted-foreground">
-          Registro das suas inscrições para lembretes e das suas participações (videoconferência ou manifestação escrita) em audiências públicas.
+          Registro das suas inscrições para lembretes e das suas participações (videoconferência ou
+          manifestação escrita) em audiências públicas.
         </p>
 
         {loading ? (
@@ -131,7 +143,8 @@ export default function MyAudienciaInscricoesPage() {
               {participacoes.length === 0 ? (
                 <Card>
                   <CardContent className="p-4 text-center text-muted-foreground text-sm">
-                    Você ainda não tem inscrições para participar de audiências (videoconferência ou manifestação escrita).
+                    Você ainda não tem inscrições para participar de audiências (videoconferência ou
+                    manifestação escrita).
                   </CardContent>
                 </Card>
               ) : (
@@ -165,7 +178,10 @@ export default function MyAudienciaInscricoesPage() {
                               {tipoLabel(p.tipo)} · {aud?.data ? formatData(aud.data) : "—"}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Inscrito em {format(new Date(p.created_at), "d MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                              Inscrito em{" "}
+                              {format(new Date(p.created_at), "d MMM yyyy 'às' HH:mm", {
+                                locale: ptBR,
+                              })}
                             </p>
                           </div>
                         </CardContent>
@@ -190,7 +206,9 @@ export default function MyAudienciaInscricoesPage() {
                     </p>
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       Nas audiências públicas, use o botão{" "}
-                      <strong className="font-medium text-foreground">Receber lembretes desta audiência</strong>{" "}
+                      <strong className="font-medium text-foreground">
+                        Receber lembretes desta audiência
+                      </strong>{" "}
                       em cada evento de seu interesse.
                     </p>
                     <Button className="w-full gap-2" onClick={() => navigate("/audiencias")}>
@@ -236,12 +254,20 @@ export default function MyAudienciaInscricoesPage() {
 
             <div className="flex flex-col gap-2 sm:flex-row">
               {lembretes.length > 0 && (
-                <Button variant="default" className="w-full gap-2 sm:flex-1" onClick={() => navigate("/audiencias")}>
+                <Button
+                  variant="default"
+                  className="w-full gap-2 sm:flex-1"
+                  onClick={() => navigate("/audiencias")}
+                >
                   Inscrever em mais lembretes
                   <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
                 </Button>
               )}
-              <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full sm:flex-1">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/audiencias")}
+                className="w-full sm:flex-1"
+              >
                 Ver todas as audiências
               </Button>
             </div>

@@ -1,28 +1,22 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  ArrowRight,
-  BarChart3,
-  ChevronDown,
-  HelpCircle,
-  LayoutGrid,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, BarChart3, ChevronDown, HelpCircle, LayoutGrid } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const shortcuts = [
   {
-    to: '/admin/analytics',
-    label: 'Análise de relatos urbanos',
-    hint: 'Volume, sentimento e padrões de relatos sobre a cidade',
+    to: "/admin/analytics",
+    label: "Análise de relatos urbanos",
+    hint: "Volume, sentimento e padrões de relatos sobre a cidade",
     Icon: BarChart3,
   },
   {
-    to: '/paineis',
-    label: 'Painéis personalizáveis',
-    hint: 'Salvar filtros e visualizações por território',
+    to: "/paineis",
+    label: "Painéis personalizáveis",
+    hint: "Salvar filtros e visualizações por território",
     Icon: LayoutGrid,
   },
 ] as const;
@@ -38,9 +32,9 @@ export function DashboardHelpSection() {
             key={to}
             to={to}
             className={cn(
-              'group flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3',
-              'shadow-sm transition-colors hover:border-primary/30 hover:bg-accent',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs sm:flex-initial',
+              "group flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3",
+              "shadow-sm transition-colors hover:border-primary/30 hover:bg-accent",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs sm:flex-initial",
             )}
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
@@ -65,14 +59,14 @@ export function DashboardHelpSection() {
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           className={cn(
-            'h-auto min-h-[60px] flex-1 gap-2 rounded-xl border-dashed px-4 py-3 sm:max-w-[220px] sm:flex-initial',
-            open && 'border-primary/40 bg-accent',
+            "h-auto min-h-[60px] flex-1 gap-2 rounded-xl border-dashed px-4 py-3 sm:max-w-[220px] sm:flex-initial",
+            open && "border-primary/40 bg-accent",
           )}
         >
           <HelpCircle className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           <span className="text-left text-sm font-medium">Como usar esta tela</span>
           <ChevronDown
-            className={cn('ml-auto h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
+            className={cn("ml-auto h-4 w-4 shrink-0 transition-transform", open && "rotate-180")}
             aria-hidden
           />
         </Button>
@@ -109,8 +103,8 @@ export function DashboardHelpSection() {
                           {label}
                         </Link>
                         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                          {hint}. Indicado quando for preciso cruzar dimensões além do resumo
-                          desta página.
+                          {hint}. Indicado quando for preciso cruzar dimensões além do resumo desta
+                          página.
                         </p>
                       </div>
                     </li>
@@ -118,7 +112,10 @@ export function DashboardHelpSection() {
                 </ul>
               </TabsContent>
 
-              <TabsContent value="homologacao" className="mt-0 space-y-2 text-sm text-muted-foreground">
+              <TabsContent
+                value="homologacao"
+                className="mt-0 space-y-2 text-sm text-muted-foreground"
+              >
                 <p className="text-xs leading-relaxed">
                   Referência para validação do projeto Câmara na Mão (Participação Cidadã da Câmara
                   Municipal de São Paulo). Códigos RN-ANL na documentação interna — não exibidos ao

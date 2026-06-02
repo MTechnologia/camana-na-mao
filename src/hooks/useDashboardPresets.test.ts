@@ -94,8 +94,8 @@ describe("useDashboardPresets", () => {
       error: null,
     });
     supabaseFromMock
-      .mockReturnValueOnce(selectChain)   // select inicial
-      .mockReturnValueOnce(insertChain);  // insert
+      .mockReturnValueOnce(selectChain) // select inicial
+      .mockReturnValueOnce(insertChain); // insert
 
     const { result } = renderHook(() => useDashboardPresets());
     await waitFor(() => expect(result.current.isLoading).toBe(false));

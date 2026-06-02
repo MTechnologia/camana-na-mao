@@ -40,12 +40,12 @@ export function parseTransportReportSuccess(content: string): ParsedTransportRep
 
   text = text.trim();
 
-  let lines = text
-    .split("\n")
-    .map(stripInlineMarkdown)
-    .filter(Boolean);
+  let lines = text.split("\n").map(stripInlineMarkdown).filter(Boolean);
 
-  if (lines.length <= 1 && /(?:🔖|📋|🚌|📅|🕐|🧭|🔁|🚏|📌|📷|⚠️|📝|📚|🔗)/u.test(lines[0] ?? text)) {
+  if (
+    lines.length <= 1 &&
+    /(?:🔖|📋|🚌|📅|🕐|🧭|🔁|🚏|📌|📷|⚠️|📝|📚|🔗)/u.test(lines[0] ?? text)
+  ) {
     lines = splitDenseTransportSuccessBody(lines[0] ?? text);
   }
 

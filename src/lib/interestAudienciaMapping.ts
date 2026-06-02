@@ -39,10 +39,7 @@ export const INTEREST_SEARCH_SYNONYMS: Record<string, string[]> = {
 };
 
 function normalizeForMatch(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase();
+  return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
 export function interestCategoryToAudienciaTema(category: string): string | null {

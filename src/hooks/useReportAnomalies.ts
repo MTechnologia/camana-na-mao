@@ -107,9 +107,7 @@ function toIsoStart(value: Date | string | null | undefined): string | null {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-export function useReportAnomalies(
-  filters: AnomaliesFilters = {},
-): UseReportAnomaliesResult {
+export function useReportAnomalies(filters: AnomaliesFilters = {}): UseReportAnomaliesResult {
   const [anomalies, setAnomalies] = useState<AnomalyEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,10 +184,7 @@ export function useReportAnomalies(
         ),
       );
       try {
-        const { error: upErr } = await supabase
-          .from(TABLE)
-          .update(patch)
-          .eq("id", id);
+        const { error: upErr } = await supabase.from(TABLE).update(patch).eq("id", id);
         if (upErr) throw upErr;
       } catch (err) {
         console.error("[useReportAnomalies] update error", err);
@@ -237,18 +232,13 @@ export function useReportAnomalies(
   } | null> => {
     setIsRunningDetection(true);
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke(
-        "detect-anomalies",
-        { body: {} },
-      );
+      const { data, error: fnErr } = await supabase.functions.invoke("detect-anomalies", {
+        body: {},
+      });
       if (fnErr) throw fnErr;
       void fetchData();
-      const found = Number(
-        (data as { anomalies_found?: number } | null)?.anomalies_found ?? 0,
-      );
-      const upserts = Number(
-        (data as { upserts?: number } | null)?.upserts ?? 0,
-      );
+      const found = Number((data as { anomalies_found?: number } | null)?.anomalies_found ?? 0);
+      const upserts = Number((data as { upserts?: number } | null)?.upserts ?? 0);
       return { found, upserts };
     } catch (err) {
       console.error("[useReportAnomalies] runDetection error", err);

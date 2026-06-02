@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import {
   fetchCouncilMemberDestinations,
   fetchThematicCommissions,
   type ReferralDestination,
-} from '@/lib/referralDestinations';
+} from "@/lib/referralDestinations";
 
 export function useReferralDestinations() {
   const [commissions, setCommissions] = useState<ReferralDestination[]>([]);

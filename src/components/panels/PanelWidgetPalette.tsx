@@ -1,14 +1,13 @@
-import { Plus } from 'lucide-react';
-import { WIDGET_CATALOG, WIDGET_CATEGORY_LABELS, type WidgetCatalogCategory } from '@/lib/widgetCatalog';
-import type { PanelWidgetType } from '@/types/customPanel';
-import { cn } from '@/lib/utils';
+import { Plus } from "lucide-react";
+import {
+  WIDGET_CATALOG,
+  WIDGET_CATEGORY_LABELS,
+  type WidgetCatalogCategory,
+} from "@/lib/widgetCatalog";
+import type { PanelWidgetType } from "@/types/customPanel";
+import { cn } from "@/lib/utils";
 
-const CATEGORY_ORDER: WidgetCatalogCategory[] = [
-  'indicadores',
-  'graficos',
-  'listas',
-  'territorio',
-];
+const CATEGORY_ORDER: WidgetCatalogCategory[] = ["indicadores", "graficos", "listas", "territorio"];
 
 export function PanelWidgetPalette({ onAdd }: { onAdd: (type: PanelWidgetType) => void }) {
   return (
@@ -32,8 +31,8 @@ export function PanelWidgetPalette({ onAdd }: { onAdd: (type: PanelWidgetType) =
                   <button
                     type="button"
                     className={cn(
-                      'flex w-full items-start gap-3 rounded-lg border border-border bg-card p-3 text-left',
-                      'transition-colors hover:border-primary/30 hover:bg-muted/40',
+                      "flex w-full items-start gap-3 rounded-lg border border-border bg-card p-3 text-left",
+                      "transition-colors hover:border-primary/30 hover:bg-muted/40",
                     )}
                     onClick={() => onAdd(entry.type)}
                   >
@@ -41,7 +40,9 @@ export function PanelWidgetPalette({ onAdd }: { onAdd: (type: PanelWidgetType) =
                       <entry.Icon className="h-4 w-4" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-foreground">{entry.label}</span>
+                      <span className="block text-sm font-medium text-foreground">
+                        {entry.label}
+                      </span>
                       <span className="mt-0.5 block text-xs text-muted-foreground line-clamp-2">
                         {entry.description}
                       </span>
@@ -57,4 +58,3 @@ export function PanelWidgetPalette({ onAdd }: { onAdd: (type: PanelWidgetType) =
     </div>
   );
 }
-

@@ -17,10 +17,7 @@ import {
  */
 
 // Gera série diária a partir de uma data inicial (gerador determinístico).
-function buildSeries(
-  startYmd: string,
-  counts: number[],
-): VolumePoint[] {
+function buildSeries(startYmd: string, counts: number[]): VolumePoint[] {
   const [y, m, d] = startYmd.split("-").map(Number);
   const out: VolumePoint[] = [];
   for (let i = 0; i < counts.length; i += 1) {
@@ -106,16 +103,10 @@ describe("forecastVolume — sazonalidade semanal", () => {
       expect(r.diagnostics.weekdayFactors[dow]).toBeGreaterThan(1.1);
     }
     // Previsão deve refletir padrão: dias úteis previstos > fins de semana.
-    const weekdayPreds = r.forecast.filter(
-      (p) => p.weekday !== 0 && p.weekday !== 6,
-    );
-    const weekendPreds = r.forecast.filter(
-      (p) => p.weekday === 0 || p.weekday === 6,
-    );
-    const avgWeekday =
-      weekdayPreds.reduce((a, p) => a + p.prediction, 0) / weekdayPreds.length;
-    const avgWeekend =
-      weekendPreds.reduce((a, p) => a + p.prediction, 0) / weekendPreds.length;
+    const weekdayPreds = r.forecast.filter((p) => p.weekday !== 0 && p.weekday !== 6);
+    const weekendPreds = r.forecast.filter((p) => p.weekday === 0 || p.weekday === 6);
+    const avgWeekday = weekdayPreds.reduce((a, p) => a + p.prediction, 0) / weekdayPreds.length;
+    const avgWeekend = weekendPreds.reduce((a, p) => a + p.prediction, 0) / weekendPreds.length;
     expect(avgWeekday).toBeGreaterThan(avgWeekend * 2);
   });
 });

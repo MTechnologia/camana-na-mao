@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createAiDraft,
   fetchAiConfigBundle,
@@ -7,10 +7,14 @@ import {
   saveRollbackPolicy,
   updatePromptTemplate,
   type AiConfigBundle,
-} from '@/lib/aiConfigApi';
-import type { AiRollbackPolicy, ConfigEnvironment, PromptTemplateDefinition } from '@/types/systemConfig';
+} from "@/lib/aiConfigApi";
+import type {
+  AiRollbackPolicy,
+  ConfigEnvironment,
+  PromptTemplateDefinition,
+} from "@/types/systemConfig";
 
-const queryKey = (environment: ConfigEnvironment) => ['ai-config', environment] as const;
+const queryKey = (environment: ConfigEnvironment) => ["ai-config", environment] as const;
 
 export function useAiConfig(environment: ConfigEnvironment) {
   const queryClient = useQueryClient();
@@ -21,8 +25,7 @@ export function useAiConfig(environment: ConfigEnvironment) {
     staleTime: 30_000,
   });
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: queryKey(environment) });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKey(environment) });
 
   const publishMutation = useMutation({
     mutationFn: publishAiVersion,
@@ -50,10 +53,10 @@ export function useAiConfig(environment: ConfigEnvironment) {
       patch,
     }: {
       slug: string;
-      patch: Pick<PromptTemplateDefinition, 'name' | 'description' | 'body' | 'variables'>;
+      patch: Pick<PromptTemplateDefinition, "name" | "description" | "body" | "variables">;
     }) => updatePromptTemplate(slug, patch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-config'] });
+      queryClient.invalidateQueries({ queryKey: ["ai-config"] });
     },
   });
 

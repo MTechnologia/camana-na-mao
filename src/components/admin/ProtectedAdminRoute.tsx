@@ -1,8 +1,8 @@
-import { ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUserRole } from '@/hooks/useUserRole';
-import { AdminProviders } from '@/components/admin/AdminProviders';
-import { toast } from 'sonner';
+import { ReactNode, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
+import { AdminProviders } from "@/components/admin/AdminProviders";
+import { toast } from "sonner";
 
 interface ProtectedAdminRouteProps {
   children: ReactNode;
@@ -14,10 +14,10 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
 
   useEffect(() => {
     if (!loading && !canAccessAdminPanel) {
-      toast.error('Acesso negado', {
-        description: 'Você não tem permissão para acessar esta área.',
+      toast.error("Acesso negado", {
+        description: "Você não tem permissão para acessar esta área.",
       });
-      navigate('/');
+      navigate("/");
     }
   }, [canAccessAdminPanel, loading, navigate]);
 

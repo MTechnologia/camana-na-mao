@@ -112,7 +112,7 @@ async function mockTransportLineSearch(page: Page): Promise<void> {
       const haystack = `${line.line_code} ${line.line_name}`.toLowerCase();
       const terms = normalized
         .split(',')
-        .map((part) => part.replace(/.*ilike\.\%/i, '').replace(/\%.*/i, '').trim())
+        .map((part) => part.replace(/.*ilike\.%/i, '').replace(/%.*/i, '').trim())
         .filter(Boolean);
       return terms.some((term) => haystack.includes(term));
     });

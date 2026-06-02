@@ -33,14 +33,30 @@ export function AdminReportsHeatmap({ points }: AdminReportsHeatmapProps) {
     setHeatmapError(null);
 
     const init = async () => {
-      let MapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+      let MapCtor:
+        | (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+        | null =
         typeof window.google?.maps?.Map === "function"
-          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          ? (window.google.maps.Map as new (
+              el: HTMLElement,
+              opts?: google.maps.MapOptions,
+            ) => google.maps.Map)
           : null;
 
-      if (!MapCtor && typeof (window.google.maps as { importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }).importLibrary === "function") {
+      if (
+        !MapCtor &&
+        typeof (
+          window.google.maps as {
+            importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+          }
+        ).importLibrary === "function"
+      ) {
         try {
-          const mapsLib = await (window.google.maps as { importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }).importLibrary("maps");
+          const mapsLib = await (
+            window.google.maps as {
+              importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+            }
+          ).importLibrary("maps");
           MapCtor = mapsLib?.Map ?? null;
         } catch (e) {
           console.error("[AdminReportsHeatmap] importLibrary(maps) falhou:", e);
@@ -92,7 +108,7 @@ export function AdminReportsHeatmap({ points }: AdminReportsHeatmapProps) {
           radius: 56,
           opacity: 0.85,
           intensity: 1.2,
-          layerIdSuffix: 'reports',
+          layerIdSuffix: "reports",
           skipMapIdle: skipIdle,
         });
         if (cancelled || !mapInstanceRef.current) {

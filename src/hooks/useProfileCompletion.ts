@@ -27,9 +27,9 @@ export const useProfileCompletion = () => {
     try {
       // Check basic profile
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name, phone')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("id", user.id)
         .maybeSingle();
 
       if (profileError) {
@@ -38,15 +38,15 @@ export const useProfileCompletion = () => {
 
       // Check interests
       const { data: interests } = await supabase
-        .from('user_interests')
-        .select('id')
-        .eq('user_id', user.id);
+        .from("user_interests")
+        .select("id")
+        .eq("user_id", user.id);
 
       // Check demographics
       const { data: demographics, error: demographicsError } = await supabase
-        .from('user_demographics')
-        .select('*')
-        .eq('user_id', user.id)
+        .from("user_demographics")
+        .select("*")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (demographicsError) {
@@ -55,10 +55,10 @@ export const useProfileCompletion = () => {
 
       // Check address
       const { data: address, error: addressError } = await supabase
-        .from('user_addresses')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_primary', true)
+        .from("user_addresses")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_primary", true)
         .maybeSingle();
 
       if (addressError) {
@@ -96,7 +96,7 @@ export const useProfileCompletion = () => {
     if (!user) return;
 
     try {
-      await supabase.from('profile_completion_progress').upsert({
+      await supabase.from("profile_completion_progress").upsert({
         user_id: user.id,
         step_completed: step,
       });

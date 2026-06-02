@@ -11,6 +11,21 @@ type TopEquipment = {
   last_ping_at: string | null;
 };
 
+/** Caller genérico para RPCs ausentes nos tipos gerados do Supabase. */
+type RpcCaller = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: unknown }>;
+
+type TopRow = {
+  service_id: unknown;
+  service_name: unknown;
+  users_count: unknown;
+  last_ping_at: unknown;
+};
+type HeatRow = { hour_label: unknown; day_label: unknown; value: unknown };
+type DailyRow = { day_label: unknown; value: unknown };
+
 function formatIsoDayToPt(iso: string): string {
   // iso: YYYY-MM-DD
   const parts = iso.split("-");
@@ -33,14 +48,14 @@ export function useEquipmentOccupancyAdminStats() {
     const fetchTop = async () => {
       try {
         setLoadingTop(true);
-        const supabaseAny = supabase as any;
+        const callRpc = supabase.rpc as unknown as RpcCaller;
 
-        const { data: topRows } = await supabaseAny.rpc("get_equipment_occupancy_top", {
+        const { data: topRows } = await callRpc("get_equipment_occupancy_top", {
           p_days: 14,
           p_limit: 10,
         });
 
-        const list: TopEquipment[] = (topRows || []).map((r: any) => ({
+        const list: TopEquipment[] = ((topRows as TopRow[]) || []).map((r) => ({
           service_id: String(r.service_id),
           service_name: r.service_name ? String(r.service_name) : null,
           users_count: Number(r.users_count ?? 0),
@@ -67,26 +82,26 @@ export function useEquipmentOccupancyAdminStats() {
       if (!selectedServiceId) return;
       try {
         setLoadingCharts(true);
-        const supabaseAny = supabase as any;
+        const callRpc = supabase.rpc as unknown as RpcCaller;
 
-        const { data: heatmapRows } = await supabaseAny.rpc("get_equipment_occupancy_heatmap_for_service", {
+        const { data: heatmapRows } = await callRpc("get_equipment_occupancy_heatmap_for_service", {
           p_service_id: selectedServiceId,
           p_days: 7,
         });
 
-        const { data: dailyRows } = await supabaseAny.rpc("get_equipment_occupancy_daily_for_service", {
+        const { data: dailyRows } = await callRpc("get_equipment_occupancy_daily_for_service", {
           p_service_id: selectedServiceId,
           p_days: 14,
         });
 
         const heatmapData: HeatmapPoint[] =
-          (heatmapRows || []).map((r: any) => ({
+          ((heatmapRows as HeatRow[]) || []).map((r) => ({
             x: String(r.hour_label),
             y: String(r.day_label),
             value: Number(r.value ?? 0),
           })) ?? [];
 
-        const daily: DailyPoint[] = (dailyRows || []).map((r: any) => ({
+        const daily: DailyPoint[] = ((dailyRows as DailyRow[]) || []).map((r) => ({
           day_label: String(r.day_label),
           value: Number(r.value ?? 0),
         }));
@@ -126,4 +141,3 @@ export function useEquipmentOccupancyAdminStats() {
     dailyTotal,
   };
 }
-

@@ -1,11 +1,14 @@
-import { supabase } from '@/integrations/supabase/client';
-import type { ReferralDestination } from '@/lib/referralDestinations';
-import { globalFiltersToReportsAnalytics, type PeriodCompareFilterInput } from '@/lib/globalFiltersToAnalytics';
-import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
+import { supabase } from "@/integrations/supabase/client";
+import type { ReferralDestination } from "@/lib/referralDestinations";
+import {
+  globalFiltersToReportsAnalytics,
+  type PeriodCompareFilterInput,
+} from "@/lib/globalFiltersToAnalytics";
+import { resolveGlobalCategoryFilter } from "@/lib/globalCategoryFilter";
 import {
   kanbanTransportRowMatchesRegion,
   kanbanUrbanRowMatchesRegion,
-} from '@/lib/triageKanbanGlobalFilters';
+} from "@/lib/triageKanbanGlobalFilters";
 
 export type CouncilReferralKpis = {
   total: number;
@@ -74,15 +77,17 @@ function referralMatchesGlobalRecorte(
     if (!catSlice.isAll && catSlice.urbanCategories.length > 0) {
       if (!u.category || !catSlice.urbanCategories.includes(u.category)) return false;
     }
-    if (!kanbanUrbanRowMatchesRegion(
-      {
-        location_address: u.location_address,
-        neighborhood: u.neighborhood,
-        latitude: u.latitude,
-        longitude: u.longitude,
-      },
-      region,
-    )) {
+    if (
+      !kanbanUrbanRowMatchesRegion(
+        {
+          location_address: u.location_address,
+          neighborhood: u.neighborhood,
+          latitude: u.latitude,
+          longitude: u.longitude,
+        },
+        region,
+      )
+    ) {
       return false;
     }
     return true;
@@ -94,13 +99,16 @@ function referralMatchesGlobalRecorte(
       if (!t.report_type || !catSlice.transportSubcategories.includes(t.report_type)) {
         return false;
       }
-    } else if (!catSlice.isAll && catSlice.urbanCategories.length > 0 && catSlice.transportSubcategories.length === 0) {
+    } else if (
+      !catSlice.isAll &&
+      catSlice.urbanCategories.length > 0 &&
+      catSlice.transportSubcategories.length === 0
+    ) {
       return false;
     }
-    if (!kanbanTransportRowMatchesRegion(
-      { location: t.location, stop_name: t.stop_name },
-      region,
-    )) {
+    if (
+      !kanbanTransportRowMatchesRegion({ location: t.location, stop_name: t.stop_name }, region)
+    ) {
       return false;
     }
     return true;
@@ -114,16 +122,15 @@ function referralMatchesGlobalRecorte(
         return false;
       }
     }
-    if (!kanbanTransportRowMatchesRegion(
-      { location: ps?.district ?? null, stop_name: null },
-      region,
-    )) {
+    if (
+      !kanbanTransportRowMatchesRegion({ location: ps?.district ?? null, stop_name: null }, region)
+    ) {
       return false;
     }
     return true;
   }
 
-  if (region !== 'all' || !catSlice.isAll) return false;
+  if (region !== "all" || !catSlice.isAll) return false;
   return true;
 }
 
@@ -134,18 +141,18 @@ export async function fetchFilteredCouncilMemberReferrals(
   category: string,
   periodCompare?: PeriodCompareFilterInput | null,
 ): Promise<FilteredCouncilReferralRow[]> {
-  const f = globalFiltersToReportsAnalytics(period, 'all', 'all', periodCompare ?? undefined);
+  const f = globalFiltersToReportsAnalytics(period, "all", "all", periodCompare ?? undefined);
 
-  let query = supabase.from('council_member_referrals').select(REFERRAL_SELECT);
+  let query = supabase.from("council_member_referrals").select(REFERRAL_SELECT);
 
   if (f.startDate) {
-    query = query.gte('created_at', `${f.startDate}T00:00:00`);
+    query = query.gte("created_at", `${f.startDate}T00:00:00`);
   }
   if (f.endDate) {
-    query = query.lte('created_at', `${f.endDate}T23:59:59`);
+    query = query.lte("created_at", `${f.endDate}T23:59:59`);
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false }).limit(5000);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(5000);
   if (error) throw error;
 
   const rows = (data ?? []) as ReferralQueryRow[];
@@ -154,16 +161,16 @@ export async function fetchFilteredCouncilMemberReferrals(
     .map((row) => ({
       id: row.id,
       status: row.status,
-      created_at: row.created_at ?? '',
+      created_at: row.created_at ?? "",
       resolved_at: row.resolved_at,
       councilMemberId: row.council_member_id,
       urbanReportId: row.urban_report_id,
       transportReportId: row.transport_report_id,
-      councilMemberName: row.council_member_name?.trim() || 'Vereador',
+      councilMemberName: row.council_member_name?.trim() || "Vereador",
     }));
 }
 
-const COUNCIL_QUEUE_ACTIVE_STATUSES = new Set(['pending', 'sent', 'acknowledged']);
+const COUNCIL_QUEUE_ACTIVE_STATUSES = new Set(["pending", "sent", "acknowledged"]);
 
 /** Fila por vereador no recorte global (encaminhamentos ativos no período). */
 export function buildCouncilMemberDestinationsFromReferrals(
@@ -175,10 +182,7 @@ export function buildCouncilMemberDestinationsFromReferrals(
 
   for (const row of rows) {
     if (!COUNCIL_QUEUE_ACTIVE_STATUSES.has(row.status)) continue;
-    countById.set(
-      row.councilMemberId,
-      (countById.get(row.councilMemberId) ?? 0) + 1,
-    );
+    countById.set(row.councilMemberId, (countById.get(row.councilMemberId) ?? 0) + 1);
     metaById.set(row.councilMemberId, {
       name: row.councilMemberName,
       themes: [],
@@ -204,48 +208,46 @@ export function buildCouncilMemberDestinationsFromReferrals(
         activeReferrals: countById.get(id) ?? 0,
       };
     })
-    .sort(
-      (a, b) =>
-        b.activeReferrals - a.activeReferrals
-        || a.name.localeCompare(b.name, 'pt-BR'),
-    );
+    .sort((a, b) => b.activeReferrals - a.activeReferrals || a.name.localeCompare(b.name, "pt-BR"));
 }
 
 /** IDs urbanos com pelo menos um encaminhamento no status do filtro. */
 export function buildUrbanIdsForCouncilReferralFilter(
   rows: FilteredCouncilReferralRow[],
-  filter: 'any' | 'pending' | 'sent' | 'acknowledged' | 'resolved',
+  filter: "any" | "pending" | "sent" | "acknowledged" | "resolved",
 ): Set<string> {
   const ids = new Set<string>();
   for (const row of rows) {
     if (!row.urbanReportId) continue;
-    if (filter === 'any' || row.status === filter) ids.add(row.urbanReportId);
+    if (filter === "any" || row.status === filter) ids.add(row.urbanReportId);
   }
   return ids;
 }
 
 export function filterCouncilReferralRows(
   rows: FilteredCouncilReferralRow[],
-  filter: 'any' | 'pending' | 'sent' | 'acknowledged' | 'resolved',
+  filter: "any" | "pending" | "sent" | "acknowledged" | "resolved",
 ): FilteredCouncilReferralRow[] {
-  if (filter === 'any') return rows;
+  if (filter === "any") return rows;
   return rows.filter((r) => r.status === filter);
 }
 
 export function countCouncilReferralsForFilter(
   rows: FilteredCouncilReferralRow[],
-  filter: 'any' | 'pending' | 'sent' | 'acknowledged' | 'resolved',
+  filter: "any" | "pending" | "sent" | "acknowledged" | "resolved",
 ): number {
   return filterCouncilReferralRows(rows, filter).length;
 }
 
-export function computeCouncilReferralKpis(rows: FilteredCouncilReferralRow[]): CouncilReferralKpis {
+export function computeCouncilReferralKpis(
+  rows: FilteredCouncilReferralRow[],
+): CouncilReferralKpis {
   return {
     total: rows.length,
-    pending: rows.filter((r) => r.status === 'pending').length,
-    sent: rows.filter((r) => r.status === 'sent').length,
-    acknowledged: rows.filter((r) => r.status === 'acknowledged').length,
-    resolved: rows.filter((r) => r.status === 'resolved').length,
+    pending: rows.filter((r) => r.status === "pending").length,
+    sent: rows.filter((r) => r.status === "sent").length,
+    acknowledged: rows.filter((r) => r.status === "acknowledged").length,
+    resolved: rows.filter((r) => r.status === "resolved").length,
   };
 }
 
@@ -262,7 +264,7 @@ type CommissionReferralBaseRow = {
   commission_id: string;
   status: string;
   referred_at: string;
-  source_table: 'urban_reports' | 'transport_reports';
+  source_table: "urban_reports" | "transport_reports";
   report_id: string;
   legislative_commissions: {
     name: string;
@@ -272,8 +274,8 @@ type CommissionReferralBaseRow = {
 };
 
 type CommissionReferralQueryRow = CommissionReferralBaseRow & {
-  urban_reports: ReferralQueryRow['urban_reports'];
-  transport_reports: ReferralQueryRow['transport_reports'];
+  urban_reports: ReferralQueryRow["urban_reports"];
+  transport_reports: ReferralQueryRow["transport_reports"];
 };
 
 /** Enriquece encaminhamentos temáticos com dados do relato (sem FK polimórfica no PostgREST). */
@@ -283,40 +285,32 @@ async function enrichCommissionReferralRows(
   if (rows.length === 0) return [];
 
   const urbanIds = [
-    ...new Set(
-      rows
-        .filter((r) => r.source_table === 'urban_reports')
-        .map((r) => r.report_id),
-    ),
+    ...new Set(rows.filter((r) => r.source_table === "urban_reports").map((r) => r.report_id)),
   ];
   const transportIds = [
-    ...new Set(
-      rows
-        .filter((r) => r.source_table === 'transport_reports')
-        .map((r) => r.report_id),
-    ),
+    ...new Set(rows.filter((r) => r.source_table === "transport_reports").map((r) => r.report_id)),
   ];
 
   const [urbanRes, transportRes] = await Promise.all([
     urbanIds.length > 0
       ? supabase
-          .from('urban_reports')
-          .select('id, category, neighborhood, latitude, longitude, location_address')
-          .in('id', urbanIds)
+          .from("urban_reports")
+          .select("id, category, neighborhood, latitude, longitude, location_address")
+          .in("id", urbanIds)
       : Promise.resolve({ data: [], error: null }),
     transportIds.length > 0
       ? supabase
-          .from('transport_reports')
-          .select('id, report_type, location, stop_name')
-          .in('id', transportIds)
+          .from("transport_reports")
+          .select("id, report_type, location, stop_name")
+          .in("id", transportIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (urbanRes.error) throw urbanRes.error;
   if (transportRes.error) throw transportRes.error;
 
-  type UrbanSlice = NonNullable<ReferralQueryRow['urban_reports']>;
-  type TransportSlice = NonNullable<ReferralQueryRow['transport_reports']>;
+  type UrbanSlice = NonNullable<ReferralQueryRow["urban_reports"]>;
+  type TransportSlice = NonNullable<ReferralQueryRow["transport_reports"]>;
 
   const urbanById = new Map(
     (urbanRes.data ?? []).map((u) => [
@@ -344,13 +338,9 @@ async function enrichCommissionReferralRows(
   return rows.map((row) => ({
     ...row,
     urban_reports:
-      row.source_table === 'urban_reports'
-        ? urbanById.get(row.report_id) ?? null
-        : null,
+      row.source_table === "urban_reports" ? (urbanById.get(row.report_id) ?? null) : null,
     transport_reports:
-      row.source_table === 'transport_reports'
-        ? transportById.get(row.report_id) ?? null
-        : null,
+      row.source_table === "transport_reports" ? (transportById.get(row.report_id) ?? null) : null,
   }));
 }
 
@@ -372,8 +362,8 @@ function commissionReferralMatchesGlobalRecorte(
     status: row.status,
     created_at: row.referred_at,
     resolved_at: null,
-    urban_report_id: row.source_table === 'urban_reports' ? row.report_id : null,
-    transport_report_id: row.source_table === 'transport_reports' ? row.report_id : null,
+    urban_report_id: row.source_table === "urban_reports" ? row.report_id : null,
+    transport_report_id: row.source_table === "transport_reports" ? row.report_id : null,
     service_rating_id: null,
     urban_reports: row.urban_reports,
     transport_reports: row.transport_reports,
@@ -389,32 +379,30 @@ export async function fetchFilteredReportCommissionReferrals(
   category: string,
   periodCompare?: PeriodCompareFilterInput | null,
 ): Promise<FilteredCommissionReferralRow[]> {
-  const f = globalFiltersToReportsAnalytics(period, 'all', 'all', periodCompare ?? undefined);
+  const f = globalFiltersToReportsAnalytics(period, "all", "all", periodCompare ?? undefined);
 
-  let query = supabase.from('report_commission_referrals').select(COMMISSION_REFERRAL_SELECT);
+  let query = supabase.from("report_commission_referrals").select(COMMISSION_REFERRAL_SELECT);
 
   if (f.startDate) {
-    query = query.gte('referred_at', `${f.startDate}T00:00:00`);
+    query = query.gte("referred_at", `${f.startDate}T00:00:00`);
   }
   if (f.endDate) {
-    query = query.lte('referred_at', `${f.endDate}T23:59:59`);
+    query = query.lte("referred_at", `${f.endDate}T23:59:59`);
   }
 
-  const { data, error } = await query.order('referred_at', { ascending: false }).limit(5000);
+  const { data, error } = await query.order("referred_at", { ascending: false }).limit(5000);
   if (error) throw error;
 
-  const enriched = await enrichCommissionReferralRows(
-    (data ?? []) as CommissionReferralBaseRow[],
-  );
+  const enriched = await enrichCommissionReferralRows((data ?? []) as CommissionReferralBaseRow[]);
 
   return enriched
     .filter((row) => commissionReferralMatchesGlobalRecorte(row, region, category))
     .map((row) => ({
       commissionId: row.commission_id,
       commissionName:
-        row.legislative_commissions?.name?.trim()
-        || row.legislative_commissions?.code?.trim()
-        || 'Comissão',
+        row.legislative_commissions?.name?.trim() ||
+        row.legislative_commissions?.code?.trim() ||
+        "Comissão",
       commissionCode: row.legislative_commissions?.code ?? null,
       themes: (row.legislative_commissions?.match_keywords ?? []).filter(Boolean),
       status: row.status,
@@ -422,7 +410,7 @@ export async function fetchFilteredReportCommissionReferrals(
     }));
 }
 
-const COMMISSION_ACTIVE_STATUSES = new Set(['pending', 'accepted']);
+const COMMISSION_ACTIVE_STATUSES = new Set(["pending", "accepted"]);
 
 export function buildCommissionDestinationsFromReferrals(
   rows: FilteredCommissionReferralRow[],
@@ -460,5 +448,5 @@ export function buildCommissionDestinationsFromReferrals(
         activeReferrals: countById.get(id) ?? 0,
       };
     })
-    .sort((a, b) => b.activeReferrals - a.activeReferrals || a.name.localeCompare(b.name, 'pt-BR'));
+    .sort((a, b) => b.activeReferrals - a.activeReferrals || a.name.localeCompare(b.name, "pt-BR"));
 }

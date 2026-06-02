@@ -1,31 +1,26 @@
-import { Filter, RotateCcw } from 'lucide-react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ParameterLegend } from '@/components/admin/analytics/ParameterLegend';
-import { FILTER_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
+import { Filter, RotateCcw } from "lucide-react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ParameterLegend } from "@/components/admin/analytics/ParameterLegend";
+import { FILTER_PARAMETER_LEGENDS } from "@/lib/analyticsParameterLegends";
 import {
   CATEGORY_FILTER_OPTIONS,
   PERIOD_FILTER_OPTIONS,
   REGION_FILTER_OPTIONS,
-} from '@/lib/globalFilterOptions';
-import { AdminMobileMenuButton } from '@/components/admin/AdminSidebar';
-import { cn } from '@/lib/utils';
+} from "@/lib/globalFilterOptions";
+import { AdminMobileMenuButton } from "@/components/admin/AdminSidebar";
+import { cn } from "@/lib/utils";
 
 const selectClass = cn(
-  'h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+  "h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
 );
 
 /** @deprecated Barra legada — rollback via USE_UNIFIED_ANALYTICS_CONTEXT_BAR = false */
 export function GlobalFiltersBar() {
-  const { period, region, category, setPeriod, setRegion, setCategory, reset } =
-    useGlobalFilters();
+  const { period, region, category, setPeriod, setRegion, setCategory, reset } = useGlobalFilters();
 
   return (
     <div className="border-b border-border bg-card px-4 py-3 shadow-sm md:px-6">
@@ -117,5 +112,3 @@ export function GlobalFiltersBar() {
     </div>
   );
 }
-
-

@@ -96,7 +96,10 @@ const STATUS_LABELS: Record<string, string> = {
   maintenance: "Em manutenção",
 };
 
-function openingHoursToText(openingHours: Json | null | undefined, serviceType?: string | null): string {
+function openingHoursToText(
+  openingHours: Json | null | undefined,
+  serviceType?: string | null,
+): string {
   const text =
     typeof openingHours === "string"
       ? openingHours

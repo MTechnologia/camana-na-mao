@@ -91,9 +91,7 @@ function diffHours(later: string | null, earlier: string | null): number | null 
  * Exportada para teste.
  */
 export function compositeWaitHours(r: RawReport): number | null {
-  const resolvedTime = isResolved(r.status)
-    ? diffHours(r.updatedAt, r.createdAt)
-    : null;
+  const resolvedTime = isResolved(r.status) ? diffHours(r.updatedAt, r.createdAt) : null;
   let firstRespTime: number | null = null;
   if (r.firstResponseSeconds !== null) {
     firstRespTime = r.firstResponseSeconds / 3600;
@@ -158,7 +156,9 @@ function parsePgInterval(value: unknown): number | null {
   return null;
 }
 
-async function fetchUrban(period: IntensityPeriod): Promise<{ reports: RawReport[]; truncated: boolean }> {
+async function fetchUrban(
+  period: IntensityPeriod,
+): Promise<{ reports: RawReport[]; truncated: boolean }> {
   const out: RawReport[] = [];
   const startAt = startDateFromPeriod(period);
   let truncated = false;
@@ -198,7 +198,9 @@ async function fetchUrban(period: IntensityPeriod): Promise<{ reports: RawReport
   return { reports: out, truncated };
 }
 
-async function fetchTransport(period: IntensityPeriod): Promise<{ reports: RawReport[]; truncated: boolean }> {
+async function fetchTransport(
+  period: IntensityPeriod,
+): Promise<{ reports: RawReport[]; truncated: boolean }> {
   const out: RawReport[] = [];
   const startAt = startDateFromPeriod(period);
   let truncated = false;
@@ -260,7 +262,15 @@ export function aggregateByZone(reports: RawReport[]): ZoneIntensity[] {
   reports.forEach((r) => {
     let b = buckets.get(r.zone);
     if (!b) {
-      b = { zone: r.zone, count: 0, waitSum: 0, waitCount: 0, resolved: 0, pending: 0, rejected: 0 };
+      b = {
+        zone: r.zone,
+        count: 0,
+        waitSum: 0,
+        waitCount: 0,
+        resolved: 0,
+        pending: 0,
+        rejected: 0,
+      };
       buckets.set(r.zone, b);
     }
     b.count += 1;

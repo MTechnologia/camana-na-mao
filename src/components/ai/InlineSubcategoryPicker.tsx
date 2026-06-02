@@ -6,7 +6,10 @@ interface InlineSubcategoryPickerProps {
   onSelect: (value: string, label: string, reportType: string) => void;
 }
 
-export default function InlineSubcategoryPicker({ reportType, onSelect }: Readonly<InlineSubcategoryPickerProps>) {
+export default function InlineSubcategoryPicker({
+  reportType,
+  onSelect,
+}: Readonly<InlineSubcategoryPickerProps>) {
   const options = TRANSPORT_SUBCATEGORIES[reportType] || TRANSPORT_SUBCATEGORIES.outro;
 
   return (

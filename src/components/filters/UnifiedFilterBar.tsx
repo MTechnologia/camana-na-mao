@@ -1,17 +1,17 @@
-import { Search, X, Download, Filter } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Search, X, Download, Filter } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { UnifiedFilterBarProps, FilterFieldConfig, DateRangeValue } from './types';
-import { FilterDatePicker } from './FilterDatePicker';
+} from "@/components/ui/select";
+import { UnifiedFilterBarProps, FilterFieldConfig, DateRangeValue } from "./types";
+import { FilterDatePicker } from "./FilterDatePicker";
 
 export function UnifiedFilterBar<T extends Record<string, unknown>>({
   config,
@@ -30,13 +30,13 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
     const key = String(field.key);
 
     switch (field.type) {
-      case 'search':
+      case "search":
         return (
-          <div className={cn('relative', field.colSpan === 2 && 'md:col-span-2')}>
+          <div className={cn("relative", field.colSpan === 2 && "md:col-span-2")}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={field.placeholder || 'Buscar...'}
-              value={(value as string) || ''}
+              placeholder={field.placeholder || "Buscar..."}
+              value={(value as string) || ""}
               onChange={(e) => onChange(field.key, e.target.value as T[keyof T])}
               className="pl-9 h-9"
               disabled={loading}
@@ -46,7 +46,7 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
                 variant="ghost"
                 size="sm"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                onClick={() => onChange(field.key, '' as T[keyof T])}
+                onClick={() => onChange(field.key, "" as T[keyof T])}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -54,10 +54,10 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
           </div>
         );
 
-      case 'select':
+      case "select":
         return (
           <Select
-            value={(value as string) || 'all'}
+            value={(value as string) || "all"}
             onValueChange={(v) => onChange(field.key, v as T[keyof T])}
             disabled={loading}
           >
@@ -65,9 +65,7 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
               <SelectValue placeholder={field.placeholder || field.label} />
             </SelectTrigger>
             <SelectContent className="z-50 bg-popover">
-              <SelectItem value="all">
-                {field.placeholder || `Todos(as)`}
-              </SelectItem>
+              <SelectItem value="all">{field.placeholder || `Todos(as)`}</SelectItem>
               {field.options?.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
@@ -77,12 +75,12 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
           </Select>
         );
 
-      case 'multiselect':
+      case "multiselect":
         // For multiselect, we'd need a more complex component
         // For now, fallback to regular select
         return (
           <Select
-            value={(value as string) || 'all'}
+            value={(value as string) || "all"}
             onValueChange={(v) => onChange(field.key, v as T[keyof T])}
             disabled={loading}
           >
@@ -100,12 +98,12 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
           </Select>
         );
 
-      case 'daterange':
+      case "daterange":
         return (
           <FilterDatePicker
             value={value as DateRangeValue | undefined}
             onChange={(v) => onChange(field.key, v as T[keyof T])}
-            placeholder={field.placeholder || 'Período'}
+            placeholder={field.placeholder || "Período"}
           />
         );
 
@@ -118,26 +116,22 @@ export function UnifiedFilterBar<T extends Record<string, unknown>>({
 
   return (
     <div
-      className={cn(
-        'bg-card border border-border rounded-xl p-4',
-        compactMode && 'p-3',
-        className
-      )}
+      className={cn("bg-card border border-border rounded-xl p-4", compactMode && "p-3", className)}
     >
       <div
         className={cn(
-          'grid gap-3',
+          "grid gap-3",
           compactMode
-            ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-            : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
         )}
       >
         {visibleFields.map((field) => (
           <div
             key={String(field.key)}
             className={cn(
-              field.colSpan === 2 && 'sm:col-span-2',
-              field.colSpan === 3 && 'sm:col-span-2 lg:col-span-3'
+              field.colSpan === 2 && "sm:col-span-2",
+              field.colSpan === 3 && "sm:col-span-2 lg:col-span-3",
             )}
           >
             {renderField(field)}

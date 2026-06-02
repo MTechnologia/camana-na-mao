@@ -1,5 +1,5 @@
-import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
-import { dateRangeToIsoDates, globalPeriodKeyToDateRange } from '@/lib/globalPeriodRange';
+import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
+import { dateRangeToIsoDates, globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
 
 /** Converte recorte da página de análise de relatos urbanos em filtros do hook. */
 export function urbanReportsFiltersToReportsAnalytics(
@@ -13,8 +13,8 @@ export function urbanReportsFiltersToReportsAnalytics(
   return {
     startDate,
     endDate,
-    scope: 'urban_only',
-    ...(category !== 'all' ? { category } : {}),
-    ...(status !== 'all' ? { status } : {}),
+    scope: "urban_only",
+    ...(category !== "all" ? { category } : {}),
+    ...(status !== "all" ? { status } : {}),
   };
 }

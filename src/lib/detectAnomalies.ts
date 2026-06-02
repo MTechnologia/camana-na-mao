@@ -91,8 +91,7 @@ export function detectAnomalies(
   }
 
   const result = forecastVolume(history, 0);
-  const { trendSlope, trendIntercept, weekdayFactors, residualStdDev } =
-    result.diagnostics;
+  const { trendSlope, trendIntercept, weekdayFactors, residualStdDev } = result.diagnostics;
 
   // Se stddev é zero (série constante), não há como classificar como
   // anomalia — qualquer valor diferente seria infinito.

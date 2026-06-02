@@ -1,7 +1,7 @@
-import { ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { useGabineteVereador } from '@/hooks/useGabineteVereador';
+import { ReactNode, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useGabineteVereador } from "@/hooks/useGabineteVereador";
 
 interface ProtectedVereadorRouteProps {
   children: ReactNode;
@@ -13,10 +13,10 @@ export const ProtectedVereadorRoute = ({ children }: ProtectedVereadorRouteProps
 
   useEffect(() => {
     if (!loading && !canViewGabinete) {
-      toast.error('Acesso negado', {
-        description: 'Esta área é restrita a vereadores e assessores vinculados a um gabinete.',
+      toast.error("Acesso negado", {
+        description: "Esta área é restrita a vereadores e assessores vinculados a um gabinete.",
       });
-      navigate('/');
+      navigate("/");
     }
   }, [canViewGabinete, loading, navigate]);
 

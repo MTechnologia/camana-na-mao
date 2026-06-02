@@ -1,25 +1,24 @@
-import type { GlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import type { ReportQueueTab } from '@/types/urbanReportManagement';
+import type { GlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import type { ReportQueueTab } from "@/types/urbanReportManagement";
 
 /** Query usada em Gestão de relatos e links a partir de comissões. */
-export const COMMISSION_FILTER_QUERY = 'responsible';
+export const COMMISSION_FILTER_QUERY = "responsible";
 
 /** Query usada no Kanban de triagem. */
-export const TRIAGE_COMMISSION_FILTER_QUERY = 'commission';
+export const TRIAGE_COMMISSION_FILTER_QUERY = "commission";
 
 /** Aba da fila em Gestão de relatos (`triage` | `all` | `referrals` | `tracking`). */
-export const REPORTS_QUEUE_TAB_QUERY = 'tab';
+export const REPORTS_QUEUE_TAB_QUERY = "tab";
 
-const REPORT_QUEUE_TABS: ReportQueueTab[] = ['triage', 'all', 'referrals', 'tracking'];
+const REPORT_QUEUE_TABS: ReportQueueTab[] = ["triage", "all", "referrals", "tracking"];
 
-export function parseCommissionIdsFromSearchParams(
-  params: URLSearchParams,
-): string[] {
-  const raw =
-    params.get(COMMISSION_FILTER_QUERY)
-    ?? params.get(TRIAGE_COMMISSION_FILTER_QUERY);
+export function parseCommissionIdsFromSearchParams(params: URLSearchParams): string[] {
+  const raw = params.get(COMMISSION_FILTER_QUERY) ?? params.get(TRIAGE_COMMISSION_FILTER_QUERY);
   if (!raw) return [];
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export function parseReportsQueueTabFromSearchParams(
@@ -27,9 +26,7 @@ export function parseReportsQueueTabFromSearchParams(
 ): ReportQueueTab | null {
   const raw = params.get(REPORTS_QUEUE_TAB_QUERY);
   if (!raw) return null;
-  return REPORT_QUEUE_TABS.includes(raw as ReportQueueTab)
-    ? (raw as ReportQueueTab)
-    : null;
+  return REPORT_QUEUE_TABS.includes(raw as ReportQueueTab) ? (raw as ReportQueueTab) : null;
 }
 
 /** Período/região/categoria na URL para manter o mesmo recorte ao abrir Gestão de relatos. */
@@ -37,9 +34,9 @@ export function parseGlobalFiltersFromSearchParams(
   params: URLSearchParams,
 ): Partial<GlobalFilters> {
   const out: Partial<GlobalFilters> = {};
-  const period = params.get('period');
-  const region = params.get('region');
-  const category = params.get('category');
+  const period = params.get("period");
+  const region = params.get("region");
+  const category = params.get("category");
   if (period) out.period = period;
   if (region) out.region = region;
   if (category) out.category = category;
@@ -56,10 +53,10 @@ export function reportsManagementUrlForCommission(
   const params = new URLSearchParams();
   params.set(COMMISSION_FILTER_QUERY, commissionId);
   /** `all` — qualquer etapa com encaminhamento temático à comissão. */
-  params.set(REPORTS_QUEUE_TAB_QUERY, options?.queueTab ?? 'all');
-  if (options?.global?.period) params.set('period', options.global.period);
-  if (options?.global?.region) params.set('region', options.global.region);
-  if (options?.global?.category) params.set('category', options.global.category);
+  params.set(REPORTS_QUEUE_TAB_QUERY, options?.queueTab ?? "all");
+  if (options?.global?.period) params.set("period", options.global.period);
+  if (options?.global?.region) params.set("region", options.global.region);
+  if (options?.global?.category) params.set("category", options.global.category);
   return `/admin/reports?${params.toString()}`;
 }
 
@@ -68,16 +65,16 @@ export function triageKanbanUrlForCommission(commissionId: string): string {
 }
 
 /** Filtro por encaminhamento a vereador (`council_member_referrals`). */
-export const COUNCIL_REFERRAL_QUERY = 'councilReferral';
+export const COUNCIL_REFERRAL_QUERY = "councilReferral";
 
-export type CouncilReferralFilter = 'any' | 'pending' | 'sent' | 'acknowledged' | 'resolved';
+export type CouncilReferralFilter = "any" | "pending" | "sent" | "acknowledged" | "resolved";
 
 const COUNCIL_REFERRAL_VALUES: CouncilReferralFilter[] = [
-  'any',
-  'pending',
-  'sent',
-  'acknowledged',
-  'resolved',
+  "any",
+  "pending",
+  "sent",
+  "acknowledged",
+  "resolved",
 ];
 
 export function parseCouncilReferralFilterFromSearchParams(
@@ -91,27 +88,26 @@ export function parseCouncilReferralFilterFromSearchParams(
 }
 
 /** Status do funil (rótulo PT) → filtro na URL. */
-export function councilReferralFilterFromFunnelLabel(
-  label: string,
-): CouncilReferralFilter | null {
+export function councilReferralFilterFromFunnelLabel(label: string): CouncilReferralFilter | null {
   const map: Record<string, CouncilReferralFilter> = {
-    Pendentes: 'pending',
-    Enviados: 'sent',
-    Reconhecidos: 'acknowledged',
-    Resolvidos: 'resolved',
+    Pendentes: "pending",
+    Enviados: "sent",
+    Reconhecidos: "acknowledged",
+    Resolvidos: "resolved",
   };
   return map[label] ?? null;
 }
 
 /** Filtro por vereador (`council_member_referrals.council_member_id`). */
-export const COUNCILLOR_FILTER_QUERY = 'councillor';
+export const COUNCILLOR_FILTER_QUERY = "councillor";
 
-export function parseCouncilMemberIdsFromSearchParams(
-  params: URLSearchParams,
-): string[] {
+export function parseCouncilMemberIdsFromSearchParams(params: URLSearchParams): string[] {
   const raw = params.get(COUNCILLOR_FILTER_QUERY);
   if (!raw) return [];
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export function reportsManagementUrlForCouncilMember(
@@ -124,11 +120,11 @@ export function reportsManagementUrlForCouncilMember(
 ): string {
   const params = new URLSearchParams();
   params.set(COUNCILLOR_FILTER_QUERY, councilMemberId);
-  params.set(COUNCIL_REFERRAL_QUERY, options?.councilReferral ?? 'any');
-  params.set(REPORTS_QUEUE_TAB_QUERY, options?.queueTab ?? 'all');
-  if (options?.global?.period) params.set('period', options.global.period);
-  if (options?.global?.region) params.set('region', options.global.region);
-  if (options?.global?.category) params.set('category', options.global.category);
+  params.set(COUNCIL_REFERRAL_QUERY, options?.councilReferral ?? "any");
+  params.set(REPORTS_QUEUE_TAB_QUERY, options?.queueTab ?? "all");
+  if (options?.global?.period) params.set("period", options.global.period);
+  if (options?.global?.region) params.set("region", options.global.region);
+  if (options?.global?.category) params.set("category", options.global.category);
   return `/admin/reports?${params.toString()}`;
 }
 
@@ -141,9 +137,9 @@ export function reportsManagementUrlForCouncilReferral(
 ): string {
   const params = new URLSearchParams();
   params.set(COUNCIL_REFERRAL_QUERY, filter);
-  params.set(REPORTS_QUEUE_TAB_QUERY, options?.queueTab ?? 'all');
-  if (options?.global?.period) params.set('period', options.global.period);
-  if (options?.global?.region) params.set('region', options.global.region);
-  if (options?.global?.category) params.set('category', options.global.category);
+  params.set(REPORTS_QUEUE_TAB_QUERY, options?.queueTab ?? "all");
+  if (options?.global?.period) params.set("period", options.global.period);
+  if (options?.global?.region) params.set("region", options.global.region);
+  if (options?.global?.category) params.set("category", options.global.category);
   return `/admin/reports?${params.toString()}`;
 }

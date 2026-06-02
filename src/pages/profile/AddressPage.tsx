@@ -3,10 +3,7 @@ import PageHeader from "@/components/ui/page-header";
 import AddressForm from "@/components/profile/AddressForm";
 import ProfilePageHeader from "@/components/profile/ProfilePageHeader";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  isInInviteSetupFlow,
-  nextInviteStep,
-} from "@/lib/inviteSetupFlow";
+import { isInInviteSetupFlow, nextInviteStep } from "@/lib/inviteSetupFlow";
 
 const AddressPage = () => {
   const { user } = useAuth();

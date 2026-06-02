@@ -14,9 +14,7 @@ export interface GeoSampaOverlayState {
 }
 
 export function useGeoSampaOverlay(enabledLayerIds: string[]) {
-  const [layers, setLayers] = useState<Record<string, GeoSampaOverlayState>>(
-    {}
-  );
+  const [layers, setLayers] = useState<Record<string, GeoSampaOverlayState>>({});
   const loadedRef = useRef<Set<string>>(new Set());
 
   const fetchLayer = useCallback(async (layer: GeoSampaOverlayLayer) => {

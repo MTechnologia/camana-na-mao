@@ -30,8 +30,12 @@ describe("shouldOfferRatingCommentReview", () => {
   });
 
   it("nao oferece sem pedido do assistente, com rascunho curto ou comentario ja coletado", () => {
-    expect(shouldOfferRatingCommentReview({ rating_stars: 4 }, "Obrigado pela nota.", "Muito bom")).toBe(false);
-    expect(shouldOfferRatingCommentReview({ rating_stars: 4 }, "Descreva sua experiencia.", "ok")).toBe(false);
+    expect(
+      shouldOfferRatingCommentReview({ rating_stars: 4 }, "Obrigado pela nota.", "Muito bom"),
+    ).toBe(false);
+    expect(
+      shouldOfferRatingCommentReview({ rating_stars: 4 }, "Descreva sua experiencia.", "ok"),
+    ).toBe(false);
     expect(
       shouldOfferRatingCommentReview(
         { rating_stars: 4, rating_text: "Atendimento rapido" },

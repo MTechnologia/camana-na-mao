@@ -48,10 +48,7 @@ export function useAudienciaTopicSubscriptions() {
     if (active) {
       const { error } = await supabase
         .from("audiencia_topic_alerts")
-        .upsert(
-          { user_id: user.id, tema },
-          { onConflict: "user_id,tema", ignoreDuplicates: true },
-        );
+        .upsert({ user_id: user.id, tema }, { onConflict: "user_id,tema", ignoreDuplicates: true });
 
       if (error) {
         console.error("[useAudienciaTopicSubscriptions] Error subscribing:", error);

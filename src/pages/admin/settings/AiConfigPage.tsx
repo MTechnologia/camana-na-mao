@@ -1,47 +1,41 @@
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
-import { Loader2, RotateCcw, Upload } from 'lucide-react';
-import { SettingsLayout } from '@/components/admin/settings/SettingsLayout';
-import { useConfigEnvironment } from '@/contexts/ConfigEnvironmentContext';
-import { useAiConfig } from '@/hooks/useAiConfig';
-import { useUserRole } from '@/hooks/useUserRole';
-import { runAiSandboxTest } from '@/lib/aiConfigApi';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Loader2, RotateCcw, Upload } from "lucide-react";
+import { SettingsLayout } from "@/components/admin/settings/SettingsLayout";
+import { useConfigEnvironment } from "@/contexts/ConfigEnvironmentContext";
+import { useAiConfig } from "@/hooks/useAiConfig";
+import { useUserRole } from "@/hooks/useUserRole";
+import { runAiSandboxTest } from "@/lib/aiConfigApi";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { AiVersionStatus, PromptTemplateDefinition } from '@/types/systemConfig';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { AiVersionStatus, PromptTemplateDefinition } from "@/types/systemConfig";
 
-const statusVariant: Record<AiVersionStatus, 'default' | 'secondary' | 'outline'> = {
-  active: 'default',
-  draft: 'secondary',
-  archived: 'outline',
+const statusVariant: Record<AiVersionStatus, "default" | "secondary" | "outline"> = {
+  active: "default",
+  draft: "secondary",
+  archived: "outline",
 };
 
 const statusLabel: Record<AiVersionStatus, string> = {
-  active: 'Ativa',
-  draft: 'Rascunho',
-  archived: 'Arquivada',
+  active: "Ativa",
+  draft: "Rascunho",
+  archived: "Arquivada",
 };
 
 export function AiConfigPage() {
-  const {
-    config,
-    environment,
-    environmentLabel,
-    aiConfigLoading,
-    aiConfigError,
-    refetchAiConfig,
-  } = useConfigEnvironment();
+  const { config, environment, environmentLabel, aiConfigLoading, aiConfigError, refetchAiConfig } =
+    useConfigEnvironment();
   const { canConfigureSystem } = useUserRole();
   const {
     publishVersion,
@@ -57,7 +51,7 @@ export function AiConfigPage() {
   } = useAiConfig(environment);
 
   const [policy, setPolicy] = useState(config.rollbackPolicy);
-  const [sandboxMsg, setSandboxMsg] = useState('');
+  const [sandboxMsg, setSandboxMsg] = useState("");
   const [sandboxReply, setSandboxReply] = useState<string | null>(null);
   const [sandboxLoading, setSandboxLoading] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PromptTemplateDefinition | null>(null);
@@ -66,18 +60,19 @@ export function AiConfigPage() {
     setPolicy(config.rollbackPolicy);
   }, [config.rollbackPolicy]);
 
-  const active = config.aiVersions.find((v) => v.status === 'active');
-  const busy = isPublishing || isReactivating || isCreatingDraft || isSavingPolicy || isUpdatingTemplate;
+  const active = config.aiVersions.find((v) => v.status === "active");
+  const busy =
+    isPublishing || isReactivating || isCreatingDraft || isSavingPolicy || isUpdatingTemplate;
 
   const handlePublish = async (versionId: string, versionLabel: string) => {
     try {
       await publishVersion(versionId);
-      toast.success('Versão publicada', {
+      toast.success("Versão publicada", {
         description: `${versionLabel} em ${environmentLabel}. Monitorando acurácia por ${policy.observationHours}h.`,
       });
     } catch (e) {
-      toast.error('Falha ao publicar', {
-        description: e instanceof Error ? e.message : 'Tente novamente.',
+      toast.error("Falha ao publicar", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
       });
     }
   };
@@ -85,10 +80,10 @@ export function AiConfigPage() {
   const handleReactivate = async (versionId: string, versionLabel: string) => {
     try {
       await reactivateVersion(versionId);
-      toast.success('Versão reativada', { description: `${versionLabel} em ${environmentLabel}.` });
+      toast.success("Versão reativada", { description: `${versionLabel} em ${environmentLabel}.` });
     } catch (e) {
-      toast.error('Falha ao reativar', {
-        description: e instanceof Error ? e.message : 'Tente novamente.',
+      toast.error("Falha ao reativar", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
       });
     }
   };
@@ -96,10 +91,10 @@ export function AiConfigPage() {
   const handleNewDraft = async () => {
     try {
       await createDraft();
-      toast.success('Rascunho criado', { description: `Ambiente: ${environmentLabel}.` });
+      toast.success("Rascunho criado", { description: `Ambiente: ${environmentLabel}.` });
     } catch (e) {
-      toast.error('Falha ao criar rascunho', {
-        description: e instanceof Error ? e.message : 'Tente novamente.',
+      toast.error("Falha ao criar rascunho", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
       });
     }
   };
@@ -107,12 +102,12 @@ export function AiConfigPage() {
   const handleSavePolicy = async () => {
     try {
       await savePolicy(policy);
-      toast.success('Política salva', {
+      toast.success("Política salva", {
         description: `Rollback se queda > ${policy.maxAccuracyDropPct}% em ${policy.observationHours}h.`,
       });
     } catch (e) {
-      toast.error('Falha ao salvar política', {
-        description: e instanceof Error ? e.message : 'Tente novamente.',
+      toast.error("Falha ao salvar política", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
       });
     }
   };
@@ -120,7 +115,7 @@ export function AiConfigPage() {
   const handleSandbox = async () => {
     const msg = sandboxMsg.trim();
     if (!msg) {
-      toast.message('Digite uma mensagem de teste');
+      toast.message("Digite uma mensagem de teste");
       return;
     }
     setSandboxLoading(true);
@@ -128,10 +123,11 @@ export function AiConfigPage() {
     try {
       const reply = await runAiSandboxTest(msg);
       setSandboxReply(reply);
-      toast.message('Sandbox', { description: 'Resposta de teste — não afeta cidadãos.' });
+      toast.message("Sandbox", { description: "Resposta de teste — não afeta cidadãos." });
     } catch (e) {
-      toast.error('Erro no sandbox', {
-        description: e instanceof Error ? e.message : 'Verifique login e deploy do ai-orchestrator.',
+      toast.error("Erro no sandbox", {
+        description:
+          e instanceof Error ? e.message : "Verifique login e deploy do ai-orchestrator.",
       });
     } finally {
       setSandboxLoading(false);
@@ -150,12 +146,12 @@ export function AiConfigPage() {
           variables: editingTemplate.variables,
         },
       });
-      toast.success('Template atualizado');
+      toast.success("Template atualizado");
       setEditingTemplate(null);
       refetchAiConfig();
     } catch (e) {
-      toast.error('Falha ao salvar template', {
-        description: e instanceof Error ? e.message : 'Tente novamente.',
+      toast.error("Falha ao salvar template", {
+        description: e instanceof Error ? e.message : "Tente novamente.",
       });
     }
   };
@@ -180,7 +176,7 @@ export function AiConfigPage() {
       {aiConfigError ? (
         <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           Não foi possível carregar a configuração de IA. Verifique permissões de admin e se a
-          migration foi aplicada.{' '}
+          migration foi aplicada.{" "}
           <button type="button" className="underline" onClick={() => refetchAiConfig()}>
             Tentar novamente
           </button>
@@ -228,13 +224,13 @@ export function AiConfigPage() {
                         <td className="px-4 py-3 text-muted-foreground">{v.templateName}</td>
                         <td className="px-4 py-3">{v.modelId}</td>
                         <td className="px-4 py-3 tabular-nums">
-                          {v.accuracyPct != null ? `${v.accuracyPct}%` : '—'}
+                          {v.accuracyPct != null ? `${v.accuracyPct}%` : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={statusVariant[v.status]}>{statusLabel[v.status]}</Badge>
                         </td>
                         <td className="px-4 py-3">
-                          {v.status === 'draft' ? (
+                          {v.status === "draft" ? (
                             <Button
                               type="button"
                               variant="outline"
@@ -246,7 +242,7 @@ export function AiConfigPage() {
                               <Upload className="h-3.5 w-3.5" aria-hidden />
                               Publicar
                             </Button>
-                          ) : v.status === 'archived' ? (
+                          ) : v.status === "archived" ? (
                             <Button
                               type="button"
                               variant="ghost"
@@ -260,7 +256,7 @@ export function AiConfigPage() {
                             </Button>
                           ) : (
                             <span className="text-xs text-muted-foreground">
-                              {v.publishedBy ? `Por ${v.publishedBy}` : 'Em produção'}
+                              {v.publishedBy ? `Por ${v.publishedBy}` : "Em produção"}
                             </span>
                           )}
                         </td>
@@ -270,20 +266,22 @@ export function AiConfigPage() {
                 </tbody>
               </table>
             </div>
-          {active ? (
-            <Card>
-              <CardContent className="space-y-2 p-4">
-                <p className="text-xs text-muted-foreground">
-                  O modelo <strong className="font-mono">{active.modelId}</strong> da versão ativa é
-                  usado pelo chat quando publicada (fallback: secret <code className="text-xs">AI_CHAT_MODEL</code>
-                  ). O bloco institucional abaixo é injetado antes do prompt operacional do assistente.
-                </p>
-                <p className="text-sm font-medium">Versão ativa — preview do template</p>
+            {active ? (
+              <Card>
+                <CardContent className="space-y-2 p-4">
+                  <p className="text-xs text-muted-foreground">
+                    O modelo <strong className="font-mono">{active.modelId}</strong> da versão ativa
+                    é usado pelo chat quando publicada (fallback: secret{" "}
+                    <code className="text-xs">AI_CHAT_MODEL</code>
+                    ). O bloco institucional abaixo é injetado antes do prompt operacional do
+                    assistente.
+                  </p>
+                  <p className="text-sm font-medium">Versão ativa — preview do template</p>
                   <pre className="max-h-40 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
                     {active.body}
                   </pre>
                   <p className="text-xs text-muted-foreground">
-                    Variáveis: {active.variables.map((k) => `{{${k}}}`).join(', ')}
+                    Variáveis: {active.variables.map((k) => `{{${k}}}`).join(", ")}
                   </p>
                 </CardContent>
               </Card>
@@ -310,7 +308,7 @@ export function AiConfigPage() {
                           <code className="rounded bg-muted px-1">{`{{${v.key}}}`}</code>
                           <span className="text-muted-foreground">
                             {v.label}
-                            {v.required ? ' *' : ''}
+                            {v.required ? " *" : ""}
                           </span>
                         </li>
                       ))}
@@ -335,8 +333,7 @@ export function AiConfigPage() {
               <CardContent className="space-y-4 p-4">
                 <p className="text-sm text-muted-foreground">
                   Se a acurácia cair mais que o limite após publicação, o backend reverte
-                  automaticamente para a versão anterior em{' '}
-                  <strong>{environmentLabel}</strong>.
+                  automaticamente para a versão anterior em <strong>{environmentLabel}</strong>.
                 </p>
                 <label className="flex items-center gap-2 text-sm">
                   <input

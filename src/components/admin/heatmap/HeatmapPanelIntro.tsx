@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
-import { ParameterLegend } from '@/components/admin/analytics/ParameterLegend';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
+import type { ReactNode } from "react";
+import { ParameterLegend } from "@/components/admin/analytics/ParameterLegend";
+import { ParameterInfoListTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
 
 type HeatmapPanelIntroProps = {
   intro: ReactNode;

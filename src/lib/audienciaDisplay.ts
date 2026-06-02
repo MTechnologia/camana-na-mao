@@ -19,11 +19,13 @@ const PREFIXOS_DESCRICAO = [
 ];
 
 /** Prefixo comum da descrição (SPLEGIS); removido para a descrição começar pelo tema. */
-const PREFIXO_OBJETIVO_TEMA = /^Esta\s+audiência\s+tem\s+o\s+objetivo\s+de\s+debater\s+o\s+seguinte\s+tema\s*:\s*/i;
+const PREFIXO_OBJETIVO_TEMA =
+  /^Esta\s+audiência\s+tem\s+o\s+objetivo\s+de\s+debater\s+o\s+seguinte\s+tema\s*:\s*/i;
 
 /** Remove todo trecho "Convidados: ..." da descrição (até "Local:", "Observação:", "Mais informações:" ou fim). Evita duplicação com a coluna convidados. */
 export function removerSecaoConvidadosDaDescricao(desc: string): string {
-  const re = /\s*Convidados\s*:[\s\S]+?(?=\s*Convidados\s*:|\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/gi;
+  const re =
+    /\s*Convidados\s*:[\s\S]+?(?=\s*Convidados\s*:|\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/gi;
   let d = desc;
   let prev = "";
   while (prev !== d) {
@@ -57,11 +59,7 @@ function extrairTemaDaDescricao(desc: string): string | null {
   return null;
 }
 
-export function tituloParaExibicao(
-  titulo: string,
-  descricao: string | null,
-  tema: string
-): string {
+export function tituloParaExibicao(titulo: string, descricao: string | null, tema: string): string {
   const tituloTrim = (titulo || "").trim();
   if (tituloTrim && !isTituloGenerico(titulo)) return tituloTrim;
 
@@ -85,14 +83,20 @@ export function tituloParaExibicao(
 /**
  * Texto para a seção "Explicação simplificada do que será discutido" no card (descrição limpa e truncada).
  */
-export function explicacaoSimplificadaParaCard(descricao: string | null, tema: string, maxLen = 220): string {
+export function explicacaoSimplificadaParaCard(
+  descricao: string | null,
+  tema: string,
+  maxLen = 220,
+): string {
   const cleaned = limparDescricaoRepetida(descricao);
   if (cleaned) {
     const oneLine = cleaned.replace(/\s+/g, " ").trim();
     if (oneLine.length <= maxLen) return oneLine;
     return oneLine.slice(0, maxLen) + "…";
   }
-  return (tema || "").trim() ? `Audiência pública sobre ${(tema || "").trim()}.` : "Audiência pública. Participe e contribua.";
+  return (tema || "").trim()
+    ? `Audiência pública sobre ${(tema || "").trim()}.`
+    : "Audiência pública. Participe e contribua.";
 }
 
 /**
@@ -102,7 +106,7 @@ export function tituloCardAudiencia(
   comissao: string | null,
   titulo: string,
   descricao: string | null,
-  tema: string
+  tema: string,
 ): string {
   const c = (comissao || "").trim();
   if (c) return `Audiência: ${c}`;
@@ -146,7 +150,10 @@ export function descricaoParaDetalhe(desc: string | null): string {
   d = removerSecaoConvidadosDaDescricao(d);
   // Padrão site oficial: "Esta audiência tem o objetivo de debater o seguinte tema: X."
   // → quebra de linha após "tema: " para X ficar sozinho na linha seguinte
-  d = d.replace(/\b(tema\s*:\s*)(.+?)(\.)(\s|$)/gis, (_, prefixo, tema, ponto, esp) => `${prefixo}\n${tema}${ponto}${esp || ""}`);
+  d = d.replace(
+    /\b(tema\s*:\s*)(.+?)(\.)(\s|$)/gis,
+    (_, prefixo, tema, ponto, esp) => `${prefixo}\n${tema}${ponto}${esp || ""}`,
+  );
   // Quebras antes de seções (Local, Observação, Mais informações)
   d = d.replace(/\s+(Local\s*:)/gi, "\n\n$1");
   d = d.replace(/\s+(Observa[cç][aã]o\s*:)/gi, "\n\n$1");
@@ -159,8 +166,8 @@ export function normalizarConvidadosParaExibicao(texto: string | null | undefine
   if (!texto || !texto.trim()) return "";
   return texto
     .trim()
-    .replace(/\u2014/g, "-")   // em dash —
-    .replace(/\u2013/g, "-")   // en dash –
+    .replace(/\u2014/g, "-") // em dash —
+    .replace(/\u2013/g, "-") // en dash –
     .replace(/\s*-\s*-\s*/g, " - ")
     .replace(/\n\s*-\s*-\s*/g, "\n- ")
     .replace(/^-\s*-\s*/, "- ")
@@ -169,7 +176,9 @@ export function normalizarConvidadosParaExibicao(texto: string | null | undefine
 }
 
 /** Parses convidados into items with nome and cargo on separate lines (nome - cargo). */
-export function parseConvidadosItens(texto: string | null | undefined): Array<{ nome: string; cargo: string }> {
+export function parseConvidadosItens(
+  texto: string | null | undefined,
+): Array<{ nome: string; cargo: string }> {
   if (!texto || !texto.trim()) return [];
   const norm = normalizarConvidadosParaExibicao(texto);
   return norm
@@ -191,7 +200,14 @@ export function extrairEmailDeMaisInformacoes(texto: string | null | undefined):
 }
 
 const AP_CODE_COMMISSION_HINTS: Record<string, string[]> = {
-  ECON: ["economia", "desenvolvimento economico", "turismo", "transito", "transporte", "atividade economica"],
+  ECON: [
+    "economia",
+    "desenvolvimento economico",
+    "turismo",
+    "transito",
+    "transporte",
+    "atividade economica",
+  ],
   FIN: ["financas", "orcamento"],
   SAUDE: ["saude", "promocao social", "trabalho", "mulher"],
   TRANS: ["transito", "transporte", "atividade economica", "turismo", "lazer"],
@@ -270,8 +286,9 @@ export function observacaoEhPrazoInscricaoVirtualGerado(texto: string | null | u
   const t = (texto ?? "").trim().toLowerCase();
   if (!t) return false;
   return (
-    /inscri[cç][oõ]es?\s+para\s+participa[cç][aã]o\s+na\s+audi[eê]ncia\s+de\s+forma\s+virtual/i.test(t) &&
-    /encerra(m|r[aã]o)?\s+(\u00e0s|as)\s+19h/i.test(t)
+    /inscri[cç][oõ]es?\s+para\s+participa[cç][aã]o\s+na\s+audi[eê]ncia\s+de\s+forma\s+virtual/i.test(
+      t,
+    ) && /encerra(m|r[aã]o)?\s+(\u00e0s|as)\s+19h/i.test(t)
   );
 }
 

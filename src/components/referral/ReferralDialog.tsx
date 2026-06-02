@@ -4,14 +4,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { ReferralWizard } from './ReferralWizard';
-import { useUserRole } from '@/hooks/useUserRole';
-import { toast } from 'sonner';
+} from "@/components/ui/dialog";
+import { ReferralWizard } from "./ReferralWizard";
+import { useUserRole } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 
 interface ReportSummary {
   id: string;
-  type: 'transport' | 'urban' | 'service';
+  type: "transport" | "urban" | "service";
   title: string;
   description?: string;
   category?: string;
@@ -29,12 +29,7 @@ interface ReferralDialogProps {
   onComplete?: () => void;
 }
 
-export const ReferralDialog = ({ 
-  open, 
-  onOpenChange, 
-  report,
-  onComplete 
-}: ReferralDialogProps) => {
+export const ReferralDialog = ({ open, onOpenChange, report, onComplete }: ReferralDialogProps) => {
   const { loading, canReferToCouncilMember } = useUserRole();
   if (!report) return null;
 
@@ -44,8 +39,9 @@ export const ReferralDialog = ({
   };
 
   const handleBlocked = () => {
-    toast.error('Acesso restrito', {
-      description: 'Encaminhar para vereador está disponível apenas para Cidadão Engajado, Gestor e Admin.',
+    toast.error("Acesso restrito", {
+      description:
+        "Encaminhar para vereador está disponível apenas para Cidadão Engajado, Gestor e Admin.",
     });
     onOpenChange(false);
   };
@@ -55,9 +51,7 @@ export const ReferralDialog = ({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Encaminhar para Vereador</DialogTitle>
-          <DialogDescription>
-            Selecione um vereador para encaminhar seu relato
-          </DialogDescription>
+          <DialogDescription>Selecione um vereador para encaminhar seu relato</DialogDescription>
         </DialogHeader>
         {loading ? (
           <div className="p-6">
@@ -73,8 +67,8 @@ export const ReferralDialog = ({
           <div className="p-6 space-y-3">
             <h3 className="text-base font-semibold">Acesso restrito</h3>
             <p className="text-sm text-muted-foreground">
-              Encaminhar para vereador está disponível apenas para <strong>Cidadão Engajado</strong>,{' '}
-              <strong>Gestor</strong> e <strong>Admin</strong>.
+              Encaminhar para vereador está disponível apenas para <strong>Cidadão Engajado</strong>
+              , <strong>Gestor</strong> e <strong>Admin</strong>.
             </p>
             <button
               className="text-sm text-primary underline"

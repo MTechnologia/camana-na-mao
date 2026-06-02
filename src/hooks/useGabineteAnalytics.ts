@@ -139,9 +139,7 @@ async function fetchRelatosLite(referrals: ReferralRow[]): Promise<{
   const transportIds = referrals
     .map((r) => r.transport_report_id)
     .filter((id): id is string => !!id);
-  const serviceIds = referrals
-    .map((r) => r.service_rating_id)
-    .filter((id): id is string => !!id);
+  const serviceIds = referrals.map((r) => r.service_rating_id).filter((id): id is string => !!id);
 
   const urban = new Map<string, RelatoLite>();
   const transport = new Map<string, RelatoLite>();
@@ -154,9 +152,11 @@ async function fetchRelatosLite(referrals: ReferralRow[]): Promise<{
           .select("id, category, neighborhood")
           .in("id", urbanIds)
           .then(({ data }) => {
-            (data ?? []).forEach((r: { id: string; category: string | null; neighborhood: string | null }) => {
-              urban.set(r.id, { id: r.id, category: r.category, region: r.neighborhood });
-            });
+            (data ?? []).forEach(
+              (r: { id: string; category: string | null; neighborhood: string | null }) => {
+                urban.set(r.id, { id: r.id, category: r.category, region: r.neighborhood });
+              },
+            );
           })
       : Promise.resolve(),
     transportIds.length > 0
@@ -215,7 +215,11 @@ async function fetchRelatosLite(referrals: ReferralRow[]): Promise<{
 
 function pickRelato(
   ref: ReferralRow,
-  relatos: { urban: Map<string, RelatoLite>; transport: Map<string, RelatoLite>; service: Map<string, RelatoLite> },
+  relatos: {
+    urban: Map<string, RelatoLite>;
+    transport: Map<string, RelatoLite>;
+    service: Map<string, RelatoLite>;
+  },
 ): RelatoLite | undefined {
   if (ref.urban_report_id) return relatos.urban.get(ref.urban_report_id);
   if (ref.transport_report_id) return relatos.transport.get(ref.transport_report_id);
@@ -247,18 +251,19 @@ function buildBreakdown(
 
 export function aggregate(
   referrals: ReferralRow[],
-  relatos: { urban: Map<string, RelatoLite>; transport: Map<string, RelatoLite>; service: Map<string, RelatoLite> },
+  relatos: {
+    urban: Map<string, RelatoLite>;
+    transport: Map<string, RelatoLite>;
+    service: Map<string, RelatoLite>;
+  },
 ): GabineteAnalyticsStats {
   if (referrals.length === 0) return EMPTY_STATS;
 
   const total = referrals.length;
-  const byStatus = referrals.reduce<Record<string, number>>(
-    (acc, r) => {
-      acc[r.status] = (acc[r.status] || 0) + 1;
-      return acc;
-    },
-    {},
-  );
+  const byStatus = referrals.reduce<Record<string, number>>((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, {});
 
   const resolved = byStatus.resolved || 0;
   const acknowledged = byStatus.acknowledged || 0;

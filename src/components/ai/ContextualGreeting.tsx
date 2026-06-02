@@ -8,9 +8,13 @@ import AnimatedAIAvatar from "./AnimatedAIAvatar";
 const ContextualGreeting = () => {
   const { profile } = useProfile();
   const { pendingRatings } = usePendingRatings();
-  const [nextAudiencia, setNextAudiencia] = useState<{ id: string; titulo?: string; data?: string } | null>(null);
+  const [nextAudiencia, setNextAudiencia] = useState<{
+    id: string;
+    titulo?: string;
+    data?: string;
+  } | null>(null);
 
-  const firstName = profile?.full_name?.split(' ')[0] || "Cidadão";
+  const firstName = profile?.full_name?.split(" ")[0] || "Cidadão";
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -28,7 +32,7 @@ const ContextualGreeting = () => {
         .order("data", { ascending: true })
         .limit(1)
         .maybeSingle();
-      
+
       if (data) setNextAudiencia(data);
     };
     fetchNextAudiencia();
@@ -38,12 +42,14 @@ const ContextualGreeting = () => {
     const messages: string[] = [];
 
     if (pendingRatings.length > 0) {
-      messages.push(`Você tem ${pendingRatings.length} avaliação${pendingRatings.length > 1 ? 'ões' : ''} pendente${pendingRatings.length > 1 ? 's' : ''}.`);
+      messages.push(
+        `Você tem ${pendingRatings.length} avaliação${pendingRatings.length > 1 ? "ões" : ""} pendente${pendingRatings.length > 1 ? "s" : ""}.`,
+      );
     }
 
     if (nextAudiencia) {
       const date = new Date(nextAudiencia.data);
-      const formattedDate = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+      const formattedDate = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
       messages.push(`Próxima audiência: ${formattedDate}.`);
     }
 
@@ -51,7 +57,7 @@ const ContextualGreeting = () => {
       return "Como posso ajudar você hoje?";
     }
 
-    return messages.join(' ');
+    return messages.join(" ");
   };
 
   return (
@@ -74,9 +80,7 @@ const ContextualGreeting = () => {
         </h2>
 
         {/* Contextual Message */}
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          {getContextualMessage()}
-        </p>
+        <p className="text-muted-foreground text-sm leading-relaxed">{getContextualMessage()}</p>
       </div>
     </motion.div>
   );

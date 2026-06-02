@@ -41,9 +41,7 @@ export default function BulkDeleteConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {isAll ? copy.titleAll : copy.titleSelected(count)}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{isAll ? copy.titleAll : copy.titleSelected(count)}</AlertDialogTitle>
           <AlertDialogDescription>
             {isAll ? copy.descriptionAll : copy.descriptionSelected}
           </AlertDialogDescription>

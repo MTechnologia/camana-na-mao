@@ -66,7 +66,7 @@ export function useVisitHistory() {
 
       const rows = (data ?? []).map((row) => {
         const svc = row.service as VisitHistoryService | VisitHistoryService[] | null;
-        const service = Array.isArray(svc) ? svc[0] ?? null : svc;
+        const service = Array.isArray(svc) ? (svc[0] ?? null) : svc;
         return {
           id: row.id as string,
           created_at: row.created_at as string,

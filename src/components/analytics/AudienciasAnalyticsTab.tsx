@@ -33,7 +33,10 @@ import { KPICard } from "@/components/analytics/KPICard";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
 import { AudienciasFacetPicker } from "@/components/analytics/facets/AudienciasFacetPicker";
-import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
+import {
+  EMPTY_VOLUME_FILTERS,
+  type VolumeFiltersValue,
+} from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
@@ -125,10 +128,7 @@ export function AudienciasAnalyticsTab() {
   const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
 
   // HU-14.5 — Facet da aba Audiências (comissões + status) sincronizado com URL.
-  const [audFacet, setAudFacet] = useFacetUrlState<AudienciasFacet>(
-    "aud",
-    EMPTY_AUDIENCIAS_FACET,
-  );
+  const [audFacet, setAudFacet] = useFacetUrlState<AudienciasFacet>("aud", EMPTY_AUDIENCIAS_FACET);
   const debouncedAudFacet = useDebouncedValue(audFacet, 300);
   const facetActiveCount = countActiveAudienciasFacet(audFacet);
 
@@ -147,11 +147,7 @@ export function AudienciasAnalyticsTab() {
   const availableComissoes = useMemo(
     () =>
       Array.from(
-        new Set(
-          stats.byComissao
-            .map((c) => c.label)
-            .filter((l) => !!l && l !== "Sem comissão"),
-        ),
+        new Set(stats.byComissao.map((c) => c.label).filter((l) => !!l && l !== "Sem comissão")),
       ).sort(),
     [stats.byComissao],
   );
@@ -256,10 +252,7 @@ export function AudienciasAnalyticsTab() {
       </div>
 
       {/* Timeline */}
-      <ChartCard
-        title="Tendência de inscrições"
-        subtitle="Inscritos por dia (data da audiência)"
-      >
+      <ChartCard title="Tendência de inscrições" subtitle="Inscritos por dia (data da audiência)">
         <div className="h-72">
           {isLoading && timelineData.length === 0 ? (
             <div className="h-full w-full bg-muted/40 rounded animate-pulse" />
@@ -267,10 +260,7 @@ export function AudienciasAnalyticsTab() {
             <EmptyState message="Nenhuma audiência no período selecionado." />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={timelineData}
-                margin={{ top: 8, right: 16, left: 0, bottom: 4 }}
-              >
+              <LineChart data={timelineData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                 <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
@@ -361,9 +351,7 @@ export function AudienciasAnalyticsTab() {
         <Card className="p-6 border-destructive/30 bg-destructive/5">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="h-4 w-4 text-destructive" />
-            <h3 className="text-lg font-semibold">
-              Sem inscritos a &lt; {7} dias
-            </h3>
+            <h3 className="text-lg font-semibold">Sem inscritos a &lt; {7} dias</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             Próximas audiências sem nenhuma inscrição registrada — ação prioritária de divulgação
@@ -384,9 +372,7 @@ export function AudienciasAnalyticsTab() {
         <Card className="p-6 border-amber-500/30 bg-amber-500/5">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <h3 className="text-lg font-semibold">
-              Baixa ocupação a &lt; 7 dias
-            </h3>
+            <h3 className="text-lg font-semibold">Baixa ocupação a &lt; 7 dias</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             Próximas audiências com menos de 25% das vagas preenchidas
@@ -495,7 +481,8 @@ function AudienciaRow({
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm leading-snug truncate">{audiencia.titulo}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {audiencia.comissao || "Sem comissão"} • {formatDateLong(audiencia.data)} • {audiencia.zona}
+            {audiencia.comissao || "Sem comissão"} • {formatDateLong(audiencia.data)} •{" "}
+            {audiencia.zona}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">

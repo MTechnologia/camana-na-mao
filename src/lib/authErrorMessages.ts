@@ -30,11 +30,12 @@ export function translateAuthError(message: string, code?: string): string {
     "User already registered": "Este e-mail já está cadastrado",
     "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
     "Invalid email": "E-mail inválido",
-    "Email rate limit exceeded": "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo",
+    "Email rate limit exceeded":
+      "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo",
     "Signup requires a valid password": "Senha inválida",
     "Unable to validate email address": "Não foi possível validar o e-mail",
-    "signup_disabled": "Cadastro desabilitado pelo administrador",
-    "email_exists": "Este e-mail já está cadastrado",
+    signup_disabled: "Cadastro desabilitado pelo administrador",
+    email_exists: "Este e-mail já está cadastrado",
     "New password should be different from the old password.":
       "A nova senha deve ser diferente da senha atual.",
   };
@@ -54,18 +55,19 @@ export function translateAuthError(message: string, code?: string): string {
   }
   if (
     lower.includes("unexpected status code returned from hook") ||
-    (lower.includes("hook") && (normalized.includes("502") || normalized.includes("500") || normalized.includes("503")))
+    (lower.includes("hook") &&
+      (normalized.includes("502") || normalized.includes("500") || normalized.includes("503")))
   ) {
     return "Não foi possível enviar o e-mail de recuperação (serviço de envio indisponível ou remetente não validado). Tente de novo em alguns minutos ou fale com o suporte.";
   }
   if (
-    lower.includes("failed to fetch")
-    || lower.includes("network error")
-    || lower.includes("load failed")
-    || lower.includes("connection timed out")
-    || lower.includes("err_connection")
-    || lower.includes("auth_session_timeout")
-    || code === "AUTH_NETWORK_UNAVAILABLE"
+    lower.includes("failed to fetch") ||
+    lower.includes("network error") ||
+    lower.includes("load failed") ||
+    lower.includes("connection timed out") ||
+    lower.includes("err_connection") ||
+    lower.includes("auth_session_timeout") ||
+    code === "AUTH_NETWORK_UNAVAILABLE"
   ) {
     return "Não foi possível conectar ao servidor de autenticação. Verifique sua internet, VPN ou firewall e tente novamente em alguns minutos.";
   }

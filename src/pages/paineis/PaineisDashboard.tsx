@@ -1,10 +1,10 @@
-import { Link } from 'react-router-dom';
-import { Maximize2, PlusCircle } from 'lucide-react';
-import { PanelCanvas } from '@/components/panels/PanelCanvas';
-import { PanelSelector } from '@/components/panels/PanelSelector';
-import { Button } from '@/components/ui/button';
-import { PageShell } from '@/components/ui/PageShell';
-import { useCustomPanels } from '@/contexts/CustomPanelsContext';
+import { Link } from "react-router-dom";
+import { Maximize2, PlusCircle } from "lucide-react";
+import { PanelCanvas } from "@/components/panels/PanelCanvas";
+import { PanelSelector } from "@/components/panels/PanelSelector";
+import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/PageShell";
+import { useCustomPanels } from "@/contexts/CustomPanelsContext";
 
 export function PaineisDashboard() {
   const { activePanel } = useCustomPanels();

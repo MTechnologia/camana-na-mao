@@ -21,11 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  useScheduledExports,
-  type Recurrence,
-  type PeriodKind,
-} from "@/hooks/useScheduledExports";
+import { useScheduledExports, type Recurrence, type PeriodKind } from "@/hooks/useScheduledExports";
 import type { ExportDataset } from "@/lib/exportFields";
 import {
   RELATIVE_PERIOD_OPTIONS,
@@ -114,8 +110,7 @@ export function ScheduleExportDialog({
     if (!nameTrimmed) return null;
     if (nameTrimmed.length > 80) return "Use até 80 caracteres.";
     const dup = schedules.find(
-      (s) =>
-        s.name.localeCompare(nameTrimmed, "pt-BR", { sensitivity: "base" }) === 0,
+      (s) => s.name.localeCompare(nameTrimmed, "pt-BR", { sensitivity: "base" }) === 0,
     );
     if (dup) return "Já existe um agendamento com este nome.";
     return null;
@@ -162,8 +157,8 @@ export function ScheduleExportDialog({
         <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 text-left">
           <DialogTitle>Agendar exportação</DialogTitle>
           <DialogDescription>
-            Vamos rodar este export periodicamente e salvar o arquivo no seu painel
-            "Minhas exportações".
+            Vamos rodar este export periodicamente e salvar o arquivo no seu painel "Minhas
+            exportações".
           </DialogDescription>
         </DialogHeader>
 
@@ -291,9 +286,7 @@ export function ScheduleExportDialog({
                 <RadioGroupItem value="relative" id="period-relative" className="mt-0.5" />
                 <div className="flex-1">
                   <div className="text-sm font-medium">Dinâmico</div>
-                  <div className="text-xs text-muted-foreground">
-                    Recalcula a cada execução
-                  </div>
+                  <div className="text-xs text-muted-foreground">Recalcula a cada execução</div>
                 </div>
               </Label>
               <Label
@@ -336,9 +329,8 @@ export function ScheduleExportDialog({
             )}
             {periodKind === "fixed" && (
               <p className="text-xs text-muted-foreground">
-                Mantém as datas do export atual ({defaultConfig.filters?.startDate
-                  ? "início e fim definidos"
-                  : "todo o histórico"}).
+                Mantém as datas do export atual (
+                {defaultConfig.filters?.startDate ? "início e fim definidos" : "todo o histórico"}).
               </p>
             )}
           </div>
@@ -366,12 +358,17 @@ export function ScheduleExportDialog({
               <Calendar className="h-3 w-3" />
               <span>Configuração capturada:</span>
             </div>
-            <div>Dataset: {defaultConfig.dataset === "urban_reports" ? "Relatos urbanos" : "Relatos de transporte"}</div>
+            <div>
+              Dataset:{" "}
+              {defaultConfig.dataset === "urban_reports"
+                ? "Relatos urbanos"
+                : "Relatos de transporte"}
+            </div>
             <div>Formato: {defaultConfig.format.toUpperCase()}</div>
             <div>Campos: {defaultConfig.fieldIds.length} selecionados</div>
             <div>
-              Ordenação: {defaultConfig.orderBy.fieldId}{" "}
-              ({defaultConfig.orderBy.direction === "asc" ? "↑" : "↓"})
+              Ordenação: {defaultConfig.orderBy.fieldId} (
+              {defaultConfig.orderBy.direction === "asc" ? "↑" : "↓"})
             </div>
           </div>
         </div>

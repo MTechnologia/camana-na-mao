@@ -4,33 +4,18 @@ import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
 import { globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
 import { Link, useSearchParams } from "react-router-dom";
 import { parseCommissionIdsFromSearchParams } from "@/lib/commissionFilterNavigation";
-import {
-  AlertCircle,
-  AlertTriangle,
-  ChevronDown,
-  Inbox,
-  Search,
-  Building2,
-} from "lucide-react";
+import { AlertCircle, AlertTriangle, ChevronDown, Inbox, Search, Building2 } from "lucide-react";
 import { PageShell } from "@/components/ui/PageShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { KPICard } from "@/components/analytics/KPICard";
 import { TriageKanban } from "@/components/admin/triage/TriageKanban";
-import {
-  useTriageKanban,
-  type KanbanItem,
-  type KanbanReportSource,
-} from "@/hooks/useTriageKanban";
+import { useTriageKanban, type KanbanItem, type KanbanReportSource } from "@/hooks/useTriageKanban";
 import { usePerformanceMark } from "@/hooks/usePerformanceMark";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -93,10 +78,10 @@ export default function TriageKanbanPage() {
 
   const globalRecorte = useMemo(() => {
     if (
-      period === PERIOD_COMPARE_VALUE
-      && compareActive
-      && periodCompare.periodA?.from
-      && periodCompare.periodA?.to
+      period === PERIOD_COMPARE_VALUE &&
+      compareActive &&
+      periodCompare.periodA?.from &&
+      periodCompare.periodA?.to
     ) {
       return {
         createdFrom: periodCompare.periodA.from,
@@ -125,14 +110,8 @@ export default function TriageKanbanPage() {
     [globalRecorte, selectedPriorities, selectedCommissionIds, selectedSources, search],
   );
 
-  const {
-    itemsByStatus,
-    totalItems,
-    isLoading,
-    error,
-    lastUpdate,
-    refresh,
-  } = useTriageKanban(filters);
+  const { itemsByStatus, totalItems, isLoading, error, lastUpdate, refresh } =
+    useTriageKanban(filters);
 
   useEffect(() => {
     void (async () => {
@@ -171,9 +150,7 @@ export default function TriageKanbanPage() {
           }
         }
       }
-      return [...map.values()].sort((a, b) =>
-        a.name.localeCompare(b.name, "pt-BR"),
-      );
+      return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     });
   }, [itemsByStatus]);
 
@@ -213,9 +190,7 @@ export default function TriageKanbanPage() {
   const toggleCommission = (commissionId: string) => {
     setSelectedCommissionIds((prev) => {
       const exists = prev.includes(commissionId);
-      const next = exists
-        ? prev.filter((id) => id !== commissionId)
-        : [...prev, commissionId];
+      const next = exists ? prev.filter((id) => id !== commissionId) : [...prev, commissionId];
       return next.sort((a, b) => {
         const nameA = commissionCatalog.find((c) => c.commissionId === a)?.name ?? a;
         const nameB = commissionCatalog.find((c) => c.commissionId === b)?.name ?? b;
@@ -252,24 +227,20 @@ export default function TriageKanbanPage() {
       (i) => i.priority === "P0" && i.triageStatus !== "resolved" && i.triageStatus !== "closed",
     ).length;
     const noCommission = all.filter(
-      (i) =>
-        !i.commissionId
-        && i.triageStatus !== "resolved"
-        && i.triageStatus !== "closed",
+      (i) => !i.commissionId && i.triageStatus !== "resolved" && i.triageStatus !== "closed",
     ).length;
     const stale = all.filter(
       (i) =>
-        i.daysSinceTriageUpdate >= 7
-        && i.triageStatus !== "resolved"
-        && i.triageStatus !== "closed",
+        i.daysSinceTriageUpdate >= 7 &&
+        i.triageStatus !== "resolved" &&
+        i.triageStatus !== "closed",
     ).length;
     return { untriaged, p0Open, noCommission, stale };
   }, [itemsByStatus]);
 
   const moveTo = async (item: KanbanItem, targetStatus: TriageStatus) => {
     try {
-      const tableSource =
-        item.source === "urban" ? "urban_reports" : "transport_reports";
+      const tableSource = item.source === "urban" ? "urban_reports" : "transport_reports";
 
       // Upsert direto via Supabase: como o card pode vir sem triage ainda,
       // precisamos garantir source_table+report_id + novo status.
@@ -324,8 +295,9 @@ export default function TriageKanbanPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Atribua prioridade e comissão responsável, avance o status conforme o ciclo de vida do atendimento.
-            Os dados vêm de <code className="rounded bg-muted px-1 text-xs">report_triage</code> e dos relatos
+            Atribua prioridade e comissão responsável, avance o status conforme o ciclo de vida do
+            atendimento. Os dados vêm de{" "}
+            <code className="rounded bg-muted px-1 text-xs">report_triage</code> e dos relatos
             urbanos/transporte.
           </p>
           <AnalyticsLiveBadge
@@ -405,7 +377,8 @@ export default function TriageKanbanPage() {
               <div className="border-b border-border px-3 py-2">
                 <p className="text-xs font-medium text-foreground">Prioridade</p>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Marque uma ou mais (P0–P3). Relatos sem prioridade inferida ficam de fora ao filtrar.
+                  Marque uma ou mais (P0–P3). Relatos sem prioridade inferida ficam de fora ao
+                  filtrar.
                 </p>
               </div>
               <div className="max-h-64 overflow-y-auto p-2 space-y-1">
@@ -590,10 +563,7 @@ export default function TriageKanbanPage() {
         </Card>
 
         {/* Kanban */}
-        <TriageKanban
-          data={{ itemsByStatus, totalItems }}
-          onMoveTo={moveTo}
-        />
+        <TriageKanban data={{ itemsByStatus, totalItems }} onMoveTo={moveTo} />
       </div>
     </PageShell>
   );

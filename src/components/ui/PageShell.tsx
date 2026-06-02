@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
-import { ParameterInfoTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
-import { cn } from '@/lib/utils';
+import type { ReactNode } from "react";
+import { ParameterInfoTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
+import { cn } from "@/lib/utils";
 
-export { KpiCard } from '@/components/ui/KpiCard';
+export { KpiCard } from "@/components/ui/KpiCard";
 
 type PageShellProps = {
   title: string;
@@ -35,18 +35,10 @@ export function PageShell({ title, description, titleInfo, children, actions }: 
   );
 }
 
-export function PlaceholderPanel({
-  title,
-  body,
-}: {
-  title: string;
-  body: string;
-}) {
+export function PlaceholderPanel({ title, body }: { title: string; body: string }) {
   return (
     <div
-      className={cn(
-        'rounded-xl border border-dashed border-border bg-muted/40 p-6 text-center',
-      )}
+      className={cn("rounded-xl border border-dashed border-border bg-muted/40 p-6 text-center")}
     >
       <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="mt-2 text-sm text-muted-foreground">{body}</p>

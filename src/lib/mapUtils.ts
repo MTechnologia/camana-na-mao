@@ -6,7 +6,8 @@ export const getServiceDisplayName = (params: {
   service_type?: string;
 }): string => {
   const { name, address, district } = params;
-  const isTechnicalId = /ponto_onibus\.fid--|\.fid--[a-f0-9_]+$/i.test(name?.trim() ?? "") ||
+  const isTechnicalId =
+    /ponto_onibus\.fid--|\.fid--[a-f0-9_]+$/i.test(name?.trim() ?? "") ||
     (name?.startsWith("Ponto de Onibus ") && name.includes("fid--"));
   if (isTechnicalId) {
     const addr = (address ?? "").trim();
@@ -58,7 +59,7 @@ export const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
  */
 export const getOpeningHoursTextWithDefault = (
   openingHours: unknown,
-  serviceType?: string | null
+  serviceType?: string | null,
 ): string | null => {
   const extracted = getOpeningHoursText(openingHours);
   if (extracted) return extracted;
@@ -76,7 +77,7 @@ export const getOpeningHoursTextWithDefault = (
  * comparam horários em minutos (ex.: filtros de "abre a partir de"/"fecha até").
  */
 export const parseOpeningHoursToRange = (
-  openingHoursText: string | null | undefined
+  openingHoursText: string | null | undefined,
 ): { openMinutes: number | null; closeMinutes: number | null } => {
   if (!openingHoursText) return { openMinutes: null, closeMinutes: null };
 
@@ -98,8 +99,7 @@ export const parseOpeningHoursToRange = (
   //
   // Depois pegamos as 2 primeiras ocorrências como (abertura, fechamento).
   const times: number[] = [];
-  const timeRegex =
-    /(\d{1,2})\s*:\s*(\d{2})\b|(\d{1,2})\s*h\s*(\d{2})\b|(\d{1,2})\s*h\b/gi;
+  const timeRegex = /(\d{1,2})\s*:\s*(\d{2})\b|(\d{1,2})\s*h\s*(\d{2})\b|(\d{1,2})\s*h\b/gi;
 
   for (const match of text.matchAll(timeRegex)) {
     // match[1], match[2] => HH:MM
@@ -132,11 +132,16 @@ export const parseOpeningHoursToRange = (
 };
 
 /** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */
-export const getAddressDisplay = (address: string | undefined | null, district?: string | undefined | null): string => {
+export const getAddressDisplay = (
+  address: string | undefined | null,
+  district?: string | undefined | null,
+): string => {
   const addr = (address ?? "").trim();
   const isMissing = !addr || /endere[cç]o\s*n[aã]o\s*informado/i.test(addr);
   if (isMissing) {
-    return district?.trim() ? `Localização no mapa · ${district}` : "Localização disponível no mapa";
+    return district?.trim()
+      ? `Localização no mapa · ${district}`
+      : "Localização disponível no mapa";
   }
   return district?.trim() ? `${addr}, ${district}` : addr;
 };
@@ -170,20 +175,20 @@ const maneuverTranslations: Record<string, string> = {
   "sharp-left": "Vire acentuadamente à esquerda",
   "slight-right": "Mantenha-se à direita",
   "slight-left": "Mantenha-se à esquerda",
-  "straight": "Siga em frente",
-  "uturn": "Faça retorno",
-  "arrive": "Você chegou ao destino",
-  "depart": "Inicie o percurso",
+  straight: "Siga em frente",
+  uturn: "Faça retorno",
+  arrive: "Você chegou ao destino",
+  depart: "Inicie o percurso",
   "ramp-right": "Entre à direita na rampa",
   "ramp-left": "Entre à esquerda na rampa",
-  "merge": "Entre na via",
-  "roundabout": "Entre na rotatória",
-  "rotary": "Entre na rotatória",
+  merge: "Entre na via",
+  roundabout: "Entre na rotatória",
+  rotary: "Entre na rotatória",
   "exit-roundabout": "Saia da rotatória",
   "exit-rotary": "Saia da rotatória",
-  "fork": "Bifurcação",
+  fork: "Bifurcação",
   "end-of-road": "Final da via",
-  "continue": "Continue",
+  continue: "Continue",
 };
 
 export const translateManeuver = (maneuver: string): string => {
@@ -197,20 +202,20 @@ const maneuverIcons: Record<string, string> = {
   "sharp-left": "⤵",
   "slight-right": "↗",
   "slight-left": "↖",
-  "straight": "↑",
-  "uturn": "↩",
-  "arrive": "📍",
-  "depart": "🚶",
+  straight: "↑",
+  uturn: "↩",
+  arrive: "📍",
+  depart: "🚶",
   "ramp-right": "↗",
   "ramp-left": "↖",
-  "merge": "↗",
-  "roundabout": "↻",
-  "rotary": "↻",
+  merge: "↗",
+  roundabout: "↻",
+  rotary: "↻",
   "exit-roundabout": "↗",
   "exit-rotary": "↗",
-  "fork": "↗",
+  fork: "↗",
   "end-of-road": "↑",
-  "continue": "↑",
+  continue: "↑",
 };
 
 export const getManeuverIcon = (maneuver: string): string => {
@@ -221,7 +226,7 @@ export const buildGoogleMapsUrl = (
   originLat: number,
   originLng: number,
   destLat: number,
-  destLng: number
+  destLng: number,
 ): string => {
   return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}&destination=${destLat},${destLng}&travelmode=walking`;
 };

@@ -35,19 +35,22 @@ const AccessibilityPage = () => {
               Estudo de acessibilidade em andamento
             </CardTitle>
             <CardDescription>
-              Estamos revisando a acessibilidade do Câmara na Mão de forma integrada em todo o aplicativo.
+              Estamos revisando a acessibilidade do Câmara na Mão de forma integrada em todo o
+              aplicativo.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
             <p>
-              As opções que apareciam aqui (tamanho de fonte, alto contraste e espaçamento) não cobriam todas as telas e
-              fluxos. Por isso, o menu de acessibilidade foi temporariamente retirado do perfil enquanto conduzimos um{" "}
-              <strong className="font-medium text-foreground">estudo geral</strong> com critérios de inclusão digital e
-              boas práticas (por exemplo, navegação por teclado, leitores de tela e contraste consistente).
+              As opções que apareciam aqui (tamanho de fonte, alto contraste e espaçamento) não
+              cobriam todas as telas e fluxos. Por isso, o menu de acessibilidade foi
+              temporariamente retirado do perfil enquanto conduzimos um{" "}
+              <strong className="font-medium text-foreground">estudo geral</strong> com critérios de
+              inclusão digital e boas práticas (por exemplo, navegação por teclado, leitores de tela
+              e contraste consistente).
             </p>
             <p>
-              Se você já havia ajustado preferências antes desta atualização, elas podem continuar ativas neste
-              dispositivo até você limpar os dados do navegador ou reinstalar o app.
+              Se você já havia ajustado preferências antes desta atualização, elas podem continuar
+              ativas neste dispositivo até você limpar os dados do navegador ou reinstalar o app.
             </p>
             <p>
               Para notificações e demais preferências da conta, use{" "}
@@ -66,8 +69,8 @@ const AccessibilityPage = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Accessibility className="h-4 w-4 text-primary shrink-0" aria-hidden />
-              O que vem na próxima etapa
+              <Accessibility className="h-4 w-4 text-primary shrink-0" aria-hidden />O que vem na
+              próxima etapa
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -91,7 +94,9 @@ const AccessibilityPage = () => {
               </div>
               <div className="text-left">
                 <p className="font-medium text-foreground">Rever tutorial do app</p>
-                <p className="text-xs text-muted-foreground">Guia de primeiros passos no Câmara na Mão</p>
+                <p className="text-xs text-muted-foreground">
+                  Guia de primeiros passos no Câmara na Mão
+                </p>
               </div>
             </Button>
           </CardContent>

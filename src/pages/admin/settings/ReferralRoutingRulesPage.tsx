@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
-import { ReferralRulesEditor } from '@/components/admin/referrals/ReferralRulesEditor';
-import { SettingsLayout } from '@/components/admin/settings/SettingsLayout';
-import { Button } from '@/components/ui/button';
+import { Link } from "react-router-dom";
+import { ReferralRulesEditor } from "@/components/admin/referrals/ReferralRulesEditor";
+import { SettingsLayout } from "@/components/admin/settings/SettingsLayout";
+import { Button } from "@/components/ui/button";
 
 export function ReferralRoutingRulesPage() {
   return (

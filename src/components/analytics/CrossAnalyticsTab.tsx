@@ -21,11 +21,7 @@ import {
 import { useDrillInsight } from "@/hooks/useDrillInsight";
 import { DrillInsightPanel } from "@/components/analytics/DrillInsightPanel";
 import { useUrlSyncedState, type FieldSerializer } from "@/hooks/useUrlSyncedState";
-import {
-  DIMENSIONS,
-  DIMENSION_KEYS,
-  type DimensionKey,
-} from "@/lib/analyticsDimensions";
+import { DIMENSIONS, DIMENSION_KEYS, type DimensionKey } from "@/lib/analyticsDimensions";
 import type { CrossMatrix, ReportCategory } from "@/hooks/useDemographicCrossAnalytics";
 import { cn } from "@/lib/utils";
 
@@ -75,10 +71,13 @@ function adaptMatrixForHeatmap(m: CrossCellMatrix): CrossMatrix {
     }, {}),
     maxCount: m.maxCount,
     total: m.total,
-    rowTotals: m.rowValues.reduce<Record<ReportCategory, number>>((acc, r) => {
-      (acc as Record<string, number>)[r.label] = r.total;
-      return acc;
-    }, {} as Record<ReportCategory, number>),
+    rowTotals: m.rowValues.reduce<Record<ReportCategory, number>>(
+      (acc, r) => {
+        (acc as Record<string, number>)[r.label] = r.total;
+        return acc;
+      },
+      {} as Record<ReportCategory, number>,
+    ),
     colTotals,
   };
 }
@@ -148,21 +147,15 @@ export function CrossAnalyticsTab({
 
   const handleSwap = () => setState({ row: colDim, col: rowDim });
 
-  const handleCellClick = (
-    rowLabel: string,
-    colValue: string,
-    colLabel: string,
-    count: number,
-  ) => {
+  const handleCellClick = (rowLabel: string, colValue: string, colLabel: string, count: number) => {
     // O heatmap trabalha com labels; aqui resolvemos de volta para values
     // sem assumir label único (pode haver colisão em dimensões diferentes).
     const rowCandidates = matrix.rowValues.filter((r) => r.label === rowLabel);
     const rowEntry =
       rowCandidates.length <= 1
         ? rowCandidates[0]
-        : rowCandidates.find(
-            (r) => (matrix.cells[`${r.value}|${colValue}`] || 0) === count,
-          ) ?? rowCandidates[0];
+        : (rowCandidates.find((r) => (matrix.cells[`${r.value}|${colValue}`] || 0) === count) ??
+          rowCandidates[0]);
     const colEntry = matrix.colValues.find((c) => c.label === colLabel);
     if (!rowEntry || !colEntry) return;
     const cellReports = getReportsForCell(rowEntry.value, colEntry.value);
@@ -189,7 +182,10 @@ export function CrossAnalyticsTab({
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Linha
               </label>
-              <Select value={rowDim} onValueChange={(v) => setState({ row: v as DimensionKey, col: colDim })}>
+              <Select
+                value={rowDim}
+                onValueChange={(v) => setState({ row: v as DimensionKey, col: colDim })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -218,7 +214,10 @@ export function CrossAnalyticsTab({
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                 Coluna
               </label>
-              <Select value={colDim} onValueChange={(v) => setState({ row: rowDim, col: v as DimensionKey })}>
+              <Select
+                value={colDim}
+                onValueChange={(v) => setState({ row: rowDim, col: v as DimensionKey })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

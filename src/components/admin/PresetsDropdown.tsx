@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  Bookmark,
-  ChevronDown,
-  Plus,
-  Settings2,
-  Star,
-} from "lucide-react";
+import { Bookmark, ChevronDown, Plus, Settings2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -108,7 +102,10 @@ export function PresetsDropdown({ className, align = "end" }: PresetsDropdownPro
                       )}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
-                      Tema: <span className={cn("font-medium", themeMeta.accentClass)}>{themeMeta.label}</span>
+                      Tema:{" "}
+                      <span className={cn("font-medium", themeMeta.accentClass)}>
+                        {themeMeta.label}
+                      </span>
                     </div>
                   </div>
                 </DropdownMenuItem>

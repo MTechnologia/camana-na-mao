@@ -29,11 +29,7 @@ export interface FilterableRecord {
 }
 
 function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim();
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 }
 
 /**
@@ -66,8 +62,7 @@ export function recordMatchesFilters(
   // Zona — usa zona pré-calculada se houver, senão deriva do region
   if (filters.zones && filters.zones.length > 0) {
     const recZone =
-      record.zone ??
-      bairroParaZona(record.region ?? "", record.latitude, record.longitude);
+      record.zone ?? bairroParaZona(record.region ?? "", record.latitude, record.longitude);
     const ok = filters.zones.some((z) => String(z) === String(recZone));
     if (!ok) return false;
   }

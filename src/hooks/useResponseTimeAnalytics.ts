@@ -305,9 +305,7 @@ function aggregate(
   const avgHours = count > 0 ? sumCurrent / count : 0;
 
   const avgHoursPrevious =
-    previous.length > 0
-      ? previous.reduce((acc, r) => acc + r.hours, 0) / previous.length
-      : 0;
+    previous.length > 0 ? previous.reduce((acc, r) => acc + r.hours, 0) / previous.length : 0;
 
   const deltaPct =
     avgHoursPrevious > 0 ? ((avgHours - avgHoursPrevious) / avgHoursPrevious) * 100 : 0;
@@ -366,9 +364,7 @@ function aggregate(
       ? allAvailableCategories
       : Array.from(
           new Set(
-            current
-              .map((r) => r.category)
-              .filter((c): c is string => !!c && c !== "Sem categoria"),
+            current.map((r) => r.category).filter((c): c is string => !!c && c !== "Sem categoria"),
           ),
         ).sort();
   const availableRegions =
@@ -376,9 +372,7 @@ function aggregate(
       ? allAvailableRegions
       : Array.from(
           new Set(
-            current
-              .map((r) => r.region)
-              .filter((r): r is string => !!r && r !== "Não informada"),
+            current.map((r) => r.region).filter((r): r is string => !!r && r !== "Não informada"),
           ),
         ).sort();
 
@@ -459,9 +453,7 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
       ).sort();
       const allAvailableRegions = Array.from(
         new Set(
-          allCurrent
-            .map((r) => r.region)
-            .filter((r): r is string => !!r && r !== "Não informada"),
+          allCurrent.map((r) => r.region).filter((r): r is string => !!r && r !== "Não informada"),
         ),
       ).sort();
       const currentBase = applyAnalyticsFilters(allCurrent, analyticsFilter);
@@ -530,11 +522,7 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
 }
 
 // HU-5.3 — tabelas observadas pelo realtime (referência estável fora do hook).
-const REALTIME_TABLES = [
-  "urban_reports",
-  "transport_reports",
-  "council_member_referrals",
-] as const;
+const REALTIME_TABLES = ["urban_reports", "transport_reports", "council_member_referrals"] as const;
 
 // Exposições para teste.
 export const __test__ = {

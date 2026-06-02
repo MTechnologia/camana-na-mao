@@ -36,11 +36,12 @@ export const RELATIVE_PERIOD_LABELS: Record<RelativePeriodKind, string> = {
   last_year: "Último ano",
 };
 
-export const RELATIVE_PERIOD_OPTIONS: { value: RelativePeriodKind; label: string }[] =
-  (Object.keys(RELATIVE_PERIOD_LABELS) as RelativePeriodKind[]).map((k) => ({
-    value: k,
-    label: RELATIVE_PERIOD_LABELS[k],
-  }));
+export const RELATIVE_PERIOD_OPTIONS: { value: RelativePeriodKind; label: string }[] = (
+  Object.keys(RELATIVE_PERIOD_LABELS) as RelativePeriodKind[]
+).map((k) => ({
+  value: k,
+  label: RELATIVE_PERIOD_LABELS[k],
+}));
 
 function startOfDay(d: Date): Date {
   const c = new Date(d);

@@ -67,9 +67,7 @@ function UserGpsFallback({ lat, lon }: { lat: number; lon: number }) {
   if (label) {
     return <p className="text-sm whitespace-pre-wrap">📍 {label}</p>;
   }
-  return (
-    <p className="text-sm text-primary-foreground/90">📍 Sua posição atual (GPS)</p>
-  );
+  return <p className="text-sm text-primary-foreground/90">📍 Sua posição atual (GPS)</p>;
 }
 
 /**
@@ -85,14 +83,10 @@ export function UserChatBubbleText({ content }: { content: string }) {
   const riskAsPt = displayUrbanRiskLevelToken(displayText);
 
   if (visibleText) {
-    return (
-      <p className="text-sm whitespace-pre-wrap">{natureAsPt ?? riskAsPt ?? visibleText}</p>
-    );
+    return <p className="text-sm whitespace-pre-wrap">{natureAsPt ?? riskAsPt ?? visibleText}</p>;
   }
   if (coordsOnly) {
     return <UserGpsFallback lat={coordsOnly.lat} lon={coordsOnly.lon} />;
   }
-  return (
-    <p className="text-sm whitespace-pre-wrap">{natureAsPt ?? riskAsPt ?? sanitized}</p>
-  );
+  return <p className="text-sm whitespace-pre-wrap">{natureAsPt ?? riskAsPt ?? sanitized}</p>;
 }

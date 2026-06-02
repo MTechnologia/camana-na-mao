@@ -22,13 +22,47 @@ import { formatAudienciaApCode } from "@/lib/audienciaDisplay";
 import { readAudienciaBackPath } from "@/lib/audienciaNavigation";
 
 const BAIRROS_SP = [
-  "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
-  "Bom Retiro", "Brás", "Butantã", "Cambuci", "Cangaíba", "Carrão", "Consolação",
-  "Cursino", "Ermelino Matarazzo", "Guaianases", "Ipiranga", "Itaim Bibi",
-  "Itaim Paulista", "Itaquera", "Jaguara", "Jaguaré", "Lapa", "Liberdade",
-  "Mooca", "Morumbi", "Pari", "Penha", "Perdizes", "Pinheiros", "Ponte Rasa",
-  "República", "Sacomã", "Santa Cecília", "São Mateus", "Sé", "Tatuapé",
-  "Vila Formosa", "Vila Leopoldina", "Vila Matilde", "Vila Prudente",
+  "Água Rasa",
+  "Aricanduva",
+  "Artur Alvim",
+  "Barra Funda",
+  "Belém",
+  "Bela Vista",
+  "Bom Retiro",
+  "Brás",
+  "Butantã",
+  "Cambuci",
+  "Cangaíba",
+  "Carrão",
+  "Consolação",
+  "Cursino",
+  "Ermelino Matarazzo",
+  "Guaianases",
+  "Ipiranga",
+  "Itaim Bibi",
+  "Itaim Paulista",
+  "Itaquera",
+  "Jaguara",
+  "Jaguaré",
+  "Lapa",
+  "Liberdade",
+  "Mooca",
+  "Morumbi",
+  "Pari",
+  "Penha",
+  "Perdizes",
+  "Pinheiros",
+  "Ponte Rasa",
+  "República",
+  "Sacomã",
+  "Santa Cecília",
+  "São Mateus",
+  "Sé",
+  "Tatuapé",
+  "Vila Formosa",
+  "Vila Leopoldina",
+  "Vila Matilde",
+  "Vila Prudente",
 ].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
 function formatPhoneBr(value: string): string {
@@ -72,7 +106,9 @@ const ParticipacaoPage = () => {
   const [audienciaLoading, setAudienciaLoading] = useState(true);
   const [confirmProtocolo, setConfirmProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
-  const [participacaoIdVideoconferencia, setParticipacaoIdVideoconferencia] = useState<string | null>(null);
+  const [participacaoIdVideoconferencia, setParticipacaoIdVideoconferencia] = useState<
+    string | null
+  >(null);
   const [cancelandoInscricao, setCancelandoInscricao] = useState(false);
   const prefillEmailForUserIdRef = useRef<string | null>(null);
 
@@ -85,7 +121,9 @@ const ParticipacaoPage = () => {
       setAudienciaLoading(true);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, slug, ap_code, link_transmissao, data, hora, comissao, mais_informacoes, permite_inscricao_videoconferencia")
+        .select(
+          "id, titulo, slug, ap_code, link_transmissao, data, hora, comissao, mais_informacoes, permite_inscricao_videoconferencia",
+        )
         .eq("id", audienciaId)
         .maybeSingle();
       if (!cancelled) {
@@ -103,20 +141,27 @@ const ParticipacaoPage = () => {
           setAudienciaTitle(data.titulo);
           setAudienciaSlug(data.slug ?? null);
           setAudienciaApCode(data.ap_code ?? null);
-          setAudienciaLinkTransmissao((data as { link_transmissao?: string | null }).link_transmissao ?? null);
+          setAudienciaLinkTransmissao(
+            (data as { link_transmissao?: string | null }).link_transmissao ?? null,
+          );
           setAudienciaData((data as { data?: string }).data ?? null);
           setAudienciaHora((data as { hora?: string | null }).hora ?? null);
           setAudienciaComissao((data as { comissao?: string | null }).comissao ?? null);
-          setAudienciaMaisInformacoes((data as { mais_informacoes?: string | null }).mais_informacoes ?? null);
+          setAudienciaMaisInformacoes(
+            (data as { mais_informacoes?: string | null }).mais_informacoes ?? null,
+          );
           setPermiteVideoconferencia(
-            (data as { permite_inscricao_videoconferencia?: boolean | null }).permite_inscricao_videoconferencia !== false,
+            (data as { permite_inscricao_videoconferencia?: boolean | null })
+              .permite_inscricao_videoconferencia !== false,
           );
         }
         setAudienciaLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [audienciaId]);
 
   useEffect(() => {
@@ -175,12 +220,13 @@ const ParticipacaoPage = () => {
         <PageHeader title="Participação" onBack={goBackToDetail} />
         <div className="pt-[60px] p-6 max-w-lg mx-auto space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Esta audiência está prevista como <strong className="text-foreground">participação presencial</strong> no local,
-            sem inscrição por videoconferência no app — alinhado ao site oficial da Câmara.
+            Esta audiência está prevista como{" "}
+            <strong className="text-foreground">participação presencial</strong> no local, sem
+            inscrição por videoconferência no app — alinhado ao site oficial da Câmara.
           </p>
           <p className="text-sm text-muted-foreground">
-            Você pode enviar <strong className="text-foreground">manifestação por escrito</strong> pelo app ou acompanhar pela
-            transmissão online.
+            Você pode enviar <strong className="text-foreground">manifestação por escrito</strong>{" "}
+            pelo app ou acompanhar pela transmissão online.
           </p>
           <div className="flex flex-col gap-2 pt-2">
             <Button
@@ -250,11 +296,23 @@ const ParticipacaoPage = () => {
       toast.error("Faça login para se inscrever em audiências.");
       return;
     }
-    if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
-    if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
+    if (!nome.trim()) {
+      toast.error("Preencha o nome completo.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      toast.error("Preencha um e-mail válido.");
+      return;
+    }
     const phoneDigits = telefone.replace(/\D/g, "");
-    if (phoneDigits.length < 10) { toast.error("Preencha o telefone/WhatsApp com DDD e número."); return; }
-    if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
+    if (phoneDigits.length < 10) {
+      toast.error("Preencha o telefone/WhatsApp com DDD e número.");
+      return;
+    }
+    if (!consent) {
+      toast.error("É necessário concordar em compartilhar seus dados pessoais.");
+      return;
+    }
     setIsLoading(true);
     try {
       const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
@@ -271,7 +329,8 @@ const ParticipacaoPage = () => {
         p_consent: true,
       });
       if (error) throw error;
-      const protocolo = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      const protocolo =
+        Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
       setConfirmProtocolo(protocolo);
       const podeEnviarCmsp = !!(user && audienciaSlug && audienciaApCode);
       console.info("[ParticipacaoPage] Pós-inscrição videoconferência:", {
@@ -298,10 +357,14 @@ const ParticipacaoPage = () => {
       console.error(e);
       const msg = (e as { message?: string })?.message ?? "";
       if (msg.includes("já está inscrito")) toast.error("Você já está inscrito nesta audiência.");
-      else if (msg.includes("Autenticação obrigatória")) toast.error("Faça login para se inscrever.");
-      else if (msg.includes("Inscrições não estão abertas")) toast.error("Inscrições não estão abertas para esta audiência.");
+      else if (msg.includes("Autenticação obrigatória"))
+        toast.error("Faça login para se inscrever.");
+      else if (msg.includes("Inscrições não estão abertas"))
+        toast.error("Inscrições não estão abertas para esta audiência.");
       else if (msg.includes("não aceita inscrição para videoconferência")) {
-        toast.error("Esta audiência não aceita inscrição por videoconferência. Use manifestação por escrito ou participe presencialmente.");
+        toast.error(
+          "Esta audiência não aceita inscrição por videoconferência. Use manifestação por escrito ou participe presencialmente.",
+        );
       } else toast.error("Não foi possível enviar. Tente novamente.");
     } finally {
       setIsLoading(false);
@@ -313,13 +376,31 @@ const ParticipacaoPage = () => {
       toast.error("Faça login para se inscrever em audiências.");
       return;
     }
-    if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
-    if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
+    if (!nome.trim()) {
+      toast.error("Preencha o nome completo.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      toast.error("Preencha um e-mail válido.");
+      return;
+    }
     const phoneDigits = telefone.replace(/\D/g, "");
-    if (phoneDigits.length < 10) { toast.error("Preencha o telefone/WhatsApp com DDD e número."); return; }
-    if (!bairro) { toast.error("Selecione o bairro (subprefeitura)."); return; }
-    if (!sugestao.trim()) { toast.error("Deixe sua sugestão para a audiência."); return; }
-    if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
+    if (phoneDigits.length < 10) {
+      toast.error("Preencha o telefone/WhatsApp com DDD e número.");
+      return;
+    }
+    if (!bairro) {
+      toast.error("Selecione o bairro (subprefeitura).");
+      return;
+    }
+    if (!sugestao.trim()) {
+      toast.error("Deixe sua sugestão para a audiência.");
+      return;
+    }
+    if (!consent) {
+      toast.error("É necessário concordar em compartilhar seus dados pessoais.");
+      return;
+    }
     setIsLoading(true);
     try {
       const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
@@ -336,7 +417,8 @@ const ParticipacaoPage = () => {
         p_consent: true,
       });
       if (error) throw error;
-      const protocolo = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      const protocolo =
+        Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
       setConfirmProtocolo(protocolo);
       const podeEnviarCmspEscrito = !!(user && audienciaSlug && audienciaApCode);
       console.info("[ParticipacaoPage] Pós-inscrição escrito:", {
@@ -363,8 +445,10 @@ const ParticipacaoPage = () => {
       console.error(e);
       const msg = (e as { message?: string })?.message ?? "";
       if (msg.includes("já está inscrito")) toast.error("Você já está inscrito nesta audiência.");
-      else if (msg.includes("Autenticação obrigatória")) toast.error("Faça login para se inscrever.");
-      else if (msg.includes("Inscrições não estão abertas")) toast.error("Inscrições não estão abertas para esta audiência.");
+      else if (msg.includes("Autenticação obrigatória"))
+        toast.error("Faça login para se inscrever.");
+      else if (msg.includes("Inscrições não estão abertas"))
+        toast.error("Inscrições não estão abertas para esta audiência.");
       else toast.error("Não foi possível enviar. Tente novamente.");
     } finally {
       setIsLoading(false);
@@ -378,7 +462,8 @@ const ParticipacaoPage = () => {
       : audienciaData
         ? audienciaData
         : null;
-  const confirmContactEmail = audienciaMaisInformacoes?.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/)?.[0] ?? null;
+  const confirmContactEmail =
+    audienciaMaisInformacoes?.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/)?.[0] ?? null;
   const confirmApCode = formatAudienciaApCode({
     ap_code: audienciaApCode,
     comissao: audienciaComissao,
@@ -389,18 +474,26 @@ const ParticipacaoPage = () => {
   if (step === 3) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <PageHeader title={tipo === "escrito" ? "Manifestação enviada" : "Inscrição realizada"} onBack={goBackToDetail} />
+        <PageHeader
+          title={tipo === "escrito" ? "Manifestação enviada" : "Inscrição realizada"}
+          onBack={goBackToDetail}
+        />
         <div className="pt-[60px] p-6 max-w-lg mx-auto space-y-6">
           <div className="rounded-lg bg-green-600 text-white text-center py-4 px-4">
             <p className="font-bold text-lg uppercase tracking-wide">
-              {tipo === "escrito" ? "Proposta enviada com sucesso!" : "Inscrição realizada com sucesso!"}
+              {tipo === "escrito"
+                ? "Proposta enviada com sucesso!"
+                : "Inscrição realizada com sucesso!"}
             </p>
           </div>
           <div className="space-y-3 text-foreground">
-            <p className="font-semibold">Registramos sua {tipo === "escrito" ? "manifestação por escrito." : "inscrição."}</p>
+            <p className="font-semibold">
+              Registramos sua {tipo === "escrito" ? "manifestação por escrito." : "inscrição."}
+            </p>
             {tipo === "videoconferencia" && audienciaComissao && (
               <p className="text-sm text-muted-foreground">
-                Obrigado por se inscrever para participar de Audiência Pública a ser realizada pela {audienciaComissao}.
+                Obrigado por se inscrever para participar de Audiência Pública a ser realizada pela{" "}
+                {audienciaComissao}.
               </p>
             )}
             {confirmProtocolo != null && (
@@ -410,17 +503,22 @@ const ParticipacaoPage = () => {
             )}
             {tipo === "videoconferencia" && (
               <p className="text-sm text-muted-foreground">
-                Lembramos que em virtude da natureza do evento, da quantidade de inscritos e da limitação de tempo de transmissão, a inscrição não garante necessariamente o direito à fala na audiência pública.
+                Lembramos que em virtude da natureza do evento, da quantidade de inscritos e da
+                limitação de tempo de transmissão, a inscrição não garante necessariamente o direito
+                à fala na audiência pública.
               </p>
             )}
             {tipo === "videoconferencia" && audienciaLinkTransmissao?.trim() && (
               <div className="space-y-2">
                 <p className="text-sm">
-                  Alguns minutos antes do horário agendado, acesse o link abaixo para participar da audiência pública por videoconferência e fazer sua fala.
+                  Alguns minutos antes do horário agendado, acesse o link abaixo para participar da
+                  audiência pública por videoconferência e fazer sua fala.
                 </p>
                 <Button
                   className="w-full bg-primary text-primary-foreground"
-                  onClick={() => window.open(audienciaLinkTransmissao!, "_blank", "noopener,noreferrer")}
+                  onClick={() =>
+                    window.open(audienciaLinkTransmissao!, "_blank", "noopener,noreferrer")
+                  }
                 >
                   Acessar videoconferência
                 </Button>
@@ -429,7 +527,9 @@ const ParticipacaoPage = () => {
             {confirmContactEmail && (
               <p className="text-sm text-muted-foreground">
                 Para maiores informações, entre em contato com a Secretaria da Comissão responsável:{" "}
-                <a href={`mailto:${confirmContactEmail}`} className="text-primary underline">{confirmContactEmail}</a>
+                <a href={`mailto:${confirmContactEmail}`} className="text-primary underline">
+                  {confirmContactEmail}
+                </a>
               </p>
             )}
           </div>
@@ -481,9 +581,17 @@ const ParticipacaoPage = () => {
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span>Já inscrito nesta audiência</span>
             </div>
-            <p className="text-sm text-muted-foreground text-center">Você já realizou a inscrição para manifestar-se durante a videoconferência.</p>
+            <p className="text-sm text-muted-foreground text-center">
+              Você já realizou a inscrição para manifestar-se durante a videoconferência.
+            </p>
             <div className="flex flex-col gap-2 w-full max-w-xs">
-              <Button variant="outline" onClick={() => goBackToDetail()} className="w-full border-border text-foreground hover:bg-muted/50">Voltar aos detalhes da audiência</Button>
+              <Button
+                variant="outline"
+                onClick={() => goBackToDetail()}
+                className="w-full border-border text-foreground hover:bg-muted/50"
+              >
+                Voltar aos detalhes da audiência
+              </Button>
               <Button
                 variant="outline"
                 onClick={handleCancelarInscricao}
@@ -505,11 +613,13 @@ const ParticipacaoPage = () => {
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
-            Sua inscrição vale apenas aqui no app. Não é necessário se cadastrar no site oficial da Câmara para participar.
+            Sua inscrição vale apenas aqui no app. Não é necessário se cadastrar no site oficial da
+            Câmara para participar.
           </div>
           {!audienciaLinkTransmissao?.trim() && (
             <div className="rounded-lg border border-muted bg-muted/30 p-3 text-sm text-muted-foreground">
-              O link da videoconferência será exibido na tela de confirmação quando estiver disponível.
+              O link da videoconferência será exibido na tela de confirmação quando estiver
+              disponível.
             </div>
           )}
 
@@ -525,7 +635,12 @@ const ParticipacaoPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="nome-v">Nome Completo *</Label>
-                  <Input id="nome-v" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" />
+                  <Input
+                    id="nome-v"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    placeholder="Seu nome completo"
+                  />
                 </div>
                 <div className="space-y-2 sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
                   <div className="space-y-2">
@@ -556,25 +671,49 @@ const ParticipacaoPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="entidade">Entidade</Label>
-                  <Input id="entidade" value={entidade} onChange={(e) => setEntidade(e.target.value)} placeholder="Opcional" />
+                  <Input
+                    id="entidade"
+                    value={entidade}
+                    onChange={(e) => setEntidade(e.target.value)}
+                    placeholder="Opcional"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="funcao">Função</Label>
-                  <Input id="funcao" value={funcao} onChange={(e) => setFuncao(e.target.value)} placeholder="Opcional" />
+                  <Input
+                    id="funcao"
+                    value={funcao}
+                    onChange={(e) => setFuncao(e.target.value)}
+                    placeholder="Opcional"
+                  />
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Checkbox id="consent-v" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
+                <Checkbox
+                  id="consent-v"
+                  checked={consent}
+                  onCheckedChange={(v) => setConsent(!!v)}
+                />
                 <div className="space-y-1">
-                  <Label htmlFor="consent-v" className="text-sm cursor-pointer">Concordo em compartilhar meus dados pessoais *</Label>
+                  <Label htmlFor="consent-v" className="text-sm cursor-pointer">
+                    Concordo em compartilhar meus dados pessoais *
+                  </Label>
                   <p className="text-xs text-muted-foreground">
-                    Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para registro de sua mensagem é necessário que o titular consinta que a Câmara Municipal de São Paulo colha seu nome, e-mail e telefone.
+                    Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para
+                    registro de sua mensagem é necessário que o titular consinta que a Câmara
+                    Municipal de São Paulo colha seu nome, e-mail e telefone.
                   </p>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={() => goBackToDetail()} className="flex-1">Voltar</Button>
-                <Button onClick={submitVideoconferencia} disabled={isLoading} className="flex-1 bg-primary">
+                <Button variant="outline" onClick={() => goBackToDetail()} className="flex-1">
+                  Voltar
+                </Button>
+                <Button
+                  onClick={submitVideoconferencia}
+                  disabled={isLoading}
+                  className="flex-1 bg-primary"
+                >
                   {isLoading ? "Enviando..." : "INSCREVA-SE!"}
                 </Button>
               </div>
@@ -598,16 +737,24 @@ const ParticipacaoPage = () => {
         </div>
         <div className="border border-t-0 rounded-b-lg border-border p-4 space-y-4">
           <p className="text-sm text-foreground rounded-lg border border-primary/20 bg-primary/5 p-3">
-            Sua manifestação vale aqui no app. Não é necessário se cadastrar no site oficial da Câmara.
+            Sua manifestação vale aqui no app. Não é necessário se cadastrar no site oficial da
+            Câmara.
           </p>
           <p className="text-xs text-muted-foreground">Campos marcados com * são requeridos</p>
           <p className="text-sm text-muted-foreground">
-            Participe com suas propostas. Para ampliar o debate, a Câmara Municipal está realizando uma Audiência Pública, em formato virtual, para receber sugestões da população. É possível participar com o envio de propostas através do preenchimento deste formulário.
+            Participe com suas propostas. Para ampliar o debate, a Câmara Municipal está realizando
+            uma Audiência Pública, em formato virtual, para receber sugestões da população. É
+            possível participar com o envio de propostas através do preenchimento deste formulário.
           </p>
           <div className="grid gap-4">
             <div className="space-y-2">
               <Label htmlFor="nome-e">Nome Completo *</Label>
-              <Input id="nome-e" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" />
+              <Input
+                id="nome-e"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Seu nome completo"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email-e">E-mail para contato nesta inscrição *</Label>
@@ -637,10 +784,14 @@ const ParticipacaoPage = () => {
             <div className="space-y-2">
               <Label>Bairro (Subprefeitura) *</Label>
               <Select value={bairro} onValueChange={setBairro}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
                 <SelectContent>
                   {BAIRROS_SP.map((b) => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                    <SelectItem key={b} value={b}>
+                      {b}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -659,9 +810,13 @@ const ParticipacaoPage = () => {
             <div className="flex items-start gap-3">
               <Checkbox id="consent-e" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
               <div className="space-y-1">
-                <Label htmlFor="consent-e" className="text-sm cursor-pointer">Concordo em compartilhar meus dados pessoais *</Label>
+                <Label htmlFor="consent-e" className="text-sm cursor-pointer">
+                  Concordo em compartilhar meus dados pessoais *
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para registro da sua inscrição neste aplicativo é necessário que você concorde em compartilhar nome, e-mail e telefone.
+                  Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para registro
+                  da sua inscrição neste aplicativo é necessário que você concorde em compartilhar
+                  nome, e-mail e telefone.
                 </p>
               </div>
             </div>

@@ -100,16 +100,14 @@ export function GabineteLinkDialog({
     if (!targetUserId || !councilMemberId) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from("vereador_user_links")
-        .upsert(
-          {
-            user_id: targetUserId,
-            council_member_id: councilMemberId,
-            role: linkRole,
-          },
-          { onConflict: "user_id" },
-        );
+      const { error } = await supabase.from("vereador_user_links").upsert(
+        {
+          user_id: targetUserId,
+          council_member_id: councilMemberId,
+          role: linkRole,
+        },
+        { onConflict: "user_id" },
+      );
       if (error) throw error;
       toast.success("Vínculo salvo.");
       onSaved?.();
@@ -156,7 +154,9 @@ export function GabineteLinkDialog({
           </DialogTitle>
           <DialogDescription>
             {targetUserName ? (
-              <>Vincula <strong>{targetUserName}</strong> ao gabinete de um vereador.</>
+              <>
+                Vincula <strong>{targetUserName}</strong> ao gabinete de um vereador.
+              </>
             ) : (
               "Vincula o usuário ao gabinete de um vereador."
             )}
@@ -173,9 +173,7 @@ export function GabineteLinkDialog({
             >
               <SelectTrigger className="mt-1">
                 <SelectValue
-                  placeholder={
-                    loadingCouncil ? "Carregando..." : "Selecione o vereador"
-                  }
+                  placeholder={loadingCouncil ? "Carregando..." : "Selecione o vereador"}
                 />
               </SelectTrigger>
               <SelectContent>
@@ -205,8 +203,8 @@ export function GabineteLinkDialog({
             </Select>
             {linkRole === "vereador" && (
               <p className="text-[11px] text-muted-foreground mt-1">
-                Cada vereador pode ter apenas um usuário vinculado como
-                &quot;vereador&quot;. Assessores são ilimitados.
+                Cada vereador pode ter apenas um usuário vinculado como &quot;vereador&quot;.
+                Assessores são ilimitados.
               </p>
             )}
           </div>
@@ -214,26 +212,15 @@ export function GabineteLinkDialog({
 
         <DialogFooter className="gap-2 sm:gap-2">
           {currentCouncilMemberId && (
-            <Button
-              variant="outline"
-              onClick={() => void handleRemove()}
-              disabled={submitting}
-            >
+            <Button variant="outline" onClick={() => void handleRemove()} disabled={submitting}>
               <Unlink className="h-4 w-4 mr-2" />
               Remover vínculo
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button
-            onClick={() => void handleSave()}
-            disabled={!valid || submitting}
-          >
+          <Button onClick={() => void handleSave()} disabled={!valid || submitting}>
             {submitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

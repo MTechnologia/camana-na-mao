@@ -78,9 +78,7 @@ function windowEndIso(pattern: PatternEntry): string | null {
   return new Date().toISOString();
 }
 
-export function usePatternReports(
-  pattern: PatternEntry | null,
-): UsePatternReportsResult {
+export function usePatternReports(pattern: PatternEntry | null): UsePatternReportsResult {
   const [reports, setReports] = useState<PatternReportEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useMemo,
+  useCallback,
+} from "react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -131,19 +139,18 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const value = useMemo(() => ({
-    showTutorial,
-    isFirstAccess,
-    isLoading,
-    triggerTutorial,
-    completeTutorial,
-  }), [showTutorial, isFirstAccess, isLoading, triggerTutorial, completeTutorial]);
-
-  return (
-    <OnboardingContext.Provider value={value}>
-      {children}
-    </OnboardingContext.Provider>
+  const value = useMemo(
+    () => ({
+      showTutorial,
+      isFirstAccess,
+      isLoading,
+      triggerTutorial,
+      completeTutorial,
+    }),
+    [showTutorial, isFirstAccess, isLoading, triggerTutorial, completeTutorial],
   );
+
+  return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook

@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { useGabineteVereador } from '@/hooks/useGabineteVereador';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { useGabineteVereador } from "@/hooks/useGabineteVereador";
 
-type ReferralStatus = 'pending' | 'sent' | 'acknowledged' | 'resolved';
-type ManifestType = 'urban' | 'transport' | 'service';
+type ReferralStatus = "pending" | "sent" | "acknowledged" | "resolved";
+type ManifestType = "urban" | "transport" | "service";
 
 interface BaseReferral {
   id: string;
@@ -51,8 +51,8 @@ export const useReferralsVereador = () => {
   const { councilMemberId } = useGabineteVereador();
   const [referrals, setReferrals] = useState<ReferralsVereadorItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | ReferralStatus>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | ReferralStatus>("all");
   const [kpis, setKpis] = useState<ReferralKpis>(emptyKpis);
 
   const fetchReferrals = useCallback(async () => {
@@ -67,13 +67,13 @@ export const useReferralsVereador = () => {
 
     try {
       let query = supabase
-        .from('council_member_referrals')
-        .select('*')
-        .eq('council_member_id', councilMemberId)
-        .order('created_at', { ascending: false });
+        .from("council_member_referrals")
+        .select("*")
+        .eq("council_member_id", councilMemberId)
+        .order("created_at", { ascending: false });
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
       }
 
       if (searchTerm.trim()) {
@@ -87,28 +87,34 @@ export const useReferralsVereador = () => {
       if (error) throw error;
 
       const baseRows = (data ?? []) as BaseReferral[];
-      const urbanIds = baseRows.flatMap((item) => (item.urban_report_id ? [item.urban_report_id] : []));
-      const transportIds = baseRows.flatMap((item) => (item.transport_report_id ? [item.transport_report_id] : []));
-      const serviceIds = baseRows.flatMap((item) => (item.service_rating_id ? [item.service_rating_id] : []));
+      const urbanIds = baseRows.flatMap((item) =>
+        item.urban_report_id ? [item.urban_report_id] : [],
+      );
+      const transportIds = baseRows.flatMap((item) =>
+        item.transport_report_id ? [item.transport_report_id] : [],
+      );
+      const serviceIds = baseRows.flatMap((item) =>
+        item.service_rating_id ? [item.service_rating_id] : [],
+      );
 
       const [urbanResult, transportResult, serviceResult] = await Promise.all([
         urbanIds.length > 0
           ? supabase
-              .from('urban_reports')
-              .select('id, category, subcategory, description, status, protocol_code')
-              .in('id', urbanIds)
+              .from("urban_reports")
+              .select("id, category, subcategory, description, status, protocol_code")
+              .in("id", urbanIds)
           : Promise.resolve({ data: [], error: null }),
         transportIds.length > 0
           ? supabase
-              .from('transport_reports')
-              .select('id, report_type, sub_category, description, status, protocol_code')
-              .in('id', transportIds)
+              .from("transport_reports")
+              .select("id, report_type, sub_category, description, status, protocol_code")
+              .in("id", transportIds)
           : Promise.resolve({ data: [], error: null }),
         serviceIds.length > 0
           ? supabase
-              .from('service_ratings')
-              .select('id, rating_stars, rating_text, publication_status')
-              .in('id', serviceIds)
+              .from("service_ratings")
+              .select("id, rating_stars, rating_text, publication_status")
+              .in("id", serviceIds)
           : Promise.resolve({ data: [], error: null }),
       ]);
 
@@ -125,8 +131,8 @@ export const useReferralsVereador = () => {
           const urban = urbanById.get(item.urban_report_id);
           return {
             ...item,
-            manifestType: 'urban',
-            manifestTitle: urban?.subcategory || urban?.category || 'Relato urbano',
+            manifestType: "urban",
+            manifestTitle: urban?.subcategory || urban?.category || "Relato urbano",
             manifestDescription: urban?.description ?? item.citizen_message,
             manifestStatus: urban?.status ?? null,
             manifestProtocol: urban?.protocol_code ?? null,
@@ -137,8 +143,9 @@ export const useReferralsVereador = () => {
           const transport = transportById.get(item.transport_report_id);
           return {
             ...item,
-            manifestType: 'transport',
-            manifestTitle: transport?.sub_category || transport?.report_type || 'Relato de transporte',
+            manifestType: "transport",
+            manifestTitle:
+              transport?.sub_category || transport?.report_type || "Relato de transporte",
             manifestDescription: transport?.description ?? item.citizen_message,
             manifestStatus: transport?.status ?? null,
             manifestProtocol: transport?.protocol_code ?? null,
@@ -148,8 +155,10 @@ export const useReferralsVereador = () => {
         const service = item.service_rating_id ? serviceById.get(item.service_rating_id) : null;
         return {
           ...item,
-          manifestType: 'service',
-          manifestTitle: service ? `Avaliação ${service.rating_stars} estrela(s)` : 'Avaliação de serviço',
+          manifestType: "service",
+          manifestTitle: service
+            ? `Avaliação ${service.rating_stars} estrela(s)`
+            : "Avaliação de serviço",
           manifestDescription: service?.rating_text ?? item.citizen_message,
           manifestStatus: service?.publication_status ?? null,
           manifestProtocol: null,
@@ -159,17 +168,17 @@ export const useReferralsVereador = () => {
       setReferrals(hydrated);
       setKpis({
         total: hydrated.length,
-        pending: hydrated.filter((item) => item.status === 'pending').length,
-        sent: hydrated.filter((item) => item.status === 'sent').length,
-        acknowledged: hydrated.filter((item) => item.status === 'acknowledged').length,
-        resolved: hydrated.filter((item) => item.status === 'resolved').length,
+        pending: hydrated.filter((item) => item.status === "pending").length,
+        sent: hydrated.filter((item) => item.status === "sent").length,
+        acknowledged: hydrated.filter((item) => item.status === "acknowledged").length,
+        resolved: hydrated.filter((item) => item.status === "resolved").length,
       });
     } catch (error) {
-      console.error('Error fetching gabinete referrals:', error);
+      console.error("Error fetching gabinete referrals:", error);
       toast({
-        title: 'Erro ao carregar encaminhamentos do gabinete',
-        description: 'Tente novamente em alguns instantes.',
-        variant: 'destructive',
+        title: "Erro ao carregar encaminhamentos do gabinete",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive",
       });
       setReferrals([]);
       setKpis(emptyKpis);
@@ -185,28 +194,28 @@ export const useReferralsVereador = () => {
         updated_at: new Date().toISOString(),
       };
 
-      if (status === 'sent') payload.sent_at = new Date().toISOString();
-      if (status === 'acknowledged') payload.acknowledged_at = new Date().toISOString();
-      if (status === 'resolved') payload.resolved_at = new Date().toISOString();
+      if (status === "sent") payload.sent_at = new Date().toISOString();
+      if (status === "acknowledged") payload.acknowledged_at = new Date().toISOString();
+      if (status === "resolved") payload.resolved_at = new Date().toISOString();
 
       const { error } = await supabase
-        .from('council_member_referrals')
+        .from("council_member_referrals")
         .update(payload)
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
       toast({
-        title: 'Status atualizado',
-        description: 'O encaminhamento foi atualizado com sucesso.',
+        title: "Status atualizado",
+        description: "O encaminhamento foi atualizado com sucesso.",
       });
       await fetchReferrals();
     } catch (error) {
-      console.error('Error updating gabinete referral status:', error);
+      console.error("Error updating gabinete referral status:", error);
       toast({
-        title: 'Erro ao atualizar encaminhamento',
-        description: 'Não foi possível salvar o novo status.',
-        variant: 'destructive',
+        title: "Erro ao atualizar encaminhamento",
+        description: "Não foi possível salvar o novo status.",
+        variant: "destructive",
       });
     }
   };
@@ -214,28 +223,28 @@ export const useReferralsVereador = () => {
   const addResponse = async (id: string, responseText: string) => {
     try {
       const { error } = await supabase
-        .from('council_member_referrals')
+        .from("council_member_referrals")
         .update({
           response_text: responseText,
-          status: 'acknowledged',
+          status: "acknowledged",
           acknowledged_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
       toast({
-        title: 'Resposta registrada',
-        description: 'A resposta do gabinete foi salva com sucesso.',
+        title: "Resposta registrada",
+        description: "A resposta do gabinete foi salva com sucesso.",
       });
       await fetchReferrals();
     } catch (error) {
-      console.error('Error saving gabinete response:', error);
+      console.error("Error saving gabinete response:", error);
       toast({
-        title: 'Erro ao registrar resposta',
-        description: 'Não foi possível salvar a resposta.',
-        variant: 'destructive',
+        title: "Erro ao registrar resposta",
+        description: "Não foi possível salvar a resposta.",
+        variant: "destructive",
       });
     }
   };
@@ -245,7 +254,7 @@ export const useReferralsVereador = () => {
   }, [fetchReferrals]);
 
   const openReferralsCount = useMemo(
-    () => referrals.filter((item) => item.status !== 'resolved').length,
+    () => referrals.filter((item) => item.status !== "resolved").length,
     [referrals],
   );
 

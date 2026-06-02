@@ -11,7 +11,7 @@ describe("TrendCategoryLineChart", () => {
     const { container } = render(
       <div style={{ width: 480, height: 320 }}>
         <TrendCategoryLineChart data={data} categoryKeys={["alpha", "beta"]} />
-      </div>
+      </div>,
     );
     const lines = container.querySelectorAll(".recharts-line-curve");
     expect(lines.length).toBe(2);
@@ -19,7 +19,7 @@ describe("TrendCategoryLineChart", () => {
 
   it("shows empty state when there is no data", () => {
     const { getByText } = render(
-      <TrendCategoryLineChart data={[]} categoryKeys={[]} emptyMessage="Nada aqui" />
+      <TrendCategoryLineChart data={[]} categoryKeys={[]} emptyMessage="Nada aqui" />,
     );
     expect(getByText("Nada aqui")).toBeTruthy();
   });

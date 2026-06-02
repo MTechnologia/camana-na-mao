@@ -1,13 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  Clock,
-  Download,
-  Loader2,
-  Trash2,
-  X,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, Clock, Download, Loader2, Trash2, X, XCircle } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -19,11 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import {
-  useExportJobs,
-  type ExportJob,
-  type ExportJobStatus,
-} from "@/hooks/useExportJobs";
+import { useExportJobs, type ExportJob, type ExportJobStatus } from "@/hooks/useExportJobs";
 import { cn } from "@/lib/utils";
 
 /**
@@ -160,7 +148,11 @@ function JobCard({ job, onDownload, onCancel, onRemove, downloading }: JobCardPr
   const meta = STATUS_META[job.status];
   const Icon = meta.icon;
   const datasetLabel =
-    job.dataset === "urban_reports" ? "Urbano" : job.dataset === "transport_reports" ? "Transporte" : job.dataset;
+    job.dataset === "urban_reports"
+      ? "Urbano"
+      : job.dataset === "transport_reports"
+        ? "Transporte"
+        : job.dataset;
 
   return (
     <Card className="p-3">
@@ -189,13 +181,9 @@ function JobCard({ job, onDownload, onCancel, onRemove, downloading }: JobCardPr
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
             Criado {formatRelative(job.createdAt)}
-            {job.rowCount !== null && (
-              <> · {job.rowCount.toLocaleString("pt-BR")} linhas</>
-            )}
+            {job.rowCount !== null && <> · {job.rowCount.toLocaleString("pt-BR")} linhas</>}
           </div>
-          {job.error && (
-            <p className="text-xs text-destructive mt-1 break-words">{job.error}</p>
-          )}
+          {job.error && <p className="text-xs text-destructive mt-1 break-words">{job.error}</p>}
         </div>
 
         <div className="flex flex-col gap-1">

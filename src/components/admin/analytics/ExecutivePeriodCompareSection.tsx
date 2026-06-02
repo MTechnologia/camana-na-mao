@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
-import { ArrowLeftRight } from 'lucide-react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { VolumeCompareView } from '@/components/analytics/VolumeCompareView';
-import { useReportsVolumeCompare } from '@/hooks/useReportsVolumeCompare';
-import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
-import { isCompleteDateRange } from '@/lib/dateRangeUtils';
+import { useMemo } from "react";
+import { ArrowLeftRight } from "lucide-react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { VolumeCompareView } from "@/components/analytics/VolumeCompareView";
+import { useReportsVolumeCompare } from "@/hooks/useReportsVolumeCompare";
+import { resolveGlobalCategoryFilter } from "@/lib/globalCategoryFilter";
+import { isCompleteDateRange } from "@/lib/dateRangeUtils";
 
 /**
  * HU-5.1 — Comparação temporal A vs B no dashboard executivo.
@@ -18,7 +18,7 @@ export function ExecutivePeriodCompareSection() {
       categories: slice.isAll
         ? undefined
         : [...slice.urbanCategories, ...slice.transportSubcategories],
-      regions: region !== 'all' ? [region] : undefined,
+      regions: region !== "all" ? [region] : undefined,
     };
   }, [region, category]);
 

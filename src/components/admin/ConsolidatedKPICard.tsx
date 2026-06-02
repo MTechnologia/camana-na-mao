@@ -67,7 +67,8 @@ export function ConsolidatedKPICard({
       }}
       className={cn(
         "p-4 group transition-all",
-        isInteractive && "cursor-pointer hover:border-primary/50 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+        isInteractive &&
+          "cursor-pointer hover:border-primary/50 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
         className,
       )}
       aria-label={isInteractive ? `${title} — clique para ver detalhes` : title}
@@ -76,9 +77,7 @@ export function ConsolidatedKPICard({
         <div className="flex-1 min-w-0">
           <p className="text-xs text-muted-foreground truncate">{title}</p>
           {subtitle && (
-            <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">
-              {subtitle}
-            </p>
+            <p className="text-[10px] text-muted-foreground/70 truncate mt-0.5">{subtitle}</p>
           )}
         </div>
         <div className="rounded-lg bg-muted p-1.5 shrink-0">

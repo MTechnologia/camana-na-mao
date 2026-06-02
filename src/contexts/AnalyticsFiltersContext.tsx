@@ -6,14 +6,14 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 import {
   computePeriodB,
   type PeriodComparePickerValue,
-} from '@/components/filters/PeriodComparePicker';
-import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { isCompleteDateRange } from '@/lib/dateRangeUtils';
-import { globalPeriodKeyToDateRange } from '@/lib/globalPeriodRange';
+} from "@/components/filters/PeriodComparePicker";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { isCompleteDateRange } from "@/lib/dateRangeUtils";
+import { globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
 
 /** Filtros globais (RN-ANL-002) — estado local até integração com API. */
 export type GlobalFilters = {
@@ -23,9 +23,9 @@ export type GlobalFilters = {
 };
 
 const defaultFilters: GlobalFilters = {
-  period: 'last_30d',
-  region: 'all',
-  category: 'all',
+  period: "last_30d",
+  region: "all",
+  category: "all",
 };
 
 function buildCompareState(basePeriod: string): PeriodComparePickerValue {
@@ -33,7 +33,7 @@ function buildCompareState(basePeriod: string): PeriodComparePickerValue {
   return {
     periodA: { from, to },
     periodB: null,
-    preset: 'previous',
+    preset: "previous",
   };
 }
 
@@ -78,7 +78,7 @@ export function AnalyticsFiltersProvider({ children }: { children: ReactNode }) 
       setPeriodCompare((prev) => {
         const { from, to } = globalPeriodKeyToDateRange(v);
         let nextB = prev.periodB;
-        if (prev.periodB && (prev.preset === 'previous' || prev.preset === 'year_ago')) {
+        if (prev.periodB && (prev.preset === "previous" || prev.preset === "year_ago")) {
           nextB = computePeriodB({ from, to }, prev.preset, prev.periodB);
         }
         return { periodA: { from, to }, periodB: nextB, preset: prev.preset };
@@ -103,7 +103,14 @@ export function AnalyticsFiltersProvider({ children }: { children: ReactNode }) 
 
   useEffect(() => {
     setLastRecalcAt(new Date());
-  }, [period, region, category, periodCompare.periodA, periodCompare.periodB, periodCompare.preset]);
+  }, [
+    period,
+    region,
+    category,
+    periodCompare.periodA,
+    periodCompare.periodB,
+    periodCompare.preset,
+  ]);
 
   const touchRecalc = useCallback(() => {
     setLastRecalcAt(new Date());
@@ -140,16 +147,14 @@ export function AnalyticsFiltersProvider({ children }: { children: ReactNode }) 
   );
 
   return (
-    <AnalyticsFiltersContext.Provider value={value}>
-      {children}
-    </AnalyticsFiltersContext.Provider>
+    <AnalyticsFiltersContext.Provider value={value}>{children}</AnalyticsFiltersContext.Provider>
   );
 }
 
 export function useGlobalFilters(): Ctx {
   const ctx = useContext(AnalyticsFiltersContext);
   if (!ctx) {
-    throw new Error('useGlobalFilters must be used within AnalyticsFiltersProvider');
+    throw new Error("useGlobalFilters must be used within AnalyticsFiltersProvider");
   }
   return ctx;
 }

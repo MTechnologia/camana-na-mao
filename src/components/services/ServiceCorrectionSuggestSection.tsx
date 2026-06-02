@@ -44,7 +44,8 @@ export function ServiceCorrectionSuggestSection({
   onRequestLogin,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [correctionType, setCorrectionType] = useState<ServiceCorrectionTypeValue>("localizacao_incorreta");
+  const [correctionType, setCorrectionType] =
+    useState<ServiceCorrectionTypeValue>("localizacao_incorreta");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -147,7 +148,8 @@ export function ServiceCorrectionSuggestSection({
         user_id: userId,
         service_id: realServiceId,
         field_name: null as string | null,
-        current_value: contextSummary.length > 2000 ? `${contextSummary.slice(0, 2000)}…` : contextSummary,
+        current_value:
+          contextSummary.length > 2000 ? `${contextSummary.slice(0, 2000)}…` : contextSummary,
         suggested_value: trimmed,
         correction_type: correctionType,
         evidence_photo_url: evidenceUrl,
@@ -193,20 +195,24 @@ export function ServiceCorrectionSuggestSection({
           Sugerir correção de informação
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto sm:max-w-lg sm:mx-auto rounded-t-xl">
+      <SheetContent
+        side="bottom"
+        className="max-h-[92vh] overflow-y-auto sm:max-w-lg sm:mx-auto rounded-t-xl"
+      >
         <SheetHeader>
           <SheetTitle>Correção de cadastro</SheetTitle>
           <SheetDescription>
-            Indique o tipo de informação incorreta, descreva o que deveria constar e, se quiser, anexe uma foto como
-            evidência. Um administrador analisa em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas e você é notificado.
-            O cadastro oficial só muda após aprovação e atualização pela equipe — o envio não altera o registro sozinho.
+            Indique o tipo de informação incorreta, descreva o que deveria constar e, se quiser,
+            anexe uma foto como evidência. Um administrador analisa em até{" "}
+            {SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas e você é notificado. O cadastro oficial só
+            muda após aprovação e atualização pela equipe — o envio não altera o registro sozinho.
           </SheetDescription>
         </SheetHeader>
         <div className="grid gap-5 py-4 px-1">
           {!realServiceId && (
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Para enviar sugestão, o equipamento precisa constar no cadastro. Use um resultado da busca com ID
-              oficial ou avalie o serviço para vinculá-lo.
+              Para enviar sugestão, o equipamento precisa constar no cadastro. Use um resultado da
+              busca com ID oficial ou avalie o serviço para vinculá-lo.
             </p>
           )}
 
@@ -254,7 +260,9 @@ export function ServiceCorrectionSuggestSection({
 
           <div className="space-y-2">
             <Label>Evidência (opcional)</Label>
-            <p className="text-xs text-muted-foreground">Foto da fachada, placa, horário na porta etc. JPG, PNG ou WebP, até {MAX_PHOTO_MB} MB.</p>
+            <p className="text-xs text-muted-foreground">
+              Foto da fachada, placa, horário na porta etc. JPG, PNG ou WebP, até {MAX_PHOTO_MB} MB.
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -263,7 +271,12 @@ export function ServiceCorrectionSuggestSection({
               onChange={onPickPhoto}
             />
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 <Camera className="w-4 h-4 mr-2" />
                 {photoFile ? "Trocar foto" : "Anexar foto"}
               </Button>
@@ -276,7 +289,11 @@ export function ServiceCorrectionSuggestSection({
             </div>
             {photoPreview && (
               <div className="relative rounded-md border overflow-hidden max-h-48 w-full bg-muted/30">
-                <img src={photoPreview} alt="Pré-visualização da evidência" className="w-full h-full object-contain max-h-48" />
+                <img
+                  src={photoPreview}
+                  alt="Pré-visualização da evidência"
+                  className="w-full h-full object-contain max-h-48"
+                />
               </div>
             )}
           </div>

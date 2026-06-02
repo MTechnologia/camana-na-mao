@@ -26,7 +26,7 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
   useEffect(() => {
     if (isRetrying) return;
     const interval = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           handleRetry();
           return AUTO_RETRY_INTERVAL_S;
@@ -38,7 +38,10 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
   }, [isRetrying, handleRetry]);
 
   return (
-    <div ref={ref} className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <div
+      ref={ref}
+      className="min-h-screen bg-background flex flex-col items-center justify-center p-6"
+    >
       <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
         {isRetrying ? (
           <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
@@ -50,12 +53,11 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
       <h2 className="text-xl font-bold text-foreground mb-2 text-center">
         {isRetrying ? "Verificando conexão..." : "Você está offline"}
       </h2>
-      
+
       <p className="text-muted-foreground text-center mb-6 max-w-sm">
-        {isRetrying 
+        {isRetrying
           ? "Aguarde enquanto tentamos reconectar..."
-          : "Não foi possível conectar aos serviços. Tentando automaticamente..."
-        }
+          : "Não foi possível conectar aos serviços. Tentando automaticamente..."}
       </p>
 
       <Button
@@ -72,17 +74,14 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
       </Button>
 
       {!isRetrying && (
-        <p className="text-xs text-muted-foreground mt-3">
-          Próxima tentativa em {countdown}s
-        </p>
+        <p className="text-xs text-muted-foreground mt-3">Próxima tentativa em {countdown}s</p>
       )}
 
       <div className="mt-8 p-4 bg-muted rounded-xl max-w-md">
-        <h3 className="font-semibold text-sm text-foreground mb-2">
-          💡 Dica
-        </h3>
+        <h3 className="font-semibold text-sm text-foreground mb-2">💡 Dica</h3>
         <p className="text-xs text-muted-foreground">
-          Verifique sua conexão Wi-Fi ou dados móveis. A reconexão será automática assim que a internet voltar.
+          Verifique sua conexão Wi-Fi ou dados móveis. A reconexão será automática assim que a
+          internet voltar.
         </p>
       </div>
     </div>

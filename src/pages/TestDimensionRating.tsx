@@ -30,10 +30,7 @@ export default function TestDimensionRating() {
           </p>
 
           {/* Componente com dimensionKey */}
-          <InlineRatingPicker
-            dimensionKey="atendimento"
-            onSelect={handleSelect}
-          />
+          <InlineRatingPicker dimensionKey="atendimento" onSelect={handleSelect} />
         </div>
 
         {/* Resultado da seleção */}
@@ -43,9 +40,15 @@ export default function TestDimensionRating() {
               ✅ Seleção capturada:
             </p>
             <ul className="text-xs space-y-1 text-green-600 dark:text-green-400">
-              <li><strong>Dimensão:</strong> {result.dimensionKey}</li>
-              <li><strong>Estrelas:</strong> {result.stars}</li>
-              <li><strong>Label:</strong> {LABELS[result.stars - 1]}</li>
+              <li>
+                <strong>Dimensão:</strong> {result.dimensionKey}
+              </li>
+              <li>
+                <strong>Estrelas:</strong> {result.stars}
+              </li>
+              <li>
+                <strong>Label:</strong> {LABELS[result.stars - 1]}
+              </li>
               <li>
                 <strong>Mensagem formatada:</strong>{" "}
                 <code className="bg-green-100 dark:bg-green-800 px-1 rounded">
@@ -69,7 +72,7 @@ export default function TestDimensionRating() {
               </tr>
             </thead>
             <tbody>
-              {[1, 2, 3, 4, 5].map(star => (
+              {[1, 2, 3, 4, 5].map((star) => (
                 <tr key={star} className="border-b last:border-0">
                   <td className="py-1">⭐ {star}</td>
                   <td className="py-1 font-mono">{LABELS[star - 1]}</td>
@@ -90,7 +93,9 @@ export default function TestDimensionRating() {
               <InlineRatingPicker onSelect={() => {}} />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Rating de dimensão (com dimensionKey="atendimento"):</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Rating de dimensão (com dimensionKey="atendimento"):
+              </p>
               <InlineRatingPicker dimensionKey="atendimento" onSelect={() => {}} />
             </div>
           </div>

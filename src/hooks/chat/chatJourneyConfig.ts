@@ -1,9 +1,14 @@
 const DISABLE_JOURNEY_SNAPSHOT =
-  String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "true" ||
-  String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase() === "1";
+  String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "")
+    .trim()
+    .toLowerCase() === "true" ||
+  String(import.meta.env.VITE_DISABLE_JOURNEY_SNAPSHOT ?? "")
+    .trim()
+    .toLowerCase() === "1";
 
-const LEGACY_ENABLE_JOURNEY_SNAPSHOT =
-  String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "").trim().toLowerCase();
+const LEGACY_ENABLE_JOURNEY_SNAPSHOT = String(import.meta.env.VITE_ENABLE_JOURNEY_SNAPSHOT ?? "")
+  .trim()
+  .toLowerCase();
 
 /** CHB-026: snapshot ativo por padrão (opt-out via VITE_DISABLE_JOURNEY_SNAPSHOT). */
 export const ENABLE_JOURNEY_SNAPSHOT =

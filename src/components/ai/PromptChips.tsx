@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
-export type CollectionTypePreset = 'urban_report' | 'transport_report' | 'service_rating' | null;
+export type CollectionTypePreset = "urban_report" | "transport_report" | "service_rating" | null;
 
 interface PromptChip {
   id: string;
@@ -126,7 +126,15 @@ const chips: PromptChip[] = [
 ];
 
 /** IDs dos chips principais exibidos sempre; o restante fica no dropdown "Ver todos" */
-const PRIMARY_CHIP_IDS = ["urban", "urban_quick", "manual_report", "evaluate", "services", "audiencias", "estrutura"];
+const PRIMARY_CHIP_IDS = [
+  "urban",
+  "urban_quick",
+  "manual_report",
+  "evaluate",
+  "services",
+  "audiencias",
+  "estrutura",
+];
 
 const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
   const primaryChips = chips.filter((c) => PRIMARY_CHIP_IDS.includes(c.id));
@@ -182,7 +190,10 @@ const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
             );
           })}
           {onOpenDiscovery && (
-            <DropdownMenuItem onClick={onOpenDiscovery} className="gap-2 cursor-pointer border-t mt-1 pt-1">
+            <DropdownMenuItem
+              onClick={onOpenDiscovery}
+              className="gap-2 cursor-pointer border-t mt-1 pt-1"
+            >
               <span className="text-primary font-medium">Explorar mais opções</span>
             </DropdownMenuItem>
           )}

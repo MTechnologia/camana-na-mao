@@ -18,10 +18,7 @@ interface AdminLiveIndicatorProps {
   tone?: AdminLiveIndicatorTone;
 }
 
-const toneStyles: Record<
-  AdminLiveIndicatorTone,
-  { root: string; muted: string }
-> = {
+const toneStyles: Record<AdminLiveIndicatorTone, { root: string; muted: string }> = {
   default: {
     root: "bg-green-500/10 text-green-700 dark:text-green-400",
     muted: "text-muted-foreground",
@@ -78,7 +75,9 @@ export function AdminLiveIndicator({
       <span>
         Ao vivo
         {lastUpdate && (
-          <span className={cn("ml-1", styles.muted)}>• atualizado {formatRelative(lastUpdate)}</span>
+          <span className={cn("ml-1", styles.muted)}>
+            • atualizado {formatRelative(lastUpdate)}
+          </span>
         )}
       </span>
     </div>

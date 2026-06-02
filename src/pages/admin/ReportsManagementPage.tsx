@@ -1,19 +1,19 @@
-import { useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { parseGlobalFiltersFromSearchParams } from '@/lib/commissionFilterNavigation';
-import { ExternalLink } from 'lucide-react';
-import { ReportDetailSheet } from '@/components/admin/reports/ReportDetailSheet';
-import { ReportsDataTable } from '@/components/admin/reports/ReportsDataTable';
-import { ReportsListPagination } from '@/components/admin/reports/ReportsListPagination';
-import { ReportsQueueToolbar } from '@/components/admin/reports/ReportsQueueToolbar';
-import { ReportsWorkflowBanner } from '@/components/admin/reports/ReportsWorkflowBanner';
-import { ReportsWorkflowKpis } from '@/components/admin/reports/ReportsWorkflowKpis';
-import { ReportsManagementChartSection } from '@/components/admin/charts/SectionChartPanels';
-import { Button } from '@/components/ui/button';
-import { PageShell } from '@/components/ui/PageShell';
-import { useUrbanReportsManagement } from '@/hooks/useUrbanReportsManagement';
-import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
+import { useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { parseGlobalFiltersFromSearchParams } from "@/lib/commissionFilterNavigation";
+import { ExternalLink } from "lucide-react";
+import { ReportDetailSheet } from "@/components/admin/reports/ReportDetailSheet";
+import { ReportsDataTable } from "@/components/admin/reports/ReportsDataTable";
+import { ReportsListPagination } from "@/components/admin/reports/ReportsListPagination";
+import { ReportsQueueToolbar } from "@/components/admin/reports/ReportsQueueToolbar";
+import { ReportsWorkflowBanner } from "@/components/admin/reports/ReportsWorkflowBanner";
+import { ReportsWorkflowKpis } from "@/components/admin/reports/ReportsWorkflowKpis";
+import { ReportsManagementChartSection } from "@/components/admin/charts/SectionChartPanels";
+import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/PageShell";
+import { useUrbanReportsManagement } from "@/hooks/useUrbanReportsManagement";
+import { URBAN_REPORTS_MANAGEMENT_PAGE_LEGEND } from "@/lib/analyticsParameterLegends";
 
 export function ReportsManagementPage() {
   const [searchParams] = useSearchParams();
@@ -106,9 +106,9 @@ export function ReportsManagementPage() {
       {councilReferralStats && councilReferralStats.nonUrban > 0 ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
           {councilReferralStats.nonUrban} encaminhamento
-          {councilReferralStats.nonUrban === 1 ? '' : 's'} pendente
-          {councilReferralStats.nonUrban === 1 ? ' é' : 's são'} de transporte ou avaliação de
-          serviço — não aparecem nesta fila urbana. O total de {councilReferralStats.referralTotal}{' '}
+          {councilReferralStats.nonUrban === 1 ? "" : "s"} pendente
+          {councilReferralStats.nonUrban === 1 ? " é" : "s são"} de transporte ou avaliação de
+          serviço — não aparecem nesta fila urbana. O total de {councilReferralStats.referralTotal}{" "}
           bate com a análise de encaminhamentos.
         </p>
       ) : null}

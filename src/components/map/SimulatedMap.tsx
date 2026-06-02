@@ -27,7 +27,10 @@ interface SimulatedMapProps {
 }
 
 /** Agrupa serviços por proximidade (grid ~200m) para reduzir sobreposição visual. */
-function clusterServicesByProximity(services: Service[], maxItems: number): { type: "single"; service: Service } | { type: "cluster"; services: Service[] }[] {
+function clusterServicesByProximity(
+  services: Service[],
+  maxItems: number,
+): { type: "single"; service: Service } | { type: "cluster"; services: Service[] }[] {
   if (services.length <= maxItems) {
     return services.map((service) => ({ type: "single" as const, service }));
   }
@@ -41,7 +44,10 @@ function clusterServicesByProximity(services: Service[], maxItems: number): { ty
   const clusters = Array.from(grid.values())
     .map((list): { type: "cluster"; services: Service[] } => ({ type: "cluster", services: list }))
     .sort((a, b) => b.services.length - a.services.length);
-  const result: ({ type: "single"; service: Service } | { type: "cluster"; services: Service[] })[] = [];
+  const result: (
+    | { type: "single"; service: Service }
+    | { type: "cluster"; services: Service[] }
+  )[] = [];
   for (const c of clusters) {
     if (result.length >= maxItems) break;
     if (c.services.length === 1) result.push({ type: "single", service: c.services[0] });
@@ -50,19 +56,28 @@ function clusterServicesByProximity(services: Service[], maxItems: number): { ty
   return result;
 }
 
-export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceLabel = "straight", activeServiceTypes = [] }: SimulatedMapProps) => {
+export const SimulatedMap = ({
+  userLocation,
+  services,
+  onServiceClick,
+  distanceLabel = "straight",
+  activeServiceTypes = [],
+}: SimulatedMapProps) => {
   const displayItems = clusterServicesByProximity(services, 8);
 
   return (
     <div className="relative w-full h-[500px] bg-gradient-to-br from-secondary/20 via-background to-secondary/10 rounded-lg border-2 border-dashed border-muted-foreground/30 overflow-hidden">
       {/* Background grid pattern */}
-      <div className="absolute inset-0" style={{
-        backgroundImage: `
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `
           linear-gradient(to right, hsl(var(--muted-foreground) / 0.05) 1px, transparent 1px),
           linear-gradient(to bottom, hsl(var(--muted-foreground) / 0.05) 1px, transparent 1px)
         `,
-        backgroundSize: '30px 30px'
-      }} />
+          backgroundSize: "30px 30px",
+        }}
+      />
 
       {/* Legenda (alinhada ao GoogleMapView – OS-05) */}
       <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
@@ -86,7 +101,9 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                   <div
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm"
                     style={{
-                      boxShadow: color ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)` : undefined,
+                      boxShadow: color
+                        ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)`
+                        : undefined,
                     }}
                     aria-hidden
                   >
@@ -130,7 +147,10 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
         {displayItems.map((item, index) => {
           if (item.type === "single") {
             const service = item.service;
-            const lowRating = needsVerificationForLowAverageRating(service.average_rating, service.total_ratings);
+            const lowRating = needsVerificationForLowAverageRating(
+              service.average_rating,
+              service.total_ratings,
+            );
             return (
               <Card
                 key={service.id}
@@ -144,11 +164,18 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground line-clamp-1">
-                      {getServiceDisplayName({ name: service.name, address: service.address, district: service.district, service_type: service.service_type })}
+                      {getServiceDisplayName({
+                        name: service.name,
+                        address: service.address,
+                        district: service.district,
+                        service_type: service.service_type,
+                      })}
                     </p>
                     {service.distance != null && (
                       <p className="text-xs text-muted-foreground">
-                        {distanceLabel === "straight" ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance)}
+                        {distanceLabel === "straight"
+                          ? formatDistanceStraightLine(service.distance)
+                          : formatDistance(service.distance)}
                       </p>
                     )}
                     {lowRating && (
@@ -182,7 +209,13 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                     {count} equipamentos próximos
                   </p>
                   <p className="text-xs text-muted-foreground line-clamp-1">
-                    {getServiceDisplayName({ name: first.name, address: first.address, district: first.district, service_type: first.service_type })}{rest.length ? " e outros" : ""}
+                    {getServiceDisplayName({
+                      name: first.name,
+                      address: first.address,
+                      district: first.district,
+                      service_type: first.service_type,
+                    })}
+                    {rest.length ? " e outros" : ""}
                   </p>
                 </div>
                 <Badge variant="secondary" className="shrink-0">

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildRecoveryEmailActionUrl, resolvePasswordRecoveryRedirectBase } from "./authRecoveryEmailLink";
+import {
+  buildRecoveryEmailActionUrl,
+  resolvePasswordRecoveryRedirectBase,
+} from "./authRecoveryEmailLink";
 
 describe("authRecoveryEmailLink", () => {
   it("normaliza redirect_to para /nova-senha", () => {

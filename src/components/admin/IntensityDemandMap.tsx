@@ -12,7 +12,7 @@ import type { ZoneIntensity } from "@/hooks/useIntensityDemand";
 
 const SP_CENTER = { lat: -23.5505, lng: -46.6333 };
 
-export type IntensityMapColorBy = 'wait' | 'volume';
+export type IntensityMapColorBy = "wait" | "volume";
 
 interface Props {
   zones: ZoneIntensity[];
@@ -55,7 +55,7 @@ export function colorForVolume(count: number, maxCount: number): string {
 export function IntensityDemandMap({
   zones,
   maxRedHours = 168,
-  colorBy = 'wait',
+  colorBy = "wait",
   onSelect,
 }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -74,18 +74,29 @@ export function IntensityDemandMap({
     setMapReady(false);
 
     const init = async () => {
-      let MapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+      let MapCtor:
+        | (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+        | null =
         typeof window.google?.maps?.Map === "function"
-          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          ? (window.google.maps.Map as new (
+              el: HTMLElement,
+              opts?: google.maps.MapOptions,
+            ) => google.maps.Map)
           : null;
 
       if (
         !MapCtor &&
-        typeof (window.google.maps as { importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }).importLibrary === "function"
+        typeof (
+          window.google.maps as {
+            importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+          }
+        ).importLibrary === "function"
       ) {
         try {
           const mapsLib = await (
-            window.google.maps as { importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }
+            window.google.maps as {
+              importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+            }
           ).importLibrary("maps");
           MapCtor = mapsLib?.Map ?? null;
         } catch (e) {
@@ -133,7 +144,9 @@ export function IntensityDemandMap({
 
     zones.forEach((z) => {
       const color =
-        colorBy === 'volume' ? colorForVolume(z.count, maxCount) : colorForWait(z.avgWaitHours, maxRedHours);
+        colorBy === "volume"
+          ? colorForVolume(z.count, maxCount)
+          : colorForWait(z.avgWaitHours, maxRedHours);
       const radius = radiusForCount(z.count);
       const circle = new google.maps.Circle({
         map,

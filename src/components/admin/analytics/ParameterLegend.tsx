@@ -1,6 +1,6 @@
-import { ChevronDown } from 'lucide-react';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
-import { cn } from '@/lib/utils';
+import { ChevronDown } from "lucide-react";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
+import { cn } from "@/lib/utils";
 
 type LegendSection = {
   title: string;
@@ -14,7 +14,7 @@ type ParameterLegendProps = {
   title?: string;
   className?: string;
   /** `always` — bloco sempre visível; `collapsible` — acordeão (padrão). */
-  variant?: 'collapsible' | 'always';
+  variant?: "collapsible" | "always";
   defaultOpen?: boolean;
 };
 
@@ -62,7 +62,9 @@ function LegendContent({
   return (
     <>
       {prependSection && hasPrepend ? <LegendSectionBlock section={prependSection} /> : null}
-      {hasPrepend && hasMain ? <div className="my-3 border-t border-border/60" aria-hidden /> : null}
+      {hasPrepend && hasMain ? (
+        <div className="my-3 border-t border-border/60" aria-hidden />
+      ) : null}
       {hasMain ? <LegendBody items={items} /> : null}
     </>
   );
@@ -71,21 +73,18 @@ function LegendContent({
 export function ParameterLegend({
   items,
   prependSection,
-  title = 'Parâmetros',
+  title = "Parâmetros",
   className,
-  variant = 'collapsible',
+  variant = "collapsible",
   defaultOpen = false,
 }: ParameterLegendProps) {
   const hasContent = items.length > 0 || Boolean(prependSection?.items.length);
   if (!hasContent) return null;
 
-  if (variant === 'always') {
+  if (variant === "always") {
     return (
       <section
-        className={cn(
-          'rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5',
-          className,
-        )}
+        className={cn("rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5", className)}
         aria-label={title}
       >
         <p className="mb-2 text-xs font-medium text-foreground">{title}</p>
@@ -96,14 +95,14 @@ export function ParameterLegend({
 
   return (
     <details
-      className={cn('group rounded-lg border border-border/80 bg-muted/20', className)}
+      className={cn("group rounded-lg border border-border/80 bg-muted/20", className)}
       open={defaultOpen || undefined}
     >
       <summary
         className={cn(
-          'flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2',
-          'text-xs font-medium text-muted-foreground transition-colors hover:text-foreground',
-          '[&::-webkit-details-marker]:hidden',
+          "flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2",
+          "text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+          "[&::-webkit-details-marker]:hidden",
         )}
       >
         <span>{title}</span>

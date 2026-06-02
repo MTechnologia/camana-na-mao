@@ -1,17 +1,17 @@
-import type { WidgetConfig } from '@/components/analytics/DashboardPreview';
-import { bairroParaZona } from '@/lib/regionMapping';
+import type { WidgetConfig } from "@/components/analytics/DashboardPreview";
+import { bairroParaZona } from "@/lib/regionMapping";
 
-const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function weekdayLabel(isoDate: string): string {
   const day = new Date(isoDate).getDay();
-  return WEEKDAYS[day] ?? '—';
+  return WEEKDAYS[day] ?? "—";
 }
 
 function monthLabel(isoDate: string): string {
   const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
 }
 
 function territoryLabel(item: Record<string, unknown>, dimension?: string): string {
@@ -22,7 +22,7 @@ function territoryLabel(item: Record<string, unknown>, dimension?: string): stri
   if (neighborhood) {
     return bairroParaZona(String(neighborhood)) ?? String(neighborhood);
   }
-  return 'Sem território';
+  return "Sem território";
 }
 
 /** Transforma linhas do Supabase no formato esperado por cada tipo de widget. */
@@ -31,11 +31,11 @@ export function processWidgetChartData(
   widget: WidgetConfig,
 ): Record<string, unknown>[] {
   switch (widget.type) {
-    case 'kpi-card':
+    case "kpi-card":
       return [{ value: rawData.length, label: widget.title }];
 
-    case 'bar-chart':
-    case 'pie-chart': {
+    case "bar-chart":
+    case "pie-chart": {
       const grouped = rawData.reduce<Record<string, number>>((acc, item) => {
         const key = territoryLabel(item, widget.dimension);
         acc[key] = (acc[key] ?? 0) + 1;
@@ -47,10 +47,10 @@ export function processWidgetChartData(
         .slice(0, 12);
     }
 
-    case 'line-chart': {
+    case "line-chart": {
       const grouped = rawData.reduce<Record<string, number>>((acc, item) => {
         const created = item.created_at;
-        if (!created || typeof created !== 'string') return acc;
+        if (!created || typeof created !== "string") return acc;
         const key = monthLabel(created);
         acc[key] = (acc[key] ?? 0) + 1;
         return acc;
@@ -58,18 +58,18 @@ export function processWidgetChartData(
       return Object.entries(grouped).map(([name, value]) => ({ name, value }));
     }
 
-    case 'heatmap': {
+    case "heatmap": {
       const counts = new Map<string, number>();
       for (const item of rawData) {
         const created = item.created_at;
-        if (!created || typeof created !== 'string') continue;
+        if (!created || typeof created !== "string") continue;
         const x = territoryLabel(item, widget.dimension);
         const y = weekdayLabel(created);
         const key = `${x}|${y}`;
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
       return Array.from(counts.entries()).map(([key, value]) => {
-        const [x, y] = key.split('|');
+        const [x, y] = key.split("|");
         return { x, y, value };
       });
     }

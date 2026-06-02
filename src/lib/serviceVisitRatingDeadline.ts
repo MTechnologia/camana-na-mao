@@ -8,7 +8,10 @@ const FORTY_EIGHT_H_MS = 48 * 60 * 60 * 1000;
 export const SERVICE_RATING_VISIT_DEADLINE_EXPIRED_MESSAGE =
   "O prazo para avaliar esta visita expirou (48h). Você pode fazer uma avaliação livre pelo chat.";
 
-export function isPastVisitRating48hDeadline(createdAtIso: string, nowMs: number = Date.now()): boolean {
+export function isPastVisitRating48hDeadline(
+  createdAtIso: string,
+  nowMs: number = Date.now(),
+): boolean {
   const createdMs = new Date(createdAtIso).getTime();
   if (Number.isNaN(createdMs)) return true;
   return nowMs >= createdMs + FORTY_EIGHT_H_MS;

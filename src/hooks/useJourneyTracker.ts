@@ -68,19 +68,16 @@ export function useJourneyTracker(
     setCreatedReport(null);
   }, []);
 
-  const resetTrackerForNewConversation = useCallback(
-    (preserveCollectionType = false) => {
-      setCreatedReport(null);
-      setLightJourneyType(null);
-      if (!preserveCollectionType) {
-        setCollectionType(null);
-        setCollectedFields({});
-        const storageKey = getTrackerStorageKey(conversationIdRef.current);
-        if (storageKey) sessionStorage.removeItem(storageKey);
-      }
-    },
-    [],
-  );
+  const resetTrackerForNewConversation = useCallback((preserveCollectionType = false) => {
+    setCreatedReport(null);
+    setLightJourneyType(null);
+    if (!preserveCollectionType) {
+      setCollectionType(null);
+      setCollectedFields({});
+      const storageKey = getTrackerStorageKey(conversationIdRef.current);
+      if (storageKey) sessionStorage.removeItem(storageKey);
+    }
+  }, []);
 
   const getMissing = useCallback(
     () => getMissingRequiredFields(collectionType, collectedFields),

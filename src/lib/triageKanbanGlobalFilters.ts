@@ -1,11 +1,11 @@
-import { regionLabel } from '@/lib/analyticsLabels';
-import { bairroParaZona } from '@/lib/regionMapping';
-import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
+import { regionLabel } from "@/lib/analyticsLabels";
+import { bairroParaZona } from "@/lib/regionMapping";
+import { resolveGlobalCategoryFilter } from "@/lib/globalCategoryFilter";
 import {
   shouldFetchTransportForCategory,
   shouldFetchUrbanForCategory,
-} from '@/lib/crossAnalyticsFilters';
-import { urbanReportMatchesGlobalRegion } from '@/lib/urbanReportRegion';
+} from "@/lib/crossAnalyticsFilters";
+import { urbanReportMatchesGlobalRegion } from "@/lib/urbanReportRegion";
 
 export type KanbanGlobalRecorte = {
   createdFrom?: Date;
@@ -18,31 +18,32 @@ export const KANBAN_FETCH_CAP = 500;
 
 export function kanbanHasGlobalRecorte(recorte: KanbanGlobalRecorte): boolean {
   return Boolean(
-    recorte.createdFrom
-    || recorte.createdTo
-    || (recorte.globalRegion && recorte.globalRegion !== 'all')
-    || (recorte.globalCategory && recorte.globalCategory !== 'all'),
+    recorte.createdFrom ||
+    recorte.createdTo ||
+    (recorte.globalRegion && recorte.globalRegion !== "all") ||
+    (recorte.globalCategory && recorte.globalCategory !== "all"),
   );
 }
 
 export function kanbanWantsUrbanSource(
-  localSources: ('urban' | 'transport')[] | undefined,
+  localSources: ("urban" | "transport")[] | undefined,
   categoryKey: string | undefined,
 ): boolean {
-  const wantsLocal = !localSources || localSources.length === 0 || localSources.includes('urban');
+  const wantsLocal = !localSources || localSources.length === 0 || localSources.includes("urban");
   if (!wantsLocal) return false;
-  const slice = resolveGlobalCategoryFilter(categoryKey ?? 'all');
+  const slice = resolveGlobalCategoryFilter(categoryKey ?? "all");
   if (slice.isAll) return true;
   return shouldFetchUrbanForCategory(slice);
 }
 
 export function kanbanWantsTransportSource(
-  localSources: ('urban' | 'transport')[] | undefined,
+  localSources: ("urban" | "transport")[] | undefined,
   categoryKey: string | undefined,
 ): boolean {
-  const wantsLocal = !localSources || localSources.length === 0 || localSources.includes('transport');
+  const wantsLocal =
+    !localSources || localSources.length === 0 || localSources.includes("transport");
   if (!wantsLocal) return false;
-  const slice = resolveGlobalCategoryFilter(categoryKey ?? 'all');
+  const slice = resolveGlobalCategoryFilter(categoryKey ?? "all");
   if (slice.isAll) return true;
   return shouldFetchTransportForCategory(slice);
 }
@@ -59,10 +60,10 @@ export function applyKanbanDateRange<T extends FilterableQuery<T>>(
 ): T {
   let q = query;
   if (recorte.createdFrom) {
-    q = q.gte('created_at', recorte.createdFrom.toISOString());
+    q = q.gte("created_at", recorte.createdFrom.toISOString());
   }
   if (recorte.createdTo) {
-    q = q.lte('created_at', recorte.createdTo.toISOString());
+    q = q.lte("created_at", recorte.createdTo.toISOString());
   }
   return q;
 }
@@ -71,9 +72,9 @@ export function applyKanbanUrbanCategory<T extends FilterableQuery<T>>(
   query: T,
   categoryKey: string | undefined,
 ): T {
-  const slice = resolveGlobalCategoryFilter(categoryKey ?? 'all');
+  const slice = resolveGlobalCategoryFilter(categoryKey ?? "all");
   if (!slice.isAll && slice.urbanCategories.length > 0) {
-    return query.in('category', slice.urbanCategories);
+    return query.in("category", slice.urbanCategories);
   }
   return query;
 }
@@ -82,9 +83,9 @@ export function applyKanbanTransportCategory<T extends FilterableQuery<T>>(
   query: T,
   categoryKey: string | undefined,
 ): T {
-  const slice = resolveGlobalCategoryFilter(categoryKey ?? 'all');
+  const slice = resolveGlobalCategoryFilter(categoryKey ?? "all");
   if (!slice.isAll && slice.transportSubcategories.length > 0) {
-    return query.in('report_type', slice.transportSubcategories);
+    return query.in("report_type", slice.transportSubcategories);
   }
   return query;
 }
@@ -100,7 +101,7 @@ export function kanbanUrbanRowMatchesRegion(
   row: KanbanUrbanLocationRow,
   regionKey: string | undefined,
 ): boolean {
-  if (!regionKey || regionKey === 'all') return true;
+  if (!regionKey || regionKey === "all") return true;
   return urbanReportMatchesGlobalRegion(
     {
       locationAddress: row.location_address ?? null,
@@ -116,8 +117,8 @@ export function kanbanTransportRowMatchesRegion(
   row: { location?: string | null; stop_name?: string | null },
   regionKey: string | undefined,
 ): boolean {
-  if (!regionKey || regionKey === 'all') return true;
+  if (!regionKey || regionKey === "all") return true;
   const zoneLabel = regionLabel(regionKey);
-  const text = [row.stop_name, row.location].filter(Boolean).join(' ');
+  const text = [row.stop_name, row.location].filter(Boolean).join(" ");
   return bairroParaZona(text, null, null) === zoneLabel;
 }

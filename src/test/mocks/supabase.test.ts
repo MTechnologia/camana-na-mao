@@ -83,7 +83,10 @@ describe("createSupabaseMock", () => {
 
   it("channel().on().subscribe() funciona e removeChannel resolve", async () => {
     const supabase = createSupabaseMock();
-    const ch = supabase.channel("t").on("x", {}, () => {}).subscribe();
+    const ch = supabase
+      .channel("t")
+      .on("x", {}, () => {})
+      .subscribe();
     expect(ch).toBeDefined();
     await expect(supabase.removeChannel(ch)).resolves.toBe("ok");
   });

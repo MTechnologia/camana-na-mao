@@ -56,8 +56,8 @@ export default function MyFavoritesPage() {
           Meus Favoritos
         </h1>
         <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-          Equipamentos que você marcou com o <strong>coração</strong> para voltar rápido. Esta lista é só um
-          atalho — não envia notificação.
+          Equipamentos que você marcou com o <strong>coração</strong> para voltar rápido. Esta lista
+          é só um atalho — não envia notificação.
         </p>
       </div>
 
@@ -67,7 +67,9 @@ export default function MyFavoritesPage() {
         aria-label="Diferença entre favoritar e acompanhar avaliações"
       >
         <CardContent className="p-4 space-y-3">
-          <p className="text-xs font-medium text-foreground">Na ficha do equipamento há duas ações diferentes:</p>
+          <p className="text-xs font-medium text-foreground">
+            Na ficha do equipamento há duas ações diferentes:
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border bg-background p-3 space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -75,7 +77,10 @@ export default function MyFavoritesPage() {
                 Favoritar
               </div>
               <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                <li>Salva o equipamento <strong className="font-medium text-foreground">nesta lista</strong></li>
+                <li>
+                  Salva o equipamento{" "}
+                  <strong className="font-medium text-foreground">nesta lista</strong>
+                </li>
                 <li>Atalho no mapa ou na ficha — sem aviso no celular</li>
               </ul>
             </div>
@@ -85,10 +90,16 @@ export default function MyFavoritesPage() {
                 Acompanhar atualizações
               </div>
               <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
-                <li>Avisa quando surgem <strong className="font-medium text-foreground">novas avaliações</strong></li>
+                <li>
+                  Avisa quando surgem{" "}
+                  <strong className="font-medium text-foreground">novas avaliações</strong>
+                </li>
                 <li>
                   Gerencie em{" "}
-                  <Link to="/perfil/inscricoes" className="text-primary font-medium hover:underline">
+                  <Link
+                    to="/perfil/inscricoes"
+                    className="text-primary font-medium hover:underline"
+                  >
                     Minhas Inscrições
                   </Link>
                 </li>
@@ -111,9 +122,9 @@ export default function MyFavoritesPage() {
             <div>
               <p className="font-medium text-foreground">Nenhum favorito ainda</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Em <strong>Perto de você</strong> ou na ficha do equipamento, toque no <strong>coração</strong> para
-                salvar aqui. Para receber aviso de novas avaliações, use <strong>Acompanhar atualizações</strong> (sino)
-                na ficha — não é a mesma coisa.
+                Em <strong>Perto de você</strong> ou na ficha do equipamento, toque no{" "}
+                <strong>coração</strong> para salvar aqui. Para receber aviso de novas avaliações,
+                use <strong>Acompanhar atualizações</strong> (sino) na ficha — não é a mesma coisa.
               </p>
             </div>
             <Button asChild>
@@ -141,7 +152,11 @@ export default function MyFavoritesPage() {
                         disabled={busy}
                         onClick={() => void handleRemove(row.service_id)}
                       >
-                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        {busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
@@ -168,11 +183,15 @@ export default function MyFavoritesPage() {
                         </p>
                         <div className="flex items-start gap-1 text-xs text-muted-foreground">
                           <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
-                          <span className="line-clamp-2">{getAddressDisplay(ps.address, ps.district)}</span>
+                          <span className="line-clamp-2">
+                            {getAddressDisplay(ps.address, ps.district)}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 pt-1">
                           <RatingStars rating={ps.average_rating ?? 0} readonly size="sm" />
-                          <span className="text-xs text-muted-foreground">({ps.total_ratings ?? 0})</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({ps.total_ratings ?? 0})
+                          </span>
                         </div>
                       </div>
                       <Button
@@ -184,7 +203,11 @@ export default function MyFavoritesPage() {
                         aria-label="Remover dos favoritos"
                         onClick={() => void handleRemove(ps.id)}
                       >
-                        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        {busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </CardContent>

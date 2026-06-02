@@ -18,7 +18,10 @@ import { AIInsightsCard } from "@/components/analytics/AIInsightsCard";
 import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
 import { CriticidadeFacetPicker } from "@/components/analytics/facets/CriticidadeFacetPicker";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
-import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
+import {
+  EMPTY_VOLUME_FILTERS,
+  type VolumeFiltersValue,
+} from "@/components/analytics/volumeFiltersConstants";
 import {
   EMPTY_CRITICIDADE_FACET,
   countActiveCriticidadeFacet,
@@ -63,7 +66,9 @@ function scoreLabel(score: number): string {
 
 export function DiagnosticoTab() {
   // HU-3.3 — período sincronizado com URL
-  const [periodState, setPeriodState] = useUrlSyncedState<{ p: { startDate?: string; endDate?: string } | null }>({
+  const [periodState, setPeriodState] = useUrlSyncedState<{
+    p: { startDate?: string; endDate?: string } | null;
+  }>({
     prefix: "dia",
     defaults: { p: null },
     serializers: { p: dateRangeSerializer() },
@@ -169,11 +174,7 @@ export function DiagnosticoTab() {
         facetHint="Filtros específicos da aba Diagnóstico — refinam por severidade do relato e presença de consequências em andamento. Aplicam-se apenas a este corte."
         facetActiveCount={facetActiveCount}
         facet={
-          <CriticidadeFacetPicker
-            value={critFacet}
-            onChange={setCritFacet}
-            disabled={isLoading}
-          />
+          <CriticidadeFacetPicker value={critFacet} onChange={setCritFacet} disabled={isLoading} />
         }
       />
 
@@ -182,13 +183,9 @@ export function DiagnosticoTab() {
         <Card className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs text-muted-foreground mb-1">
-                Score global de criticidade
-              </p>
+              <p className="text-xs text-muted-foreground mb-1">Score global de criticidade</p>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-semibold text-foreground">
-                  {stats.globalScore}
-                </p>
+                <p className="text-3xl font-semibold text-foreground">{stats.globalScore}</p>
                 <Badge className={cn("text-xs", scoreColor(stats.globalScore))}>
                   {scoreLabel(stats.globalScore)}
                 </Badge>
@@ -198,11 +195,7 @@ export function DiagnosticoTab() {
           </div>
         </Card>
 
-        <KPICard
-          title="Total de relatos"
-          value={stats.totalRecords}
-          icon={AlertCircle}
-        />
+        <KPICard title="Total de relatos" value={stats.totalRecords} icon={AlertCircle} />
         <KPICard
           title="Sentimento negativo"
           subtitle={
@@ -240,9 +233,7 @@ export function DiagnosticoTab() {
           icon={<MapPin className="h-4 w-4" />}
           items={stats.topRegions}
           isLoading={isLoading}
-          renderItem={(item, index) => (
-            <RegionRow key={item.zone} item={item} index={index} />
-          )}
+          renderItem={(item, index) => <RegionRow key={item.zone} item={item} index={index} />}
           emptyMessage="Nenhuma região com sinais de criticidade no período."
         />
       </div>
@@ -352,10 +343,7 @@ function ScoreBars({ breakdown }: { breakdown: ScoreBreakdown }) {
             <span className="text-[10px] font-medium tabular-nums">{b.value}</span>
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={cn("h-full rounded-full", b.color)}
-              style={{ width: `${b.value}%` }}
-            />
+            <div className={cn("h-full rounded-full", b.color)} style={{ width: `${b.value}%` }} />
           </div>
         </div>
       ))}
@@ -376,9 +364,7 @@ function CategoryRow({ item, index }: { item: CategoryDiagnostic; index: number 
             {item.total} relatos • {item.patternsActive} padrões ativos
           </p>
         </div>
-        <Badge className={cn("text-xs tabular-nums", scoreColor(item.score))}>
-          {item.score}
-        </Badge>
+        <Badge className={cn("text-xs tabular-nums", scoreColor(item.score))}>{item.score}</Badge>
       </div>
       <ScoreBars breakdown={item.breakdown} />
     </div>
@@ -398,9 +384,7 @@ function RegionRow({ item, index }: { item: RegionDiagnostic; index: number }) {
             {item.total} relatos • {item.patternsActive} padrões ativos
           </p>
         </div>
-        <Badge className={cn("text-xs tabular-nums", scoreColor(item.score))}>
-          {item.score}
-        </Badge>
+        <Badge className={cn("text-xs tabular-nums", scoreColor(item.score))}>{item.score}</Badge>
       </div>
       <ScoreBars breakdown={item.breakdown} />
     </div>

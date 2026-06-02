@@ -2,15 +2,73 @@ import { z } from "zod";
 import { unformatPhone } from "./phoneMask";
 
 const BRAZILIAN_DDDS = new Set([
-  "11", "12", "13", "14", "15", "16", "17", "18", "19",
-  "21", "22", "24", "27", "28",
-  "31", "32", "33", "34", "35", "37", "38",
-  "41", "42", "43", "44", "45", "46", "47", "48", "49",
-  "51", "53", "54", "55",
-  "61", "62", "63", "64", "65", "66", "67", "68", "69",
-  "71", "73", "74", "75", "77", "79",
-  "81", "82", "83", "84", "85", "86", "87", "88", "89",
-  "91", "92", "93", "94", "95", "96", "97", "98", "99",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15",
+  "16",
+  "17",
+  "18",
+  "19",
+  "21",
+  "22",
+  "24",
+  "27",
+  "28",
+  "31",
+  "32",
+  "33",
+  "34",
+  "35",
+  "37",
+  "38",
+  "41",
+  "42",
+  "43",
+  "44",
+  "45",
+  "46",
+  "47",
+  "48",
+  "49",
+  "51",
+  "53",
+  "54",
+  "55",
+  "61",
+  "62",
+  "63",
+  "64",
+  "65",
+  "66",
+  "67",
+  "68",
+  "69",
+  "71",
+  "73",
+  "74",
+  "75",
+  "77",
+  "79",
+  "81",
+  "82",
+  "83",
+  "84",
+  "85",
+  "86",
+  "87",
+  "88",
+  "89",
+  "91",
+  "92",
+  "93",
+  "94",
+  "95",
+  "96",
+  "97",
+  "98",
+  "99",
 ]);
 
 function hasPlausibleFullName(value: string): boolean {
@@ -98,10 +156,12 @@ export const updatePasswordSchema = z
 
 // Auth validations - Step 1 (Personal Data)
 export const registerStep1Schema = z.object({
-  fullName: z.string()
+  fullName: z
+    .string()
     .min(3, "Nome deve ter no mínimo 3 caracteres")
     .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos, sem números."),
-  email: z.string()
+  email: z
+    .string()
     .email("E-mail inválido")
     .refine(hasPlausibleEmailDomain, "Informe um e-mail com domínio válido."),
   phone: z.string().refine(isValidBrazilianMobilePhone, {
@@ -110,13 +170,15 @@ export const registerStep1Schema = z.object({
 });
 
 // Auth validations - Step 2 (Password)
-export const registerStep2Schema = z.object({
-  password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+export const registerStep2Schema = z
+  .object({
+    password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
 /** NREF002 — dados pessoais + senha na mesma etapa do cadastro. */
 export const registerCredentialsSchema = registerStep1Schema
@@ -130,22 +192,26 @@ export const registerCredentialsSchema = registerStep1Schema
   });
 
 // Complete registration schema
-export const registerSchema = z.object({
-  fullName: z.string()
-    .min(3, "Nome deve ter no mínimo 3 caracteres")
-    .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos, sem números."),
-  email: z.string()
-    .email("E-mail inválido")
-    .refine(hasPlausibleEmailDomain, "Informe um e-mail com domínio válido."),
-  phone: z.string().refine(isValidBrazilianMobilePhone, {
-    message: "Informe um celular válido com DDD, no formato (XX) 9XXXX-XXXX.",
-  }),
-  password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+export const registerSchema = z
+  .object({
+    fullName: z
+      .string()
+      .min(3, "Nome deve ter no mínimo 3 caracteres")
+      .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos, sem números."),
+    email: z
+      .string()
+      .email("E-mail inválido")
+      .refine(hasPlausibleEmailDomain, "Informe um e-mail com domínio válido."),
+    phone: z.string().refine(isValidBrazilianMobilePhone, {
+      message: "Informe um celular válido com DDD, no formato (XX) 9XXXX-XXXX.",
+    }),
+    password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
 export const loginSchema = z.object({
   email: z.string().email("E-mail inválido"),

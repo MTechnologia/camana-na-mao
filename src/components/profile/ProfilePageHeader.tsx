@@ -19,9 +19,7 @@ const ProfilePageHeader = ({ subtitle = "Editando perfil" }: ProfilePageHeaderPr
         </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">
-          {profile?.full_name || user?.email}
-        </p>
+        <p className="text-sm font-medium truncate">{profile?.full_name || user?.email}</p>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
     </div>

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 // Espelha supabase/functions/_shared/transport-line-catalog.ts
 function stripSptransLineSuffix(code: string): string {
-  return String(code ?? "").trim().replace(/-(\d{1,2})$/i, "");
+  return String(code ?? "")
+    .trim()
+    .replace(/-(\d{1,2})$/i, "");
 }
 
 function isCanonicalSptransLineCode(code: string): boolean {
@@ -17,11 +19,7 @@ type DbRow = {
   sptrans_codigo_linha: number | null;
 };
 
-function mergeOlhoWithCatalog(
-  olhoBases: string[],
-  dbRows: DbRow[],
-  limit: number,
-) {
+function mergeOlhoWithCatalog(olhoBases: string[], dbRows: DbRow[], limit: number) {
   const byCode = new Map<string, DbRow>();
   for (const base of olhoBases) {
     const variants = dbRows.filter((row) => {
@@ -32,7 +30,9 @@ function mergeOlhoWithCatalog(
       byCode.set(v.line_code.toUpperCase(), v);
     }
   }
-  return [...byCode.values()].sort((a, b) => a.line_code.localeCompare(b.line_code)).slice(0, limit);
+  return [...byCode.values()]
+    .sort((a, b) => a.line_code.localeCompare(b.line_code))
+    .slice(0, limit);
 }
 
 function pickCanonicalLineCode(requestedCode: string, dbRows: DbRow[]): DbRow | null {

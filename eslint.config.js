@@ -6,7 +6,11 @@ import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist", "**/index-fixed.ts"] },
+  // Artefatos gerados (build/PWA/coverage) e código Deno (supabase/functions)
+  // ficam fora do ESLint do Node. As Edge Functions são Deno: têm runtime,
+  // globais e diretivas próprias (`deno-lint-ignore`) e são lintadas por
+  // `deno lint` (rodado em test:chatbot) — não por este config.
+  { ignores: ["dist", "dev-dist", "coverage", "supabase/functions", "**/index-fixed.ts"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

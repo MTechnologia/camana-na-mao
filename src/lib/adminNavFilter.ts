@@ -1,7 +1,7 @@
-import type { NavGroup, NavItem, NavPermission, NavSection } from '@/config/adminNav.types';
-import { isNavSectionEmpty } from '@/config/adminNav.types';
-import type { UserRole } from '@/hooks/useUserRole';
-import { rolesGrantPermission } from '@/lib/permissions';
+import type { NavGroup, NavItem, NavPermission, NavSection } from "@/config/adminNav.types";
+import { isNavSectionEmpty } from "@/config/adminNav.types";
+import type { UserRole } from "@/hooks/useUserRole";
+import { rolesGrantPermission } from "@/lib/permissions";
 
 export type NavPermissionMap = Partial<Record<NavPermission, boolean>>;
 
@@ -15,9 +15,7 @@ export type NavFilterContext = {
 function canSeeItem(item: NavItem, ctx: NavFilterContext): boolean {
   const { isAdmin, isGestor, roles, permissions } = ctx;
   const isInstitutionalStaff =
-    isAdmin ||
-    isGestor ||
-    roles.some((r) => r === 'assessor' || r === 'vereador');
+    isAdmin || isGestor || roles.some((r) => r === "assessor" || r === "vereador");
 
   if (item.adminOnly && !isAdmin) return false;
   if (item.requiresPermission && !permissions[item.requiresPermission]) {
@@ -68,16 +66,14 @@ export function filterNavSections(
 }
 
 export function navItemMatchesPath(item: NavItem, pathname: string): boolean {
-  if (item.to === '/admin') return pathname === '/admin';
+  if (item.to === "/admin") return pathname === "/admin";
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
 /** NavLink `end`: evita destacar o item pai quando uma sub-rota irmã está ativa. */
 export function navItemRequiresExactMatch(item: NavItem, siblings: NavItem[]): boolean {
-  if (item.to === '/admin') return true;
-  return siblings.some(
-    (other) => other.to !== item.to && other.to.startsWith(`${item.to}/`),
-  );
+  if (item.to === "/admin") return true;
+  return siblings.some((other) => other.to !== item.to && other.to.startsWith(`${item.to}/`));
 }
 
 export function groupMatchesPath(group: NavGroup, pathname: string): boolean {

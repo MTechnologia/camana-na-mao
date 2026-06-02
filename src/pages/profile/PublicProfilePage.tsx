@@ -6,16 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Mail, 
-  Phone, 
-  Calendar, 
-  Lock, 
-  Eye, 
-  User,
-  ArrowLeft,
-  AlertCircle
-} from "lucide-react";
+import { Mail, Phone, Calendar, Lock, Eye, User, ArrowLeft, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getInitials } from "@/lib/utils";
@@ -57,11 +48,7 @@ const PublicProfilePage = () => {
               {error || "Perfil não encontrado ou não disponível"}
             </AlertDescription>
           </Alert>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => navigate("/perfil")}
-          >
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/perfil")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao meu perfil
           </Button>
@@ -72,11 +59,11 @@ const PublicProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader 
-        title={profile.is_own_profile ? "Meu Perfil" : "Perfil Público"} 
-        backTo="/perfil" 
+      <PageHeader
+        title={profile.is_own_profile ? "Meu Perfil" : "Perfil Público"}
+        backTo="/perfil"
       />
-      
+
       <div className="p-4 space-y-4">
         {/* Card Principal do Perfil */}
         <Card>
@@ -93,19 +80,19 @@ const PublicProfilePage = () => {
               <div className="flex-1">
                 <CardTitle className="text-xl">{profile.full_name}</CardTitle>
                 <CardDescription className="flex items-center gap-2 mt-1">
-                  {profile.profile_visibility === 'public' && (
+                  {profile.profile_visibility === "public" && (
                     <>
                       <Eye className="h-3 w-3" />
                       Perfil Público
                     </>
                   )}
-                  {profile.profile_visibility === 'private' && (
+                  {profile.profile_visibility === "private" && (
                     <>
                       <Lock className="h-3 w-3" />
                       Perfil Privado
                     </>
                   )}
-                  {profile.profile_visibility === 'friends' && (
+                  {profile.profile_visibility === "friends" && (
                     <>
                       <User className="h-3 w-3" />
                       Apenas Amigos
@@ -173,11 +160,7 @@ const PublicProfilePage = () => {
 
         {/* Botão para editar (apenas se for o próprio perfil) */}
         {profile.is_own_profile && (
-          <Button
-            onClick={() => navigate("/perfil")}
-            className="w-full"
-            variant="outline"
-          >
+          <Button onClick={() => navigate("/perfil")} className="w-full" variant="outline">
             Editar meu perfil
           </Button>
         )}

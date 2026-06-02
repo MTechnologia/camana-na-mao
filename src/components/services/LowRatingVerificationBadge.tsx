@@ -34,7 +34,10 @@ export function LowRatingVerificationBadge({
           )}
           aria-label="Equipamento sinalizado para verificação: média abaixo de 2 estrelas"
         >
-          <AlertTriangle className={cn("shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} aria-hidden />
+          <AlertTriangle
+            className={cn("shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")}
+            aria-hidden
+          />
           {!compact && <span>Verificação</span>}
         </Badge>
       </TooltipTrigger>

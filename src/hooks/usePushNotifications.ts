@@ -18,13 +18,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export type PushStatus =
-  | "unsupported"
-  | "prompt"
-  | "granted"
-  | "denied"
-  | "subscribed"
-  | "error";
+export type PushStatus = "unsupported" | "prompt" | "granted" | "denied" | "subscribed" | "error";
 
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushStatus>("prompt");
@@ -36,7 +30,8 @@ export function usePushNotifications() {
     "PushManager" in window &&
     "Notification" in window;
 
-  const publicKey = typeof import.meta.env !== "undefined" && import.meta.env?.VITE_VAPID_PUBLIC_KEY;
+  const publicKey =
+    typeof import.meta.env !== "undefined" && import.meta.env?.VITE_VAPID_PUBLIC_KEY;
 
   const subscribe = useCallback(
     async (userId: string): Promise<boolean> => {
@@ -84,7 +79,7 @@ export function usePushNotifications() {
             auth_key: auth,
             user_agent: navigator.userAgent.slice(0, 500),
           },
-          { onConflict: "user_id,endpoint" }
+          { onConflict: "user_id,endpoint" },
         );
 
         if (insertError) {
@@ -102,27 +97,30 @@ export function usePushNotifications() {
         return false;
       }
     },
-    [supported, publicKey]
+    [supported, publicKey],
   );
 
-  const unsubscribe = useCallback(async (userId: string) => {
-    if (!supported) return;
-    try {
-      const reg = await navigator.serviceWorker.getRegistration(SW_SCOPE);
-      if (reg?.pushManager) {
-        const sub = await reg.pushManager.getSubscription();
-        if (sub?.endpoint) {
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("user_id", userId)
-            .eq("endpoint", sub.endpoint);
+  const unsubscribe = useCallback(
+    async (userId: string) => {
+      if (!supported) return;
+      try {
+        const reg = await navigator.serviceWorker.getRegistration(SW_SCOPE);
+        if (reg?.pushManager) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub?.endpoint) {
+            await supabase
+              .from("push_subscriptions")
+              .delete()
+              .eq("user_id", userId)
+              .eq("endpoint", sub.endpoint);
+          }
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-  }, [supported]);
+    },
+    [supported],
+  );
 
   return {
     supported,

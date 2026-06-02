@@ -21,7 +21,7 @@ import {
 
 export type UsageHeatmapTypeFilter =
   | "all_usage"
-  | "all_reports"   // urban + evaluation (compativel com HU-4.1 atual)
+  | "all_reports" // urban + evaluation (compativel com HU-4.1 atual)
   | "urban"
   | "evaluation"
   | "visits"
@@ -124,13 +124,15 @@ async function fetchUsageHeatmapData(
   }
 
   const parsed = parseUsageHeatmapRpcPayload(data, period);
-  return parsed ?? {
-    period,
-    start_at: startDateFromPeriod(period),
-    points: [],
-    truncated: false,
-    breakdown: EMPTY_BREAKDOWN,
-  };
+  return (
+    parsed ?? {
+      period,
+      start_at: startDateFromPeriod(period),
+      points: [],
+      truncated: false,
+      breakdown: EMPTY_BREAKDOWN,
+    }
+  );
 }
 
 export function useUsageHeatmap(params: {

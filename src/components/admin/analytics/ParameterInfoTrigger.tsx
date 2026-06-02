@@ -1,11 +1,12 @@
-import { forwardRef, type ComponentPropsWithoutRef, type MouseEvent, type PointerEvent } from 'react';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+  forwardRef,
+  type ComponentPropsWithoutRef,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 function ParameterInfoBody({ item }: { item: ParameterLegendItem }) {
   return (
@@ -22,21 +23,21 @@ function ParameterInfoBody({ item }: { item: ParameterLegendItem }) {
   );
 }
 
-type InfoButtonProps = ComponentPropsWithoutRef<'button'> & {
-  'aria-label': string;
+type InfoButtonProps = ComponentPropsWithoutRef<"button"> & {
+  "aria-label": string;
 };
 
 const InfoTriggerButton = forwardRef<HTMLButtonElement, InfoButtonProps>(
-  ({ className, type = 'button', onClick, onPointerDown, ...props }, ref) => {
+  ({ className, type = "button", onClick, onPointerDown, ...props }, ref) => {
     return (
       <button
         ref={ref}
         type={type}
         className={cn(
-          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
-          'border border-muted-foreground/35 bg-background text-[10px] font-semibold leading-none text-muted-foreground',
-          'transition-colors hover:border-primary/50 hover:bg-accent hover:text-primary',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+          "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+          "border border-muted-foreground/35 bg-background text-[10px] font-semibold leading-none text-muted-foreground",
+          "transition-colors hover:border-primary/50 hover:bg-accent hover:text-primary",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
           className,
         )}
         onClick={onClick}
@@ -46,7 +47,7 @@ const InfoTriggerButton = forwardRef<HTMLButtonElement, InfoButtonProps>(
     );
   },
 );
-InfoTriggerButton.displayName = 'InfoTriggerButton';
+InfoTriggerButton.displayName = "InfoTriggerButton";
 
 type ParameterInfoTriggerProps = {
   item: ParameterLegendItem;
@@ -95,9 +96,9 @@ type ParameterInfoListTriggerProps = {
 
 export function ParameterInfoListTrigger({
   items,
-  ariaLabel = 'Parâmetros dos indicadores',
+  ariaLabel = "Parâmetros dos indicadores",
   className,
-  tooltipTitle = 'Indicadores analisados',
+  tooltipTitle = "Indicadores analisados",
 }: ParameterInfoListTriggerProps) {
   if (items.length === 0) return null;
 
@@ -116,7 +117,10 @@ export function ParameterInfoListTrigger({
         <p className="mb-2 font-medium text-foreground">{tooltipTitle}</p>
         <div className="max-h-[min(50vh,16rem)] space-y-3 overflow-y-auto pr-1">
           {items.map((item) => (
-            <div key={item.term} className="space-y-1 border-b border-border/50 pb-3 last:border-0 last:pb-0">
+            <div
+              key={item.term}
+              className="space-y-1 border-b border-border/50 pb-3 last:border-0 last:pb-0"
+            >
               <ParameterInfoBody item={item} />
             </div>
           ))}

@@ -1,8 +1,8 @@
-import { useNavigate } from 'react-router-dom';
-import { DocumentViewer } from '@/components/docs/DocumentViewer';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { AdminLayout } from '@/layouts/AdminLayout';
+import { useNavigate } from "react-router-dom";
+import { DocumentViewer } from "@/components/docs/DocumentViewer";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import { AdminLayout } from "@/layouts/AdminLayout";
 
 const overviewContent = `
 # Câmara na Mão - Visão Executiva da Plataforma

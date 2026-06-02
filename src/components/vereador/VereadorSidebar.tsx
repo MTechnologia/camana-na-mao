@@ -1,13 +1,27 @@
-import { Dispatch, SetStateAction, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn, getInitials } from '@/lib/utils';
-import { useGabineteVereador } from '@/hooks/useGabineteVereador';
-import { Building2, ChevronLeft, ClipboardList, Home, LayoutDashboard, Send, X } from 'lucide-react';
+import { Dispatch, SetStateAction, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn, getInitials } from "@/lib/utils";
+import { useGabineteVereador } from "@/hooks/useGabineteVereador";
+import {
+  Building2,
+  ChevronLeft,
+  ClipboardList,
+  Home,
+  LayoutDashboard,
+  Send,
+  X,
+} from "lucide-react";
 
 interface VereadorSidebarProps {
   mobileOpen: boolean;
@@ -16,9 +30,9 @@ interface VereadorSidebarProps {
 }
 
 const menuItems = [
-  { title: 'Dashboard', href: '/gabinete', icon: LayoutDashboard },
-  { title: 'Manifestações', href: '/gabinete/manifestacoes', icon: ClipboardList },
-  { title: 'Encaminhamentos', href: '/gabinete/encaminhamentos', icon: Send },
+  { title: "Dashboard", href: "/gabinete", icon: LayoutDashboard },
+  { title: "Manifestações", href: "/gabinete/manifestacoes", icon: ClipboardList },
+  { title: "Encaminhamentos", href: "/gabinete/encaminhamentos", icon: Send },
 ];
 
 export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: VereadorSidebarProps) => {
@@ -38,7 +52,11 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
             <div className="min-w-0">
               <h2 className="text-sm font-semibold truncate">Gabinete</h2>
               <p className="text-xs text-muted-foreground truncate">
-                {isVereador ? 'Área do vereador' : isAssessor ? 'Área do assessor' : 'Área institucional'}
+                {isVereador
+                  ? "Área do vereador"
+                  : isAssessor
+                    ? "Área do assessor"
+                    : "Área institucional"}
               </p>
             </div>
           </div>
@@ -51,12 +69,19 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
             onClick={() => setCollapsed((value) => !value)}
             className="ml-auto"
           >
-            <ChevronLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
+            <ChevronLeft
+              className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
+            />
           </Button>
         )}
 
         {isMobile && (
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} className="ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(false)}
+            className="ml-auto"
+          >
             <X className="h-4 w-4" />
           </Button>
         )}
@@ -67,10 +92,10 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
           <div className="rounded-xl border border-border/60 bg-card p-3 flex items-center gap-3">
             <Avatar className="h-11 w-11">
               <AvatarImage src={vereador?.photo || undefined} />
-              <AvatarFallback>{getInitials(vereador?.name || 'Gabinete')}</AvatarFallback>
+              <AvatarFallback>{getInitials(vereador?.name || "Gabinete")}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="font-medium truncate">{vereador?.name || 'Gabinete sem vínculo'}</p>
+              <p className="font-medium truncate">{vereador?.name || "Gabinete sem vínculo"}</p>
               <div className="flex items-center gap-2">
                 {vereador?.party ? <Badge variant="outline">{vereador.party}</Badge> : null}
                 {vereador?.region ? (
@@ -95,8 +120,10 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
                 if (isMobile) setMobileOpen(false);
               }}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left',
-                active ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left",
+                active
+                  ? "bg-muted text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
               <div className="p-1.5 rounded-md bg-muted/60">
@@ -113,9 +140,9 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
       <div className="p-4">
         <Button
           variant="outline"
-          className={cn('w-full justify-start', collapsed && 'justify-center')}
+          className={cn("w-full justify-start", collapsed && "justify-center")}
           onClick={() => {
-            navigate('/');
+            navigate("/");
             if (isMobile) setMobileOpen(false);
           }}
         >
@@ -143,8 +170,8 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
   return (
     <aside
       className={cn(
-        'bg-card/50 backdrop-blur-sm border-r border-border/50 h-screen sticky top-0 transition-all duration-300 hidden lg:flex flex-col',
-        collapsed ? 'w-16' : 'w-72',
+        "bg-card/50 backdrop-blur-sm border-r border-border/50 h-screen sticky top-0 transition-all duration-300 hidden lg:flex flex-col",
+        collapsed ? "w-16" : "w-72",
       )}
     >
       {content}

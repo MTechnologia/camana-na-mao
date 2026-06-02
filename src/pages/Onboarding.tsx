@@ -9,7 +9,12 @@ import { isInInviteSetupFlow, nextInviteStep } from "@/lib/inviteSetupFlow";
 import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 
 const INTEREST_CATEGORIES = [
-  { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
+  {
+    id: "legislativo",
+    label: "Legislativo",
+    icon: "📜",
+    description: "Projetos de lei e votações",
+  },
   { id: "mobilidade", label: "Mobilidade", icon: "🚌", description: "Transporte e trânsito" },
   { id: "cultura", label: "Cultura", icon: "🎭", description: "Eventos culturais" },
   { id: "saude", label: "Saúde", icon: "🏥", description: "Políticas de saúde" },
@@ -28,10 +33,8 @@ const Onboarding = () => {
   const inInviteFlow = isInInviteSetupFlow(searchParams);
 
   const toggleInterest = (interestId: string) => {
-    setSelectedInterests(prev =>
-      prev.includes(interestId)
-        ? prev.filter(id => id !== interestId)
-        : [...prev, interestId]
+    setSelectedInterests((prev) =>
+      prev.includes(interestId) ? prev.filter((id) => id !== interestId) : [...prev, interestId],
     );
   };
 
@@ -45,14 +48,12 @@ const Onboarding = () => {
 
     setLoading(true);
     try {
-      const interests = selectedInterests.map(category => ({
+      const interests = selectedInterests.map((category) => ({
         user_id: user.id,
         interest_category: category,
       }));
 
-      const { error } = await supabase
-        .from('user_interests')
-        .insert(interests);
+      const { error } = await supabase.from("user_interests").insert(interests);
 
       if (error) throw error;
 
@@ -71,17 +72,9 @@ const Onboarding = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col p-6">
       <div className="flex-1">
-        {inInviteFlow && (
-          <p className="text-xs text-muted-foreground mb-2">
-            Etapa 2 de 4
-          </p>
-        )}
-        <h1 className="text-2xl font-bold text-foreground mb-2">
-          Personalize sua experiência
-        </h1>
-        <p className="text-muted-foreground mb-6">
-          Selecione pelo menos 3 áreas do seu interesse
-        </p>
+        {inInviteFlow && <p className="text-xs text-muted-foreground mb-2">Etapa 2 de 4</p>}
+        <h1 className="text-2xl font-bold text-foreground mb-2">Personalize sua experiência</h1>
+        <p className="text-muted-foreground mb-6">Selecione pelo menos 3 áreas do seu interesse</p>
 
         <div className="grid grid-cols-2 gap-3">
           {INTEREST_CATEGORIES.map((category) => (
@@ -95,17 +88,14 @@ const Onboarding = () => {
               }`}
             >
               <div className="flex items-center justify-center w-10 h-10 mb-2 text-primary">
-                {INTEREST_ICONS[category.id] && (() => {
-                  const Icon = INTEREST_ICONS[category.id];
-                  return <Icon size={32} aria-hidden />;
-                })()}
+                {INTEREST_ICONS[category.id] &&
+                  (() => {
+                    const Icon = INTEREST_ICONS[category.id];
+                    return <Icon size={32} aria-hidden />;
+                  })()}
               </div>
-              <h3 className="font-semibold text-foreground text-sm mb-1">
-                {category.label}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {category.description}
-              </p>
+              <h3 className="font-semibold text-foreground text-sm mb-1">{category.label}</h3>
+              <p className="text-xs text-muted-foreground">{category.description}</p>
             </button>
           ))}
         </div>

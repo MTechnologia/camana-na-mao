@@ -274,7 +274,11 @@ const SERVICE_TYPE_BALLOON_LUCIDE_KEY: Record<string, keyof typeof BALLOON_LUCID
   other: "mapPin",
 };
 
-function renderBalloonLucideShapes(shapes: BalloonLucideShape[], color: string, strokeWidth: string): string {
+function renderBalloonLucideShapes(
+  shapes: BalloonLucideShape[],
+  color: string,
+  strokeWidth: string,
+): string {
   const cap = "round";
   const join = "round";
   return shapes

@@ -42,7 +42,10 @@ describe("usePendingRatings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser as any, loading: false } as any);
+    vi.mocked(useAuth).mockReturnValue({
+      user: mockUser,
+      loading: false,
+    } as unknown as ReturnType<typeof useAuth>);
   });
 
   it("deve buscar avaliações pendentes com sucesso", async () => {
@@ -99,7 +102,9 @@ describe("usePendingRatings", () => {
   it("deve lidar com erro ao buscar avaliações", async () => {
     const errorMessage = "Fetch error";
     vi.mocked(supabase.from).mockReturnValue(
-      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<typeof supabase.from>,
+      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<
+        typeof supabase.from
+      >,
     );
 
     const { result } = renderHook(() => usePendingRatings());

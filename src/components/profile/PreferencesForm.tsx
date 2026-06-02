@@ -6,7 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Mail, Smartphone, CalendarDays, ArrowRight, Users, FileWarning, MapPin } from "lucide-react";
+import {
+  Bell,
+  Mail,
+  Smartphone,
+  CalendarDays,
+  ArrowRight,
+  Users,
+  FileWarning,
+  MapPin,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -35,7 +44,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
     push_enabled: true,
     email_enabled: true,
     sms_enabled: false,
-    categories_enabled: ['legislativa', 'servico', 'transporte', 'urbano'],
+    categories_enabled: ["legislativa", "servico", "transporte", "urbano"],
     quiet_hours_start: null,
     quiet_hours_end: null,
   });
@@ -45,36 +54,46 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const loadPreferences = useCallback(async () => {
     try {
       const { data: notifData, error: notifError } = await supabase
-        .from('notification_settings')
-        .select('*')
-        .eq('user_id', userId)
+        .from("notification_settings")
+        .select("*")
+        .eq("user_id", userId)
         .maybeSingle();
 
-      if (notifError && notifError.code !== 'PGRST116') throw notifError;
+      if (notifError && notifError.code !== "PGRST116") throw notifError;
 
       if (notifData) {
         setNotificationSettings({
           push_enabled: notifData.push_enabled ?? true,
           email_enabled: notifData.email_enabled ?? true,
           sms_enabled: notifData.sms_enabled ?? false,
-          categories_enabled: notifData.categories_enabled ?? ['legislativa', 'servico', 'transporte', 'urbano'],
+          categories_enabled: notifData.categories_enabled ?? [
+            "legislativa",
+            "servico",
+            "transporte",
+            "urbano",
+          ],
           quiet_hours_start: notifData.quiet_hours_start,
           quiet_hours_end: notifData.quiet_hours_end,
         });
       }
 
       const { data: privData, error: privError } = await supabase
-        .from('user_preferences')
-        .select('notify_new_users, notify_new_reports, visit_detection_enabled')
-        .eq('user_id', userId)
+        .from("user_preferences")
+        .select("notify_new_users, notify_new_reports, visit_detection_enabled")
+        .eq("user_id", userId)
         .maybeSingle();
 
-      if (privError && privError.code !== 'PGRST116') throw privError;
+      if (privError && privError.code !== "PGRST116") throw privError;
 
       if (privData) {
-        if (privData.notify_new_users !== undefined) setAdminNotifyNewUsers(privData.notify_new_users);
-        if (privData.notify_new_reports !== undefined) setAdminNotifyNewReports(privData.notify_new_reports);
-        if (privData.visit_detection_enabled !== undefined && privData.visit_detection_enabled !== null) {
+        if (privData.notify_new_users !== undefined)
+          setAdminNotifyNewUsers(privData.notify_new_users);
+        if (privData.notify_new_reports !== undefined)
+          setAdminNotifyNewReports(privData.notify_new_reports);
+        if (
+          privData.visit_detection_enabled !== undefined &&
+          privData.visit_detection_enabled !== null
+        ) {
           setVisitDetectionEnabled(privData.visit_detection_enabled);
         }
       }
@@ -90,9 +109,8 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { error: notifError } = await supabase
-        .from('notification_settings')
-        .upsert({
+      const { error: notifError } = await supabase.from("notification_settings").upsert(
+        {
           user_id: userId,
           push_enabled: notificationSettings.push_enabled,
           email_enabled: notificationSettings.email_enabled,
@@ -100,9 +118,11 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           categories_enabled: notificationSettings.categories_enabled,
           quiet_hours_start: notificationSettings.quiet_hours_start,
           quiet_hours_end: notificationSettings.quiet_hours_end,
-        }, {
-          onConflict: 'user_id'
-        });
+        },
+        {
+          onConflict: "user_id",
+        },
+      );
 
       if (notifError) throw notifError;
 
@@ -118,8 +138,8 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         privPayload.notify_new_reports = adminNotifyNewReports;
       }
       const { error: privError } = await supabase
-        .from('user_preferences')
-        .upsert(privPayload, { onConflict: 'user_id' });
+        .from("user_preferences")
+        .upsert(privPayload, { onConflict: "user_id" });
 
       if (privError) throw privError;
 
@@ -134,11 +154,11 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   };
 
   const toggleCategory = (category: string) => {
-    setNotificationSettings(prev => ({
+    setNotificationSettings((prev) => ({
       ...prev,
       categories_enabled: prev.categories_enabled.includes(category)
-        ? prev.categories_enabled.filter(c => c !== category)
-        : [...prev.categories_enabled, category]
+        ? prev.categories_enabled.filter((c) => c !== category)
+        : [...prev.categories_enabled, category],
     }));
   };
 
@@ -151,9 +171,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             <Bell className="h-4 w-4 text-primary" />
             Notificações
           </CardTitle>
-          <CardDescription>
-            Escolha como deseja receber atualizações
-          </CardDescription>
+          <CardDescription>Escolha como deseja receber atualizações</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between py-1">
@@ -163,16 +181,14 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                 <Label htmlFor="email-notif" className="text-sm font-medium">
                   E-mail
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Receber por e-mail
-                </p>
+                <p className="text-xs text-muted-foreground">Receber por e-mail</p>
               </div>
             </div>
             <Switch
               id="email-notif"
               checked={notificationSettings.email_enabled}
               onCheckedChange={(checked) =>
-                setNotificationSettings(prev => ({ ...prev, email_enabled: checked }))
+                setNotificationSettings((prev) => ({ ...prev, email_enabled: checked }))
               }
             />
           </div>
@@ -210,7 +226,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                     toast.info(
                       permission === "denied"
                         ? "Notificações bloqueadas. Para ativar: ícone de cadeado na barra de endereço → Configurações do site → Notificações → Permitir."
-                        : "Permita notificações no navegador ou tente novamente."
+                        : "Permita notificações no navegador ou tente novamente.",
                     );
                   }
                 });
@@ -310,12 +326,16 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Nesta página você define os <strong className="font-medium text-foreground">canais</strong> (Push e/ou
-            E-mail) e mantém a categoria <strong className="font-medium text-foreground">Legislativa</strong> ativa
-            nas notificações acima. Para se inscrever em um evento ou consultar suas inscrições, use{" "}
+            Nesta página você define os{" "}
+            <strong className="font-medium text-foreground">canais</strong> (Push e/ou E-mail) e
+            mantém a categoria <strong className="font-medium text-foreground">Legislativa</strong>{" "}
+            ativa nas notificações acima. Para se inscrever em um evento ou consultar suas
+            inscrições, use{" "}
             <strong className="font-medium text-foreground">Minhas Inscrições</strong> ou o botão{" "}
-            <strong className="font-medium text-foreground">Receber lembretes desta audiência</strong> na página de
-            cada audiência.
+            <strong className="font-medium text-foreground">
+              Receber lembretes desta audiência
+            </strong>{" "}
+            na página de cada audiência.
           </p>
           <Button variant="outline" className="w-full gap-2" asChild>
             <Link to="/perfil/inscricoes?aba=audiencias">
@@ -345,9 +365,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                   Detectar visitas a equipamentos públicos
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Quando ativado, após permanecer próximo a um equipamento (ex.: UBS, escola), o app pode registrar uma
-                  visita para você avaliar o serviço. Desative se não quiser esse monitoramento com base na sua
-                  localização.
+                  Quando ativado, após permanecer próximo a um equipamento (ex.: UBS, escola), o app
+                  pode registrar uma visita para você avaliar o serviço. Desative se não quiser esse
+                  monitoramento com base na sua localização.
                 </p>
               </div>
             </div>
@@ -360,11 +380,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         </CardContent>
       </Card>
 
-      <Button
-        onClick={handleSave}
-        disabled={loading}
-        className="w-full h-11"
-      >
+      <Button onClick={handleSave} disabled={loading} className="w-full h-11">
         {loading ? "Salvando..." : "Salvar Preferências"}
       </Button>
     </div>

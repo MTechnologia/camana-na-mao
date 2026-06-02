@@ -15,7 +15,7 @@ globalThis.ResizeObserver = class ResizeObserver implements ResizeObserver {
           devicePixelContentBoxSize: [{ inlineSize: 480, blockSize: 320 }],
         } as ResizeObserverEntry,
       ],
-      this
+      this,
     );
   }
 

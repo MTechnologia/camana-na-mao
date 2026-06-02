@@ -21,10 +21,7 @@ import {
   type TriagePriority,
   type TriageStatus,
 } from "@/lib/triage";
-import {
-  useReportTriage,
-  type TriageRecord,
-} from "@/hooks/useReportTriage";
+import { useReportTriage, type TriageRecord } from "@/hooks/useReportTriage";
 import {
   fetchActiveLegislativeCommissions,
   type LegislativeCommissionOption,
@@ -97,10 +94,10 @@ export function TriageEditor({
   }, [triage?.id, triage?.updatedAt, triage?.responsibleCommissionId]);
 
   const dirty =
-    (triage?.priority ?? null) !== priority
-    || (triage?.responsibleCommissionId ?? null) !== responsibleCommissionId
-    || (triage?.triageStatus ?? "untriaged") !== status
-    || (triage?.notes ?? "") !== notes;
+    (triage?.priority ?? null) !== priority ||
+    (triage?.responsibleCommissionId ?? null) !== responsibleCommissionId ||
+    (triage?.triageStatus ?? "untriaged") !== status ||
+    (triage?.notes ?? "") !== notes;
 
   const handleSave = async () => {
     setSaving(true);
@@ -147,14 +144,10 @@ export function TriageEditor({
         </p>
       </div>
 
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       <div>
-        <label className="text-xs font-medium text-muted-foreground">
-          Prioridade
-        </label>
+        <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
         <div className="grid grid-cols-4 gap-2 mt-1">
           {TRIAGE_PRIORITY_ORDER.map((code) => {
             const meta = TRIAGE_PRIORITIES[code];
@@ -174,9 +167,7 @@ export function TriageEditor({
                 disabled={saving || isLoading}
               >
                 <div>{code}</div>
-                <div className="text-[10px] font-normal opacity-90">
-                  {meta.shortLabel}
-                </div>
+                <div className="text-[10px] font-normal opacity-90">{meta.shortLabel}</div>
               </button>
             );
           })}
@@ -184,14 +175,10 @@ export function TriageEditor({
       </div>
 
       <div>
-        <label className="text-xs font-medium text-muted-foreground">
-          Comissão responsável
-        </label>
+        <label className="text-xs font-medium text-muted-foreground">Comissão responsável</label>
         <Select
           value={responsibleCommissionId ?? UNASSIGNED_VALUE}
-          onValueChange={(v) =>
-            setResponsibleCommissionId(v === UNASSIGNED_VALUE ? null : v)
-          }
+          onValueChange={(v) => setResponsibleCommissionId(v === UNASSIGNED_VALUE ? null : v)}
           disabled={saving || loadingCommissions}
         >
           <SelectTrigger className="mt-1">
@@ -207,9 +194,7 @@ export function TriageEditor({
                   <Building2 className="h-3 w-3 text-muted-foreground" />
                   {c.name}
                   {c.code ? (
-                    <span className="text-muted-foreground text-[10px]">
-                      ({c.code})
-                    </span>
+                    <span className="text-muted-foreground text-[10px]">({c.code})</span>
                   ) : null}
                 </span>
               </SelectItem>
@@ -219,9 +204,7 @@ export function TriageEditor({
       </div>
 
       <div>
-        <label className="text-xs font-medium text-muted-foreground">
-          Status do funil
-        </label>
+        <label className="text-xs font-medium text-muted-foreground">Status do funil</label>
         <Select
           value={status}
           onValueChange={(v) => setStatus(v as TriageStatus)}
@@ -244,9 +227,7 @@ export function TriageEditor({
       </div>
 
       <div>
-        <label className="text-xs font-medium text-muted-foreground">
-          Nota interna (opcional)
-        </label>
+        <label className="text-xs font-medium text-muted-foreground">Nota interna (opcional)</label>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

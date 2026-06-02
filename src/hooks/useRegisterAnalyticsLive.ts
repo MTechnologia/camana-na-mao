@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 import {
   useOptionalAnalyticsLive,
   type AnalyticsLiveSource,
-} from '@/contexts/AnalyticsLiveContext';
+} from "@/contexts/AnalyticsLiveContext";
 
 /** Registra fonte de atualização ao vivo (ex.: lista de relatos na gestão). */
 export function useRegisterAnalyticsLive(

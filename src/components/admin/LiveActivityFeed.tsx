@@ -1,12 +1,5 @@
 import { useMemo } from "react";
-import {
-  AlertTriangle,
-  Bus,
-  Megaphone,
-  Mic2,
-  PenLine,
-  type LucideIcon,
-} from "lucide-react";
+import { AlertTriangle, Bus, Megaphone, Mic2, PenLine, type LucideIcon } from "lucide-react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
@@ -29,10 +22,7 @@ interface LiveActivityFeedProps {
   maxHeight?: string;
 }
 
-const KIND_META: Record<
-  ActivityKind,
-  { label: string; icon: LucideIcon; color: string }
-> = {
+const KIND_META: Record<ActivityKind, { label: string; icon: LucideIcon; color: string }> = {
   urban_report: {
     label: "Urbano",
     icon: AlertTriangle,
@@ -77,9 +67,7 @@ export function LiveActivityFeed({
     <Card className={cn("p-4 flex flex-col", className)}>
       <div className="flex items-center gap-2 mb-3">
         <h3 className="text-sm font-semibold">Atividade recente</h3>
-        <span className="text-[10px] text-muted-foreground">
-          últimos {items.length}
-        </span>
+        <span className="text-[10px] text-muted-foreground">últimos {items.length}</span>
       </div>
 
       {isLoading && items.length === 0 ? (
@@ -89,9 +77,7 @@ export function LiveActivityFeed({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-6 text-center">
-          Nenhuma atividade recente.
-        </p>
+        <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma atividade recente.</p>
       ) : (
         <div className="overflow-y-auto pr-1 space-y-3" style={{ maxHeight }}>
           {grouped.map(([day, dayItems]) => {
@@ -149,9 +135,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           <span className="text-[10px] text-muted-foreground shrink-0">{relative}</span>
         </div>
         {item.subtitle && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {item.subtitle}
-          </p>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">{item.subtitle}</p>
         )}
         <div className="flex items-center gap-1 mt-1">
           <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">

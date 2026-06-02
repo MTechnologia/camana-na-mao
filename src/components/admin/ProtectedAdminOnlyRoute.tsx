@@ -1,8 +1,8 @@
-import { ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUserRole } from '@/hooks/useUserRole';
-import { AdminProviders } from '@/components/admin/AdminProviders';
-import { toast } from 'sonner';
+import { ReactNode, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
+import { AdminProviders } from "@/components/admin/AdminProviders";
+import { toast } from "sonner";
 
 interface ProtectedAdminOnlyRouteProps {
   children: ReactNode;
@@ -14,10 +14,10 @@ export const ProtectedAdminOnlyRoute = ({ children }: ProtectedAdminOnlyRoutePro
 
   useEffect(() => {
     if (!loading && !isAdmin) {
-      toast.error('Acesso negado', {
-        description: 'Esta área é restrita para administradores.',
+      toast.error("Acesso negado", {
+        description: "Esta área é restrita para administradores.",
       });
-      navigate('/');
+      navigate("/");
     }
   }, [isAdmin, loading, navigate]);
 
@@ -36,4 +36,3 @@ export const ProtectedAdminOnlyRoute = ({ children }: ProtectedAdminOnlyRoutePro
 
   return <AdminProviders>{children}</AdminProviders>;
 };
-

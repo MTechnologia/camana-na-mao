@@ -17,7 +17,9 @@ export type ParsedTransportReportPreview = {
   accessibility_details: Record<string, unknown> | null;
 };
 
-export function parseTransportReportPreviewJson(content: string): ParsedTransportReportPreview | null {
+export function parseTransportReportPreviewJson(
+  content: string,
+): ParsedTransportReportPreview | null {
   const m = content.match(/\[TRANSPORT_PREVIEW_JSON:([A-Za-z0-9+/=_-]+)\]/);
   if (!m?.[1]) return null;
   try {
@@ -44,7 +46,8 @@ export function parseTransportReportPreviewJson(content: string): ParsedTranspor
       occurrence_date: typeof data.occurrence_date === "string" ? data.occurrence_date : null,
       occurrence_time: typeof data.occurrence_time === "string" ? data.occurrence_time : null,
       direction: typeof data.direction === "string" ? data.direction : null,
-      recurrence_frequency: typeof data.recurrence_frequency === "string" ? data.recurrence_frequency : null,
+      recurrence_frequency:
+        typeof data.recurrence_frequency === "string" ? data.recurrence_frequency : null,
       personal_impact: personalImpact,
       location: typeof data.location === "string" ? data.location : null,
       stop_name: typeof data.stop_name === "string" ? data.stop_name : null,
@@ -63,7 +66,9 @@ export function stripTransportPreviewJsonMarker(content: string): string {
 /**
  * Remove marcador [LINE_SELECTED:…] e omite texto que é só rótulo de linha (legado gravado em `description`).
  */
-export function formatTransportReportDescriptionForDisplay(raw: string | null | undefined): string | undefined {
+export function formatTransportReportDescriptionForDisplay(
+  raw: string | null | undefined,
+): string | undefined {
   if (raw == null || String(raw).trim() === "") return undefined;
   const s = String(raw)
     .replace(/\s*\[LINE_SELECTED:[^\]]+\]\s*/gi, "")

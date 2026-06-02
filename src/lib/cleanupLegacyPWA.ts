@@ -1,16 +1,20 @@
 /**
  * Limpeza de Service Workers legados
- * 
+ *
  * Cleanup passivo e leve - apenas remove SWs antigos se existirem
  */
 
-const CLEANUP_KEY = '__cmsp_pwa_cleanup_v2__';
+const CLEANUP_KEY = "__cmsp_pwa_cleanup_v2__";
 
 /** Script URLs do PWA atual (vite-plugin-pwa) — não desregistrar. */
 const KEEP_SW_PATTERNS = [/workbox/i, /dev-sw\.js/i, /sw\.js/i];
 
 function shouldKeepRegistration(registration: ServiceWorkerRegistration): boolean {
-  const scriptUrl = registration.active?.scriptURL ?? registration.installing?.scriptURL ?? registration.waiting?.scriptURL ?? "";
+  const scriptUrl =
+    registration.active?.scriptURL ??
+    registration.installing?.scriptURL ??
+    registration.waiting?.scriptURL ??
+    "";
   if (!scriptUrl) return true;
   return KEEP_SW_PATTERNS.some((p) => p.test(scriptUrl));
 }
@@ -21,7 +25,7 @@ function shouldKeepRegistration(registration: ServiceWorkerRegistration): boolea
 async function unregisterServiceWorkers(): Promise<number> {
   let count = 0;
   try {
-    if ('serviceWorker' in navigator) {
+    if ("serviceWorker" in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (const registration of registrations) {
         if (shouldKeepRegistration(registration)) continue;
@@ -31,7 +35,7 @@ async function unregisterServiceWorkers(): Promise<number> {
       }
     }
   } catch (e) {
-    console.warn('[PWA Cleanup] Erro ao desregistrar SWs:', e);
+    console.warn("[PWA Cleanup] Erro ao desregistrar SWs:", e);
   }
   return count;
 }
@@ -42,7 +46,7 @@ async function unregisterServiceWorkers(): Promise<number> {
 async function clearCaches(): Promise<number> {
   let count = 0;
   try {
-    if ('caches' in window) {
+    if ("caches" in window) {
       const cacheKeys = await caches.keys();
       for (const key of cacheKeys) {
         await caches.delete(key);
@@ -51,7 +55,7 @@ async function clearCaches(): Promise<number> {
       }
     }
   } catch (e) {
-    console.warn('[PWA Cleanup] Erro ao limpar caches:', e);
+    console.warn("[PWA Cleanup] Erro ao limpar caches:", e);
   }
   return count;
 }
@@ -66,23 +70,23 @@ export const cleanupLegacyPWA = async (): Promise<boolean> => {
     if (alreadyCleaned) {
       return false;
     }
-    
+
     // Desregistrar SWs
     const swCleared = await unregisterServiceWorkers();
-    
+
     // Limpar caches
     const cachesCleared = await clearCaches();
-    
+
     if (swCleared > 0 || cachesCleared > 0) {
       console.log(`[PWA Cleanup] Limpeza concluída: SW=${swCleared}, Caches=${cachesCleared}`);
     }
-    
+
     // Marcar como limpo
     localStorage.setItem(CLEANUP_KEY, new Date().toISOString());
-    
+
     return false; // Nunca força reload
   } catch (error) {
-    console.error('[PWA Cleanup] Error:', error);
+    console.error("[PWA Cleanup] Error:", error);
     return false;
   }
 };
@@ -91,19 +95,19 @@ export const cleanupLegacyPWA = async (): Promise<boolean> => {
  * Log de diagnóstico básico
  */
 export const logPWADiagnostics = async (): Promise<void> => {
-  console.group('[PWA Diagnostics]');
-  console.log('Timestamp:', new Date().toISOString());
-  
-  if ('serviceWorker' in navigator) {
+  console.group("[PWA Diagnostics]");
+  console.log("Timestamp:", new Date().toISOString());
+
+  if ("serviceWorker" in navigator) {
     const registrations = await navigator.serviceWorker.getRegistrations();
-    console.log('Service Workers:', registrations.length);
+    console.log("Service Workers:", registrations.length);
   }
-  
-  if ('caches' in window) {
+
+  if ("caches" in window) {
     const cacheNames = await caches.keys();
-    console.log('Caches:', cacheNames.length, cacheNames);
+    console.log("Caches:", cacheNames.length, cacheNames);
   }
-  
+
   console.groupEnd();
 };
 
@@ -119,8 +123,11 @@ export const forceNuclearCleanup = async (): Promise<boolean> => {
 };
 
 // Expor para debug via console
-if (typeof window !== 'undefined') {
-  const w = window as unknown as { forceNuclearCleanup?: typeof forceNuclearCleanup; logPWADiagnostics?: typeof logPWADiagnostics };
+if (typeof window !== "undefined") {
+  const w = window as unknown as {
+    forceNuclearCleanup?: typeof forceNuclearCleanup;
+    logPWADiagnostics?: typeof logPWADiagnostics;
+  };
   w.forceNuclearCleanup = forceNuclearCleanup;
   w.logPWADiagnostics = logPWADiagnostics;
 }

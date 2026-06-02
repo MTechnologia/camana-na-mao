@@ -1,5 +1,5 @@
-import type { UserRole } from '@/hooks/useUserRole';
-import { ALL_ROLES, PERMISSIONS, type PermissionDefinition } from '@/lib/permissions';
+import type { UserRole } from "@/hooks/useUserRole";
+import { ALL_ROLES, PERMISSIONS, type PermissionDefinition } from "@/lib/permissions";
 
 export type RolePermissionRow = {
   role: UserRole;
@@ -10,16 +10,16 @@ export type RolePermissionMatrix = Record<UserRole, Set<string>>;
 
 /** Permissões que o papel admin não pode remover (evita lockout). */
 export const ADMIN_REQUIRED_PERMISSION_KEYS = [
-  'users.read',
-  'users.invite',
-  'users.update_role',
-  'users.suspend',
-  'users.delete',
-  'users.link_gabinete',
-  'users.manage_permissions',
-  'system.configure',
-  'system.view_audit_logs',
-  'system.moderate_services',
+  "users.read",
+  "users.invite",
+  "users.update_role",
+  "users.suspend",
+  "users.delete",
+  "users.link_gabinete",
+  "users.manage_permissions",
+  "system.configure",
+  "system.view_audit_logs",
+  "system.moderate_services",
 ] as const;
 
 export function emptyRolePermissionMatrix(): RolePermissionMatrix {
@@ -67,8 +67,8 @@ export function togglePermission(
     next[role].add(permissionKey);
   } else {
     if (
-      role === 'admin'
-      && (ADMIN_REQUIRED_PERMISSION_KEYS as readonly string[]).includes(permissionKey)
+      role === "admin" &&
+      (ADMIN_REQUIRED_PERMISSION_KEYS as readonly string[]).includes(permissionKey)
     ) {
       return matrix;
     }

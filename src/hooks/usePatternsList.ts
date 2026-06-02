@@ -78,9 +78,7 @@ interface RawRow {
 function parsePeakHours(raw: unknown): number[] | null {
   if (!raw) return null;
   if (Array.isArray(raw)) {
-    return raw
-      .map((x) => Number(x))
-      .filter((n) => Number.isFinite(n) && n >= 0 && n <= 23);
+    return raw.map((x) => Number(x)).filter((n) => Number.isFinite(n) && n >= 0 && n <= 23);
   }
   if (typeof raw === "object" && raw !== null) {
     // Pode vir como { hour: count } map

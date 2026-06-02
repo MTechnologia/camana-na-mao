@@ -1,10 +1,10 @@
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Pencil } from 'lucide-react';
-import { PanelCanvas } from '@/components/panels/PanelCanvas';
-import { PanelSelector } from '@/components/panels/PanelSelector';
-import { Button } from '@/components/ui/button';
-import { PageShell } from '@/components/ui/PageShell';
-import { useCustomPanels } from '@/contexts/CustomPanelsContext';
+import { Link } from "react-router-dom";
+import { ArrowLeft, Pencil } from "lucide-react";
+import { PanelCanvas } from "@/components/panels/PanelCanvas";
+import { PanelSelector } from "@/components/panels/PanelSelector";
+import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/ui/PageShell";
+import { useCustomPanels } from "@/contexts/CustomPanelsContext";
 
 export function PaineisAvancado() {
   const { activePanel } = useCustomPanels();
@@ -37,7 +37,7 @@ export function PaineisAvancado() {
         <PanelCanvas panel={activePanel} mode="view" />
       ) : (
         <p className="text-sm text-muted-foreground">
-          Selecione um painel acima ou{' '}
+          Selecione um painel acima ou{" "}
           <Link to="/paineis" className="text-primary underline-offset-2 hover:underline">
             volte para Meus painéis
           </Link>

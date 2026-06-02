@@ -1,13 +1,13 @@
-import { ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
-import { AdminHeader } from '@/components/admin/AdminHeader';
-import { AdminBreadcrumbs } from '@/components/admin/AnalyticsContextBar';
-import { UnifiedAnalyticsContextBar } from '@/components/admin/UnifiedAnalyticsContextBar';
-import { AdminShell } from '@/components/admin/AdminSidebar';
-import { ReportDetailSheet } from '@/components/admin/ReportDetailSheet';
-import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
-import { ReportDetailProvider } from '@/contexts/ReportDetailContext';
-import { usesUnifiedAnalyticsBar } from '@/lib/adminRouteUtils';
+import { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminBreadcrumbs } from "@/components/admin/AnalyticsContextBar";
+import { UnifiedAnalyticsContextBar } from "@/components/admin/UnifiedAnalyticsContextBar";
+import { AdminShell } from "@/components/admin/AdminSidebar";
+import { ReportDetailSheet } from "@/components/admin/ReportDetailSheet";
+import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from "@/config/analyticsUi";
+import { ReportDetailProvider } from "@/contexts/ReportDetailContext";
+import { usesUnifiedAnalyticsBar } from "@/lib/adminRouteUtils";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -15,8 +15,7 @@ interface AdminLayoutProps {
 
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { pathname } = useLocation();
-  const showUnifiedBar =
-    USE_UNIFIED_ANALYTICS_CONTEXT_BAR && usesUnifiedAnalyticsBar(pathname);
+  const showUnifiedBar = USE_UNIFIED_ANALYTICS_CONTEXT_BAR && usesUnifiedAnalyticsBar(pathname);
 
   return (
     <ReportDetailProvider>

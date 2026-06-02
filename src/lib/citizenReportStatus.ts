@@ -33,16 +33,14 @@ const STATUS_SYNONYMS: Record<string, CitizenReportStatus> = {
   fechado: "resolved",
   closed: "resolved",
   concluido: "resolved",
-  "concluído": "resolved",
+  concluído: "resolved",
   rejected: "rejected",
   rejeitado: "rejected",
   indeferido: "rejected",
   cancelado: "rejected",
 };
 
-export function normalizeCitizenReportStatus(
-  raw: string | null | undefined,
-): CitizenReportStatus {
+export function normalizeCitizenReportStatus(raw: string | null | undefined): CitizenReportStatus {
   if (raw == null || String(raw).trim() === "") return "pending";
   const key = String(raw).trim().toLowerCase().replace(/\s+/g, " ");
   const mapped = STATUS_SYNONYMS[key];

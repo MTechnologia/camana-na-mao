@@ -17,7 +17,12 @@ export interface DemographicHeatmapProps {
   matrix: CrossMatrix;
   isLoading?: boolean;
   /** Callback quando uma célula é clicada (não dispara em células zeradas). */
-  onCellClick?: (category: ReportCategory, demoValue: string, demoLabel: string, count: number) => void;
+  onCellClick?: (
+    category: ReportCategory,
+    demoValue: string,
+    demoLabel: string,
+    count: number,
+  ) => void;
   /** Texto do título da coluna de categorias (default "Tipo de relato"). */
   rowHeaderLabel?: string;
 }
@@ -91,15 +96,13 @@ export function DemographicHeatmap({
                 <div className="flex flex-col items-center">
                   <span className="font-semibold">{dv.label}</span>
                   <span className="text-[10px] text-muted-foreground tabular-nums">
-                    {matrix.colTotals[dv.value] ?? 0} ({pct(matrix.colTotals[dv.value] ?? 0, matrix.total)})
+                    {matrix.colTotals[dv.value] ?? 0} (
+                    {pct(matrix.colTotals[dv.value] ?? 0, matrix.total)})
                   </span>
                 </div>
               </th>
             ))}
-            <th
-              scope="col"
-              className="text-right font-medium px-2 py-2 text-xs whitespace-nowrap"
-            >
+            <th scope="col" className="text-right font-medium px-2 py-2 text-xs whitespace-nowrap">
               Total
             </th>
           </tr>
@@ -150,9 +153,7 @@ export function DemographicHeatmap({
                     </td>
                   );
                 })}
-                <td className="text-right px-2 py-2 font-semibold tabular-nums">
-                  {rowTotal}
-                </td>
+                <td className="text-right px-2 py-2 font-semibold tabular-nums">{rowTotal}</td>
               </tr>
             );
           })}
@@ -170,9 +171,7 @@ export function DemographicHeatmap({
                 {matrix.colTotals[dv.value] ?? 0}
               </td>
             ))}
-            <td className="text-right px-2 py-2 font-bold tabular-nums">
-              {matrix.total}
-            </td>
+            <td className="text-right px-2 py-2 font-bold tabular-nums">{matrix.total}</td>
           </tr>
         </tfoot>
       </table>

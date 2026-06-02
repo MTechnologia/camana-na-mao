@@ -1,10 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  facetToParams,
-  paramsToFacet,
-  type FacetKey,
-} from "@/lib/analyticsFilters";
+import { facetToParams, paramsToFacet, type FacetKey } from "@/lib/analyticsFilters";
 
 /**
  * HU-14.6 — Hook que sincroniza um facet com a URL via prefixo `f.{key}.`.

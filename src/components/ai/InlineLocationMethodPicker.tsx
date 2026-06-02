@@ -55,7 +55,7 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
           setError(
             accuracy != null
               ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou use CEP.`
-              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço."
+              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço.",
           );
           return;
         }
@@ -74,12 +74,14 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
       (err) => {
         setLoading(false);
         if (err.code === err.PERMISSION_DENIED) {
-          setError("Permissão negada. Ative a localização no navegador e no celular (configurações) e tente novamente.");
+          setError(
+            "Permissão negada. Ative a localização no navegador e no celular (configurações) e tente novamente.",
+          );
         } else {
           setError("Não foi possível obter sua localização. Tente digitar o CEP ou endereço.");
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
   };
 
@@ -134,9 +136,7 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
           </Button>
         ))}
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 };

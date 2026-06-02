@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Trash2, MoveUp, MoveDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DashboardPreview, type WidgetConfig, type DashboardConfig } from './DashboardPreview';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { Trash2, MoveUp, MoveDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardPreview, type WidgetConfig, type DashboardConfig } from "./DashboardPreview";
+import { Badge } from "@/components/ui/badge";
 
 interface DashboardBuilderProps {
   config: DashboardConfig;
@@ -11,12 +11,12 @@ interface DashboardBuilderProps {
 }
 
 export const DashboardBuilder = ({ config, onChange }: DashboardBuilderProps) => {
-  const moveWidget = (index: number, direction: 'up' | 'down') => {
+  const moveWidget = (index: number, direction: "up" | "down") => {
     const newWidgets = [...config.widgets];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+
     if (targetIndex < 0 || targetIndex >= newWidgets.length) return;
-    
+
     [newWidgets[index], newWidgets[targetIndex]] = [newWidgets[targetIndex], newWidgets[index]];
     onChange({ widgets: newWidgets });
   };
@@ -47,16 +47,14 @@ export const DashboardBuilder = ({ config, onChange }: DashboardBuilderProps) =>
                       {widget.type}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Fonte: {widget.dataSource}
-                  </p>
+                  <p className="text-xs text-muted-foreground">Fonte: {widget.dataSource}</p>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => moveWidget(index, 'up')}
+                    onClick={() => moveWidget(index, "up")}
                     disabled={index === 0}
                   >
                     <MoveUp className="w-4 h-4" />
@@ -64,16 +62,12 @@ export const DashboardBuilder = ({ config, onChange }: DashboardBuilderProps) =>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => moveWidget(index, 'down')}
+                    onClick={() => moveWidget(index, "down")}
                     disabled={index === config.widgets.length - 1}
                   >
                     <MoveDown className="w-4 h-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeWidget(index)}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => removeWidget(index)}>
                     <Trash2 className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
                   </Button>
                 </div>

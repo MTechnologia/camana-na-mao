@@ -224,10 +224,7 @@ export function facetToParams(
  */
 const ARRAY_FACET_FIELDS = new Set(["severities", "statuses", "comissoes"]);
 
-export function paramsToFacet(
-  key: FacetKey,
-  params: URLSearchParams,
-): Record<string, unknown> {
+export function paramsToFacet(key: FacetKey, params: URLSearchParams): Record<string, unknown> {
   const prefix = `f.${key}.`;
   const out: Record<string, unknown> = {};
   for (const [name, value] of params.entries()) {

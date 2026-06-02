@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   fetchClassificationReports,
   type ClassificationReportItem,
   type ClassificationReportKind,
-} from '@/lib/classificationReports';
+} from "@/lib/classificationReports";
 
 export function useClassificationReports(
   kind: ClassificationReportKind | null,
@@ -35,7 +35,7 @@ export function useClassificationReports(
       })
       .catch((e) => {
         if (!cancelled) {
-          const msg = e instanceof Error ? e.message : 'Erro ao carregar relatos';
+          const msg = e instanceof Error ? e.message : "Erro ao carregar relatos";
           setError(msg);
           setItems([]);
           setTotal(totalCount);

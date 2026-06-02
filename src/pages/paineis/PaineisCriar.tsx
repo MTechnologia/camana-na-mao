@@ -1,7 +1,7 @@
-import { Navigate, useParams } from 'react-router-dom';
-import { PanelBuilder } from '@/components/panels/PanelBuilder';
-import { PageShell } from '@/components/ui/PageShell';
-import { useCustomPanels } from '@/contexts/CustomPanelsContext';
+import { Navigate, useParams } from "react-router-dom";
+import { PanelBuilder } from "@/components/panels/PanelBuilder";
+import { PageShell } from "@/components/ui/PageShell";
+import { useCustomPanels } from "@/contexts/CustomPanelsContext";
 
 export function PaineisCriar() {
   const { panelId } = useParams<{ panelId?: string }>();
@@ -15,10 +15,10 @@ export function PaineisCriar() {
 
   return (
     <PageShell
-      title={editing ? 'Editar painel' : 'Criar painel'}
+      title={editing ? "Editar painel" : "Criar painel"}
       description="Monte widgets com filtros personalizados — estilo workspace: biblioteca à esquerda, canvas no centro e configuração à direita. Os dados seguem o mesmo motor de analytics do painel institucional."
     >
-      <PanelBuilder key={editing?.id ?? 'new'} initialPanel={editing} />
+      <PanelBuilder key={editing?.id ?? "new"} initialPanel={editing} />
     </PageShell>
   );
 }

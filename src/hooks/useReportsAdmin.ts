@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useDebounce } from '@/hooks/useDebounce';
-import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { ANALYTICS_REALTIME_FULL } from '@/lib/analyticsRealtimeTables';
-import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
-import { urbanReportMatchesGlobalRegion } from '@/lib/urbanReportRegion';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
+import { ANALYTICS_REALTIME_FULL } from "@/lib/analyticsRealtimeTables";
+import { resolveGlobalCategoryFilter } from "@/lib/globalCategoryFilter";
+import { urbanReportMatchesGlobalRegion } from "@/lib/urbanReportRegion";
 
-export type ManifestType = 'urban' | 'transport' | 'evaluation' | 'feedback';
+export type ManifestType = "urban" | "transport" | "evaluation" | "feedback";
 
 export interface UnifiedManifest {
   id: string;
@@ -114,8 +114,8 @@ interface UseReportsAdminReturn {
   setStatusFilter: (status: string) => void;
   severityFilter: string;
   setSeverityFilter: (severity: string) => void;
-  typeFilter: ManifestType | 'all';
-  setTypeFilter: (type: ManifestType | 'all') => void;
+  typeFilter: ManifestType | "all";
+  setTypeFilter: (type: ManifestType | "all") => void;
   categoryFilter: string;
   setCategoryFilter: (category: string) => void;
   regionFilter: string;
@@ -132,7 +132,11 @@ interface UseReportsAdminReturn {
   totalCount: number;
   // Actions
   updateManifestStatus: (id: string, type: ManifestType, newStatus: string) => Promise<void>;
-  updateManifestCategory: (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => Promise<void>;
+  updateManifestCategory: (
+    manifest: UnifiedManifest,
+    newCategory: string,
+    newSubcategory: string | null,
+  ) => Promise<void>;
   updateBulkStatus: (ids: { id: string; type: ManifestType }[], newStatus: string) => Promise<void>;
   deleteManifest: (id: string, type: ManifestType) => Promise<void>;
   deleteBulkManifests: (ids: { id: string; type: ManifestType }[]) => Promise<void>;
@@ -144,10 +148,11 @@ interface UseReportsAdminReturn {
 
 // Projeção mínima para lista (campos necessários para ManifestCard + zona)
 const URBAN_LIST_FIELDS =
-  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code';
-const TRANSPORT_LIST_FIELDS = 'id,report_type,description,severity,status,created_at,updated_at,location,user_id,line_id,occurrence_date,occurrence_time,protocol_code,responded_at';
+  "id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code";
+const TRANSPORT_LIST_FIELDS =
+  "id,report_type,description,severity,status,created_at,updated_at,location,user_id,line_id,occurrence_date,occurrence_time,protocol_code,responded_at";
 const EVALUATION_LIST_FIELDS =
-  'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous,publication_status';
+  "id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous,publication_status";
 
 export type UseReportsAdminOptions = {
   /** Gestão de relatos: busca até N itens sem paginar na UI (filtros globais). */
@@ -175,12 +180,12 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
   const [lastDataUpdate, setLastDataUpdate] = useState<Date | null>(null);
 
   // Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [severityFilter, setSeverityFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState<ManifestType | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [regionFilter, setRegionFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<ManifestType | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [regionFilter, setRegionFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   // Dynamic filter options
@@ -191,19 +196,19 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
 
   // Static category options
   const availableCategories = [
-    { value: 'iluminacao', label: 'Iluminação' },
-    { value: 'calcada', label: 'Calçada' },
-    { value: 'via_publica', label: 'Via Pública' },
-    { value: 'pavimentacao', label: 'Pavimentação' },
-    { value: 'sinalizacao', label: 'Sinalização' },
-    { value: 'drenagem', label: 'Drenagem' },
-    { value: 'lixo', label: 'Lixo e Limpeza' },
-    { value: 'area_verde', label: 'Área Verde' },
-    { value: 'poluicao', label: 'Poluição' },
-    { value: 'seguranca', label: 'Segurança' },
-    { value: 'transito', label: 'Trânsito' },
-    { value: 'esgoto', label: 'Esgoto' },
-    { value: 'outro', label: 'Outro' },
+    { value: "iluminacao", label: "Iluminação" },
+    { value: "calcada", label: "Calçada" },
+    { value: "via_publica", label: "Via Pública" },
+    { value: "pavimentacao", label: "Pavimentação" },
+    { value: "sinalizacao", label: "Sinalização" },
+    { value: "drenagem", label: "Drenagem" },
+    { value: "lixo", label: "Lixo e Limpeza" },
+    { value: "area_verde", label: "Área Verde" },
+    { value: "poluicao", label: "Poluição" },
+    { value: "seguranca", label: "Segurança" },
+    { value: "transito", label: "Trânsito" },
+    { value: "esgoto", label: "Esgoto" },
+    { value: "outro", label: "Outro" },
   ];
 
   // Pagination
@@ -215,22 +220,58 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
     try {
       // Executar todas as contagens em paralelo
       const [
-        urbanTotalRes, urbanPendingRes, urbanCriticalRes, feedbackTotalRes,
-        transportTotalRes, transportPendingRes, transportCriticalRes,
+        urbanTotalRes,
+        urbanPendingRes,
+        urbanCriticalRes,
+        feedbackTotalRes,
+        transportTotalRes,
+        transportPendingRes,
+        transportCriticalRes,
         evaluationTotalRes,
-        recentUrbanRes, recentTransportRes, recentEvaluationRes
+        recentUrbanRes,
+        recentTransportRes,
+        recentEvaluationRes,
       ] = await Promise.all([
-        supabase.from('urban_reports').select('*', { count: 'exact', head: true }).neq('category', 'feedback_camara'),
-        supabase.from('urban_reports').select('*', { count: 'exact', head: true }).neq('category', 'feedback_camara').eq('status', 'pending'),
-        supabase.from('urban_reports').select('*', { count: 'exact', head: true }).neq('category', 'feedback_camara').eq('severity', 'critical'),
-        supabase.from('urban_reports').select('*', { count: 'exact', head: true }).eq('category', 'feedback_camara'),
-        supabase.from('transport_reports').select('*', { count: 'exact', head: true }),
-        supabase.from('transport_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('transport_reports').select('*', { count: 'exact', head: true }).eq('severity', 'high'),
-        supabase.from('service_ratings').select('*', { count: 'exact', head: true }),
-        supabase.from('urban_reports').select('*', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-        supabase.from('transport_reports').select('*', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-        supabase.from('service_ratings').select('*', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase
+          .from("urban_reports")
+          .select("*", { count: "exact", head: true })
+          .neq("category", "feedback_camara"),
+        supabase
+          .from("urban_reports")
+          .select("*", { count: "exact", head: true })
+          .neq("category", "feedback_camara")
+          .eq("status", "pending"),
+        supabase
+          .from("urban_reports")
+          .select("*", { count: "exact", head: true })
+          .neq("category", "feedback_camara")
+          .eq("severity", "critical"),
+        supabase
+          .from("urban_reports")
+          .select("*", { count: "exact", head: true })
+          .eq("category", "feedback_camara"),
+        supabase.from("transport_reports").select("*", { count: "exact", head: true }),
+        supabase
+          .from("transport_reports")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabase
+          .from("transport_reports")
+          .select("*", { count: "exact", head: true })
+          .eq("severity", "high"),
+        supabase.from("service_ratings").select("*", { count: "exact", head: true }),
+        supabase
+          .from("urban_reports")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase
+          .from("transport_reports")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase
+          .from("service_ratings")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
       const urbanTotal = urbanTotalRes.count || 0;
@@ -265,7 +306,7 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
       });
       setLastDataUpdate(new Date());
     } catch (error) {
-      console.error('Error fetching KPIs:', error);
+      console.error("Error fetching KPIs:", error);
     } finally {
       setKpisLoading(false);
     }
@@ -277,9 +318,9 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
       const from = fetchCap ? 0 : (page - 1) * pageSize;
       const to = fetchCap ? fetchCap - 1 : from + pageSize - 1;
       const baseLimit = fetchCap ?? pageSize * 3;
-      const fetchLimit = regionFilter !== 'all' ? baseLimit * 3 : baseLimit;
+      const fetchLimit = regionFilter !== "all" ? baseLimit * 3 : baseLimit;
       const categorySlice = resolveGlobalCategoryFilter(
-        categoryFilter === 'all' ? 'all' : categoryFilter,
+        categoryFilter === "all" ? "all" : categoryFilter,
       );
 
       // Preparar queries em paralelo
@@ -287,60 +328,104 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
       const queryTypes: string[] = [];
 
       // Urban reports (excluding feedback)
-      if (typeFilter === 'all' || typeFilter === 'urban') {
-        let urbanQuery = supabase.from('urban_reports').select(URBAN_LIST_FIELDS, { count: 'exact' }).neq('category', 'feedback_camara');
-        if (statusFilter !== 'all') urbanQuery = urbanQuery.eq('status', statusFilter);
-        if (severityFilter !== 'all') urbanQuery = urbanQuery.eq('severity', severityFilter);
+      if (typeFilter === "all" || typeFilter === "urban") {
+        let urbanQuery = supabase
+          .from("urban_reports")
+          .select(URBAN_LIST_FIELDS, { count: "exact" })
+          .neq("category", "feedback_camara");
+        if (statusFilter !== "all") urbanQuery = urbanQuery.eq("status", statusFilter);
+        if (severityFilter !== "all") urbanQuery = urbanQuery.eq("severity", severityFilter);
         if (!categorySlice.isAll && categorySlice.urbanCategories.length > 0) {
-          urbanQuery = urbanQuery.in('category', categorySlice.urbanCategories);
-        } else if (categoryFilter !== 'all') {
-          urbanQuery = urbanQuery.eq('category', categoryFilter);
+          urbanQuery = urbanQuery.in("category", categorySlice.urbanCategories);
+        } else if (categoryFilter !== "all") {
+          urbanQuery = urbanQuery.eq("category", categoryFilter);
         }
-        if (debouncedSearchTerm) urbanQuery = urbanQuery.or(`description.ilike.%${debouncedSearchTerm}%,location_address.ilike.%${debouncedSearchTerm}%,category.ilike.%${debouncedSearchTerm}%`);
-        if (dateRange.from) urbanQuery = urbanQuery.gte('created_at', dateRange.from.toISOString());
-        if (dateRange.to) urbanQuery = urbanQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(Promise.resolve(urbanQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
-        queryTypes.push('urban');
+        if (debouncedSearchTerm)
+          urbanQuery = urbanQuery.or(
+            `description.ilike.%${debouncedSearchTerm}%,location_address.ilike.%${debouncedSearchTerm}%,category.ilike.%${debouncedSearchTerm}%`,
+          );
+        if (dateRange.from) urbanQuery = urbanQuery.gte("created_at", dateRange.from.toISOString());
+        if (dateRange.to) urbanQuery = urbanQuery.lte("created_at", dateRange.to.toISOString());
+        queries.push(
+          Promise.resolve(urbanQuery.order("created_at", { ascending: false }).limit(fetchLimit)),
+        );
+        queryTypes.push("urban");
       }
 
       // Feedback (category = feedback_camara)
-      if (typeFilter === 'all' || typeFilter === 'feedback') {
-        let feedbackQuery = supabase.from('urban_reports').select(URBAN_LIST_FIELDS, { count: 'exact' }).eq('category', 'feedback_camara');
-        if (statusFilter !== 'all') feedbackQuery = feedbackQuery.eq('status', statusFilter);
-        if (debouncedSearchTerm) feedbackQuery = feedbackQuery.or(`description.ilike.%${debouncedSearchTerm}%,subcategory.ilike.%${debouncedSearchTerm}%`);
-        if (dateRange.from) feedbackQuery = feedbackQuery.gte('created_at', dateRange.from.toISOString());
-        if (dateRange.to) feedbackQuery = feedbackQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(Promise.resolve(feedbackQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
-        queryTypes.push('feedback');
+      if (typeFilter === "all" || typeFilter === "feedback") {
+        let feedbackQuery = supabase
+          .from("urban_reports")
+          .select(URBAN_LIST_FIELDS, { count: "exact" })
+          .eq("category", "feedback_camara");
+        if (statusFilter !== "all") feedbackQuery = feedbackQuery.eq("status", statusFilter);
+        if (debouncedSearchTerm)
+          feedbackQuery = feedbackQuery.or(
+            `description.ilike.%${debouncedSearchTerm}%,subcategory.ilike.%${debouncedSearchTerm}%`,
+          );
+        if (dateRange.from)
+          feedbackQuery = feedbackQuery.gte("created_at", dateRange.from.toISOString());
+        if (dateRange.to)
+          feedbackQuery = feedbackQuery.lte("created_at", dateRange.to.toISOString());
+        queries.push(
+          Promise.resolve(
+            feedbackQuery.order("created_at", { ascending: false }).limit(fetchLimit),
+          ),
+        );
+        queryTypes.push("feedback");
       }
 
       // Transport reports
-      if (typeFilter === 'all' || typeFilter === 'transport') {
-        let transportQuery = supabase.from('transport_reports').select(`${TRANSPORT_LIST_FIELDS},transport_lines(line_code,line_name)`, { count: 'exact' });
-        if (statusFilter !== 'all') transportQuery = transportQuery.eq('status', statusFilter);
-        if (severityFilter !== 'all') transportQuery = transportQuery.eq('severity', severityFilter);
-        if (debouncedSearchTerm) transportQuery = transportQuery.or(`description.ilike.%${debouncedSearchTerm}%,location.ilike.%${debouncedSearchTerm}%,report_type.ilike.%${debouncedSearchTerm}%`);
-        if (dateRange.from) transportQuery = transportQuery.gte('created_at', dateRange.from.toISOString());
-        if (dateRange.to) transportQuery = transportQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(Promise.resolve(transportQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
-        queryTypes.push('transport');
+      if (typeFilter === "all" || typeFilter === "transport") {
+        let transportQuery = supabase
+          .from("transport_reports")
+          .select(`${TRANSPORT_LIST_FIELDS},transport_lines(line_code,line_name)`, {
+            count: "exact",
+          });
+        if (statusFilter !== "all") transportQuery = transportQuery.eq("status", statusFilter);
+        if (severityFilter !== "all")
+          transportQuery = transportQuery.eq("severity", severityFilter);
+        if (debouncedSearchTerm)
+          transportQuery = transportQuery.or(
+            `description.ilike.%${debouncedSearchTerm}%,location.ilike.%${debouncedSearchTerm}%,report_type.ilike.%${debouncedSearchTerm}%`,
+          );
+        if (dateRange.from)
+          transportQuery = transportQuery.gte("created_at", dateRange.from.toISOString());
+        if (dateRange.to)
+          transportQuery = transportQuery.lte("created_at", dateRange.to.toISOString());
+        queries.push(
+          Promise.resolve(
+            transportQuery.order("created_at", { ascending: false }).limit(fetchLimit),
+          ),
+        );
+        queryTypes.push("transport");
       }
 
       // Service evaluations
-      if (typeFilter === 'all' || typeFilter === 'evaluation') {
-        let evalQuery = supabase.from('service_ratings').select(`${EVALUATION_LIST_FIELDS},public_services(name,service_type)`, { count: 'exact' });
-        if (debouncedSearchTerm) evalQuery = evalQuery.or(`rating_text.ilike.%${debouncedSearchTerm}%`);
-        if (dateRange.from) evalQuery = evalQuery.gte('created_at', dateRange.from.toISOString());
-        if (dateRange.to) evalQuery = evalQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(Promise.resolve(evalQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
-        queryTypes.push('evaluation');
+      if (typeFilter === "all" || typeFilter === "evaluation") {
+        let evalQuery = supabase
+          .from("service_ratings")
+          .select(`${EVALUATION_LIST_FIELDS},public_services(name,service_type)`, {
+            count: "exact",
+          });
+        if (debouncedSearchTerm)
+          evalQuery = evalQuery.or(`rating_text.ilike.%${debouncedSearchTerm}%`);
+        if (dateRange.from) evalQuery = evalQuery.gte("created_at", dateRange.from.toISOString());
+        if (dateRange.to) evalQuery = evalQuery.lte("created_at", dateRange.to.toISOString());
+        queries.push(
+          Promise.resolve(evalQuery.order("created_at", { ascending: false }).limit(fetchLimit)),
+        );
+        queryTypes.push("evaluation");
       }
 
       // Executar todas as queries em paralelo
       const results = await Promise.all(queries);
 
       const allManifests: UnifiedManifest[] = [];
-      let urbanCount = 0, feedbackCount = 0, transportCount = 0, evaluationCount = 0;
+      let urbanCount = 0,
+        feedbackCount = 0,
+        transportCount = 0,
+        evaluationCount = 0;
 
       results.forEach((result, index) => {
         const type = queryTypes[index];
@@ -352,137 +437,155 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
         const data = result.data || [];
         const count = result.count || 0;
 
-        if (type === 'urban') {
+        if (type === "urban") {
           urbanCount = count;
-          allManifests.push(...data.map((r: Record<string, unknown>) => ({
-            id: r.id,
-            type: 'urban' as ManifestType,
-            title: r.subcategory || r.category,
-            description: r.description,
-            severity: r.severity || 'medium',
-            status: r.status || 'pending',
-            created_at: r.created_at || '',
-            updated_at: r.updated_at,
-            location: r.location_address,
-            author: null,
-            urban_data: {
-              category: r.category,
-              subcategory: r.subcategory,
-              photos: null,
-              likes_count: 0,
-              comments_count: 0,
-              ai_classification: null,
-              protocol_code: r.protocol_code,
-              street: null,
-              street_number: null,
-              cep: null,
-              neighborhood: r.neighborhood,
-              latitude: r.latitude as number | null,
-              longitude: r.longitude as number | null,
-              reference_point: null,
-              risk_level: null,
-              risk_types: null,
-              affected_scope: null,
-              affected_estimate: null,
-              urgency_reason: null,
-            },
-          })));
-        } else if (type === 'feedback') {
+          allManifests.push(
+            ...data.map((r: Record<string, unknown>) => ({
+              id: r.id,
+              type: "urban" as ManifestType,
+              title: r.subcategory || r.category,
+              description: r.description,
+              severity: r.severity || "medium",
+              status: r.status || "pending",
+              created_at: r.created_at || "",
+              updated_at: r.updated_at,
+              location: r.location_address,
+              author: null,
+              urban_data: {
+                category: r.category,
+                subcategory: r.subcategory,
+                photos: null,
+                likes_count: 0,
+                comments_count: 0,
+                ai_classification: null,
+                protocol_code: r.protocol_code,
+                street: null,
+                street_number: null,
+                cep: null,
+                neighborhood: r.neighborhood,
+                latitude: r.latitude as number | null,
+                longitude: r.longitude as number | null,
+                reference_point: null,
+                risk_level: null,
+                risk_types: null,
+                affected_scope: null,
+                affected_estimate: null,
+                urgency_reason: null,
+              },
+            })),
+          );
+        } else if (type === "feedback") {
           feedbackCount = count;
-          allManifests.push(...data.map((r: Record<string, unknown>) => ({
-            id: r.id,
-            type: 'feedback' as ManifestType,
-            title: r.subcategory || 'Feedback Câmara',
-            description: r.description,
-            severity: r.severity || 'medium',
-            status: r.status || 'pending',
-            created_at: r.created_at || '',
-            updated_at: r.updated_at,
-            location: null,
-            author: null,
-            urban_data: {
-              category: r.category,
-              subcategory: r.subcategory,
-              photos: null,
-              latitude: null,
-              longitude: null,
-              likes_count: 0,
-              comments_count: 0,
-              ai_classification: null,
-              protocol_code: null,
-              street: null,
-              street_number: null,
-              cep: null,
-              neighborhood: null,
-              reference_point: null,
-              risk_level: null,
-              risk_types: null,
-              affected_scope: null,
-              affected_estimate: null,
-              urgency_reason: null,
-            },
-          })));
-        } else if (type === 'transport') {
+          allManifests.push(
+            ...data.map((r: Record<string, unknown>) => ({
+              id: r.id,
+              type: "feedback" as ManifestType,
+              title: r.subcategory || "Feedback Câmara",
+              description: r.description,
+              severity: r.severity || "medium",
+              status: r.status || "pending",
+              created_at: r.created_at || "",
+              updated_at: r.updated_at,
+              location: null,
+              author: null,
+              urban_data: {
+                category: r.category,
+                subcategory: r.subcategory,
+                photos: null,
+                latitude: null,
+                longitude: null,
+                likes_count: 0,
+                comments_count: 0,
+                ai_classification: null,
+                protocol_code: null,
+                street: null,
+                street_number: null,
+                cep: null,
+                neighborhood: null,
+                reference_point: null,
+                risk_level: null,
+                risk_types: null,
+                affected_scope: null,
+                affected_estimate: null,
+                urgency_reason: null,
+              },
+            })),
+          );
+        } else if (type === "transport") {
           transportCount = count;
-          allManifests.push(...data.map((r: Record<string, unknown>) => ({
-            id: r.id,
-            type: 'transport' as ManifestType,
-            title: r.report_type,
-            description: r.description,
-            severity: r.severity,
-            status: r.status,
-            created_at: r.created_at || '',
-            updated_at: r.updated_at,
-            location: r.location,
-            author: null,
-            transport_data: {
-              report_type: r.report_type,
-              line_id: r.line_id,
-              line_code: (r.transport_lines as { line_code?: string; line_name?: string } | null)?.line_code || null,
-              line_name: (r.transport_lines as { line_code?: string; line_name?: string } | null)?.line_name || null,
-              occurrence_date: r.occurrence_date,
-              occurrence_time: r.occurrence_time,
-              impact_description: null,
-              ai_sentiment: null,
-              ai_category: null,
-              ai_pattern_detected: null,
-              responded_at: r.responded_at,
-              responses_count: 0,
-              protocol_code: r.protocol_code,
-            },
-          })));
-        } else if (type === 'evaluation') {
+          allManifests.push(
+            ...data.map((r: Record<string, unknown>) => ({
+              id: r.id,
+              type: "transport" as ManifestType,
+              title: r.report_type,
+              description: r.description,
+              severity: r.severity,
+              status: r.status,
+              created_at: r.created_at || "",
+              updated_at: r.updated_at,
+              location: r.location,
+              author: null,
+              transport_data: {
+                report_type: r.report_type,
+                line_id: r.line_id,
+                line_code:
+                  (r.transport_lines as { line_code?: string; line_name?: string } | null)
+                    ?.line_code || null,
+                line_name:
+                  (r.transport_lines as { line_code?: string; line_name?: string } | null)
+                    ?.line_name || null,
+                occurrence_date: r.occurrence_date,
+                occurrence_time: r.occurrence_time,
+                impact_description: null,
+                ai_sentiment: null,
+                ai_category: null,
+                ai_pattern_detected: null,
+                responded_at: r.responded_at,
+                responses_count: 0,
+                protocol_code: r.protocol_code,
+              },
+            })),
+          );
+        } else if (type === "evaluation") {
           evaluationCount = count;
-          allManifests.push(...data.map((r: Record<string, unknown>) => ({
-            id: r.id,
-            type: 'evaluation' as ManifestType,
-            title: (r.public_services as { name?: string; service_type?: string } | null)?.name || 'Avaliação de Serviço',
-            description: r.rating_text,
-            severity: r.rating_stars <= 2 ? 'high' : r.rating_stars <= 3 ? 'medium' : 'low',
-            status: 'completed',
-            created_at: r.created_at || '',
-            updated_at: r.updated_at,
-            location: null,
-            author: null,
-            evaluation_data: {
-              service_id: r.service_id,
-              service_name: (r.public_services as { name?: string; service_type?: string } | null)?.name || null,
-              service_type: (r.public_services as { name?: string; service_type?: string } | null)?.service_type || null,
-              rating_stars: r.rating_stars,
-              rating_text: r.rating_text,
-              sentiment: r.sentiment,
-              visit_id: '',
-              is_anonymous: r.is_anonymous || false,
-              publication_status: (r.publication_status as string) || 'published',
-            },
-          })));
+          allManifests.push(
+            ...data.map((r: Record<string, unknown>) => ({
+              id: r.id,
+              type: "evaluation" as ManifestType,
+              title:
+                (r.public_services as { name?: string; service_type?: string } | null)?.name ||
+                "Avaliação de Serviço",
+              description: r.rating_text,
+              severity: r.rating_stars <= 2 ? "high" : r.rating_stars <= 3 ? "medium" : "low",
+              status: "completed",
+              created_at: r.created_at || "",
+              updated_at: r.updated_at,
+              location: null,
+              author: null,
+              evaluation_data: {
+                service_id: r.service_id,
+                service_name:
+                  (r.public_services as { name?: string; service_type?: string } | null)?.name ||
+                  null,
+                service_type:
+                  (r.public_services as { name?: string; service_type?: string } | null)
+                    ?.service_type || null,
+                rating_stars: r.rating_stars,
+                rating_text: r.rating_text,
+                sentiment: r.sentiment,
+                visit_id: "",
+                is_anonymous: r.is_anonymous || false,
+                publication_status: (r.publication_status as string) || "published",
+              },
+            })),
+          );
         }
       });
 
       let filteredManifests = allManifests;
-      if (regionFilter !== 'all') {
+      if (regionFilter !== "all") {
         filteredManifests = filteredManifests.filter((m) => {
-          if (m.type !== 'urban' || !m.urban_data) return m.type !== 'urban';
+          if (m.type !== "urban" || !m.urban_data) return m.type !== "urban";
           const u = m.urban_data;
           return urbanReportMatchesGlobalRegion(
             {
@@ -502,19 +605,32 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
       const paginated = fetchCap ? sorted.slice(0, fetchCap) : sorted.slice(from, to + 1);
 
       // Buscar profiles apenas para os itens paginados
-      const userIds = [...new Set(paginated.map(m => {
-        // Extrair user_id do item original baseado no type
-        const originalItem = results.flatMap(r => r.data || []).find((d: Record<string, unknown>) => d.id === m.id);
-        return originalItem?.user_id;
-      }).filter(Boolean))];
+      const userIds = [
+        ...new Set(
+          paginated
+            .map((m) => {
+              // Extrair user_id do item original baseado no type
+              const originalItem = results
+                .flatMap((r) => r.data || [])
+                .find((d: Record<string, unknown>) => d.id === m.id);
+              return originalItem?.user_id;
+            })
+            .filter(Boolean),
+        ),
+      ];
 
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds);
-        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
+        const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
         // Atribuir profiles
-        paginated.forEach(m => {
-          const originalItem = results.flatMap(r => r.data || []).find((d: Record<string, unknown>) => d.id === m.id);
+        paginated.forEach((m) => {
+          const originalItem = results
+            .flatMap((r) => r.data || [])
+            .find((d: Record<string, unknown>) => d.id === m.id);
           if (originalItem?.user_id && profileMap.has(originalItem.user_id)) {
             m.author = profileMap.get(originalItem.user_id) || null;
           }
@@ -526,8 +642,8 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
       setTotalCount(urbanCount + feedbackCount + transportCount + evaluationCount);
       setLastDataUpdate(new Date());
     } catch (error) {
-      console.error('Error fetching manifests:', error);
-      toast.error('Erro ao carregar relatos');
+      console.error("Error fetching manifests:", error);
+      toast.error("Erro ao carregar relatos");
     } finally {
       setLoading(false);
     }
@@ -544,178 +660,221 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
     dateRange,
   ]);
 
-  const updateManifestStatus = useCallback(async (id: string, type: ManifestType, newStatus: string) => {
-    if (type === 'evaluation') {
-      toast.error('Avaliações não podem ter status alterado');
-      return;
-    }
-
-    // Optimistic update
-    const previousManifests = [...manifests];
-    const oldManifest = manifests.find(m => m.id === id);
-    const oldStatus = oldManifest?.status;
-    
-    setManifests(prev => prev.map(m => 
-      m.id === id ? { ...m, status: newStatus, updated_at: new Date().toISOString() } : m
-    ));
-
-    try {
-      const table = type === 'urban' || type === 'feedback' ? 'urban_reports' : 'transport_reports';
-      const { error } = await supabase
-        .from(table)
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          action: 'update',
-          entity_type: type === 'urban' || type === 'feedback' ? 'urban_report' : 'transport_report',
-          entity_id: id,
-          old_values: { status: oldStatus },
-          new_values: { status: newStatus },
-          user_agent: navigator.userAgent
-        });
-      }
-
-      toast.success('Status atualizado');
-      fetchKPIs();
-    } catch (error) {
-      setManifests(previousManifests);
-      console.error('Error updating status:', error);
-      toast.error('Erro ao atualizar status');
-    }
-  }, [manifests, fetchKPIs]);
-
-  const VALID_TRANSPORT_REPORT_TYPES = [
-    'atraso',
-    'lotacao',
-    'seguranca',
-    'acessibilidade',
-    'limpeza',
-    'conducao',
-    'outro',
-  ] as const;
-
-  const updateManifestCategory = useCallback(async (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => {
-    if (manifest.type === 'transport') {
-      if (!VALID_TRANSPORT_REPORT_TYPES.includes(newCategory as (typeof VALID_TRANSPORT_REPORT_TYPES)[number])) {
-        toast.error('Tipo de relato de transporte inválido');
+  const updateManifestStatus = useCallback(
+    async (id: string, type: ManifestType, newStatus: string) => {
+      if (type === "evaluation") {
+        toast.error("Avaliações não podem ter status alterado");
         return;
       }
-      const originalType = manifest.transport_data?.report_type ?? '';
-      const subTrim = newSubcategory?.trim() || null;
-      if (originalType === newCategory && !subTrim) {
-        toast.info('Nenhuma alteração');
+
+      // Optimistic update
+      const previousManifests = [...manifests];
+      const oldManifest = manifests.find((m) => m.id === id);
+      const oldStatus = oldManifest?.status;
+
+      setManifests((prev) =>
+        prev.map((m) =>
+          m.id === id ? { ...m, status: newStatus, updated_at: new Date().toISOString() } : m,
+        ),
+      );
+
+      try {
+        const table =
+          type === "urban" || type === "feedback" ? "urban_reports" : "transport_reports";
+        const { error } = await supabase
+          .from(table)
+          .update({ status: newStatus, updated_at: new Date().toISOString() })
+          .eq("id", id);
+
+        if (error) throw error;
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("audit_logs").insert({
+            user_id: user.id,
+            action: "update",
+            entity_type:
+              type === "urban" || type === "feedback" ? "urban_report" : "transport_report",
+            entity_id: id,
+            old_values: { status: oldStatus },
+            new_values: { status: newStatus },
+            user_agent: navigator.userAgent,
+          });
+        }
+
+        toast.success("Status atualizado");
+        fetchKPIs();
+      } catch (error) {
+        setManifests(previousManifests);
+        console.error("Error updating status:", error);
+        toast.error("Erro ao atualizar status");
+      }
+    },
+    [manifests, fetchKPIs],
+  );
+
+  const VALID_TRANSPORT_REPORT_TYPES = [
+    "atraso",
+    "lotacao",
+    "seguranca",
+    "acessibilidade",
+    "limpeza",
+    "conducao",
+    "outro",
+  ] as const;
+
+  const updateManifestCategory = useCallback(
+    async (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => {
+      if (manifest.type === "transport") {
+        if (
+          !VALID_TRANSPORT_REPORT_TYPES.includes(
+            newCategory as (typeof VALID_TRANSPORT_REPORT_TYPES)[number],
+          )
+        ) {
+          toast.error("Tipo de relato de transporte inválido");
+          return;
+        }
+        const originalType = manifest.transport_data?.report_type ?? "";
+        const subTrim = newSubcategory?.trim() || null;
+        if (originalType === newCategory && !subTrim) {
+          toast.info("Nenhuma alteração");
+          return;
+        }
+        const previousManifests = [...manifests];
+        setManifests((prev) =>
+          prev.map((m) => {
+            if (m.id !== manifest.id) return m;
+            return {
+              ...m,
+              transport_data: m.transport_data
+                ? { ...m.transport_data, report_type: newCategory }
+                : undefined,
+            };
+          }),
+        );
+        try {
+          const { error: updateError } = await supabase
+            .from("transport_reports")
+            .update({ report_type: newCategory, updated_at: new Date().toISOString() })
+            .eq("id", manifest.id);
+          if (updateError) throw updateError;
+          const descriptionExcerpt =
+            (manifest.description || "").slice(0, 500) || "(sem descrição)";
+          const { error: feedbackError } = await supabase
+            .from("report_classification_feedback")
+            .insert({
+              report_type: "transport",
+              report_id: manifest.id,
+              original_category: originalType,
+              original_subcategory: null,
+              corrected_category: newCategory,
+              corrected_subcategory: subTrim,
+              description_excerpt: descriptionExcerpt,
+              source: "admin",
+            });
+          if (feedbackError) {
+            console.warn("Feedback de classificação (transporte) não registrado:", feedbackError);
+            toast.warning(
+              "Tipo atualizado, mas a correção não foi gravada nas métricas. Verifique permissões.",
+            );
+          } else {
+            toast.success("Tipo atualizado; correção usada para melhorar a IA.");
+          }
+        } catch (error) {
+          setManifests(previousManifests);
+          console.error("Error updating transport report type:", error);
+          toast.error("Erro ao atualizar tipo de transporte");
+        }
+        return;
+      }
+
+      if (manifest.type !== "urban" && manifest.type !== "feedback") {
+        toast.error("Correção de categoria só para relatos urbanos ou transporte");
+        return;
+      }
+      const originalCategory = manifest.urban_data?.category ?? "";
+      const originalSubcategory = manifest.urban_data?.subcategory ?? null;
+      if (originalCategory === newCategory && originalSubcategory === newSubcategory) {
+        toast.info("Nenhuma alteração");
         return;
       }
       const previousManifests = [...manifests];
-      setManifests(prev =>
-        prev.map(m => {
+      setManifests((prev) =>
+        prev.map((m) => {
           if (m.id !== manifest.id) return m;
           return {
             ...m,
-            transport_data: m.transport_data
-              ? { ...m.transport_data, report_type: newCategory }
+            urban_data: m.urban_data
+              ? { ...m.urban_data, category: newCategory, subcategory: newSubcategory }
               : undefined,
           };
-        })
+        }),
       );
       try {
         const { error: updateError } = await supabase
-          .from('transport_reports')
-          .update({ report_type: newCategory, updated_at: new Date().toISOString() })
-          .eq('id', manifest.id);
+          .from("urban_reports")
+          .update({
+            category: newCategory,
+            subcategory: newSubcategory,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", manifest.id);
         if (updateError) throw updateError;
-        const descriptionExcerpt = (manifest.description || '').slice(0, 500) || '(sem descrição)';
-        const { error: feedbackError } = await supabase.from('report_classification_feedback').insert({
-          report_type: 'transport',
-          report_id: manifest.id,
-          original_category: originalType,
-          original_subcategory: null,
-          corrected_category: newCategory,
-          corrected_subcategory: subTrim,
-          description_excerpt: descriptionExcerpt,
-          source: 'admin',
-        });
+        const descriptionExcerpt = (manifest.description || "").slice(0, 500) || "(sem descrição)";
+        const { error: feedbackError } = await supabase
+          .from("report_classification_feedback")
+          .insert({
+            report_type: "urban",
+            report_id: manifest.id,
+            original_category: originalCategory,
+            original_subcategory: originalSubcategory,
+            corrected_category: newCategory,
+            corrected_subcategory: newSubcategory,
+            description_excerpt: descriptionExcerpt,
+            source: "admin",
+          });
         if (feedbackError) {
-          console.warn('Feedback de classificação (transporte) não registrado:', feedbackError);
-          toast.warning('Tipo atualizado, mas a correção não foi gravada nas métricas. Verifique permissões.');
+          console.warn("Feedback de classificação não registrado:", feedbackError);
+          toast.warning(
+            "Categoria atualizada, mas a correção não foi gravada nas métricas. Verifique permissões.",
+          );
         } else {
-          toast.success('Tipo atualizado; correção usada para melhorar a IA.');
+          toast.success("Categoria atualizada; correção usada para melhorar a IA.");
         }
       } catch (error) {
         setManifests(previousManifests);
-        console.error('Error updating transport report type:', error);
-        toast.error('Erro ao atualizar tipo de transporte');
+        console.error("Error updating category:", error);
+        toast.error("Erro ao atualizar categoria");
       }
-      return;
-    }
-
-    if (manifest.type !== 'urban' && manifest.type !== 'feedback') {
-      toast.error('Correção de categoria só para relatos urbanos ou transporte');
-      return;
-    }
-    const originalCategory = manifest.urban_data?.category ?? '';
-    const originalSubcategory = manifest.urban_data?.subcategory ?? null;
-    if (originalCategory === newCategory && originalSubcategory === newSubcategory) {
-      toast.info('Nenhuma alteração');
-      return;
-    }
-    const previousManifests = [...manifests];
-    setManifests(prev => prev.map(m => {
-      if (m.id !== manifest.id) return m;
-      return {
-        ...m,
-        urban_data: m.urban_data ? { ...m.urban_data, category: newCategory, subcategory: newSubcategory } : undefined,
-      };
-    }));
-    try {
-      const { error: updateError } = await supabase
-        .from('urban_reports')
-        .update({ category: newCategory, subcategory: newSubcategory, updated_at: new Date().toISOString() })
-        .eq('id', manifest.id);
-      if (updateError) throw updateError;
-      const descriptionExcerpt = (manifest.description || '').slice(0, 500) || '(sem descrição)';
-      const { error: feedbackError } = await supabase
-        .from('report_classification_feedback')
-        .insert({
-          report_type: 'urban',
-          report_id: manifest.id,
-          original_category: originalCategory,
-          original_subcategory: originalSubcategory,
-          corrected_category: newCategory,
-          corrected_subcategory: newSubcategory,
-          description_excerpt: descriptionExcerpt,
-          source: 'admin',
-        });
-      if (feedbackError) {
-        console.warn('Feedback de classificação não registrado:', feedbackError);
-        toast.warning('Categoria atualizada, mas a correção não foi gravada nas métricas. Verifique permissões.');
-      } else {
-        toast.success('Categoria atualizada; correção usada para melhorar a IA.');
-      }
-    } catch (error) {
-      setManifests(previousManifests);
-      console.error('Error updating category:', error);
-      toast.error('Erro ao atualizar categoria');
-    }
-  }, [manifests]);
+    },
+    [manifests],
+  );
 
   const updateBulkStatus = async (ids: { id: string; type: ManifestType }[], newStatus: string) => {
     try {
-      const urbanIds = ids.filter(i => i.type === 'urban' || i.type === 'feedback').map(i => i.id);
-      const transportIds = ids.filter(i => i.type === 'transport').map(i => i.id);
+      const urbanIds = ids
+        .filter((i) => i.type === "urban" || i.type === "feedback")
+        .map((i) => i.id);
+      const transportIds = ids.filter((i) => i.type === "transport").map((i) => i.id);
 
       const updates = [];
       if (urbanIds.length > 0) {
-        updates.push(supabase.from('urban_reports').update({ status: newStatus, updated_at: new Date().toISOString() }).in('id', urbanIds));
+        updates.push(
+          supabase
+            .from("urban_reports")
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .in("id", urbanIds),
+        );
       }
       if (transportIds.length > 0) {
-        updates.push(supabase.from('transport_reports').update({ status: newStatus, updated_at: new Date().toISOString() }).in('id', transportIds));
+        updates.push(
+          supabase
+            .from("transport_reports")
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .in("id", transportIds),
+        );
       }
 
       await Promise.all(updates);
@@ -724,54 +883,65 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
       fetchManifests();
       fetchKPIs();
     } catch (error) {
-      console.error('Error updating bulk status:', error);
-      toast.error('Erro ao atualizar status em lote');
+      console.error("Error updating bulk status:", error);
+      toast.error("Erro ao atualizar status em lote");
     }
   };
 
   const deleteManifest = async (id: string, type: ManifestType) => {
     try {
-      const manifestToDelete = manifests.find(m => m.id === id);
-      
-      if (type === 'urban' || type === 'feedback') {
+      const manifestToDelete = manifests.find((m) => m.id === id);
+
+      if (type === "urban" || type === "feedback") {
         await Promise.all([
-          supabase.from('urban_report_likes').delete().eq('report_id', id),
-          supabase.from('urban_report_comments').delete().eq('report_id', id),
-          supabase.from('council_member_referrals').delete().eq('urban_report_id', id),
+          supabase.from("urban_report_likes").delete().eq("report_id", id),
+          supabase.from("urban_report_comments").delete().eq("report_id", id),
+          supabase.from("council_member_referrals").delete().eq("urban_report_id", id),
         ]);
-        const { error } = await supabase.from('urban_reports').delete().eq('id', id);
+        const { error } = await supabase.from("urban_reports").delete().eq("id", id);
         if (error) throw error;
-      } else if (type === 'transport') {
+      } else if (type === "transport") {
         await Promise.all([
-          supabase.from('transport_report_responses').delete().eq('report_id', id),
-          supabase.from('council_member_referrals').delete().eq('transport_report_id', id),
+          supabase.from("transport_report_responses").delete().eq("report_id", id),
+          supabase.from("council_member_referrals").delete().eq("transport_report_id", id),
         ]);
-        const { error } = await supabase.from('transport_reports').delete().eq('id', id);
+        const { error } = await supabase.from("transport_reports").delete().eq("id", id);
         if (error) throw error;
-      } else if (type === 'evaluation') {
-        await supabase.from('council_member_referrals').delete().eq('service_rating_id', id);
-        const { error } = await supabase.from('service_ratings').delete().eq('id', id);
+      } else if (type === "evaluation") {
+        await supabase.from("council_member_referrals").delete().eq("service_rating_id", id);
+        const { error } = await supabase.from("service_ratings").delete().eq("id", id);
         if (error) throw error;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('audit_logs').insert({
+        await supabase.from("audit_logs").insert({
           user_id: user.id,
-          action: 'delete',
-          entity_type: type === 'urban' ? 'urban_report' : type === 'transport' ? 'transport_report' : type === 'evaluation' ? 'service_rating' : 'feedback',
+          action: "delete",
+          entity_type:
+            type === "urban"
+              ? "urban_report"
+              : type === "transport"
+                ? "transport_report"
+                : type === "evaluation"
+                  ? "service_rating"
+                  : "feedback",
           entity_id: id,
-          old_values: manifestToDelete ? { title: manifestToDelete.title, status: manifestToDelete.status } : null,
-          user_agent: navigator.userAgent
+          old_values: manifestToDelete
+            ? { title: manifestToDelete.title, status: manifestToDelete.status }
+            : null,
+          user_agent: navigator.userAgent,
         });
       }
 
-      toast.success('Relato excluído com sucesso');
+      toast.success("Relato excluído com sucesso");
       fetchManifests();
       fetchKPIs();
     } catch (error) {
-      console.error('Error deleting manifest:', error);
-      toast.error('Erro ao excluir relato');
+      console.error("Error deleting manifest:", error);
+      toast.error("Erro ao excluir relato");
     }
   };
 
@@ -781,93 +951,103 @@ export const useReportsAdmin = (options?: UseReportsAdminOptions): UseReportsAdm
         await deleteManifest(id, type);
       }
     } catch (error) {
-      console.error('Error bulk deleting:', error);
-      toast.error('Erro ao excluir em lote');
+      console.error("Error bulk deleting:", error);
+      toast.error("Erro ao excluir em lote");
     }
   };
 
   const exportToCSV = async () => {
-    const headers = ['ID', 'Tipo', 'Título', 'Descrição', 'Severidade', 'Status', 'Data', 'Autor'];
+    const headers = ["ID", "Tipo", "Título", "Descrição", "Severidade", "Status", "Data", "Autor"];
     const typeLabels: Record<ManifestType, string> = {
-      urban: 'Urbana',
-      transport: 'Transporte',
-      evaluation: 'Avaliação',
-      feedback: 'Feedback',
+      urban: "Urbana",
+      transport: "Transporte",
+      evaluation: "Avaliação",
+      feedback: "Feedback",
     };
 
-    const rows = manifests.map(m => [
+    const rows = manifests.map((m) => [
       m.id,
       typeLabels[m.type],
       m.title,
-      m.description || '',
+      m.description || "",
       m.severity,
       m.status,
       m.created_at,
-      m.author?.full_name || 'Anônimo',
+      m.author?.full_name || "Anônimo",
     ]);
 
-    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `relatos-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `relatos-${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         await Promise.all([
-          supabase.from('export_logs').insert({
+          supabase.from("export_logs").insert({
             user_id: user.id,
-            export_type: typeFilter === 'all' ? 'all_manifests' : typeFilter,
-            format: 'csv',
-            status: 'completed',
+            export_type: typeFilter === "all" ? "all_manifests" : typeFilter,
+            format: "csv",
+            status: "completed",
             row_count: manifests.length,
             filters: {
               status: statusFilter,
               severity: severityFilter,
               type: typeFilter,
               search: debouncedSearchTerm,
-              dateRange: dateRange.from || dateRange.to ? {
-                from: dateRange.from?.toISOString(),
-                to: dateRange.to?.toISOString()
-              } : null
+              dateRange:
+                dateRange.from || dateRange.to
+                  ? {
+                      from: dateRange.from?.toISOString(),
+                      to: dateRange.to?.toISOString(),
+                    }
+                  : null,
             },
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
           }),
-          supabase.from('audit_logs').insert({
+          supabase.from("audit_logs").insert({
             user_id: user.id,
-            action: 'export',
-            entity_type: 'manifestations',
+            action: "export",
+            entity_type: "manifestations",
             metadata: {
-              export_type: typeFilter === 'all' ? 'all_manifests' : typeFilter,
-              format: 'csv',
+              export_type: typeFilter === "all" ? "all_manifests" : typeFilter,
+              format: "csv",
               row_count: manifests.length,
-              filters: { status: statusFilter, severity: severityFilter, type: typeFilter }
+              filters: { status: statusFilter, severity: severityFilter, type: typeFilter },
             },
-            user_agent: navigator.userAgent
-          })
+            user_agent: navigator.userAgent,
+          }),
         ]);
       }
     } catch (error) {
-      console.error('Error logging export:', error);
+      console.error("Error logging export:", error);
     }
 
-    toast.success('CSV exportado com sucesso');
+    toast.success("CSV exportado com sucesso");
   };
 
   // Fetch available regions on mount
   useEffect(() => {
     const fetchRegions = async () => {
       const { data } = await supabase
-        .from('urban_reports')
-        .select('neighborhood')
-        .not('neighborhood', 'is', null)
+        .from("urban_reports")
+        .select("neighborhood")
+        .not("neighborhood", "is", null)
         .limit(500);
-      
-      const uniqueRegions = [...new Set(data?.map(r => r.neighborhood).filter(Boolean) as string[])].sort();
+
+      const uniqueRegions = [
+        ...new Set(data?.map((r) => r.neighborhood).filter(Boolean) as string[]),
+      ].sort();
       setAvailableRegions(uniqueRegions);
     };
     fetchRegions();

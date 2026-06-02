@@ -55,14 +55,14 @@ const SP_BOUNDING_BOXES: ZoneDefinition[] = [
     zona: "Centro",
     boxes: [
       // Sé, República, Bom Retiro, Liberdade, Bela Vista, Cambuci, Santa Cecília
-      { minLat: -23.5605, maxLat: -23.5275, minLng: -46.660, maxLng: -46.625 },
+      { minLat: -23.5605, maxLat: -23.5275, minLng: -46.66, maxLng: -46.625 },
     ],
   },
   {
     zona: "Zona Norte",
     boxes: [
       // Santana, Tucuruvi, Vila Maria, Casa Verde, Limão, Brasilândia, Freguesia, Pirituba, Perus, Jaçanã
-      { minLat: -23.530, maxLat: -23.380, minLng: -46.770, maxLng: -46.450 },
+      { minLat: -23.53, maxLat: -23.38, minLng: -46.77, maxLng: -46.45 },
     ],
   },
   {
@@ -70,7 +70,7 @@ const SP_BOUNDING_BOXES: ZoneDefinition[] = [
     boxes: [
       // Lapa, Butantã, Pinheiros, Vila Sônia, Morumbi, Jaguaré, Rio Pequeno, Raposo Tavares, Barra Funda
       // Cidade Jardim / Jd. Everest também caem aqui pelas coordenadas reais.
-      { minLat: -23.640, maxLat: -23.500, minLng: -46.850, maxLng: -46.660 },
+      { minLat: -23.64, maxLat: -23.5, minLng: -46.85, maxLng: -46.66 },
     ],
   },
   {
@@ -78,7 +78,7 @@ const SP_BOUNDING_BOXES: ZoneDefinition[] = [
     boxes: [
       // Mooca, Tatuapé, Penha, Vila Prudente, Sapopemba, Aricanduva, Itaim Paulista, Itaquera, São Mateus, Guaianases, Ermelino, São Miguel, Cidade Tiradentes
       // minLat -23.580 e minLng -46.605 evitam pegar Ipiranga (Zona Sul real)
-      { minLat: -23.580, maxLat: -23.430, minLng: -46.605, maxLng: -46.350 },
+      { minLat: -23.58, maxLat: -23.43, minLng: -46.605, maxLng: -46.35 },
     ],
   },
   {
@@ -86,18 +86,13 @@ const SP_BOUNDING_BOXES: ZoneDefinition[] = [
     zona: "Zona Sul",
     boxes: [
       // Ipiranga, Jabaquara, Saúde, Vila Mariana, Cursino, Cidade Ademar, Santo Amaro, Capela do Socorro, Parelheiros, M'Boi Mirim
-      { minLat: -23.870, maxLat: -23.560, minLng: -46.770, maxLng: -46.580 },
+      { minLat: -23.87, maxLat: -23.56, minLng: -46.77, maxLng: -46.58 },
     ],
   },
 ];
 
 function pointInBox(lat: number, lng: number, box: BoundingBox): boolean {
-  return (
-    lat >= box.minLat &&
-    lat <= box.maxLat &&
-    lng >= box.minLng &&
-    lng <= box.maxLng
-  );
+  return lat >= box.minLat && lat <= box.maxLat && lng >= box.minLng && lng <= box.maxLng;
 }
 
 /**
@@ -137,7 +132,6 @@ export function coordinatesToZone(
 
   return null;
 }
-
 
 // Exports para teste
 export const __test__ = { SP_BOUNDING_BOXES, pointInBox };

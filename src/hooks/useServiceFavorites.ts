@@ -92,7 +92,13 @@ export function useFavoriteServiceIds() {
     [user?.id, favoriteIds],
   );
 
-  return { favoriteIds, loading, refetch, toggleFavorite, isFavorite: (id: string) => favoriteIds.has(id) };
+  return {
+    favoriteIds,
+    loading,
+    refetch,
+    toggleFavorite,
+    isFavorite: (id: string) => favoriteIds.has(id),
+  };
 }
 
 /** Estado de favorito para um único equipamento (detalhe do serviço). */

@@ -23,10 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import {
-  useDashboardPresets,
-  type DashboardPreset,
-} from "@/hooks/useDashboardPresets";
+import { useDashboardPresets, type DashboardPreset } from "@/hooks/useDashboardPresets";
 import { getTheme } from "@/lib/widgetThemes";
 import { cn } from "@/lib/utils";
 
@@ -88,8 +85,7 @@ export function ManagePresetsDialog({ open, onOpenChange }: ManagePresetsDialogP
     let n = 2;
     while (
       presets.find(
-        (other) =>
-          other.name.localeCompare(newName, "pt-BR", { sensitivity: "base" }) === 0,
+        (other) => other.name.localeCompare(newName, "pt-BR", { sensitivity: "base" }) === 0,
       )
     ) {
       newName = `${base} (cópia ${n})`;
@@ -137,8 +133,8 @@ export function ManagePresetsDialog({ open, onOpenChange }: ManagePresetsDialogP
               <p className="text-sm text-muted-foreground">Carregando...</p>
             ) : sortedPresets.length === 0 ? (
               <Card className="p-6 text-center text-sm text-muted-foreground">
-                Nenhuma configuração salva ainda. Use "Salvar atual..." no
-                dropdown de configurações para criar a primeira.
+                Nenhuma configuração salva ainda. Use "Salvar atual..." no dropdown de configurações
+                para criar a primeira.
               </Card>
             ) : (
               sortedPresets.map((p) => {
@@ -178,7 +174,10 @@ export function ManagePresetsDialog({ open, onOpenChange }: ManagePresetsDialogP
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          Tema: <span className={cn("font-medium", themeMeta.accentClass)}>{themeMeta.label}</span>
+                          Tema:{" "}
+                          <span className={cn("font-medium", themeMeta.accentClass)}>
+                            {themeMeta.label}
+                          </span>
                         </div>
                       </div>
 
@@ -256,16 +255,13 @@ export function ManagePresetsDialog({ open, onOpenChange }: ManagePresetsDialogP
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={confirmDelete !== null}
-        onOpenChange={(o) => !o && setConfirmDelete(null)}
-      >
+      <AlertDialog open={confirmDelete !== null} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir configuração?</AlertDialogTitle>
             <AlertDialogDescription>
-              A configuração <strong>"{confirmDelete?.name}"</strong> será removida
-              permanentemente. Esta ação não pode ser desfeita.
+              A configuração <strong>"{confirmDelete?.name}"</strong> será removida permanentemente.
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

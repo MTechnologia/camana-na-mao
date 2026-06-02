@@ -35,9 +35,7 @@ export interface CriticidadeFacetTarget {
 }
 
 /** True se há alguma consequência ativa registrada. */
-function hasActiveConsequencesValue(
-  value: string | string[] | null | undefined,
-): boolean {
+function hasActiveConsequencesValue(value: string | string[] | null | undefined): boolean {
   if (value == null) return false;
   if (Array.isArray(value)) {
     return value.some((v) => typeof v === "string" && v.trim().length > 0);
@@ -62,9 +60,8 @@ export function applyCriticidadeFacet<T extends CriticidadeFacetTarget>(
   facet: CriticidadeFacet | undefined,
 ): T[] {
   if (!facet) return rows;
-  const wantedSeverities = facet.severities && facet.severities.length > 0
-    ? new Set(facet.severities)
-    : null;
+  const wantedSeverities =
+    facet.severities && facet.severities.length > 0 ? new Set(facet.severities) : null;
   return rows.filter((r) => {
     if (wantedSeverities) {
       const sev = normalizeSeverity(r.severity);
@@ -96,14 +93,11 @@ export function applyEficienciaFacet<T extends EficienciaFacetTarget>(
   facet: EficienciaFacet | undefined,
 ): T[] {
   if (!facet) return rows;
-  const wantedStatuses = facet.statuses && facet.statuses.length > 0
-    ? new Set(facet.statuses)
-    : null;
+  const wantedStatuses =
+    facet.statuses && facet.statuses.length > 0 ? new Set(facet.statuses) : null;
   const slaHours = facet.slaWindow ? slaWindowToHours(facet.slaWindow) : null;
-  const minMs =
-    facet.responseMinDays != null ? facet.responseMinDays * 24 : null;
-  const maxMs =
-    facet.responseMaxDays != null ? facet.responseMaxDays * 24 : null;
+  const minMs = facet.responseMinDays != null ? facet.responseMinDays * 24 : null;
+  const maxMs = facet.responseMaxDays != null ? facet.responseMaxDays * 24 : null;
 
   return rows.filter((r) => {
     if (wantedStatuses) {
@@ -136,12 +130,12 @@ export function applyAudienciasFacet<T extends AudienciasFacetTarget>(
   facet: AudienciasFacet | undefined,
 ): T[] {
   if (!facet) return rows;
-  const wantedComissoes = facet.comissoes && facet.comissoes.length > 0
-    ? new Set(facet.comissoes.map((s) => s.toLowerCase()))
-    : null;
-  const wantedStatuses = facet.statuses && facet.statuses.length > 0
-    ? new Set(facet.statuses)
-    : null;
+  const wantedComissoes =
+    facet.comissoes && facet.comissoes.length > 0
+      ? new Set(facet.comissoes.map((s) => s.toLowerCase()))
+      : null;
+  const wantedStatuses =
+    facet.statuses && facet.statuses.length > 0 ? new Set(facet.statuses) : null;
   return rows.filter((r) => {
     if (wantedComissoes) {
       const c = (r.comissao ?? "").toLowerCase().trim();

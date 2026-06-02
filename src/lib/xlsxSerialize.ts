@@ -80,11 +80,7 @@ export function buildXlsxWorkbook(input: XlsxBuildInput): ArrayBuffer {
 
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
     // Largura razoável da 1ª coluna
-    summarySheet["!cols"] = [
-      { wch: 32 },
-      { wch: 16 },
-      { wch: 10 },
-    ];
+    summarySheet["!cols"] = [{ wch: 32 }, { wch: 16 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, summarySheet, "Resumo");
   }
 
@@ -117,8 +113,7 @@ export function buildXlsxWorkbook(input: XlsxBuildInput): ArrayBuffer {
  */
 import { isInsideNativeApp, postFileToNative } from "./nativeBridge";
 
-const XLSX_MIME =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 export function downloadXlsx(buffer: ArrayBuffer, filename: string): void {
   if (typeof window === "undefined") return;
@@ -169,9 +164,7 @@ function normalizeCellValue(v: unknown): string | number | boolean | Date {
     return v;
   }
   if (Array.isArray(v)) {
-    return v
-      .map((x) => (typeof x === "string" ? x : JSON.stringify(x)))
-      .join("; ");
+    return v.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join("; ");
   }
   try {
     return JSON.stringify(v);

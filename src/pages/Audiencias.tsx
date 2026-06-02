@@ -1,6 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Calendar,
+  Users,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,8 +73,18 @@ const Audiencias = () => {
     const regionsParam = searchParams.get("regions");
     const dateFrom = searchParams.get("dateFrom") ?? "";
     const dateTo = searchParams.get("dateTo") ?? "";
-    const themes = themesParam ? themesParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    const regions = regionsParam ? regionsParam.split(",").map((r) => decodeURIComponent(r.trim())).filter(Boolean) : [];
+    const themes = themesParam
+      ? themesParam
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
+    const regions = regionsParam
+      ? regionsParam
+          .split(",")
+          .map((r) => decodeURIComponent(r.trim()))
+          .filter(Boolean)
+      : [];
     if (themes.length || regions.length || dateFrom || dateTo) {
       setFilters((prev) => ({
         ...prev,
@@ -95,9 +114,17 @@ const Audiencias = () => {
     },
     enabled: !!user?.id,
   });
-  const setInscritosVideoconferencia = useMemo(() => new Set(inscritosVideoconferenciaIds), [inscritosVideoconferenciaIds]);
+  const setInscritosVideoconferencia = useMemo(
+    () => new Set(inscritosVideoconferenciaIds),
+    [inscritosVideoconferenciaIds],
+  );
 
-  const { data: audienciasData = [], isLoading, error, refetch } = useQuery({
+  const {
+    data: audienciasData = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["audiencias"],
     queryFn: async (): Promise<AudienciaRow[]> => {
       const pageSize = 1000;
@@ -107,7 +134,9 @@ const Audiencias = () => {
       while (hasMore) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, vagas_disponiveis, inscricoes_abertas, link_transmissao, projeto_referencia")
+          .select(
+            "id, titulo, descricao, data, hora, local, tema, status, comissao, vagas_disponiveis, inscricoes_abertas, link_transmissao, projeto_referencia",
+          )
           .order("data", { ascending: false })
           .range(offset, offset + pageSize - 1);
 
@@ -186,13 +215,12 @@ const Audiencias = () => {
           (selected) =>
             tema.includes(selected.toLowerCase()) ||
             title.includes(selected.toLowerCase()) ||
-            desc.includes(selected.toLowerCase())
+            desc.includes(selected.toLowerCase()),
         );
 
       // Region filter: match by zona de São Paulo (derivada do local do auditório)
       const zona = localParaZona(local);
-      const matchesRegion =
-        filters.regions.length === 0 || filters.regions.includes(zona);
+      const matchesRegion = filters.regions.length === 0 || filters.regions.includes(zona);
 
       // Status filter (heuristic + date fallback)
       const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
@@ -209,16 +237,25 @@ const Audiencias = () => {
       const itemDate = (a.data || "").slice(0, 10);
       const matchesDateRange =
         (!filters.dateFrom && !filters.dateTo) ||
-        (filters.dateFrom && filters.dateTo && itemDate >= filters.dateFrom && itemDate <= filters.dateTo) ||
+        (filters.dateFrom &&
+          filters.dateTo &&
+          itemDate >= filters.dateFrom &&
+          itemDate <= filters.dateTo) ||
         (filters.dateFrom && !filters.dateTo && itemDate >= filters.dateFrom) ||
         (!filters.dateFrom && filters.dateTo && itemDate <= filters.dateTo);
 
       // Year filter
       const itemYear = a.data ? String(a.data).slice(0, 4) : "";
-      const matchesYear =
-        filters.year === "all" || itemYear === filters.year;
+      const matchesYear = filters.year === "all" || itemYear === filters.year;
 
-      return matchesSearch && matchesTheme && matchesRegion && matchesStatus && matchesDateRange && matchesYear;
+      return (
+        matchesSearch &&
+        matchesTheme &&
+        matchesRegion &&
+        matchesStatus &&
+        matchesDateRange &&
+        matchesYear
+      );
     });
   }, [audienciasData, searchQuery, filters]);
 
@@ -249,8 +286,18 @@ const Audiencias = () => {
 
   const paginationItems = useMemo((): (number | "ellipsis")[] => {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    const pages = new Set<number>([1, totalPages, currentPage, currentPage - 1, currentPage - 2, currentPage + 1, currentPage + 2]);
-    const sorted = Array.from(pages).filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    const pages = new Set<number>([
+      1,
+      totalPages,
+      currentPage,
+      currentPage - 1,
+      currentPage - 2,
+      currentPage + 1,
+      currentPage + 2,
+    ]);
+    const sorted = Array.from(pages)
+      .filter((p) => p >= 1 && p <= totalPages)
+      .sort((a, b) => a - b);
     const result: (number | "ellipsis")[] = [];
     for (let i = 0; i < sorted.length; i++) {
       if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) result.push("ellipsis");
@@ -273,7 +320,7 @@ const Audiencias = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       <PageHeader title="Audiências Públicas" backTo="/" />
-      
+
       <div className="pt-[60px]">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
           {/* Search and Filter Bar */}
@@ -308,7 +355,10 @@ const Audiencias = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+          <div
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in"
+            style={{ animationDelay: "50ms" }}
+          >
             <Card className="p-4 bg-card border-border">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 rounded-lg">
@@ -381,7 +431,9 @@ const Audiencias = () => {
           {!isLoading && !error && filteredAudiencias.length > 0 && (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 animate-fade-in">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Mostrar por página</span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  Mostrar por página
+                </span>
                 <Select
                   value={String(itemsPerPage)}
                   onValueChange={(v) => setItemsPerPage(Number(v) as 25 | 50 | 100)}
@@ -427,7 +479,7 @@ const Audiencias = () => {
                       >
                         {item}
                       </Button>
-                    )
+                    ),
                   )}
                   <Button
                     variant="outline"
@@ -454,28 +506,33 @@ const Audiencias = () => {
                       className="animate-fade-in"
                       style={{ animationDelay: `${100 + index * 30}ms` }}
                     >
-                      <Card 
+                      <Card
                         className="p-4 hover:shadow-md transition-all cursor-pointer h-full"
                         data-testid="audiencia-card"
                         onClick={() => handleCardClick(item)}
                       >
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="bg-green-100 text-green-800"
-                            >
+                            <Badge variant="outline" className="bg-green-100 text-green-800">
                               Audiência
                             </Badge>
                             {user && setInscritosVideoconferencia.has(item.id) && (
-                              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30">
+                              <Badge
+                                variant="outline"
+                                className="bg-green-500/10 text-green-700 border-green-500/30"
+                              >
                                 Inscrito
                               </Badge>
                             )}
                           </div>
-                          
+
                           <h3 className="font-semibold text-foreground line-clamp-4 min-h-[2.5rem]">
-                            {tituloCardAudiencia(item.comissao, item.titulo, item.descricao, item.tema)}
+                            {tituloCardAudiencia(
+                              item.comissao,
+                              item.titulo,
+                              item.descricao,
+                              item.tema,
+                            )}
                           </h3>
 
                           <div className="mt-3 space-y-1">
@@ -493,7 +550,7 @@ const Audiencias = () => {
                               Documentos e materiais de referência na página
                             </p>
                           )}
-                          
+
                           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
@@ -505,10 +562,8 @@ const Audiencias = () => {
                               <span className="text-muted-foreground/80">Horário a definir</span>
                             )}
                           </div>
-                          
-                          <p className="text-xs text-muted-foreground truncate">
-                            📍 {item.local}
-                          </p>
+
+                          <p className="text-xs text-muted-foreground truncate">📍 {item.local}</p>
                         </div>
                       </Card>
                     </div>

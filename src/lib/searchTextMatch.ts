@@ -2,10 +2,7 @@
  * Comparação de busca tolerante a acentos (NFD) e a múltiplas palavras (todas devem aparecer).
  */
 export function normalizeSearchText(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase();
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
 export function textMatchesSearchQuery(haystack: string, queryRaw: string): boolean {

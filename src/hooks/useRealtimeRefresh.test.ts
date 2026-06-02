@@ -22,11 +22,11 @@ describe("useRealtimeRefresh", () => {
 
   it("assina canal Supabase para cada tabela informada", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
-
-    renderHook(() =>
-      useRealtimeRefresh(["urban_reports", "transport_reports"], () => {}),
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
     );
+
+    renderHook(() => useRealtimeRefresh(["urban_reports", "transport_reports"], () => {}));
 
     expect(supabase.channel).toHaveBeenCalledTimes(1);
     expect(ch.on).toHaveBeenCalledTimes(2);
@@ -40,7 +40,9 @@ describe("useRealtimeRefresh", () => {
 
   it("dispara onChange com debounce de 600ms quando recebe evento", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
+    );
 
     const onChange = vi.fn();
     renderHook(() => useRealtimeRefresh(["urban_reports"], onChange));
@@ -66,11 +68,11 @@ describe("useRealtimeRefresh", () => {
 
   it("atualiza lastUpdate após o debounce disparar", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
-
-    const { result } = renderHook(() =>
-      useRealtimeRefresh(["urban_reports"], () => {}),
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
     );
+
+    const { result } = renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}));
 
     expect(result.current.lastUpdate).toBeNull();
 
@@ -85,12 +87,12 @@ describe("useRealtimeRefresh", () => {
 
   it("refresh manual atualiza lastUpdate e chama onChange imediatamente", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
+    );
 
     const onChange = vi.fn();
-    const { result } = renderHook(() =>
-      useRealtimeRefresh(["urban_reports"], onChange),
-    );
+    const { result } = renderHook(() => useRealtimeRefresh(["urban_reports"], onChange));
 
     act(() => {
       result.current.refresh();
@@ -102,12 +104,12 @@ describe("useRealtimeRefresh", () => {
 
   it("remove canal no unmount", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
+    );
     const removeSpy = vi.spyOn(supabase, "removeChannel");
 
-    const { unmount } = renderHook(() =>
-      useRealtimeRefresh(["urban_reports"], () => {}),
-    );
+    const { unmount } = renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}));
 
     unmount();
 
@@ -124,9 +126,7 @@ describe("useRealtimeRefresh", () => {
       });
 
       const onChange = vi.fn();
-      const { result } = renderHook(() =>
-        useRealtimeRefresh(["urban_reports"], onChange),
-      );
+      const { result } = renderHook(() => useRealtimeRefresh(["urban_reports"], onChange));
 
       // Renderizou sem lançar e o refresh manual continua operante.
       expect(result.current.lastUpdate).toBeNull();
@@ -147,9 +147,7 @@ describe("useRealtimeRefresh", () => {
         ch as unknown as ReturnType<typeof supabase.channel>,
       );
 
-      expect(() =>
-        renderHook(() => useRealtimeRefresh(["urban_reports"], () => {})),
-      ).not.toThrow();
+      expect(() => renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}))).not.toThrow();
       warn.mockRestore();
     });
 
@@ -163,9 +161,7 @@ describe("useRealtimeRefresh", () => {
         throw new Error("removeChannel falhou");
       });
 
-      const { unmount } = renderHook(() =>
-        useRealtimeRefresh(["urban_reports"], () => {}),
-      );
+      const { unmount } = renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}));
       expect(() => unmount()).not.toThrow();
       warn.mockRestore();
     });

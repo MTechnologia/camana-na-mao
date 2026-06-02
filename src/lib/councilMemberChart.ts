@@ -1,4 +1,4 @@
-import type { ReferralDestination } from '@/lib/referralDestinations';
+import type { ReferralDestination } from "@/lib/referralDestinations";
 
 export type CouncilMemberChartPoint = {
   id: string;
@@ -8,7 +8,7 @@ export type CouncilMemberChartPoint = {
 };
 
 function truncateLabel(name: string, max = 28): string {
-  const base = name.split(' (')[0];
+  const base = name.split(" (")[0];
   return base.length > max ? `${base.slice(0, max)}…` : base;
 }
 

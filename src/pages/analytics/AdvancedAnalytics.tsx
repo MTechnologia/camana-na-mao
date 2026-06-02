@@ -1,23 +1,23 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Plus } from 'lucide-react';
-import PageHeader from '@/components/ui/page-header';
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, Plus } from "lucide-react";
+import PageHeader from "@/components/ui/page-header";
 
-import { ChartCard } from '@/components/analytics/ChartCard';
-import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
-import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
-import { dataExportFiltersFromDateRange } from '@/lib/buildDataExportFilters';
-import { Button } from '@/components/ui/button';
-import { useUserRole } from '@/hooks/useUserRole';
+import { ChartCard } from "@/components/analytics/ChartCard";
+import { UnifiedFilterBar, FilterConfig } from "@/components/filters";
+import { DataExportTrigger } from "@/components/analytics/DataExportTrigger";
+import { dataExportFiltersFromDateRange } from "@/lib/buildDataExportFilters";
+import { Button } from "@/components/ui/button";
+import { useUserRole } from "@/hooks/useUserRole";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface AdvancedFilters {
   search: string;
@@ -27,20 +27,20 @@ interface AdvancedFilters {
 
 const filterConfig: FilterConfig<AdvancedFilters> = {
   fields: [
-    { key: 'search', type: 'search', label: 'Buscar', placeholder: 'Buscar...', colSpan: 2 },
-    { 
-      key: 'category', 
-      type: 'select', 
-      label: 'Categoria',
-      placeholder: 'Todas',
+    { key: "search", type: "search", label: "Buscar", placeholder: "Buscar...", colSpan: 2 },
+    {
+      key: "category",
+      type: "select",
+      label: "Categoria",
+      placeholder: "Todas",
       options: [
-        { value: 'saude', label: 'Saúde' },
-        { value: 'educacao', label: 'Educação' },
-        { value: 'transporte', label: 'Transporte' },
-        { value: 'seguranca', label: 'Segurança' },
-      ]
+        { value: "saude", label: "Saúde" },
+        { value: "educacao", label: "Educação" },
+        { value: "transporte", label: "Transporte" },
+        { value: "seguranca", label: "Segurança" },
+      ],
     },
-    { key: 'dateRange', type: 'daterange', label: 'Período', placeholder: 'Período' },
+    { key: "dateRange", type: "daterange", label: "Período", placeholder: "Período" },
   ],
   showExport: false,
 };
@@ -49,12 +49,12 @@ const AdvancedAnalytics = () => {
   const navigate = useNavigate();
   const { canAccessAdvancedAnalytics } = useUserRole();
   const [filters, setFilters] = useState<AdvancedFilters>({
-    search: '',
-    category: '',
+    search: "",
+    category: "",
     dateRange: undefined,
   });
-  const [selectedDimension, setSelectedDimension] = useState('region');
-  const [selectedMetric, setSelectedMetric] = useState('count');
+  const [selectedDimension, setSelectedDimension] = useState("region");
+  const [selectedMetric, setSelectedMetric] = useState("count");
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillPath, setDrillPath] = useState<Array<{ label: string; value: string }>>([]);
   const exportFilters = useMemo(
@@ -65,7 +65,7 @@ const AdvancedAnalytics = () => {
   const activeCount = useMemo(() => {
     let count = 0;
     if (filters.search) count++;
-    if (filters.category && filters.category !== 'all') count++;
+    if (filters.category && filters.category !== "all") count++;
     if (filters.dateRange?.from) count++;
     return count;
   }, [filters]);
@@ -78,7 +78,7 @@ const AdvancedAnalytics = () => {
           <p className="text-muted-foreground mb-4">
             Você não tem permissão para acessar análises avançadas.
           </p>
-          <Button onClick={() => navigate('/paineis')}>Voltar ao Dashboard</Button>
+          <Button onClick={() => navigate("/paineis")}>Voltar ao Dashboard</Button>
         </div>
       </div>
     );
@@ -90,11 +90,11 @@ const AdvancedAnalytics = () => {
   };
 
   const data = [
-    { name: 'Centro', value: 856, satisfaction: 78 },
-    { name: 'Norte', value: 732, satisfaction: 75 },
-    { name: 'Sul', value: 648, satisfaction: 82 },
-    { name: 'Leste', value: 592, satisfaction: 74 },
-    { name: 'Oeste', value: 521, satisfaction: 80 },
+    { name: "Centro", value: 856, satisfaction: 78 },
+    { name: "Norte", value: 732, satisfaction: 75 },
+    { name: "Sul", value: 648, satisfaction: 82 },
+    { name: "Leste", value: 592, satisfaction: 74 },
+    { name: "Oeste", value: 521, satisfaction: 80 },
   ];
 
   return (
@@ -107,8 +107,8 @@ const AdvancedAnalytics = () => {
           <UnifiedFilterBar
             config={filterConfig}
             filters={filters}
-            onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-            onClearAll={() => setFilters({ search: '', category: '', dateRange: undefined })}
+            onChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+            onClearAll={() => setFilters({ search: "", category: "", dateRange: undefined })}
             activeCount={activeCount}
           />
         </div>
@@ -116,7 +116,7 @@ const AdvancedAnalytics = () => {
         {/* Dimension & Metric Selectors */}
         <div className="bg-card border border-border rounded-xl p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4">Configuração da Análise</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Dimensão Principal</label>
@@ -180,22 +180,25 @@ const AdvancedAnalytics = () => {
 
         {/* Main Chart */}
         <ChartCard
-          title={`Análise por ${selectedDimension === 'region' ? 'Região' : 'Categoria'}`}
+          title={`Análise por ${selectedDimension === "region" ? "Região" : "Categoria"}`}
           subtitle="Clique em qualquer barra para explorar em detalhes"
           onExport={() => setShowExport(true)}
-          lastUpdated={new Date().toLocaleString('pt-BR')}
+          lastUpdated={new Date().toLocaleString("pt-BR")}
           className="mb-6"
         >
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={data} onClick={(e) => e?.activePayload && handleDrillDown(e.activePayload[0].payload)}>
+            <BarChart
+              data={data}
+              onClick={(e) => e?.activePayload && handleDrillDown(e.activePayload[0].payload)}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
                 }}
               />
               <Bar
@@ -215,7 +218,7 @@ const AdvancedAnalytics = () => {
 
         {/* Quick Actions */}
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => navigate('/analytics/dashboards')}>
+          <Button variant="outline" onClick={() => navigate("/analytics/dashboards")}>
             Salvar como painel
           </Button>
           <DataExportTrigger defaultFilters={exportFilters} label="Exportar dados" />
@@ -238,7 +241,6 @@ const AdvancedAnalytics = () => {
           </div>
         )}
       </div>
-
     </div>
   );
 };

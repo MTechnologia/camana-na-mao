@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate } from "react-router-dom";
 
 /** Legado — redireciona para a aba no mapa de calor unificado. */
 export default function IntensityDemandPage() {

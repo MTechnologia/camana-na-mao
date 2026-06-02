@@ -80,8 +80,7 @@ export function renderTransportSuccessLine(
           </button>
         ) : (
           <strong>Meus relatos</strong>
-        )}
-        {" "}
+        )}{" "}
         para acompanhar.
       </>
     );
@@ -100,8 +99,7 @@ export function renderTransportSuccessLine(
     if (oneToFive) {
       return (
         <>
-          <strong>Como foi seu atendimento aqui no Câmara na Mão?</strong>{" "}
-          {oneToFive[1]}
+          <strong>Como foi seu atendimento aqui no Câmara na Mão?</strong> {oneToFive[1]}
           de <strong>1 a 5</strong>
           {oneToFive[2]}
         </>

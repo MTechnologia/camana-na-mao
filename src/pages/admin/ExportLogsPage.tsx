@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Download, CalendarClock } from 'lucide-react';
-import { toast } from 'sonner';
-import { downloadExportJobById } from '@/lib/exportJobDownload';
-import { PageShell } from '@/components/ui/PageShell';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { EXPORTS_PAGE_LEGEND } from '@/lib/analyticsParameterLegends';
-import { ExportsChartSection } from '@/components/admin/charts/SectionChartPanels';
-import { ExportLogsTable } from '@/components/admin/exports/ExportLogsTable';
-import { DataExportDialog } from '@/components/analytics/DataExportDialog';
-import { ExportJobsPanel } from '@/components/analytics/ExportJobsPanel';
-import { ScheduleExportDialog } from '@/components/analytics/ScheduleExportDialog';
-import { getDefaultExportScheduleConfig } from '@/lib/exportFields';
-import { useUserRole } from '@/hooks/useUserRole';
-import { Navigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Download, CalendarClock } from "lucide-react";
+import { toast } from "sonner";
+import { downloadExportJobById } from "@/lib/exportJobDownload";
+import { PageShell } from "@/components/ui/PageShell";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EXPORTS_PAGE_LEGEND } from "@/lib/analyticsParameterLegends";
+import { ExportsChartSection } from "@/components/admin/charts/SectionChartPanels";
+import { ExportLogsTable } from "@/components/admin/exports/ExportLogsTable";
+import { DataExportDialog } from "@/components/analytics/DataExportDialog";
+import { ExportJobsPanel } from "@/components/analytics/ExportJobsPanel";
+import { ScheduleExportDialog } from "@/components/analytics/ScheduleExportDialog";
+import { getDefaultExportScheduleConfig } from "@/lib/exportFields";
+import { useUserRole } from "@/hooks/useUserRole";
+import { Navigate } from "react-router-dom";
 
 export function ExportLogsPage() {
   const { canExportData, loading } = useUserRole();
@@ -25,7 +25,7 @@ export function ExportLogsPage() {
   const autoDownloadHandled = useRef<string | null>(null);
   const defaultScheduleConfig = useMemo(() => getDefaultExportScheduleConfig(), []);
 
-  const jobIdFromUrl = searchParams.get('jobId');
+  const jobIdFromUrl = searchParams.get("jobId");
 
   useEffect(() => {
     if (!jobIdFromUrl || autoDownloadHandled.current === jobIdFromUrl) return;
@@ -33,12 +33,12 @@ export function ExportLogsPage() {
     setJobsOpen(true);
     void downloadExportJobById(jobIdFromUrl).then(({ ok, error }) => {
       if (ok) {
-        toast.success('Download da exportação agendada iniciado.');
+        toast.success("Download da exportação agendada iniciado.");
       } else if (error) {
         toast.error(error);
       }
       const next = new URLSearchParams(searchParams);
-      next.delete('jobId');
+      next.delete("jobId");
       setSearchParams(next, { replace: true });
     });
   }, [jobIdFromUrl, searchParams, setSearchParams]);

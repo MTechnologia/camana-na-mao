@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart,
   Bar,
@@ -13,21 +13,21 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
-import { TrendingUp, AlertTriangle, Users, MapPin } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { KPICard } from './KPICard';
-import { HeatmapChart } from './HeatmapChart';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { WidgetConfig } from './DashboardPreview';
-import { processWidgetChartData } from '@/lib/widgetChartData';
+} from "recharts";
+import { TrendingUp, AlertTriangle, Users, MapPin } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KPICard } from "./KPICard";
+import { HeatmapChart } from "./HeatmapChart";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { WidgetConfig } from "./DashboardPreview";
+import { processWidgetChartData } from "@/lib/widgetChartData";
 
 const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
 ];
 
 const DATA_LIMIT = 500;
@@ -65,8 +65,8 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
 
       const { data: fetchedData, error: queryError } = await supabase
         .from(widget.dataSource)
-        .select('*')
-        .order('created_at', { ascending: false })
+        .select("*")
+        .order("created_at", { ascending: false })
         .limit(DATA_LIMIT);
 
       if (queryError) throw queryError;
@@ -74,8 +74,8 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
       const processedData = processWidgetChartData(fetchedData ?? [], widget);
       setData(processedData);
     } catch (err) {
-      console.error('Error loading widget data:', err);
-      const msg = err instanceof Error ? err.message : 'Não foi possível carregar os dados';
+      console.error("Error loading widget data:", err);
+      const msg = err instanceof Error ? err.message : "Não foi possível carregar os dados";
       setError(msg);
       setData([]);
     } finally {
@@ -93,10 +93,10 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
 
   const emptyMessage = error
     ? `Erro ao carregar: ${error}`
-    : 'Sem dados no período ou na fonte selecionada.';
+    : "Sem dados no período ou na fonte selecionada.";
 
   const renderChart = () => {
-    if (data.length === 0 && widget.type !== 'kpi-card') {
+    if (data.length === 0 && widget.type !== "kpi-card") {
       return (
         <Card>
           <CardHeader>
@@ -110,19 +110,19 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
     }
 
     switch (widget.type) {
-      case 'kpi-card': {
+      case "kpi-card": {
         const IconComponent = pickStableIcon(`${widget.id}:${widget.title}`);
         return (
           <KPICard
             title={widget.title}
             value={data[0]?.value ?? 0}
             icon={IconComponent}
-            subtitle={error ? 'Erro ao carregar' : 'Registros na fonte'}
+            subtitle={error ? "Erro ao carregar" : "Registros na fonte"}
           />
         );
       }
 
-      case 'bar-chart':
+      case "bar-chart":
         return (
           <Card>
             <CardHeader>
@@ -136,9 +136,9 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
                   <YAxis stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
                     }}
                   />
                   <Bar dataKey="value" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
@@ -148,7 +148,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           </Card>
         );
 
-      case 'pie-chart':
+      case "pie-chart":
         return (
           <Card>
             <CardHeader>
@@ -178,7 +178,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           </Card>
         );
 
-      case 'line-chart':
+      case "line-chart":
         return (
           <Card>
             <CardHeader>
@@ -192,9 +192,9 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
                   <YAxis stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
                     }}
                   />
                   <Line
@@ -209,7 +209,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
           </Card>
         );
 
-      case 'heatmap':
+      case "heatmap":
         return (
           <Card>
             <CardHeader>

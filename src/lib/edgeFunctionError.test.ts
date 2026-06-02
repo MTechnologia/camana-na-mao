@@ -11,14 +11,10 @@ describe("parseEdgeFunctionError", () => {
   });
 
   it("lê JSON do context da Response", async () => {
-    const response = new Response(
-      JSON.stringify({ error: "Forbidden: requires users.invite" }),
-      { status: 403 },
-    );
-    const msg = await parseEdgeFunctionError(
-      { context: response },
-      null,
-    );
+    const response = new Response(JSON.stringify({ error: "Forbidden: requires users.invite" }), {
+      status: 403,
+    });
+    const msg = await parseEdgeFunctionError({ context: response }, null);
     expect(msg).toBe("Forbidden: requires users.invite");
   });
 });

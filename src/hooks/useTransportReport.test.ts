@@ -19,8 +19,13 @@ describe("useTransportReport", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as any);
-    vi.mocked(supabase.auth.getUser).mockResolvedValue({ data: { user: mockUser } as any, error: null });
+    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as unknown as ReturnType<
+      typeof useToast
+    >);
+    vi.mocked(supabase.auth.getUser).mockResolvedValue({
+      data: { user: mockUser },
+      error: null,
+    } as unknown as Awaited<ReturnType<typeof supabase.auth.getUser>>);
   });
 
   it("deve enviar um relato com sucesso", async () => {
@@ -36,7 +41,7 @@ describe("useTransportReport", () => {
       insert: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: mockResponse, error: null }),
-    } as any);
+    } as unknown as ReturnType<typeof supabase.from>);
 
     const { result } = renderHook(() => useTransportReport());
 
@@ -60,7 +65,7 @@ describe("useTransportReport", () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: mockReports, error: null }),
-    } as any);
+    } as unknown as ReturnType<typeof supabase.from>);
 
     const { result } = renderHook(() => useTransportReport());
 
@@ -77,7 +82,7 @@ describe("useTransportReport", () => {
       insert: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: null, error: new Error("Network error") }),
-    } as any);
+    } as unknown as ReturnType<typeof supabase.from>);
 
     const { result } = renderHook(() => useTransportReport());
 

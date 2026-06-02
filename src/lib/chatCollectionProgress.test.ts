@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractCollectionProgressJsonObjects, parseLatestCollectionProgressFields } from "./chatCollectionProgress";
+import {
+  extractCollectionProgressJsonObjects,
+  parseLatestCollectionProgressFields,
+} from "./chatCollectionProgress";
 
 describe("extractCollectionProgressJsonObjects", () => {
   it("extrai JSON com colchetes dentro de string", () => {
@@ -14,8 +17,7 @@ describe("extractCollectionProgressJsonObjects", () => {
   });
 
   it("preserva colchetes dentro de string no JSON", () => {
-    const text =
-      '[COLLECTION_PROGRESS:transport_report:{"line_code":"123","notes":"a] b"}]';
+    const text = '[COLLECTION_PROGRESS:transport_report:{"line_code":"123","notes":"a] b"}]';
     const chunks = extractCollectionProgressJsonObjects(text);
     expect(chunks).toHaveLength(1);
     expect(JSON.parse(chunks[0].jsonStr).notes).toBe("a] b");

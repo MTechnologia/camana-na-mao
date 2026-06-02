@@ -1,5 +1,5 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { motion } from 'framer-motion';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { motion } from "framer-motion";
 
 export interface DemographicData {
   /** Chave canônica no banco (ex.: masculino, branca, not_informed). */
@@ -17,21 +17,21 @@ interface DemographicsPieChartProps {
 }
 
 const DEFAULT_COLORS = [
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-7))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-6))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-8))',
-  'hsl(var(--chart-5))',
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-7))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-6))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-8))",
+  "hsl(var(--chart-5))",
 ];
 
-export const DemographicsPieChart = ({ 
-  data, 
-  title, 
+export const DemographicsPieChart = ({
+  data,
+  title,
   colors = DEFAULT_COLORS,
-  onSegmentClick
+  onSegmentClick,
 }: DemographicsPieChartProps) => {
   return (
     <motion.div
@@ -53,10 +53,12 @@ export const DemographicsPieChart = ({
             dataKey="count"
           >
             {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
+              <Cell
+                key={`cell-${index}`}
                 fill={colors[index % colors.length]}
-                className={onSegmentClick ? 'cursor-pointer transition-opacity hover:opacity-80' : ''}
+                className={
+                  onSegmentClick ? "cursor-pointer transition-opacity hover:opacity-80" : ""
+                }
                 onClick={() => onSegmentClick?.(entry.key ?? entry.label, entry.label)}
               />
             ))}
@@ -80,13 +82,11 @@ export const DemographicsPieChart = ({
               return null;
             }}
           />
-          <Legend 
-            verticalAlign="bottom" 
+          <Legend
+            verticalAlign="bottom"
             height={36}
             formatter={(value, entry: { payload?: { name?: string; value?: number } }) => (
-              <span className="text-sm text-foreground">
-                {entry.payload.label}
-              </span>
+              <span className="text-sm text-foreground">{entry.payload.label}</span>
             )}
           />
         </PieChart>

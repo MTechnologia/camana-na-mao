@@ -63,8 +63,7 @@ export default function CompleteInvitePage() {
     );
   }
 
-  const passwordsMatch =
-    password.length > 0 && password === confirmPassword;
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
   const passwordValid = validatePasswordPolicy(password);
   const fullNameValid = fullName.trim().length >= 3;
   const formValid = passwordValid && passwordsMatch && fullNameValid;
@@ -107,9 +106,7 @@ export default function CompleteInvitePage() {
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
             <CheckCircle2 className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-semibold text-foreground">
-            Bem-vindo(a) à Câmara na Mão!
-          </h1>
+          <h1 className="text-xl font-semibold text-foreground">Bem-vindo(a) à Câmara na Mão!</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Para concluir o acesso, defina sua senha e confirme alguns dados.
           </p>
@@ -136,11 +133,7 @@ export default function CompleteInvitePage() {
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
                 onClick={() => setShowPassword((s) => !s)}
               >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {password.length > 0 && (
@@ -160,9 +153,7 @@ export default function CompleteInvitePage() {
               disabled={submitting}
             />
             {confirmPassword && !passwordsMatch && (
-              <p className="text-[11px] text-destructive mt-1">
-                As senhas não conferem.
-              </p>
+              <p className="text-[11px] text-destructive mt-1">As senhas não conferem.</p>
             )}
           </div>
 
@@ -214,8 +205,8 @@ export default function CompleteInvitePage() {
         </Button>
 
         <p className="text-[11px] text-muted-foreground text-center">
-          Etapa 1 de 4 — Após continuar, vamos escolher seus interesses,
-          confirmar endereço e dados demográficos.
+          Etapa 1 de 4 — Após continuar, vamos escolher seus interesses, confirmar endereço e dados
+          demográficos.
         </p>
       </Card>
     </div>

@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { useMemo } from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
 import {
   globalPeriodToShortcutPeriod,
   type AnalyticsShortcutPeriod,
-} from '@/lib/globalPeriodRange';
+} from "@/lib/globalPeriodRange";
 
 /** Período curto derivado do recorte global (barra unificada). */
 export function useGlobalShortcutPeriod(): AnalyticsShortcutPeriod {

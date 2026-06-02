@@ -26,23 +26,25 @@ const UpdatePassword = () => {
 
   useEffect(() => {
     let mounted = true;
-    
+
     // Listen for auth state changes to detect when recovery session is established
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event, 'Session:', !!session);
-      
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event, "Session:", !!session);
+
       if (!mounted) return;
-      
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         if (session) {
           setSessionReady(true);
           setCheckingSession(false);
         }
       }
-      
-      if (event === 'USER_UPDATED') {
+
+      if (event === "USER_UPDATED") {
         // Password was updated successfully
-        console.log('User updated event received');
+        console.log("User updated event received");
       }
     });
 
@@ -73,7 +75,10 @@ const UpdatePassword = () => {
           return;
         }
 
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
@@ -88,7 +93,9 @@ const UpdatePassword = () => {
           if (accessToken && type === "recovery") {
             console.log("Recovery token found in URL hash, waiting for session...");
             setTimeout(async () => {
-              const { data: { session: newSession } } = await supabase.auth.getSession();
+              const {
+                data: { session: newSession },
+              } = await supabase.auth.getSession();
               if (mounted && newSession) {
                 setSessionReady(true);
               }
@@ -138,8 +145,8 @@ const UpdatePassword = () => {
       updatePasswordSchema.parse({ password, confirmPassword });
       setLoading(true);
 
-      const { error } = await supabase.auth.updateUser({ 
-        password: password 
+      const { error } = await supabase.auth.updateUser({
+        password: password,
       });
 
       if (error) {
@@ -152,11 +159,11 @@ const UpdatePassword = () => {
       setSuccess(true);
       toast.success("Senha alterada com sucesso!");
     } catch (error: unknown) {
-      console.error('Error updating password:', error);
+      console.error("Error updating password:", error);
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
       if (err.errors) {
         err.errors.forEach((e) => {
-          toast.error(e.message ?? 'Erro');
+          toast.error(e.message ?? "Erro");
         });
       } else {
         const msg = err.message ?? "";
@@ -181,9 +188,7 @@ const UpdatePassword = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Verificando link de recuperação...
           </h2>
-          <p className="text-gray-600">
-            Aguarde enquanto validamos seu acesso.
-          </p>
+          <p className="text-gray-600">Aguarde enquanto validamos seu acesso.</p>
         </div>
       </div>
     );
@@ -217,7 +222,8 @@ const UpdatePassword = () => {
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Senha atualizada</h1>
 
             <p className="text-gray-600 mb-8 leading-relaxed">
-              Sua senha foi atualizada. Volte ao aplicativo e realize novamente a tentativa de Login.
+              Sua senha foi atualizada. Volte ao aplicativo e realize novamente a tentativa de
+              Login.
             </p>
 
             {inNativeApp && (
@@ -249,9 +255,7 @@ const UpdatePassword = () => {
 
       {/* Header Text */}
       <div className="px-6 pb-6">
-        <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-          Criar nova senha
-        </h1>
+        <h1 className="text-4xl font-bold text-gray-900 leading-tight">Criar nova senha</h1>
         <p className="text-gray-600 mt-4">
           Digite sua nova senha abaixo, respeitando as regras indicadas.
         </p>
@@ -259,9 +263,7 @@ const UpdatePassword = () => {
 
       {/* Form Card */}
       <div className="flex-1 bg-white rounded-t-[32px] px-6 pt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          Nova Senha
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Nova Senha</h2>
 
         <form onSubmit={handleUpdatePassword} className="space-y-4">
           <div className="relative">
@@ -301,7 +303,10 @@ const UpdatePassword = () => {
               {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
             {doPasswordsMatch && (
-              <Check className="absolute right-12 top-1/2 -translate-y-1/2 text-green-500" size={20} />
+              <Check
+                className="absolute right-12 top-1/2 -translate-y-1/2 text-green-500"
+                size={20}
+              />
             )}
           </div>
 
@@ -327,11 +332,11 @@ const UpdatePassword = () => {
           >
             {loading ? "Alterando..." : "Alterar Senha"}
           </Button>
-          
+
           {!sessionReady && !checkingSession && (
             <p className="text-center text-sm text-red-500 mt-2">
-              Sessão de recuperação não encontrada. 
-              <button 
+              Sessão de recuperação não encontrada.
+              <button
                 type="button"
                 onClick={() => navigate("/reset-password")}
                 className="underline ml-1"

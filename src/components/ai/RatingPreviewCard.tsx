@@ -50,8 +50,9 @@ export function RatingPreviewCard({ preview }: Props) {
         {showReferralAfterPublishHint ? (
           <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-border/50 mt-2">
             <span className="font-medium text-foreground">Nota baixa:</span> após tocar em{" "}
-            <span className="font-medium text-foreground">Publicar</span>, a mensagem de confirmação incluirá a opção
-            de <span className="font-medium text-foreground">encaminhar ao vereador</span>, se desejar.
+            <span className="font-medium text-foreground">Publicar</span>, a mensagem de confirmação
+            incluirá a opção de{" "}
+            <span className="font-medium text-foreground">encaminhar ao vereador</span>, se desejar.
           </p>
         ) : null}
       </CardContent>

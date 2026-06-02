@@ -16,10 +16,9 @@ describe("useDebouncedValue", () => {
   });
 
   it("não atualiza antes do delay", () => {
-    const { result, rerender } = renderHook(
-      ({ value }) => useDebouncedValue(value, 300),
-      { initialProps: { value: "foo" } },
-    );
+    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 300), {
+      initialProps: { value: "foo" },
+    });
 
     rerender({ value: "bar" });
     expect(result.current).toBe("foo");
@@ -31,10 +30,9 @@ describe("useDebouncedValue", () => {
   });
 
   it("atualiza após o delay completo sem novas mudanças", () => {
-    const { result, rerender } = renderHook(
-      ({ value }) => useDebouncedValue(value, 300),
-      { initialProps: { value: "foo" } },
-    );
+    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 300), {
+      initialProps: { value: "foo" },
+    });
 
     rerender({ value: "bar" });
     act(() => {
@@ -44,10 +42,9 @@ describe("useDebouncedValue", () => {
   });
 
   it("reinicia o timer a cada mudança (multisseleção rápida)", () => {
-    const { result, rerender } = renderHook(
-      ({ value }) => useDebouncedValue(value, 300),
-      { initialProps: { value: ["a"] as string[] } },
-    );
+    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 300), {
+      initialProps: { value: ["a"] as string[] },
+    });
 
     rerender({ value: ["a", "b"] });
     act(() => {
@@ -69,10 +66,9 @@ describe("useDebouncedValue", () => {
   });
 
   it("delay=0 propaga sincronicamente no próximo render", () => {
-    const { result, rerender } = renderHook(
-      ({ value }) => useDebouncedValue(value, 0),
-      { initialProps: { value: 1 } },
-    );
+    const { result, rerender } = renderHook(({ value }) => useDebouncedValue(value, 0), {
+      initialProps: { value: 1 },
+    });
     rerender({ value: 2 });
     act(() => {
       vi.advanceTimersByTime(0);
@@ -81,10 +77,9 @@ describe("useDebouncedValue", () => {
   });
 
   it("cancela o timer pendente em unmount", () => {
-    const { rerender, unmount } = renderHook(
-      ({ value }) => useDebouncedValue(value, 300),
-      { initialProps: { value: "a" } },
-    );
+    const { rerender, unmount } = renderHook(({ value }) => useDebouncedValue(value, 300), {
+      initialProps: { value: "a" },
+    });
     rerender({ value: "b" });
     unmount();
     // Avançar o tempo não deve causar nenhum erro de setState após unmount.

@@ -4,15 +4,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
-export type ServiceSubscriptionWithService = Database["public"]["Tables"]["service_subscriptions"]["Row"] & {
-  public_services: {
-    id: string;
-    name: string;
-    service_type: Database["public"]["Enums"]["service_type"];
-    address: string;
-    district: string;
-  } | null;
-};
+export type ServiceSubscriptionWithService =
+  Database["public"]["Tables"]["service_subscriptions"]["Row"] & {
+    public_services: {
+      id: string;
+      name: string;
+      service_type: Database["public"]["Enums"]["service_type"];
+      address: string;
+      district: string;
+    } | null;
+  };
 
 export function useServiceSubscriptions() {
   const { user } = useAuth();
@@ -29,7 +30,8 @@ export function useServiceSubscriptions() {
     setLoading(true);
     const { data, error } = await supabase
       .from("service_subscriptions")
-      .select(`
+      .select(
+        `
         *,
         public_services (
           id,
@@ -38,7 +40,8 @@ export function useServiceSubscriptions() {
           address,
           district
         )
-      `)
+      `,
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -62,10 +65,7 @@ export function useServiceSubscriptions() {
       // Create subscription
       const { error } = await supabase
         .from("service_subscriptions")
-        .upsert(
-          { user_id: user.id, service_id: serviceId },
-          { onConflict: 'user_id,service_id' }
-        );
+        .upsert({ user_id: user.id, service_id: serviceId }, { onConflict: "user_id,service_id" });
 
       if (error) {
         console.error("[useServiceSubscriptions] Error subscribing:", error);

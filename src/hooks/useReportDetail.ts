@@ -212,25 +212,36 @@ export function useReportDetail(
             value: formatUrbanUrgencyReasonPt(r.urgency_reason as string),
           });
         if (r.affected_estimate)
-          extras.push({ label: "Pessoas afetadas (estimativa)", value: String(r.affected_estimate) });
+          extras.push({
+            label: "Pessoas afetadas (estimativa)",
+            value: String(r.affected_estimate),
+          });
         if (r.affected_scope)
           extras.push({
             label: "Escopo do impacto",
             value: formatAffectedScopePt(r.affected_scope as string),
           });
-        if (Array.isArray(r.active_consequences) && (r.active_consequences as string[]).length > 0) {
+        if (
+          Array.isArray(r.active_consequences) &&
+          (r.active_consequences as string[]).length > 0
+        ) {
           extras.push({
             label: "Consequências ativas",
             value: formatActiveConsequencesListPt(r.active_consequences as string[]),
           });
         }
-        if (r.reference_point) extras.push({ label: "Ponto de referência", value: String(r.reference_point) });
+        if (r.reference_point)
+          extras.push({ label: "Ponto de referência", value: String(r.reference_point) });
       } else {
-        if (r.occurrence_date) extras.push({ label: "Data da ocorrência", value: String(r.occurrence_date) });
+        if (r.occurrence_date)
+          extras.push({ label: "Data da ocorrência", value: String(r.occurrence_date) });
         if (r.occurrence_time) extras.push({ label: "Hora", value: String(r.occurrence_time) });
         if (r.line_code_custom) extras.push({ label: "Linha", value: String(r.line_code_custom) });
         if (r.direction)
-          extras.push({ label: "Sentido", value: formatTransportDirectionPt(r.direction as string) });
+          extras.push({
+            label: "Sentido",
+            value: formatTransportDirectionPt(r.direction as string),
+          });
         if (r.recurrence_frequency)
           extras.push({
             label: "Frequência",
@@ -264,15 +275,8 @@ export function useReportDetail(
         updatedAt: r.updated_at as string | null,
         extras,
         aiAnalysis: {
-          sentiment: pickStr(
-            ai.sentiment,
-            source === "transport" ? r.ai_sentiment : null,
-          ),
-          category: pickStr(
-            ai.category,
-            ai.validated_category,
-            r.ai_category,
-          ),
+          sentiment: pickStr(ai.sentiment, source === "transport" ? r.ai_sentiment : null),
+          category: pickStr(ai.category, ai.validated_category, r.ai_category),
           priority: pickStr(ai.priority),
           patternDetected:
             typeof r.ai_pattern_detected === "boolean"
@@ -290,7 +294,11 @@ export function useReportDetail(
       let authorRecord: ReportAuthor | null = null;
       if (userId) {
         const [{ data: profile }, { data: demo }] = await Promise.all([
-          supabase.from("profiles").select("id, full_name, avatar_url, phone").eq("id", userId).maybeSingle(),
+          supabase
+            .from("profiles")
+            .select("id, full_name, avatar_url, phone")
+            .eq("id", userId)
+            .maybeSingle(),
           supabase
             .from("user_demographics")
             .select("gender, race, social_class, birth_date")

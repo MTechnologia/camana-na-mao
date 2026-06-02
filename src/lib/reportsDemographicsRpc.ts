@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
 export type DemographicsRpcArgs = {
   p_gender: string | null;
@@ -18,7 +18,7 @@ type RpcResult = {
   statusFilterInRpc: boolean;
 };
 
-const RPC_NAME = 'get_reports_with_demographics';
+const RPC_NAME = "get_reports_with_demographics";
 
 function buildRpcPayload(args: DemographicsRpcArgs, includeStatus: boolean) {
   const base = {
@@ -49,7 +49,7 @@ export async function callGetReportsWithDemographics(
   }
 
   const code = withStatus.error.code;
-  if (code === 'PGRST202' || code === 'PGRST203') {
+  if (code === "PGRST202" || code === "PGRST203") {
     const legacy = await supabase.rpc(RPC_NAME, buildRpcPayload(args, false));
     return {
       data: legacy.data,

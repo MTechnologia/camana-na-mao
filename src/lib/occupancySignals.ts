@@ -54,4 +54,3 @@ export function getOccupancyCoverageMeta(usersCount: number): { label: string; c
     className: "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
   };
 }
-

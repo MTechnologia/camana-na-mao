@@ -146,11 +146,7 @@ async function fetchUrban(): Promise<RawReport[]> {
         source: "urbano",
         category: safe(r.category, "Sem categoria"),
         // Zona priorizada por lat/lng (mais preciso); cai em keywords se coords ausentes.
-        zone: bairroParaZona(
-          region === "Não informada" ? "" : region,
-          r.latitude,
-          r.longitude,
-        ),
+        zone: bairroParaZona(region === "Não informada" ? "" : region, r.latitude, r.longitude),
         neighborhood: region,
         street: safe(r.street, "Não informada"),
         isResolved: isResolvedStatus(r.status),
@@ -168,9 +164,7 @@ async function fetchTransport(): Promise<RawReport[]> {
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const { data, error } = await supabase
       .from("transport_reports")
-      .select(
-        "report_type, sub_category, location, stop_location, status, severity, ai_sentiment",
-      )
+      .select("report_type, sub_category, location, stop_location, status, severity, ai_sentiment")
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) throw error;
@@ -279,22 +273,27 @@ function computeCriticidadeScore(
   negative: number,
   critical: number,
   patternProxy: number,
-): { score: number; breakdown: { negativePct: number; criticalPct: number; patternProxy: number } } {
+): {
+  score: number;
+  breakdown: { negativePct: number; criticalPct: number; patternProxy: number };
+} {
   const negativePct = total > 0 ? Math.round((negative / total) * 100) : 0;
   const criticalPct = total > 0 ? Math.round((critical / total) * 100) : 0;
   // Volume = 100 (vista local "satura"); padrões aproximados por # categorias distintas com muitos relatos
   const volumeScore = total > 0 ? 100 : 0;
-  const score = Math.round(0.25 * volumeScore + 0.25 * negativePct + 0.25 * criticalPct + 0.25 * Math.min(100, patternProxy));
+  const score = Math.round(
+    0.25 * volumeScore +
+      0.25 * negativePct +
+      0.25 * criticalPct +
+      0.25 * Math.min(100, patternProxy),
+  );
   return {
     score: Math.max(0, Math.min(100, score)),
     breakdown: { negativePct, criticalPct, patternProxy: Math.min(100, patternProxy) },
   };
 }
 
-export function aggregate(
-  records: RawReport[],
-  pos: DrillPosition,
-): TerritorialDrillStats {
+export function aggregate(records: RawReport[], pos: DrillPosition): TerritorialDrillStats {
   const currentLevel = levelOf(pos);
   const nextLevel = nextLevelOf(currentLevel);
 

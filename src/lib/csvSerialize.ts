@@ -6,7 +6,7 @@
  *  - Separador de linha: \r\n
  *  - Campos com vírgula, aspas duplas ou quebra de linha → cercados por aspas duplas
  *  - Aspas duplas dentro do campo → escapadas duplicando ("")
- *  - Prefixa BOM UTF-8 (﻿) pra Excel detectar UTF-8 corretamente
+ *  - Prefixa BOM UTF-8 (U+FEFF) pra Excel detectar UTF-8 corretamente
  *  - null/undefined → string vazia
  *  - Objetos/arrays → JSON.stringify
  */
@@ -41,9 +41,7 @@ export function csvEscape(value: unknown): string {
     s = value.toISOString();
   } else if (Array.isArray(value)) {
     // Arrays: serializa cada elemento como JSON, separados por "; ".
-    s = value
-      .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
-      .join("; ");
+    s = value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join("; ");
   } else {
     // Objetos: JSON.stringify
     try {

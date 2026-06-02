@@ -63,8 +63,6 @@ export function rowsToCsv(
   columns: Array<keyof AuditCsvRow> = AUDIT_CSV_COLUMNS,
 ): string {
   const header = columns.map((col) => AUDIT_COLUMN_LABELS[col]).join(",");
-  const body = rows
-    .map((r) => columns.map((col) => csvEscape(r[col])).join(","))
-    .join("\n");
+  const body = rows.map((r) => columns.map((col) => csvEscape(r[col])).join(",")).join("\n");
   return "﻿" + header + "\n" + body;
 }

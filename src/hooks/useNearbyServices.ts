@@ -32,10 +32,32 @@ export interface NearbyService {
 export type EquipmentNatureValue = "publico" | "privado" | "misto_indefinido" | "nao_aplicavel";
 export type EquipmentNatureFilterValue = "all" | "publico" | "privado";
 
-type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
-  | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum"
-  | "social_assistance" | "transit_station" | "bicycle" | "subprefeitura" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
-  | "fire_station" | "other" | "all";
+type ServiceType =
+  | "ubs"
+  | "school"
+  | "ceu"
+  | "hospital"
+  | "library"
+  | "sports_center"
+  | "street_market"
+  | "community_center"
+  | "daycare"
+  | "park"
+  | "market"
+  | "city_market"
+  | "theater"
+  | "museum"
+  | "social_assistance"
+  | "transit_station"
+  | "bicycle"
+  | "subprefeitura"
+  | "police_station"
+  | "cemetery"
+  | "accessibility"
+  | "recycling_point"
+  | "fire_station"
+  | "other"
+  | "all";
 
 /** Valores que existem em `public_services.service_type` (exclui UI `all`/`other`). */
 type PublicServiceTypeRow = Exclude<ServiceType, "all" | "other">;
@@ -134,12 +156,7 @@ interface UseNearbyServicesProps {
 }
 
 // Haversine: distância em linha reta (não é a distância da rota a pé/carro). A UI exibe "(em linha reta)" para evitar confusão com o Maps.
-const calculateDistance = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number => {
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const R = 6371000; // Earth's radius in meters
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
@@ -156,7 +173,7 @@ const calculateDistance = (
 
 // Verificação robusta de coordenada válida
 const isValidCoordinate = (value: unknown): value is number => {
-  return typeof value === 'number' && !isNaN(value) && isFinite(value);
+  return typeof value === "number" && !isNaN(value) && isFinite(value);
 };
 
 /** Chave de localização para deduplicar serviços no mesmo ponto (evita cards repetidos). */
@@ -236,7 +253,7 @@ export const useNearbyServices = ({
         distance: calculateDistance(userLat, userLng, s.latitude, s.longitude),
       }));
     },
-    []
+    [],
   );
 
   const filterByEquipmentNature = useCallback(
@@ -292,28 +309,31 @@ export const useNearbyServices = ({
       return;
     }
 
-      const requestId = ++fetchRequestIdRef.current;
+    const requestId = ++fetchRequestIdRef.current;
 
-      const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, context: string): Promise<T> => {
-        return await Promise.race([
-          promise,
-          new Promise<T>((_, reject) =>
-            setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) em ${context}`)), timeoutMs),
-          ),
-        ]);
-      };
+    const withTimeout = async <T>(
+      promise: Promise<T>,
+      timeoutMs: number,
+      context: string,
+    ): Promise<T> => {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) em ${context}`)), timeoutMs),
+        ),
+      ]);
+    };
 
     try {
       const { minLat, maxLat, minLng, maxLng } = getBoundingBoxForRadiusMeters(
         userLat,
         userLng,
-        safeRadius
+        safeRadius,
       );
 
       const types = serviceTypes?.filter((t) => t !== "all") ?? [];
       const singleType = !serviceType || serviceType === "all" ? undefined : serviceType;
-      const effectiveTypes =
-        types.length > 0 ? types : singleType ? [singleType] : [];
+      const effectiveTypes = types.length > 0 ? types : singleType ? [singleType] : [];
       const isAllTypes = effectiveTypes.length === 0;
       const shouldFilterEquipmentNature = equipmentNature !== "all";
       const equipmentNatures = shouldFilterEquipmentNature ? [equipmentNature] : [];
@@ -417,7 +437,10 @@ export const useNearbyServices = ({
 
           // Fast path: consulta REST direta por tipo com cap baixo.
           const { data: bboxData, error: bboxError } = await withTimeout(
-            query.limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+            query.limit(lim) as unknown as Promise<{
+              data: unknown;
+              error: { message?: string } | null;
+            }>,
             queryTimeoutMs,
             "public_services bbox unordered fallback",
           );
@@ -587,7 +610,10 @@ export const useNearbyServices = ({
             const legacyArgs = { ...args, service_types: getLegacyRpcServiceTypes() };
             const legacyCall = () =>
               withTimeout(
-                supabase.rpc("search_public_services_bbox_light", legacyArgs) as unknown as Promise<{
+                supabase.rpc(
+                  "search_public_services_bbox_light",
+                  legacyArgs,
+                ) as unknown as Promise<{
                   data: unknown;
                   error: { message?: string; code?: string } | null;
                 }>,
@@ -672,14 +698,7 @@ export const useNearbyServices = ({
           const slice = types.slice(i, i + wave);
           const results = await Promise.all(
             slice.map((t) =>
-              fetchBboxCursorRowsInner(
-                box,
-                perType,
-                batchSize,
-                queryTimeoutMs,
-                t,
-                rowFetchMode,
-              ),
+              fetchBboxCursorRowsInner(box, perType, batchSize, queryTimeoutMs, t, rowFetchMode),
             ),
           );
           const errResult = results.find((r) => r.error)?.error;
@@ -692,11 +711,7 @@ export const useNearbyServices = ({
               if (typeof rid === "string") byId.set(rid, row);
             }
           }
-          if (
-            rowFetchMode === "unordered_single" &&
-            types.length > 1 &&
-            i + wave < types.length
-          ) {
+          if (rowFetchMode === "unordered_single" && types.length > 1 && i + wave < types.length) {
             await new Promise((r) => setTimeout(r, 75));
           }
         }
@@ -715,7 +730,10 @@ export const useNearbyServices = ({
       const PHASE1_RADIUS_M = 1500;
 
       const useTwoPhase =
-        !hasTextSearch && isAllTypes && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M && distMinM === 0;
+        !hasTextSearch &&
+        isAllTypes &&
+        safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M &&
+        distMinM === 0;
 
       if (useTwoPhase) {
         try {
@@ -780,7 +798,9 @@ export const useNearbyServices = ({
               setServices(finalList);
               void saveNearbyServicesCache(finalList, userLat, userLng, safeRadius).catch(() => {});
             } else {
-              void saveNearbyServicesCache(partialList, userLat, userLng, safeRadius).catch(() => {});
+              void saveNearbyServicesCache(partialList, userLat, userLng, safeRadius).catch(
+                () => {},
+              );
             }
             skipMainProcessing = true;
           } finally {
@@ -795,9 +815,7 @@ export const useNearbyServices = ({
       }
 
       if (!skipMainProcessing) {
-        const restCap = hasTextSearch
-          ? Math.min(Math.max(limit * 4, 400), 1400)
-          : limit;
+        const restCap = hasTextSearch ? Math.min(Math.max(limit * 4, 400), 1400) : limit;
         const r = await fetchBboxCursorRowsMerged(
           { minLat, maxLat, minLng, maxLng },
           restCap,
@@ -844,10 +862,7 @@ export const useNearbyServices = ({
           });
         }
 
-        if (
-          typeof listMaxAllTypesLarge === "number" &&
-          deduped.length > listMaxAllTypesLarge
-        ) {
+        if (typeof listMaxAllTypesLarge === "number" && deduped.length > listMaxAllTypesLarge) {
           deduped = deduped.slice(0, listMaxAllTypesLarge);
         }
 
@@ -892,7 +907,17 @@ export const useNearbyServices = ({
         setLoading(false);
       }
     }
-  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, filterByEquipmentNature, fullTextQuery, minRadiusMeters, equipmentNature, skipFetch]);
+  }, [
+    radiusMeters,
+    serviceType,
+    serviceTypes,
+    applyCacheWithDistance,
+    filterByEquipmentNature,
+    fullTextQuery,
+    minRadiusMeters,
+    equipmentNature,
+    skipFetch,
+  ]);
 
   useEffect(() => {
     fetchServices();

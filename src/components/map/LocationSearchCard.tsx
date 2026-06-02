@@ -123,7 +123,13 @@ export function LocationSearchCard({
             <p className="text-xs text-muted-foreground line-clamp-2" title={label}>
               Próximo de: {label}
             </p>
-            <Button type="button" variant="outline" size="sm" className="w-full" onClick={onAlterarLocal}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={onAlterarLocal}
+            >
               <X className="w-4 h-4 mr-2" />
               Alterar local
             </Button>

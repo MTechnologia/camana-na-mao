@@ -2,16 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Calendar as CalendarIcon,
-  Download,
-  Eye,
-  Filter,
-  Lock,
-  Search,
-  Users,
-} from "lucide-react";
-import { AdminPageShell } from '@/components/admin/AdminPageShell';
+import { Calendar as CalendarIcon, Download, Eye, Filter, Lock, Search, Users } from "lucide-react";
+import { AdminPageShell } from "@/components/admin/AdminPageShell";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
@@ -170,7 +162,8 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
     if (!q) return logs;
     return logs.filter((log) => {
       const actor = log.user_id ? actorById.get(log.user_id) : null;
-      const hay = `${log.action} ${log.entity_type} ${log.entity_id ?? ""} ${actor?.fullName ?? ""} ${actor?.email ?? ""}`.toLowerCase();
+      const hay =
+        `${log.action} ${log.entity_type} ${log.entity_id ?? ""} ${actor?.fullName ?? ""} ${actor?.email ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
   }, [logs, searchTerm, actorById]);
@@ -221,9 +214,8 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               </Badge>
             </h1>
             <p className="text-muted-foreground text-sm">
-              Histórico completo de ações administrativas no sistema.
-              Registros não podem ser editados ou apagados (somente arquivados
-              após 12 meses).
+              Histórico completo de ações administrativas no sistema. Registros não podem ser
+              editados ou apagados (somente arquivados após 12 meses).
             </p>
           </div>
           <Button onClick={() => setExportOpen(true)} className="gap-2" variant="outline">
@@ -245,7 +237,10 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
               />
             </div>
 
-            <Select value={rangePreset} onValueChange={(v) => setRangePreset(v as AuditRangePreset)}>
+            <Select
+              value={rangePreset}
+              onValueChange={(v) => setRangePreset(v as AuditRangePreset)}
+            >
               <SelectTrigger className="w-full lg:w-[180px]">
                 <CalendarIcon className="w-3.5 h-3.5 mr-1" />
                 <SelectValue />
@@ -397,16 +392,14 @@ const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
 
         <div className="text-xs text-muted-foreground text-center">
           Exibindo {filteredLogs.length} de {logs.length} registros filtrados
-          {logs.length >= 500 && (
-            <span> · Limite 500 — refine os filtros para ver mais.</span>
-          )}
+          {logs.length >= 500 && <span> · Limite 500 — refine os filtros para ver mais.</span>}
         </div>
       </div>
 
       <AuditLogDetailSheet
         log={selected}
         onOpenChange={(o) => !o && setSelected(null)}
-        actor={selected?.user_id ? actorById.get(selected.user_id) ?? null : null}
+        actor={selected?.user_id ? (actorById.get(selected.user_id) ?? null) : null}
       />
 
       <AuditExportDialog
@@ -444,9 +437,7 @@ function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetPr
           <SheetTitle>{log.action}</SheetTitle>
           <SheetDescription>
             {log.entity_type}
-            {log.entity_id && (
-              <span className="font-mono text-xs ml-1">· {log.entity_id}</span>
-            )}
+            {log.entity_id && <span className="font-mono text-xs ml-1">· {log.entity_id}</span>}
           </SheetDescription>
         </SheetHeader>
 
@@ -459,9 +450,7 @@ function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetPr
             <p>
               <span className="text-muted-foreground">Quem: </span>
               {actor?.fullName ?? log.user_id ?? "—"}
-              {actor?.email && (
-                <span className="text-muted-foreground"> ({actor.email})</span>
-              )}
+              {actor?.email && <span className="text-muted-foreground"> ({actor.email})</span>}
             </p>
             {log.ip_address && (
               <p>
@@ -497,7 +486,9 @@ function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetPr
                         "p-1.5 rounded border-l-2 break-all",
                         oldVal === undefined && "border-green-500 bg-green-50",
                         newVal === undefined && "border-red-500 bg-red-50",
-                        oldVal !== undefined && newVal !== undefined && "border-amber-500 bg-amber-50",
+                        oldVal !== undefined &&
+                          newVal !== undefined &&
+                          "border-amber-500 bg-amber-50",
                       )}
                     >
                       <p className="font-semibold">{key}</p>

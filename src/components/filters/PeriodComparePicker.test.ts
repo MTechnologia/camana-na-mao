@@ -5,9 +5,7 @@ describe("computePeriodB", () => {
   it("retorna null se periodA não tem from/to", () => {
     expect(computePeriodB(undefined, "previous")).toBeNull();
     expect(computePeriodB({ from: undefined, to: undefined }, "previous")).toBeNull();
-    expect(
-      computePeriodB({ from: new Date("2026-01-01"), to: undefined }, "previous"),
-    ).toBeNull();
+    expect(computePeriodB({ from: new Date("2026-01-01"), to: undefined }, "previous")).toBeNull();
   });
 
   it("preset 'previous' retorna janela imediatamente anterior com mesma duração", () => {

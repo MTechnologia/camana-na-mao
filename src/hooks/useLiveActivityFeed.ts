@@ -153,15 +153,20 @@ async function fetchRecentActivity(limit: number): Promise<ActivityItem[]> {
 
   // 4) Audiencia participacoes (videoconferência / escrito)
   try {
-    const { data, error } = await (supabase as unknown as {
-      from: (table: string) => {
-        select: (cols: string) => {
-          order: (col: string, opts: { ascending: boolean }) => {
-            limit: (n: number) => Promise<{ data: ParticipacaoRow[] | null; error: unknown }>;
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => {
+            order: (
+              col: string,
+              opts: { ascending: boolean },
+            ) => {
+              limit: (n: number) => Promise<{ data: ParticipacaoRow[] | null; error: unknown }>;
+            };
           };
         };
-      };
-    })
+      }
+    )
       .from("audiencia_participacoes")
       .select("id, audiencia_id, tipo, created_at, audiencias(titulo)")
       .order("created_at", { ascending: false })
@@ -189,9 +194,7 @@ async function fetchRecentActivity(limit: number): Promise<ActivityItem[]> {
   }
 
   // Ordena por timestamp desc e limita
-  return items
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-    .slice(0, limit);
+  return items.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, limit);
 }
 
 export function useLiveActivityFeed(limit = 15) {

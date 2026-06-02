@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -15,42 +15,39 @@ import {
   XAxis,
   YAxis,
   ZAxis,
-} from 'recharts';
-import { ChevronLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { usePanelWidgetAnalytics } from '@/hooks/usePanelWidgetAnalytics';
+} from "recharts";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { usePanelWidgetAnalytics } from "@/hooks/usePanelWidgetAnalytics";
 import {
   CHART_COLORS,
   chartTooltipStyle,
   formatChartNumber,
-} from '@/components/admin/analytics/chartTheme';
-import { metricLabel } from '@/lib/analyticsLabels';
-import type { AnalyticsMetric, ChartBarPoint, DrillGrain } from '@/types/analyticsDrill';
-import type { PanelWidget } from '@/types/customPanel';
+} from "@/components/admin/analytics/chartTheme";
+import { metricLabel } from "@/lib/analyticsLabels";
+import type { AnalyticsMetric, ChartBarPoint, DrillGrain } from "@/types/analyticsDrill";
+import type { PanelWidget } from "@/types/customPanel";
 
 function MiniChart({ tall, children }: { tall?: boolean; children: ReactNode }) {
-  return <div className={tall ? 'h-[280px] w-full' : 'h-[220px] w-full'}>{children}</div>;
+  return <div className={tall ? "h-[280px] w-full" : "h-[220px] w-full"}>{children}</div>;
 }
 
 export function WidgetKpiQuad({ widget }: { widget: PanelWidget }) {
   const { kpis } = usePanelWidgetAnalytics(widget);
   const items = [
-    { label: 'Volume', value: formatChartNumber(kpis.volume), hint: 'relatos' },
-    { label: 'Resposta média', value: `${kpis.responseHours}h`, hint: 'no período' },
+    { label: "Volume", value: formatChartNumber(kpis.volume), hint: "relatos" },
+    { label: "Resposta média", value: `${kpis.responseHours}h`, hint: "no período" },
     {
-      label: 'Sentimento +',
-      value: kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : '—',
-      hint: 'positivo',
+      label: "Sentimento +",
+      value: kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : "—",
+      hint: "positivo",
     },
-    { label: 'Padrões', value: formatChartNumber(kpis.patterns), hint: 'temas ativos' },
+    { label: "Padrões", value: formatChartNumber(kpis.patterns), hint: "temas ativos" },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-lg border border-border bg-muted/30 px-3 py-3"
-        >
+        <div key={item.label} className="rounded-lg border border-border bg-muted/30 px-3 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {item.label}
           </p>
@@ -63,12 +60,12 @@ export function WidgetKpiQuad({ widget }: { widget: PanelWidget }) {
 }
 
 export function WidgetKpiSingle({ widget }: { widget: PanelWidget }) {
-  const metric = widget.filters.metric ?? 'volume';
+  const metric = widget.filters.metric ?? "volume";
   const { kpis } = usePanelWidgetAnalytics(widget);
   const valueMap: Record<AnalyticsMetric, string> = {
     volume: formatChartNumber(kpis.volume),
     response_time: `${kpis.responseHours} h`,
-    sentiment: kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : '—',
+    sentiment: kpis.sentimentPct != null ? `${kpis.sentimentPct}%` : "—",
     patterns: formatChartNumber(kpis.patterns),
   };
   return (
@@ -82,10 +79,10 @@ export function WidgetKpiSingle({ widget }: { widget: PanelWidget }) {
 }
 
 export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
-  const metric = widget.filters.metric ?? 'volume';
+  const metric = widget.filters.metric ?? "volume";
   const enableDrill = widget.filters.enableDrill !== false;
   const { chartSeries } = usePanelWidgetAnalytics(widget);
-  const [grain, setGrain] = useState<DrillGrain>('overview');
+  const [grain, setGrain] = useState<DrillGrain>("overview");
   const [activeRegion, setActiveRegion] = useState<string | undefined>();
   const [activeDistrict, setActiveDistrict] = useState<string | undefined>();
 
@@ -97,30 +94,30 @@ export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
   const onBarClick = useCallback(
     (point: ChartBarPoint) => {
       if (!enableDrill) return;
-      if (grain === 'overview' && point.filterKey === 'region') {
-        setGrain('region');
+      if (grain === "overview" && point.filterKey === "region") {
+        setGrain("region");
         setActiveRegion(point.filterValue);
-      } else if (grain === 'region' && point.filterKey === 'district') {
+      } else if (grain === "region" && point.filterKey === "district") {
         setActiveDistrict(point.filterValue);
-        setGrain('street');
+        setGrain("street");
       }
     },
     [enableDrill, grain],
   );
 
   const drillUp = () => {
-    if (grain === 'street') {
-      setGrain('region');
+    if (grain === "street") {
+      setGrain("region");
       setActiveDistrict(undefined);
-    } else if (grain === 'region') {
-      setGrain('overview');
+    } else if (grain === "region") {
+      setGrain("overview");
       setActiveRegion(undefined);
     }
   };
 
   return (
     <div className="space-y-2">
-      {enableDrill && grain !== 'overview' ? (
+      {enableDrill && grain !== "overview" ? (
         <Button
           type="button"
           variant="ghost"
@@ -144,7 +141,7 @@ export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
               tick={{ fontSize: 10 }}
               interval={0}
               angle={data.length > 5 ? -28 : 0}
-              textAnchor={data.length > 5 ? 'end' : 'middle'}
+              textAnchor={data.length > 5 ? "end" : "middle"}
               height={data.length > 5 ? 56 : 32}
             />
             <YAxis tick={{ fontSize: 10 }} width={40} />
@@ -157,7 +154,7 @@ export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
               name={metricLabel(metric)}
               fill={CHART_COLORS[0]}
               radius={[4, 4, 0, 0]}
-              cursor={enableDrill ? 'pointer' : 'default'}
+              cursor={enableDrill ? "pointer" : "default"}
               onClick={(_, index) => {
                 const point = data[index];
                 if (point) onBarClick(point);
@@ -215,14 +212,7 @@ export function WidgetPieStatus({ widget }: { widget: PanelWidget }) {
     <MiniChart>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="label"
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-          >
+          <Pie data={data} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80}>
             {data.map((_, i) => (
               <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
             ))}
@@ -236,7 +226,7 @@ export function WidgetPieStatus({ widget }: { widget: PanelWidget }) {
 
 export function WidgetPieSentiment({ widget }: { widget: PanelWidget }) {
   const { sentimentPolarity } = usePanelWidgetAnalytics(widget);
-  const regions = useMemo(() => sentimentPolarity('overview'), [sentimentPolarity]);
+  const regions = useMemo(() => sentimentPolarity("overview"), [sentimentPolarity]);
   const slices = regions[0]?.slices ?? [];
   return (
     <MiniChart>
@@ -281,9 +271,9 @@ export function WidgetPatternsTop({ widget }: { widget: PanelWidget }) {
           </span>
           <span className="shrink-0 tabular-nums text-muted-foreground">
             {formatChartNumber(row.count)}
-            <span className={row.trendPct >= 0 ? ' text-green-600' : ' text-destructive'}>
-              {' '}
-              {row.trendPct >= 0 ? '+' : ''}
+            <span className={row.trendPct >= 0 ? " text-green-600" : " text-destructive"}>
+              {" "}
+              {row.trendPct >= 0 ? "+" : ""}
               {row.trendPct}%
             </span>
           </span>
@@ -306,7 +296,7 @@ export function WidgetPatternsRegion({ widget }: { widget: PanelWidget }) {
           <p className="font-medium text-foreground">{row.regionLabel}</p>
           <p className="mt-0.5 text-foreground">{row.primaryPattern}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {formatChartNumber(row.count)} ocorrências · tendência {row.trendPct >= 0 ? '+' : ''}
+            {formatChartNumber(row.count)} ocorrências · tendência {row.trendPct >= 0 ? "+" : ""}
             {row.trendPct}%
           </p>
         </li>
@@ -326,7 +316,7 @@ export function WidgetScatterCorrelation({ widget }: { widget: PanelWidget }) {
           <XAxis type="number" dataKey="volume" name="Volume" tick={{ fontSize: 10 }} />
           <YAxis type="number" dataKey="responseHours" name="Horas" tick={{ fontSize: 10 }} />
           <ZAxis type="number" dataKey="sentimentPct" range={[60, 400]} />
-          <Tooltip contentStyle={chartTooltipStyle} cursor={{ strokeDasharray: '3 3' }} />
+          <Tooltip contentStyle={chartTooltipStyle} cursor={{ strokeDasharray: "3 3" }} />
           <Scatter data={data} fill={CHART_COLORS[2]} />
         </ScatterChart>
       </ResponsiveContainer>
@@ -345,7 +335,12 @@ export function WidgetTerritoryIntensity({ widget }: { widget: PanelWidget }) {
           <XAxis type="number" tick={{ fontSize: 10 }} />
           <YAxis type="category" dataKey="label" tick={{ fontSize: 10 }} width={68} />
           <Tooltip contentStyle={chartTooltipStyle} />
-          <Bar dataKey="intensity" name="Intensidade" fill={CHART_COLORS[3]} radius={[0, 4, 4, 0]} />
+          <Bar
+            dataKey="intensity"
+            name="Intensidade"
+            fill={CHART_COLORS[3]}
+            radius={[0, 4, 4, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </MiniChart>

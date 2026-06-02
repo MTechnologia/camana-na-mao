@@ -1,5 +1,5 @@
-import { NotificationsChartSection } from '@/components/admin/charts/SectionChartPanels';
-import { PageShell } from '@/components/ui/PageShell';
+import { NotificationsChartSection } from "@/components/admin/charts/SectionChartPanels";
+import { PageShell } from "@/components/ui/PageShell";
 
 export function AdminNotificationsPage() {
   return (

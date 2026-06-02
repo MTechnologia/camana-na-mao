@@ -3,11 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 import { ANALYTICS_REALTIME_FULL } from "@/lib/analyticsRealtimeTables";
 import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
-import {
-  DIMENSIONS,
-  type DimensionKey,
-  type UnifiedReport,
-} from "@/lib/analyticsDimensions";
+import { DIMENSIONS, type DimensionKey, type UnifiedReport } from "@/lib/analyticsDimensions";
 import {
   applyCrossAnalyticsDateFilters,
   filterUnifiedReportsByRegion,
@@ -123,9 +119,7 @@ async function fetchTransport(
   for (let page = 0; page < MAX_PAGES; page += 1) {
     let query = supabase
       .from("transport_reports")
-      .select(
-        "id, status, severity, location, stop_location, ai_sentiment, created_at, user_id",
-      )
+      .select("id, status, severity, location, stop_location, ai_sentiment, created_at, user_id")
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -402,13 +396,7 @@ export function useCrossDimensionAnalytics(
       isFirstLoadRef.current = false;
       setIsLoading(false);
     }
-  }, [
-    filterKey,
-    filters.startDate,
-    filters.endDate,
-    filters.region,
-    filters.category,
-  ]);
+  }, [filterKey, filters.startDate, filters.endDate, filters.region, filters.category]);
 
   useEffect(() => {
     void fetchAll();

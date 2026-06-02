@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole, type UserRole } from '@/hooks/useUserRole';
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole, type UserRole } from "@/hooks/useUserRole";
 
 type DebugRoleRead = {
-  via: 'table' | 'rpc';
+  via: "table" | "rpc";
   roles: UserRole[];
   error?: string;
 };
 
 function safeHost(url: string | undefined): string {
-  if (!url) return '(missing CAMARA_URL)';
+  if (!url) return "(missing CAMARA_URL)";
   try {
     return new URL(url).host;
   } catch {
@@ -45,21 +45,21 @@ export default function DebugRBAC() {
         const next: DebugRoleRead[] = [];
 
         // 1) Table read
-        const tableRes = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+        const tableRes = await supabase.from("user_roles").select("role").eq("user_id", user.id);
         if (tableRes.error) {
-          next.push({ via: 'table', roles: [], error: tableRes.error.message });
+          next.push({ via: "table", roles: [], error: tableRes.error.message });
         } else {
           const roles = (tableRes.data || []).map((r) => r.role as UserRole);
-          next.push({ via: 'table', roles });
+          next.push({ via: "table", roles });
         }
 
         // 2) RPC read
-        const rpcRes = await supabase.rpc('get_user_roles', { _user_id: user.id });
+        const rpcRes = await supabase.rpc("get_user_roles", { _user_id: user.id });
         if (rpcRes.error) {
-          next.push({ via: 'rpc', roles: [], error: rpcRes.error.message });
+          next.push({ via: "rpc", roles: [], error: rpcRes.error.message });
         } else {
           const roles = (rpcRes.data || []).map((r) => r as UserRole);
-          next.push({ via: 'rpc', roles });
+          next.push({ via: "rpc", roles });
         }
 
         if (!cancelled) setReads(next);
@@ -78,20 +78,22 @@ export default function DebugRBAC() {
     <div className="min-h-screen bg-gray-50 pt-[60px] max-w-3xl mx-auto px-6 py-8">
       <h1 className="text-2xl font-bold mb-2">Debug RBAC</h1>
       <p className="text-sm text-muted-foreground mb-6">
-        Página de diagnóstico (não altera nada). Use para confirmar ambiente Supabase, usuário logado e roles lidas.
+        Página de diagnóstico (não altera nada). Use para confirmar ambiente Supabase, usuário
+        logado e roles lidas.
       </p>
 
       <div className="rounded-lg border bg-white p-4 space-y-2">
         <div className="text-sm">
-          <span className="font-semibold">Supabase host:</span> <span className="font-mono">{supabaseHost}</span>
+          <span className="font-semibold">Supabase host:</span>{" "}
+          <span className="font-mono">{supabaseHost}</span>
         </div>
         <div className="text-sm">
-          <span className="font-semibold">User email:</span>{' '}
-          <span className="font-mono">{user?.email || '(not logged in)'}</span>
+          <span className="font-semibold">User email:</span>{" "}
+          <span className="font-mono">{user?.email || "(not logged in)"}</span>
         </div>
         <div className="text-sm">
-          <span className="font-semibold">User id:</span>{' '}
-          <span className="font-mono">{user?.id || '(not logged in)'}</span>
+          <span className="font-semibold">User id:</span>{" "}
+          <span className="font-mono">{user?.id || "(not logged in)"}</span>
         </div>
       </div>
 
@@ -102,21 +104,25 @@ export default function DebugRBAC() {
             <span className="font-semibold">loading:</span> {String(roleState.loading)}
           </div>
           <div>
-            <span className="font-semibold">roles:</span>{' '}
-            <span className="font-mono">{roleState.roles.join(', ') || '(empty)'}</span>
+            <span className="font-semibold">roles:</span>{" "}
+            <span className="font-mono">{roleState.roles.join(", ") || "(empty)"}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mt-2">
             <div>
-              <span className="font-semibold">isCidadaoEngajado:</span> {String(roleState.isCidadaoEngajado)}
+              <span className="font-semibold">isCidadaoEngajado:</span>{" "}
+              {String(roleState.isCidadaoEngajado)}
             </div>
             <div>
-              <span className="font-semibold">canViewDashboards:</span> {String(roleState.canViewDashboards)}
+              <span className="font-semibold">canViewDashboards:</span>{" "}
+              {String(roleState.canViewDashboards)}
             </div>
             <div>
-              <span className="font-semibold">canCreateDashboards:</span> {String(roleState.canCreateDashboards)}
+              <span className="font-semibold">canCreateDashboards:</span>{" "}
+              {String(roleState.canCreateDashboards)}
             </div>
             <div>
-              <span className="font-semibold">canReferToCouncilMember:</span> {String(roleState.canReferToCouncilMember)}
+              <span className="font-semibold">canReferToCouncilMember:</span>{" "}
+              {String(roleState.canReferToCouncilMember)}
             </div>
           </div>
         </div>
@@ -133,15 +139,16 @@ export default function DebugRBAC() {
             {reads.map((r) => (
               <div key={r.via} className="rounded border p-3">
                 <div className="text-sm">
-                  <span className="font-semibold">via:</span> <span className="font-mono">{r.via}</span>
+                  <span className="font-semibold">via:</span>{" "}
+                  <span className="font-mono">{r.via}</span>
                 </div>
                 <div className="text-sm">
-                  <span className="font-semibold">roles:</span>{' '}
-                  <span className="font-mono">{r.roles.join(', ') || '(empty)'}</span>
+                  <span className="font-semibold">roles:</span>{" "}
+                  <span className="font-mono">{r.roles.join(", ") || "(empty)"}</span>
                 </div>
                 {r.error ? (
                   <div className="text-sm mt-1">
-                    <span className="font-semibold">error:</span>{' '}
+                    <span className="font-semibold">error:</span>{" "}
                     <span className="font-mono text-red-600">{r.error}</span>
                   </div>
                 ) : null}
@@ -152,10 +159,9 @@ export default function DebugRBAC() {
       </div>
 
       <div className="mt-6 text-sm text-muted-foreground">
-        Dica: se aqui aparecer “roles: (empty)”, mas você “tem certeza” que é engajado, então o usuário/role foi criado em
-        outro projeto Supabase (mesmo email, UUID diferente).
+        Dica: se aqui aparecer “roles: (empty)”, mas você “tem certeza” que é engajado, então o
+        usuário/role foi criado em outro projeto Supabase (mesmo email, UUID diferente).
       </div>
     </div>
   );
 }
-

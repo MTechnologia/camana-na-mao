@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
 export type AccuracyBySourceRow =
-  Database['public']['Views']['v_classification_accuracy_by_source']['Row'];
+  Database["public"]["Views"]["v_classification_accuracy_by_source"]["Row"];
 export type PredictionVsFeedbackRow =
-  Database['public']['Views']['v_classification_prediction_vs_feedback']['Row'];
+  Database["public"]["Views"]["v_classification_prediction_vs_feedback"]["Row"];
 export type PredictionsPendingRow =
-  Database['public']['Views']['v_classification_predictions_pending']['Row'];
+  Database["public"]["Views"]["v_classification_predictions_pending"]["Row"];
 
 export interface ClassificationAccuracySummary {
   totalPredictions: number;
@@ -30,22 +30,22 @@ export function useClassificationAccuracyMetrics() {
     try {
       const [bySourceRes, vsRes, countRes, pendingRes] = await Promise.all([
         supabase
-          .from('v_classification_accuracy_by_source')
-          .select('*')
-          .order('report_type', { ascending: true })
-          .order('classification_source', { ascending: true }),
+          .from("v_classification_accuracy_by_source")
+          .select("*")
+          .order("report_type", { ascending: true })
+          .order("classification_source", { ascending: true }),
         supabase
-          .from('v_classification_prediction_vs_feedback')
-          .select('*')
-          .order('corrected_at', { ascending: false })
+          .from("v_classification_prediction_vs_feedback")
+          .select("*")
+          .order("corrected_at", { ascending: false })
           .limit(75),
         supabase
-          .from('report_classification_prediction_log')
-          .select('*', { count: 'exact', head: true }),
+          .from("report_classification_prediction_log")
+          .select("*", { count: "exact", head: true }),
         supabase
-          .from('v_classification_predictions_pending')
-          .select('*')
-          .order('created_at', { ascending: false })
+          .from("v_classification_predictions_pending")
+          .select("*")
+          .order("created_at", { ascending: false })
           .limit(50),
       ]);
 
@@ -71,7 +71,7 @@ export function useClassificationAccuracyMetrics() {
         globalCategoryAccuracyPct: globalPct,
       });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erro ao carregar métricas';
+      const msg = e instanceof Error ? e.message : "Erro ao carregar métricas";
       setError(msg);
       setAccuracyBySource([]);
       setRecentEvaluations([]);

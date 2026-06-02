@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   TrendingUp,
   Users,
@@ -8,20 +8,20 @@ import {
   BarChart3,
   Plus,
   ListOrdered,
-} from 'lucide-react';
-import PageHeader from '@/components/ui/page-header';
+} from "lucide-react";
+import PageHeader from "@/components/ui/page-header";
 
-import { KPICard } from '@/components/analytics/KPICard';
-import { ChartCard } from '@/components/analytics/ChartCard';
-import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
-import { HeatmapChart } from '@/components/analytics/HeatmapChart';
-import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
-import { dataExportFiltersFromDateRange } from '@/lib/buildDataExportFilters';
-import { Button } from '@/components/ui/button';
-import { useUserRole } from '@/hooks/useUserRole';
-import { useAnalyticsDashboardSummary } from '@/hooks/useAnalyticsDashboardSummary';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { KPICard } from "@/components/analytics/KPICard";
+import { ChartCard } from "@/components/analytics/ChartCard";
+import { UnifiedFilterBar, FilterConfig } from "@/components/filters";
+import { HeatmapChart } from "@/components/analytics/HeatmapChart";
+import { DataExportTrigger } from "@/components/analytics/DataExportTrigger";
+import { dataExportFiltersFromDateRange } from "@/lib/buildDataExportFilters";
+import { Button } from "@/components/ui/button";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useAnalyticsDashboardSummary } from "@/hooks/useAnalyticsDashboardSummary";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   BarChart,
   Bar,
@@ -35,23 +35,25 @@ import {
   PieChart,
   Pie,
   Cell,
-} from 'recharts';
+} from "recharts";
 
 function periodLabel(ym: string): string {
-  const parts = ym.split('-');
+  const parts = ym.split("-");
   const y = Number(parts[0]);
   const m = Number(parts[1]);
   if (!Number.isFinite(y) || !Number.isFinite(m)) return ym;
   const d = new Date(y, m - 1, 1);
-  return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+  return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
 }
 
-function trendFromPct(pct: number | null | undefined): { value: number; direction: 'up' | 'down' } | undefined {
+function trendFromPct(
+  pct: number | null | undefined,
+): { value: number; direction: "up" | "down" } | undefined {
   if (pct == null || Number.isNaN(Number(pct))) return undefined;
   const n = Number(pct);
   return {
     value: Math.min(999, Math.round(Math.abs(n) * 10) / 10),
-    direction: n >= 0 ? 'up' : 'down',
+    direction: n >= 0 ? "up" : "down",
   };
 }
 
@@ -63,20 +65,20 @@ interface AnalyticsFilters {
 
 const filterConfig: FilterConfig<AnalyticsFilters> = {
   fields: [
-    { key: 'search', type: 'search', label: 'Buscar', placeholder: 'Buscar...', colSpan: 2 },
-    { 
-      key: 'category', 
-      type: 'select', 
-      label: 'Categoria',
-      placeholder: 'Todas',
+    { key: "search", type: "search", label: "Buscar", placeholder: "Buscar...", colSpan: 2 },
+    {
+      key: "category",
+      type: "select",
+      label: "Categoria",
+      placeholder: "Todas",
       options: [
-        { value: 'saude', label: 'Saúde' },
-        { value: 'educacao', label: 'Educação' },
-        { value: 'transporte', label: 'Transporte' },
-        { value: 'seguranca', label: 'Segurança' },
-      ]
+        { value: "saude", label: "Saúde" },
+        { value: "educacao", label: "Educação" },
+        { value: "transporte", label: "Transporte" },
+        { value: "seguranca", label: "Segurança" },
+      ],
     },
-    { key: 'dateRange', type: 'daterange', label: 'Período', placeholder: 'Período' },
+    { key: "dateRange", type: "daterange", label: "Período", placeholder: "Período" },
   ],
   showExport: false,
 };
@@ -85,8 +87,8 @@ const AnalyticsDashboard = () => {
   const navigate = useNavigate();
   const { loading: roleLoading, canAccessAdvancedAnalytics, canViewDashboards } = useUserRole();
   const [filters, setFilters] = useState<AnalyticsFilters>({
-    search: '',
-    category: '',
+    search: "",
+    category: "",
     dateRange: undefined,
   });
   const exportFilters = useMemo(
@@ -94,7 +96,11 @@ const AnalyticsDashboard = () => {
     [filters.dateRange, filters.category],
   );
 
-  const { data: summary, loading: summaryLoading, error: summaryError } = useAnalyticsDashboardSummary({
+  const {
+    data: summary,
+    loading: summaryLoading,
+    error: summaryError,
+  } = useAnalyticsDashboardSummary({
     from: filters.dateRange?.from,
     to: filters.dateRange?.to,
   });
@@ -102,7 +108,7 @@ const AnalyticsDashboard = () => {
   const activeCount = useMemo(() => {
     let count = 0;
     if (filters.search) count++;
-    if (filters.category && filters.category !== 'all') count++;
+    if (filters.category && filters.category !== "all") count++;
     if (filters.dateRange?.from) count++;
     return count;
   }, [filters]);
@@ -124,8 +130,9 @@ const AnalyticsDashboard = () => {
       <div className="min-h-screen bg-gray-50 pt-[60px] max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-bold mb-2">Acesso restrito</h1>
         <p className="text-muted-foreground">
-          Dashboards analíticos estão disponíveis para <strong>Admin</strong>, <strong>Gestor</strong>,{' '}
-          <strong>Assessor</strong>, <strong>Vereador</strong> e <strong>Cidadão Engajado</strong>.
+          Dashboards analíticos estão disponíveis para <strong>Admin</strong>,{" "}
+          <strong>Gestor</strong>, <strong>Assessor</strong>, <strong>Vereador</strong> e{" "}
+          <strong>Cidadão Engajado</strong>.
         </p>
       </div>
     );
@@ -148,16 +155,21 @@ const AnalyticsDashboard = () => {
   const categoryData = summary?.category_distribution ?? [];
 
   const heatmapRaw = summary?.heatmap ?? [];
-  const heatmapData =
-    heatmapRaw.length > 0 ? heatmapRaw : [{ x: '—', y: '—', value: 0 }];
+  const heatmapData = heatmapRaw.length > 0 ? heatmapRaw : [{ x: "—", y: "—", value: 0 }];
 
   const topRegionsBar = summary?.top_regions ?? [];
 
-  const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+  const COLORS = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+  ];
 
   const lastUpdatedLabel = summary?.range?.end
-    ? new Date(summary.range.end).toLocaleString('pt-BR')
-    : new Date().toLocaleString('pt-BR');
+    ? new Date(summary.range.end).toLocaleString("pt-BR")
+    : new Date().toLocaleString("pt-BR");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -169,8 +181,8 @@ const AnalyticsDashboard = () => {
           <UnifiedFilterBar
             config={filterConfig}
             filters={filters}
-            onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
-            onClearAll={() => setFilters({ search: '', category: '', dateRange: undefined })}
+            onChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+            onClearAll={() => setFilters({ search: "", category: "", dateRange: undefined })}
             activeCount={activeCount}
           />
         </div>
@@ -187,24 +199,20 @@ const AnalyticsDashboard = () => {
           <div className="flex gap-3">
             <Button
               variant="outline"
-              onClick={() => navigate('/paineis/piores-servicos')}
+              onClick={() => navigate("/paineis/piores-servicos")}
               className="gap-2"
             >
               <ListOrdered className="w-4 h-4" />
               Piores por dimensão
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/paineis/criar')}
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={() => navigate("/paineis/criar")} className="gap-2">
               <Plus className="w-4 h-4" />
               Criar Painel
             </Button>
             {canAccessAdvancedAnalytics && (
               <Button
                 variant="outline"
-                onClick={() => navigate('/paineis/avancado')}
+                onClick={() => navigate("/paineis/avancado")}
                 className="gap-2"
               >
                 <BarChart3 className="w-4 h-4" />
@@ -230,7 +238,7 @@ const AnalyticsDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <KPICard
               title="Total de Relatos"
-              value={kpiData.totalReports.toLocaleString('pt-BR')}
+              value={kpiData.totalReports.toLocaleString("pt-BR")}
               icon={TrendingUp}
               trend={trendFromPct(kpis?.totalReports.trendPct)}
               subtitle="vs. período anterior (mesma duração)"
@@ -247,7 +255,9 @@ const AnalyticsDashboard = () => {
               value={kpiData.criticalIssues}
               icon={AlertTriangle}
               trend={trendFromPct(
-                kpis?.criticalIssues.trendPct != null ? -Number(kpis.criticalIssues.trendPct) : null,
+                kpis?.criticalIssues.trendPct != null
+                  ? -Number(kpis.criticalIssues.trendPct)
+                  : null,
               )}
               subtitle="Relatos urbanos e transporte (alta/crítica)"
             />
@@ -267,19 +277,25 @@ const AnalyticsDashboard = () => {
           <ChartCard
             title="Evolução Temporal"
             subtitle="Relatos e satisfação ao longo do tempo"
-            onDrillDown={() => navigate('/paineis/avancado')}
+            onDrillDown={() => navigate("/paineis/avancado")}
             lastUpdated={lastUpdatedLabel}
           >
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={timeSeriesData.length ? timeSeriesData : [{ name: '—', reports: 0, satisfaction: 0 }]}>
+              <LineChart
+                data={
+                  timeSeriesData.length
+                    ? timeSeriesData
+                    : [{ name: "—", reports: 0, satisfaction: 0 }]
+                }
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                 <YAxis stroke="hsl(var(--muted-foreground))" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
                   }}
                 />
                 <Line
@@ -304,13 +320,13 @@ const AnalyticsDashboard = () => {
           <ChartCard
             title="Distribuição por Categoria"
             subtitle="Volume de demandas por área"
-            onDrillDown={() => navigate('/paineis/avancado')}
+            onDrillDown={() => navigate("/paineis/avancado")}
             lastUpdated={lastUpdatedLabel}
           >
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={categoryData.length ? categoryData : [{ name: 'Sem dados', value: 1 }]}
+                  data={categoryData.length ? categoryData : [{ name: "Sem dados", value: 1 }]}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -333,14 +349,11 @@ const AnalyticsDashboard = () => {
         <ChartCard
           title="Mapa de Calor - Demandas por Região e Dia"
           subtitle="Relatos urbanos por faixa heurística de bairro e dia da semana"
-          onDrillDown={() => navigate('/paineis/avancado')}
+          onDrillDown={() => navigate("/paineis/avancado")}
           lastUpdated={lastUpdatedLabel}
           className="mb-6"
         >
-          <HeatmapChart
-            data={heatmapData}
-            onCellClick={() => navigate('/paineis/avancado')}
-          />
+          <HeatmapChart data={heatmapData} onCellClick={() => navigate("/paineis/avancado")} />
         </ChartCard>
 
         {/* Recent Activity */}
@@ -351,20 +364,16 @@ const AnalyticsDashboard = () => {
         >
           <ResponsiveContainer width="100%" height={300}>
             <BarChart
-              data={
-                topRegionsBar.length > 0
-                  ? topRegionsBar
-                  : [{ name: 'Sem dados', value: 0 }]
-              }
+              data={topRegionsBar.length > 0 ? topRegionsBar : [{ name: "Sem dados", value: 0 }]}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
                 }}
               />
               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
@@ -372,7 +381,6 @@ const AnalyticsDashboard = () => {
           </ResponsiveContainer>
         </ChartCard>
       </div>
-
     </div>
   );
 };

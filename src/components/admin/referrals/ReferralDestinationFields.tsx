@@ -1,8 +1,8 @@
-import { Label } from '@/components/ui/label';
-import type { ScoredReferralDestination } from '@/types/referralRoutingRules';
+import { Label } from "@/components/ui/label";
+import type { ScoredReferralDestination } from "@/types/referralRoutingRules";
 
 const selectClass =
-  'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  "flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 type ReferralDestinationFieldsProps = {
   commissionId: string;
@@ -31,9 +31,8 @@ export function ReferralDestinationFields({
   note,
   onNoteChange,
 }: ReferralDestinationFieldsProps) {
-  const resolvedCommission =
-    commissionId || commissionOptions[0]?.id || '';
-  const resolvedCouncillor = councillorId || councillorOptions[0]?.id || '';
+  const resolvedCommission = commissionId || commissionOptions[0]?.id || "";
+  const resolvedCouncillor = councillorId || councillorOptions[0]?.id || "";
 
   return (
     <div className="space-y-3">

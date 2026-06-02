@@ -52,7 +52,7 @@ describe("serviceRatingDimensions", () => {
     expect(parseRatingDimensionsFromMessage(message)).toEqual(completeDimensions);
     expect(parseRatingDimensionsFromMessage("Mensagem sem marcador")).toBeNull();
     expect(parseRatingDimensionsFromMessage("[RATING_DIMENSIONS:{")).toBeNull();
-    expect(parseRatingDimensionsFromMessage("[RATING_DIMENSIONS:{\"atendimento\":5}]")).toBeNull();
+    expect(parseRatingDimensionsFromMessage('[RATING_DIMENSIONS:{"atendimento":5}]')).toBeNull();
     expect(
       parseRatingDimensionsFromMessage(
         '[RATING_DIMENSIONS:{"atendimento":5,"limpeza":4,"infraestrutura":3,"tempo_espera":6}]',

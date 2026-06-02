@@ -1,13 +1,13 @@
-import { ArrowDown, ArrowUp } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export interface DriverData {
   category: string;
   icon: string;
   change: number; // percentage
-  impact: 'high' | 'medium' | 'low';
+  impact: "high" | "medium" | "low";
   total: number;
 }
 
@@ -19,23 +19,23 @@ interface SentimentDriversProps {
 export const SentimentDrivers = ({ drivers, onDriverClick }: SentimentDriversProps) => {
   const getImpactColor = (impact: string) => {
     switch (impact) {
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'default';
+      case "high":
+        return "destructive";
+      case "medium":
+        return "default";
       default:
-        return 'secondary';
+        return "secondary";
     }
   };
 
   const getImpactLabel = (impact: string) => {
     switch (impact) {
-      case 'high':
-        return 'Alto impacto';
-      case 'medium':
-        return 'Médio';
+      case "high":
+        return "Alto impacto";
+      case "medium":
+        return "Médio";
       default:
-        return 'Baixo';
+        return "Baixo";
     }
   };
 
@@ -43,7 +43,6 @@ export const SentimentDrivers = ({ drivers, onDriverClick }: SentimentDriversPro
 
   return (
     <div className="w-full space-y-3">
-      
       {sortedDrivers.map((driver, index) => (
         <motion.button
           key={driver.category}
@@ -69,18 +68,20 @@ export const SentimentDrivers = ({ drivers, onDriverClick }: SentimentDriversPro
                   animate={{ width: `${Math.abs(driver.change)}%` }}
                   transition={{ delay: index * 0.1 + 0.3, duration: 0.5 }}
                   className={cn(
-                    'h-full rounded-full',
-                    driver.change > 0 ? 'bg-chart-1' : 'bg-chart-5'
+                    "h-full rounded-full",
+                    driver.change > 0 ? "bg-chart-1" : "bg-chart-5",
                   )}
                 />
               </div>
             </div>
 
             {/* Change indicator */}
-            <div className={cn(
-              'flex items-center gap-1 font-semibold min-w-[60px]',
-              driver.change > 0 ? 'text-chart-1' : 'text-chart-5'
-            )}>
+            <div
+              className={cn(
+                "flex items-center gap-1 font-semibold min-w-[60px]",
+                driver.change > 0 ? "text-chart-1" : "text-chart-5",
+              )}
+            >
               {driver.change > 0 ? (
                 <ArrowUp className="w-4 h-4" />
               ) : (
