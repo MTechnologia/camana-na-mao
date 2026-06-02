@@ -39,7 +39,10 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe("useWidgetTheme (via WidgetThemeProvider)", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    // shouldAdvanceTime: o relógio falso acompanha o tempo real, então o polling
+    // interno do waitFor() dispara (senão trava e estoura o timeout de 5s);
+    // vi.advanceTimersByTime continua válido para testar o debounce do upsert.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     useAuthMock.mockReturnValue({
       // @ts-expect-error — partial mock só com o que o provider usa
       user: { id: "user-1" },
