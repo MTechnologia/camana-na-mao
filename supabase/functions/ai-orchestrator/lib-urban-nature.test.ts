@@ -170,7 +170,7 @@ Deno.test("getNextMissingField: sugestao com descrição válida não pede local
 
   assertEquals(accumulated.category, "outro");
   assertEquals(result.field, null);
-  assertEquals(result.prompt?.includes("problema"), false);
+  assertEquals((result.prompt ?? "").includes("problema"), false);
 });
 
 Deno.test("getNextMissingField: elogio com descrição válida não pede localização", async () => {
@@ -205,7 +205,7 @@ Deno.test("getNextMissingField: elogio com descrição válida não pede localiz
 
   assertEquals(accumulated.category, "outro");
   assertEquals(result.field, null);
-  assertEquals(result.prompt?.includes("problema"), false);
+  assertEquals((result.prompt ?? "").includes("problema"), false);
 });
 
 Deno.test("buildUrbanNonComplaintLlmInstruction: dúvida proíbe dump institucional", () => {
