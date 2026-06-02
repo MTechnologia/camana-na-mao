@@ -59,3 +59,32 @@ export function normalizeServiceTypeToDbEnum(raw: string | undefined): string | 
   const k = String(raw).toLowerCase().trim();
   return LABEL_OR_SLUG_TO_ENUM[k] ?? k;
 }
+
+/**
+ * Equipamentos públicos relevantes ao munícipe (UBS, hospitais, escolas,
+ * bibliotecas, etc.). Usado quando o picker busca SEM um tipo específico — para
+ * NÃO trazer ruído da base GeoSampa: `transit_station` (endereços de rua, ex.:
+ * "AV. Caxingui, 626") e `other` (features de GIS, ex.: "quadra_viaria_editada…").
+ * AMAs/UPAs estão sob `ubs`/`hospital`.
+ */
+export const CITIZEN_EQUIPMENT_SERVICE_TYPES = [
+  "ubs",
+  "hospital",
+  "school",
+  "ceu",
+  "library",
+  "daycare",
+  "park",
+  "sports_center",
+  "community_center",
+  "social_assistance",
+  "police_station",
+  "fire_station",
+  "subprefeitura",
+  "market",
+  "city_market",
+  "street_market",
+  "theater",
+  "museum",
+  "cemetery",
+] as const;
