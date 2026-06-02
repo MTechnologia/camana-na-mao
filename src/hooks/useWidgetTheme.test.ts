@@ -105,6 +105,25 @@ describe("useWidgetTheme (via WidgetThemeProvider)", () => {
     expect(upsertChain.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it("erro ao carregar do servidor → degrada para 'geral' + expõe error (sem crash) [A1.12]", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    supabaseFromMock.mockReturnValue(
+      mockSelect({ data: null, error: { message: "falha de rede" } }),
+    );
+
+    const { result } = renderHook(() => useWidgetTheme(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Não crasha; cai no tema default e sinaliza o erro para a UI.
+    expect(result.current.theme).toBe("geral");
+    expect(result.current.error).toMatch(/não foi possível carregar/i);
+    consoleError.mockRestore();
+  });
+
   it("useWidgetTheme fora do Provider lança erro descritivo", () => {
     // Suprime erro do React no console pra não poluir o teste.
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);

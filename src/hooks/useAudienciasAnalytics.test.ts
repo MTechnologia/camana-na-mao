@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { createSupabaseModuleMock } from "@/test/mocks/supabase";
 
@@ -418,5 +418,48 @@ describe("useAudienciasAnalytics (hook)", () => {
 
     expect(result.current.error).toMatch(/Não foi possível carregar/i);
     expect(result.current.stats.totalAudiencias).toBe(0);
+  });
+
+  it("erro no refetch MANTÉM o último resultado bom (painel não esvazia) [A1.12]", async () => {
+    // 1ª carga OK → stats populado.
+    const okFrom = vi.fn((table: string) => {
+      if (table === "audiencias") {
+        return chain({
+          data: [
+            {
+              id: "a1",
+              titulo: "Audiência",
+              comissao: "Saúde",
+              tema: "Atendimento",
+              data: "2026-05-10",
+              local: "Pinheiros",
+              ap_code: null,
+              status: "agendada",
+              vagas_disponiveis: 100,
+            },
+          ],
+          error: null,
+        });
+      }
+      if (table === "audiencia_inscricoes") {
+        return chain({ data: [{ audiencia_id: "a1", user_id: "u1" }], error: null });
+      }
+      return chain({ data: [], error: null });
+    });
+    vi.spyOn(supabase, "from").mockImplementation(okFrom as unknown as SupabaseFrom);
+
+    const { result } = renderHook(() => useAudienciasAnalytics({}));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.stats.totalAudiencias).toBe(1);
+
+    // 2ª carga falha → erro setado, mas o painel preserva o último resultado bom.
+    const errFrom = (_table: string) => chain({ data: null, error: { message: "boom" } });
+    vi.spyOn(supabase, "from").mockImplementation(errFrom as unknown as SupabaseFrom);
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(result.current.error).toMatch(/Não foi possível carregar/i);
+    expect(result.current.stats.totalAudiencias).toBe(1); // NÃO zerou
   });
 });
