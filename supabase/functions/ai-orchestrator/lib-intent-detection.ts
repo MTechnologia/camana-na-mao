@@ -731,6 +731,11 @@ export function detectCollectionIntent(
     scores.push({ type: "transport_report", score: transportScore, fields: extractTransportFields(fullUserContext) });
   }
 
+  // Consulta institucional/estrutural sobre a Câmara (ex.: "conhecer a estrutura
+  // e o funcionamento da Câmara Municipal") é INFORMACIONAL — não pode iniciar
+  // coleta de relato urbano nem de feedback à Câmara. Gateia esses scores.
+  const isCamaraFuncInterno = isCamaraFuncionamentoInternoQuery(fullUserContext);
+
   const urbanDomain = ["buraco", "poste", "iluminação", "iluminacao", "lixo", "entulho", "calçada", "calcada", "esgoto", "pavimentação", "pavimentacao", "recape", "asfaltamento", "sinalização", "sinalizacao", "semáforo", "semaforo", "placa", "faixa de pedestre", "drenagem", "sarjeta", "pluvial", "água pluvial", "agua pluvial", "árvore", "arvore", "poda", "fedor", "fedido", "bicho morto", "animal morto", "rato", "bueiro", "vazamento", "sujeira", "fedendo", "cheiro", "elogio", "elogiar", "sugestão", "sugestao", "parabéns", "parabens", "agradeço", "agradeco", "melhorar a cidade", "funcionou bem", "incêndio", "incendio", "fogo", "chamas", "queimando", "alagamento", "alagando", "enchente", "inundando", "chovendo", "chuva forte", "fio caido", "fio caído", "fios expostos", "risco de choque", "choque", "explosão", "explosao", "transformador", "desabamento", "atropelamento", "prédio abandonado", "predio abandonado", "pichação", "pichacao", "barulho", "cachorro", "obra irregular", "tapume", "vandalismo"];
   const urbanProblems = ["quebrado", "apagado", "acumulado", "vazando", "caindo", "fedendo", "fedido", "entupido", "entupida", "entupidas", "entupidos", "intupido", "intupida", "alagado", "alagada", "alagando"];
   let urbanScore = 0;
@@ -753,7 +758,7 @@ export function detectCollectionIntent(
     urbanScore = 0;
   }
 
-  if (urbanScore > 0) {
+  if (urbanScore > 0 && !isCamaraFuncInterno) {
     scores.push({ type: "urban_report", score: urbanScore, fields: extractUrbanFields(fullUserContext) });
   }
 
@@ -810,7 +815,8 @@ export function detectCollectionIntent(
     chamberAnchored &&
     chamberScore >= 5 &&
     !isFactualQuestionAboutChamber &&
-    !isContactQuestionAboutChamberEarly
+    !isContactQuestionAboutChamberEarly &&
+    !isCamaraFuncInterno
   ) {
     scores.push({ type: "chamber_feedback", score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
@@ -935,7 +941,7 @@ export function detectCollectionIntent(
     knowledgeScore = Math.max(knowledgeScore, 7);
     console.log("[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG");
   }
-  if (isCamaraFuncionamentoInternoQuery(fullUserContext)) {
+  if (isCamaraFuncInterno) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log("[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG");
   }
