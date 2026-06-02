@@ -26,6 +26,15 @@ export async function getNextMissingField(
     const natureStr = natureRaw != null ? String(natureRaw).trim() : "";
     const natureOk = (lib.URBAN_REPORT_NATURE_VALUES as readonly string[]).includes(natureStr);
     if (!natureOk) {
+      // Feedback sobre vereador: não tem "dúvida" e o tom é sobre o parlamentar, não "a cidade".
+      if (String(fields.category ?? "") === "feedback_camara") {
+        return {
+          field: "report_nature",
+          picker: null,
+          prompt:
+            "[FIELD_REQUEST:report_nature]Esse seu feedback sobre o vereador é uma **reclamação**, uma **sugestão** ou um **elogio**?\n\n[QUICK_REPLY:reclamacao,sugestao,elogio]",
+        };
+      }
       return {
         field: "report_nature",
         picker: null,
