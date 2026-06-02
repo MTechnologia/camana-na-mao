@@ -326,6 +326,25 @@ export function accumulateFieldsFromHistory(
       generateLabelFromDescription,
       normalizeReportNature,
     });
+
+    // Feedback à Câmara: a seleção do picker de vereador chega como
+    // "Vereador(a): Nome (PARTIDO)". Esse formato é exclusivo desse fluxo, então
+    // marca a jornada como feedback_camara — assim a coleta não pede CEP/endereço
+    // como um relato urbano comum e o relato é criado com o vereador correto.
+    for (const m of messages) {
+      if (m.role !== 'user') continue;
+      const sel = getHistoryMessageText(m).match(
+        /vereador(?:\(a\)|a)?\s*:\s*(.+?)\s*\(([^)]+)\)/i,
+      );
+      if (sel) {
+        accumulated.category = 'feedback_camara';
+        accumulated.council_member_name = sel[1].trim();
+        accumulated.council_member_party = sel[2].trim();
+        if (!accumulated.subcategory) {
+          accumulated.subcategory = `Feedback: ${sel[1].trim()}`;
+        }
+      }
+    }
   }
   
   // ========== SERVICE_RATING SPECIFIC PARSING ==========

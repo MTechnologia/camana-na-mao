@@ -24,6 +24,21 @@ Deno.test("accumulateFieldsFromHistory: confirma categoria pendente no fluxo urb
   assertEquals(fields._pending_category, undefined);
 });
 
+Deno.test("accumulateFieldsFromHistory: seleção do picker de vereador marca feedback_camara (sem virar relato urbano com local)", () => {
+  const fields = accumulateFieldsFromHistory(
+    [
+      { role: "user", content: "Quero dar um feedback sobre um vereador" },
+      { role: "assistant", content: "Sobre qual vereador você quer falar? [VEREADOR_PICKER]" },
+      { role: "user", content: "Vereador(a): Amanda Paschoal (PSOL)" },
+    ],
+    "urban_report",
+  );
+
+  assertEquals(fields.category, "feedback_camara");
+  assertEquals(fields.council_member_name, "Amanda Paschoal");
+  assertEquals(fields.council_member_party, "PSOL");
+});
+
 Deno.test("accumulateFieldsFromHistory: captura endereço livre quando o cidadão responde rua e bairro", () => {
   const fields = accumulateFieldsFromHistory(
     [

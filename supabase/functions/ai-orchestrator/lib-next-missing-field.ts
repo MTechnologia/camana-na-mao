@@ -56,6 +56,12 @@ export async function getNextMissingField(
 
     if (!isValidDesc) {
       const nk = natureStr || "reclamacao";
+      const isChamberFeedback = String(fields.category ?? "") === "feedback_camara";
+      const chamberPrompts: Record<string, string> = {
+        reclamacao: "**Qual é a sua reclamação** sobre o vereador? Conte o que aconteceu.",
+        sugestao: "**Qual é a sua sugestão** para o vereador?",
+        elogio: "**O que você quer elogiar** no trabalho do vereador?",
+      };
       const descPrompts: Record<string, string> = {
         reclamacao: "**O que está acontecendo?** Me conta o problema.",
         duvida:
@@ -66,7 +72,9 @@ export async function getNextMissingField(
           "**O que você quer elogiar?** Conte o que está funcionando bem e quem ou o quê fez diferença.",
       };
       const descPrompt =
-        descPrompts[nk] || "**Conte mais:** o que você gostaria de registrar sobre a cidade?";
+        (isChamberFeedback ? chamberPrompts[nk] : undefined) ??
+        descPrompts[nk] ??
+        "**Conte mais:** o que você gostaria de registrar sobre a cidade?";
       return { field: "description", picker: null, prompt: descPrompt };
     }
 
@@ -190,8 +198,15 @@ export async function getNextMissingField(
       console.log("[getNextMissingField] Set subcategory:", fields.subcategory);
     }
 
-    if (lib.urbanNatureSkipsLocationCollection(natureStr)) {
-      console.log("[getNextMissingField] Urban non-complaint nature: skipping location/risk collection");
+    // Feedback à Câmara (sobre um vereador) não é georreferenciado: nunca pede
+    // CEP/endereço/GPS, mesmo quando a natureza é "reclamação".
+    if (
+      lib.urbanNatureSkipsLocationCollection(natureStr) ||
+      String(fields.category ?? "") === "feedback_camara"
+    ) {
+      console.log(
+        "[getNextMissingField] Pula coleta de localização (não-complaint ou feedback à Câmara)",
+      );
       return { field: null, picker: null, prompt: null };
     }
 
