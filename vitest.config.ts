@@ -1,6 +1,15 @@
 import path from "path";
 import { defineConfig } from "vitest/config";
 
+/**
+ * Fixa o fuso em UTC para a suíte (A1.7). Roda no processo principal ANTES dos
+ * workers (pool 'forks') serem criados — eles herdam o env. Sem isso, testes
+ * sensíveis a fuso (ex.: relativePeriod → toISOString) passam na CI (UTC) mas
+ * falham em máquinas locais (ex.: São Paulo, UTC-3). Garante determinismo
+ * independente da máquina, alinhado ao ambiente da CI.
+ */
+process.env.TZ = "UTC";
+
 export default defineConfig({
   test: {
     environment: "jsdom",
