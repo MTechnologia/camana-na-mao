@@ -55,7 +55,11 @@ export default function EvaluationPage() {
   };
 
   const { user, loading: authLoading } = useAuth();
-  const { pendingRatings, loading: pendingLoading, markAsSkipped } = usePendingRatings({ limit: 50 });
+  const {
+    pendingRatings,
+    loading: pendingLoading,
+    markAsSkipped,
+  } = usePendingRatings({ limit: 50 });
   const [visit, setVisit] = useState<VisitWithService | null>(null);
   const [loading, setLoading] = useState(true);
   const [evaluationDone, setEvaluationDone] = useState(false);
@@ -74,17 +78,19 @@ export default function EvaluationPage() {
     } else {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadVisit/navigate intentionally excluded
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadVisit/navigate intentionally excluded
   }, [visitId, user, authLoading]);
 
   const loadVisit = async () => {
     try {
       const { data, error } = await supabase
         .from("service_visits")
-        .select(`
+        .select(
+          `
           *,
           service:public_services (*)
-        `)
+        `,
+        )
         .eq("id", visitId)
         .eq("user_id", user?.id)
         .maybeSingle();
@@ -204,15 +210,10 @@ export default function EvaluationPage() {
                               service_type: rating.service.service_type,
                             })}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {rating.service.district}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{rating.service.district}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="sm"
-                            onClick={() => navigate(`/avaliar/${rating.id}`)}
-                          >
+                          <Button size="sm" onClick={() => navigate(`/avaliar/${rating.id}`)}>
                             Avaliar
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
@@ -241,7 +242,8 @@ export default function EvaluationPage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">Nenhuma visita pendente</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Quando o app detectar que você esteve em um serviço público, a avaliação pode aparecer aqui. Enquanto isso, use o modo livre abaixo.
+                    Quando o app detectar que você esteve em um serviço público, a avaliação pode
+                    aparecer aqui. Enquanto isso, use o modo livre abaixo.
                   </p>
                 </div>
               </CardContent>
@@ -259,7 +261,8 @@ export default function EvaluationPage() {
               {pendingRatings.length > 0 ? "Ou avalie outro serviço (modo livre)" : "Modo livre"}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Informe tipo e nome do equipamento — o assistente contextualiza a avaliação conforme o tipo selecionado, com dicas específicas antes das dimensões.
+              Informe tipo e nome do equipamento — o assistente contextualiza a avaliação conforme o
+              tipo selecionado, com dicas específicas antes das dimensões.
             </p>
             <div className="flex-1 flex flex-col min-h-0 min-h-[420px]">
               <ConversationalEvaluation
@@ -272,10 +275,15 @@ export default function EvaluationPage() {
               <Card className="shrink-0 border-primary/30 bg-primary/5">
                 <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-foreground">
-                    Sua avaliação foi registrada. A visita foi vinculada na base para manter o histórico consistente.
+                    Sua avaliação foi registrada. A visita foi vinculada na base para manter o
+                    histórico consistente.
                   </p>
                   <div className="flex flex-col gap-2 shrink-0 sm:flex-row">
-                    <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/servicos-proximos")}
+                    >
                       Ir para Perto de você
                     </Button>
                     <Button size="sm" onClick={() => navigate("/")}>
@@ -304,12 +312,8 @@ export default function EvaluationPage() {
           <>
             <Card data-testid="service-card" className="shrink-0">
               <CardContent className="p-4">
-                <h3 className="font-semibold text-foreground mb-1">
-                  {visit.service.name}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {visit.service.district}
-                </p>
+                <h3 className="font-semibold text-foreground mb-1">{visit.service.name}</h3>
+                <p className="text-sm text-muted-foreground">{visit.service.district}</p>
               </CardContent>
             </Card>
 
@@ -328,10 +332,15 @@ export default function EvaluationPage() {
               <Card className="shrink-0 border-primary/30 bg-primary/5">
                 <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-foreground">
-                    Sua avaliação foi registrada. Use o botão abaixo quando quiser sair — assim você não perde filtros ou outras telas por um redirecionamento automático.
+                    Sua avaliação foi registrada. Use o botão abaixo quando quiser sair — assim você
+                    não perde filtros ou outras telas por um redirecionamento automático.
                   </p>
                   <div className="flex flex-col gap-2 shrink-0 sm:flex-row">
-                    <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/servicos-proximos")}
+                    >
                       Ir para Perto de você
                     </Button>
                     <Button size="sm" onClick={() => navigate("/")}>

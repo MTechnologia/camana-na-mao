@@ -100,7 +100,7 @@ const categoryLabels: Record<string, string> = {
   animais: "Animais",
   poluicao: "Poluição",
   feedback_camara: "Feedback Câmara",
-  outro: "Outro"
+  outro: "Outro",
 };
 
 export default function ReportHistoryPage() {
@@ -134,12 +134,12 @@ export default function ReportHistoryPage() {
 
   useEffect(() => {
     loadReports();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   useEffect(() => {
     loadAllReports();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllReports runs when filters change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllReports runs when filters change
   }, [filters]);
 
   useEffect(() => {
@@ -204,18 +204,19 @@ export default function ReportHistoryPage() {
 
       if (error) throw error;
 
-      const userIds = [...new Set(data?.map(r => r.user_id) || [])];
+      const userIds = [...new Set(data?.map((r) => r.user_id) || [])];
       const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', userIds);
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", userIds);
 
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+      const profilesMap = new Map(profilesData?.map((p) => [p.id, p]));
 
-      const reportsWithProfiles = data?.map(report => ({
-        ...report,
-        profiles: profilesMap.get(report.user_id)
-      })) || [];
+      const reportsWithProfiles =
+        data?.map((report) => ({
+          ...report,
+          profiles: profilesMap.get(report.user_id),
+        })) || [];
 
       setMyReports(reportsWithProfiles);
     } catch (error) {
@@ -247,18 +248,19 @@ export default function ReportHistoryPage() {
 
       if (error) throw error;
 
-      const userIds = [...new Set(data?.map(r => r.user_id) || [])];
+      const userIds = [...new Set(data?.map((r) => r.user_id) || [])];
       const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', userIds);
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", userIds);
 
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+      const profilesMap = new Map(profilesData?.map((p) => [p.id, p]));
 
-      const reportsWithProfiles = data?.map(report => ({
-        ...report,
-        profiles: profilesMap.get(report.user_id)
-      })) || [];
+      const reportsWithProfiles =
+        data?.map((report) => ({
+          ...report,
+          profiles: profilesMap.get(report.user_id),
+        })) || [];
 
       setAllReports(reportsWithProfiles);
     } catch (error) {
@@ -285,10 +287,7 @@ export default function ReportHistoryPage() {
         }
       }
 
-      const { error } = await supabase
-        .from("urban_reports")
-        .delete()
-        .eq("id", reportToDelete.id);
+      const { error } = await supabase.from("urban_reports").delete().eq("id", reportToDelete.id);
 
       if (error) throw error;
 
@@ -317,12 +316,14 @@ export default function ReportHistoryPage() {
     canDelete: boolean = false,
     isHighlighted: boolean = false,
   ) => {
-    const canShowReferralAction =
-      canReferToCouncilMember && !!user && report.user_id === user.id;
+    const canShowReferralAction = canReferToCouncilMember && !!user && report.user_id === user.id;
     const citizenProtocol = formatCitizenProtocolForDisplay(report.protocol_code);
     const categoryLabel = categoryLabels[report.category] || report.category;
     const cardTitle = report.subcategory || categoryLabel;
-    const apoiosCount = embeddedRelationCount(report as unknown as Record<string, unknown>, "urban_report_likes");
+    const apoiosCount = embeddedRelationCount(
+      report as unknown as Record<string, unknown>,
+      "urban_report_likes",
+    );
     const catVis = categoryVisual[report.category];
     const CategoryIcon = catVis?.Icon ?? AlertCircle;
     const categoryIconClass = catVis?.color ?? "text-muted-foreground";
@@ -347,7 +348,10 @@ export default function ReportHistoryPage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <CitizenReportStatusBadge status={report.status} />
               {apoiosCount > 0 ? (
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Apoios">
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                  title="Apoios"
+                >
                   <Heart className="w-3.5 h-3.5 text-red-500/80" aria-hidden />
                   {apoiosCount}
                 </span>
@@ -385,9 +389,7 @@ export default function ReportHistoryPage() {
             {report.subcategory || report.severity ? (
               <div className="flex items-center gap-2 flex-wrap">
                 <CategoryIcon className={cn("w-4 h-4 shrink-0", categoryIconClass)} aria-hidden />
-                {report.subcategory ? (
-                  <p className="text-sm font-medium">{categoryLabel}</p>
-                ) : null}
+                {report.subcategory ? <p className="text-sm font-medium">{categoryLabel}</p> : null}
                 {report.severity ? (
                   <CitizenSeverityBadge severity={report.severity} size="sm" />
                 ) : null}
@@ -493,8 +495,8 @@ export default function ReportHistoryPage() {
         <Alert className="bg-primary/5 border-primary/20">
           <Info className="h-4 w-4 text-primary" />
           <AlertDescription className="text-sm text-muted-foreground">
-            As contribuições sobre problemas urbanos são analisadas em conjunto com outras experiências para
-            identificar padrões e subsidiar políticas públicas.
+            As contribuições sobre problemas urbanos são analisadas em conjunto com outras
+            experiências para identificar padrões e subsidiar políticas públicas.
           </AlertDescription>
         </Alert>
 
@@ -537,9 +539,7 @@ export default function ReportHistoryPage() {
                 <h3 className="font-semibold text-foreground mb-1">
                   Nenhuma contribuição encontrada
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Tente ajustar os filtros
-                </p>
+                <p className="text-sm text-muted-foreground">Tente ajustar os filtros</p>
               </div>
             ) : (
               <div className="space-y-3">

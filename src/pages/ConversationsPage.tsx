@@ -1,6 +1,16 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, MessageSquare, Plus, Trash2, Bot, Bus, MapPin, FileText, Star } from "lucide-react";
+import {
+  Search,
+  MessageSquare,
+  Plus,
+  Trash2,
+  Bot,
+  Bus,
+  MapPin,
+  FileText,
+  Star,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -122,8 +132,7 @@ const ConversationsPage = () => {
   };
 
   const allFilteredSelected =
-    filteredConversations.length > 0 &&
-    filteredConversations.every((c) => selectedIds.has(c.id));
+    filteredConversations.length > 0 && filteredConversations.every((c) => selectedIds.has(c.id));
 
   const toggleSelection = useCallback((id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -305,9 +314,7 @@ const ConversationsPage = () => {
                 {searchQuery ? "Nenhuma conversa encontrada" : "Sem conversas ainda"}
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery
-                  ? "Tente buscar por outro termo"
-                  : "Inicie uma nova conversa com a IA"}
+                {searchQuery ? "Tente buscar por outro termo" : "Inicie uma nova conversa com a IA"}
               </p>
               {!searchQuery && (
                 <Button onClick={handleNewConversation}>
@@ -356,7 +363,9 @@ const ConversationsPage = () => {
                                   </span>
                                 )}
                                 {conversation.reportData.address && (
-                                  <span className="truncate">{conversation.reportData.address}</span>
+                                  <span className="truncate">
+                                    {conversation.reportData.address}
+                                  </span>
                                 )}
                               </div>
                             )}

@@ -51,9 +51,7 @@ describe("detectAnomalies — detecção", () => {
     const hist = buildSeries("2026-04-01", counts);
     const anomalies = detectAnomalies(hist);
     expect(anomalies.length).toBeGreaterThanOrEqual(1);
-    const last = anomalies.find(
-      (a) => a.signalDate === hist[hist.length - 1].date,
-    );
+    const last = anomalies.find((a) => a.signalDate === hist[hist.length - 1].date);
     expect(last).toBeDefined();
     expect(last?.direction).toBe("spike");
     expect(last?.zScore).toBeGreaterThan(2.5);
@@ -68,9 +66,7 @@ describe("detectAnomalies — detecção", () => {
     counts.push(0);
     const hist = buildSeries("2026-04-01", counts);
     const anomalies = detectAnomalies(hist);
-    const last = anomalies.find(
-      (a) => a.signalDate === hist[hist.length - 1].date,
-    );
+    const last = anomalies.find((a) => a.signalDate === hist[hist.length - 1].date);
     expect(last?.direction).toBe("drop");
     expect(last?.zScore).toBeLessThan(0);
   });
@@ -130,9 +126,7 @@ describe("detectAnomalies — janela e threshold", () => {
     counts[10] = 500;
     const hist = buildSeries("2026-04-01", counts);
     const anomalies = detectAnomalies(hist, { windowDays: 7 });
-    expect(
-      anomalies.some((a) => a.signalDate === hist[10].date),
-    ).toBe(false);
+    expect(anomalies.some((a) => a.signalDate === hist[10].date)).toBe(false);
   });
 
   it("aumentar zThreshold reduz número de detecções", () => {

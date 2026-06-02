@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Calendar, Download, Filter, Loader2, Search, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Calendar, Download, Filter, Loader2, Search, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,34 +9,34 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { useAuditLog } from '@/hooks/useAuditLog';
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import {
   AUDIT_ACTION_OPTIONS,
   AUDIT_FILTER_ALL,
   buildAuditLogQueryFilters,
   type AuditExportFilterState,
   type AuditRangePreset,
-} from '@/lib/auditExportFilters';
+} from "@/lib/auditExportFilters";
 import {
   AUDIT_CSV_COLUMNS,
   AUDIT_COLUMN_LABELS,
   rowsToCsv,
   type AuditCsvRow,
-} from '@/lib/auditCsv';
-import { downloadCsv } from '@/lib/csvSerialize';
+} from "@/lib/auditCsv";
+import { downloadCsv } from "@/lib/csvSerialize";
 
 interface AuditLogRow {
   id: string;
@@ -61,7 +61,7 @@ interface AuditExportDialogProps {
 
 function fmtDateTime(iso: string): string {
   try {
-    return format(new Date(iso), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR });
+    return format(new Date(iso), "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
   } catch {
     return iso;
   }
@@ -78,9 +78,9 @@ export function AuditExportDialog({
   const { toast } = useToast();
 
   const [filters, setFilters] = useState<AuditExportFilterState>(defaultFilters);
-  const [selectedColumns, setSelectedColumns] = useState<Array<keyof AuditCsvRow>>(
-    [...AUDIT_CSV_COLUMNS],
-  );
+  const [selectedColumns, setSelectedColumns] = useState<Array<keyof AuditCsvRow>>([
+    ...AUDIT_CSV_COLUMNS,
+  ]);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -107,8 +107,8 @@ export function AuditExportDialog({
   const handleExport = async () => {
     if (selectedColumns.length === 0) {
       toast({
-        title: 'Selecione ao menos uma coluna',
-        variant: 'destructive',
+        title: "Selecione ao menos uma coluna",
+        variant: "destructive",
       });
       return;
     }
@@ -123,7 +123,8 @@ export function AuditExportDialog({
       const filtered = q
         ? logs.filter((log) => {
             const actor = log.user_id ? actorById.get(log.user_id) : null;
-            const hay = `${log.action} ${log.entity_type} ${log.entity_id ?? ''} ${actor?.fullName ?? ''} ${actor?.email ?? ''}`.toLowerCase();
+            const hay =
+              `${log.action} ${log.entity_type} ${log.entity_id ?? ""} ${actor?.fullName ?? ""} ${actor?.email ?? ""}`.toLowerCase();
             return hay.includes(q);
           })
         : logs;
@@ -132,29 +133,29 @@ export function AuditExportDialog({
         const actor = log.user_id ? actorById.get(log.user_id) : null;
         return {
           data_hora: fmtDateTime(log.created_at),
-          user_id: log.user_id ?? '',
-          usuario: actor?.fullName ?? '',
-          email: actor?.email ?? '',
+          user_id: log.user_id ?? "",
+          usuario: actor?.fullName ?? "",
+          email: actor?.email ?? "",
           acao: log.action,
           entidade: log.entity_type,
-          entidade_id: log.entity_id ?? '',
-          ip: log.ip_address ?? '',
-          user_agent: log.user_agent ?? '',
+          entidade_id: log.entity_id ?? "",
+          ip: log.ip_address ?? "",
+          user_agent: log.user_agent ?? "",
           old_values: log.old_values ?? null,
           new_values: log.new_values ?? null,
         };
       });
 
-      const filename = `audit-logs-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
+      const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
       downloadCsv(rowsToCsv(rows, selectedColumns), filename);
 
       const isStandalonePwa =
-        typeof window !== 'undefined' &&
-        (window.matchMedia?.('(display-mode: standalone)').matches ||
+        typeof window !== "undefined" &&
+        (window.matchMedia?.("(display-mode: standalone)").matches ||
           (navigator as Navigator & { standalone?: boolean }).standalone === true);
 
       toast({
-        title: isStandalonePwa ? 'CSV aberto em nova aba' : 'Download iniciado',
+        title: isStandalonePwa ? "CSV aberto em nova aba" : "Download iniciado",
         description: isStandalonePwa
           ? `${filtered.length} registros — use o menu do navegador para salvar.`
           : `${filtered.length} registros exportados.`,
@@ -162,9 +163,9 @@ export function AuditExportDialog({
       onOpenChange(false);
     } catch {
       toast({
-        title: 'Erro ao exportar',
-        description: 'Não foi possível gerar o arquivo CSV.',
-        variant: 'destructive',
+        title: "Erro ao exportar",
+        description: "Não foi possível gerar o arquivo CSV.",
+        variant: "destructive",
       });
     } finally {
       setExporting(false);
@@ -245,7 +246,7 @@ export function AuditExportDialog({
             </div>
           </div>
 
-          {filters.rangePreset === 'custom' && (
+          {filters.rangePreset === "custom" && (
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="export-start">Data inicial</Label>
@@ -335,7 +336,7 @@ export function AuditExportDialog({
                   className="h-7 text-xs"
                   disabled={exporting}
                   onClick={() =>
-                    setSelectedColumns(['data_hora', 'usuario', 'acao', 'entidade', 'entidade_id'])
+                    setSelectedColumns(["data_hora", "usuario", "acao", "entidade", "entidade_id"])
                   }
                 >
                   Resumo

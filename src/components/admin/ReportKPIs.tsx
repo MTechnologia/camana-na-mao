@@ -1,5 +1,5 @@
-import { Card } from '@/components/ui/card';
-import { BarChart3, AlertCircle, Clock, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Card } from "@/components/ui/card";
+import { BarChart3, AlertCircle, Clock, CheckCircle, TrendingUp, TrendingDown } from "lucide-react";
 
 interface ReportKPIsProps {
   total: number;
@@ -24,11 +24,11 @@ export const ReportKPIs = ({
 }: ReportKPIsProps) => {
   const TrendIndicator = ({ value }: { value: number }) => {
     if (value === 0) return null;
-    
+
     const isPositive = value > 0;
     const Icon = isPositive ? TrendingUp : TrendingDown;
-    const colorClass = isPositive ? 'text-green-600' : 'text-red-600';
-    
+    const colorClass = isPositive ? "text-green-600" : "text-red-600";
+
     return (
       <span className={`flex items-center gap-1 text-xs font-medium ${colorClass}`}>
         <Icon className="h-3 w-3" />
@@ -49,7 +49,7 @@ export const ReportKPIs = ({
           </div>
           <TrendIndicator value={totalTrend} />
         </div>
-        <p className="text-2xl font-bold">{total.toLocaleString('pt-BR')}</p>
+        <p className="text-2xl font-bold">{total.toLocaleString("pt-BR")}</p>
       </Card>
 
       <Card className="p-4">
@@ -62,7 +62,7 @@ export const ReportKPIs = ({
           </div>
           <TrendIndicator value={criticalTrend} />
         </div>
-        <p className="text-2xl font-bold text-red-600">{critical.toLocaleString('pt-BR')}</p>
+        <p className="text-2xl font-bold text-red-600">{critical.toLocaleString("pt-BR")}</p>
       </Card>
 
       <Card className="p-4">
@@ -75,7 +75,7 @@ export const ReportKPIs = ({
           </div>
           <TrendIndicator value={pendingTrend} />
         </div>
-        <p className="text-2xl font-bold text-yellow-600">{pending.toLocaleString('pt-BR')}</p>
+        <p className="text-2xl font-bold text-yellow-600">{pending.toLocaleString("pt-BR")}</p>
       </Card>
 
       <Card className="p-4">
@@ -88,7 +88,7 @@ export const ReportKPIs = ({
           </div>
           <TrendIndicator value={resolvedTrend} />
         </div>
-        <p className="text-2xl font-bold text-green-600">{resolved.toLocaleString('pt-BR')}</p>
+        <p className="text-2xl font-bold text-green-600">{resolved.toLocaleString("pt-BR")}</p>
       </Card>
     </div>
   );

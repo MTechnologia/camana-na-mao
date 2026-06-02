@@ -31,7 +31,7 @@ export function useGoogleDistanceMatrix(
   services: ServiceWithCoords[],
   apiKey: string | undefined,
   profile: RoutingProfile = "walking",
-  userId?: string
+  userId?: string,
 ): { walkingDistances: Map<string, number> | null; loading: boolean; error: string | null } {
   const [walkingDistances, setWalkingDistances] = useState<Map<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,12 +50,15 @@ export function useGoogleDistanceMatrix(
     origin_lat: number | null;
     origin_lng: number | null;
   }) => {
-    void supabase.from("routes_usage_metrics").insert(row).then(({ error }) => {
-      if (error) {
-        // Não quebrar UX do app; apenas evidenciar o problema de telemetria.
-        console.warn("[routes_usage_metrics] insert failed:", error.message);
-      }
-    });
+    void supabase
+      .from("routes_usage_metrics")
+      .insert(row)
+      .then(({ error }) => {
+        if (error) {
+          // Não quebrar UX do app; apenas evidenciar o problema de telemetria.
+          console.warn("[routes_usage_metrics] insert failed:", error.message);
+        }
+      });
   };
 
   const { isLoaded: mapsLoaded, error: mapsError } = useLoadGoogleMaps(apiKey);
@@ -106,10 +109,7 @@ export function useGoogleDistanceMatrix(
       return;
     }
 
-    const travelMode =
-      profile === "driving"
-        ? "DRIVING"
-        : "WALKING";
+    const travelMode = profile === "driving" ? "DRIVING" : "WALKING";
 
     const chunks: ServiceWithCoords[][] = [];
     for (let i = 0; i < normalizedServices.length; i += MAX_DESTINATIONS_PER_REQUEST) {
@@ -121,13 +121,17 @@ export function useGoogleDistanceMatrix(
     const runChunks = async () => {
       try {
         const { RouteMatrix } = (await google.maps.importLibrary(
-          "routes"
+          "routes",
         )) as google.maps.RoutesLibrary;
         let totalChunkRequests = 0;
 
         const origin = { lat: userLocation.latitude, lng: userLocation.longitude };
 
-        for (let batchStart = 0; batchStart < chunks.length; batchStart += ROUTE_MATRIX_CONCURRENCY) {
+        for (
+          let batchStart = 0;
+          batchStart < chunks.length;
+          batchStart += ROUTE_MATRIX_CONCURRENCY
+        ) {
           if (requestIdRef.current !== requestId) return;
 
           const batch = chunks.slice(batchStart, batchStart + ROUTE_MATRIX_CONCURRENCY);
@@ -151,15 +155,13 @@ export function useGoogleDistanceMatrix(
                 row.items.forEach((item, i) => {
                   const s = chunk[i];
                   const dist = item.distanceMeters;
-                  const ok =
-                    item.condition === "ROUTE_EXISTS" ||
-                    (dist != null && !item.error);
+                  const ok = item.condition === "ROUTE_EXISTS" || (dist != null && !item.error);
                   if (s && dist != null && Number.isFinite(dist) && ok) {
                     results.set(s.id, Math.round(dist));
                   }
                 });
               }
-            })
+            }),
           );
         }
 
@@ -185,16 +187,12 @@ export function useGoogleDistanceMatrix(
         setLoading(false);
       } catch (err) {
         if (requestIdRef.current !== requestId) return;
-        const msg =
-          err instanceof Error ? err.message : "Erro ao buscar distâncias";
+        const msg = err instanceof Error ? err.message : "Erro ao buscar distâncias";
         const status =
           err && typeof err === "object" && "status" in err
             ? (err as { status?: number }).status
             : null;
-        const is403 =
-          status === 403 ||
-          msg.includes("403") ||
-          msg.includes("Forbidden");
+        const is403 = status === 403 || msg.includes("403") || msg.includes("Forbidden");
         const isDenied =
           is403 ||
           msg.includes("not enabled") ||
@@ -204,7 +202,7 @@ export function useGoogleDistanceMatrix(
         setError(
           isDenied
             ? "Routes API retornou acesso negado (403). Habilite a Routes API no GCP, inclua-a na restrição da chave e verifique se o billing está ativo no projeto."
-            : msg
+            : msg,
         );
         setLoading(false);
       }

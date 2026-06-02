@@ -27,10 +27,11 @@ export interface ServiceForGeocode {
  */
 export function useReverseGeocodeForServices(
   services: ServiceForGeocode[],
-  options?: { apiKey?: string; throttleMs?: number; maxConcurrent?: number }
+  options?: { apiKey?: string; throttleMs?: number; maxConcurrent?: number },
 ): Record<string, string> {
   const [resolved, setResolved] = useState<Record<string, string>>({});
-  const apiKey = options?.apiKey ?? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined);
+  const apiKey =
+    options?.apiKey ?? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined);
   const throttleMs = options?.throttleMs ?? 150;
   const maxConcurrent = options?.maxConcurrent ?? 3;
 
@@ -41,12 +42,12 @@ export function useReverseGeocodeForServices(
           (s) =>
             typeof s.latitude === "number" &&
             typeof s.longitude === "number" &&
-            isAddressMissing(s.address)
+            isAddressMissing(s.address),
         )
         .map((s) => `${s.id}:${cacheKey(s.latitude, s.longitude)}`)
         .sort()
         .join("|"),
-    [services]
+    [services],
   );
 
   useEffect(() => {
@@ -55,16 +56,25 @@ export function useReverseGeocodeForServices(
       (s) =>
         typeof s.latitude === "number" &&
         typeof s.longitude === "number" &&
-        isAddressMissing(s.address)
+        isAddressMissing(s.address),
     );
 
     if (import.meta.env.DEV) {
-      console.log("[Geocoding] Chave presente:", hasKey, "| Serviços sem endereço:", toFetch.length, "| Total serviços:", services.length);
+      console.log(
+        "[Geocoding] Chave presente:",
+        hasKey,
+        "| Serviços sem endereço:",
+        toFetch.length,
+        "| Total serviços:",
+        services.length,
+      );
     }
 
     if (!hasKey) {
       if (import.meta.env.DEV && toFetch.length > 0)
-        console.warn("[Geocoding] Chave da API não configurada (VITE_GOOGLE_MAPS_API_KEY). Reinicie o servidor (npm run dev) após conferir o .env.");
+        console.warn(
+          "[Geocoding] Chave da API não configurada (VITE_GOOGLE_MAPS_API_KEY). Reinicie o servidor (npm run dev) após conferir o .env.",
+        );
       return;
     }
 
@@ -97,7 +107,11 @@ export function useReverseGeocodeForServices(
     }
 
     if (import.meta.env.DEV)
-      console.log("[Geocoding] Resolvendo endereços para", keysToResolve.length, "coordenada(s). Requisições em maps.googleapis.com");
+      console.log(
+        "[Geocoding] Resolvendo endereços para",
+        keysToResolve.length,
+        "coordenada(s). Requisições em maps.googleapis.com",
+      );
 
     const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -115,7 +129,7 @@ export function useReverseGeocodeForServices(
           batch.map((key) => {
             const [lat, lng] = key.split(",").map(Number);
             return reverseGeocodeLatLngClient(lat, lng, apiKey);
-          })
+          }),
         );
 
         batch.forEach((key, idx) => {

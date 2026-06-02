@@ -1,6 +1,6 @@
-export type ConfigEnvironment = 'production' | 'homologation';
+export type ConfigEnvironment = "production" | "homologation";
 
-export type AiVersionStatus = 'draft' | 'active' | 'archived';
+export type AiVersionStatus = "draft" | "active" | "archived";
 
 export type PromptTemplateVariable = {
   key: string;
@@ -35,14 +35,14 @@ export type SystemParameter = {
   key: string;
   label: string;
   value: string | number | boolean;
-  type: 'string' | 'number' | 'boolean';
-  scope: 'global' | 'region' | 'category';
+  type: "string" | "number" | "boolean";
+  scope: "global" | "region" | "category";
   description: string;
 };
 
-export type ApiIntegrationSource = 'catalog' | 'custom';
+export type ApiIntegrationSource = "catalog" | "custom";
 
-export type ApiHealthStatus = 'up' | 'degraded' | 'down' | 'unknown';
+export type ApiHealthStatus = "up" | "degraded" | "down" | "unknown";
 
 export type ApiIntegration = {
   id: string;

@@ -41,9 +41,7 @@ export function csvEscape(value: unknown): string {
     s = value.toISOString();
   } else if (Array.isArray(value)) {
     // Arrays: serializa cada elemento como JSON, separados por "; ".
-    s = value
-      .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
-      .join("; ");
+    s = value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join("; ");
   } else {
     // Objetos: JSON.stringify
     try {

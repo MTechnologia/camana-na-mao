@@ -26,8 +26,7 @@ export interface EvaluationContext {
 export function messageFromSavedRow(msg: Record<string, unknown>): ChatMessage {
   const role: ChatMessage["role"] =
     msg.role === "assistant" || msg.role === "user" ? msg.role : "user";
-  const id =
-    typeof msg.id === "string" && msg.id.trim() ? msg.id : createClientId("chat-message");
+  const id = typeof msg.id === "string" && msg.id.trim() ? msg.id : createClientId("chat-message");
   const content = typeof msg.content === "string" ? msg.content : "";
   const timestamp = typeof msg.timestamp === "string" ? msg.timestamp : "";
   const source = typeof msg.source === "string" ? msg.source : undefined;

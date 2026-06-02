@@ -13,10 +13,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type {
-  VolumeCompareDelta,
-  VolumeCompareCategoryRow,
-} from "@/hooks/useReportsVolumeCompare";
+import type { VolumeCompareDelta, VolumeCompareCategoryRow } from "@/hooks/useReportsVolumeCompare";
 
 /**
  * HU-5.1 — Visualização da comparação A vs B em VolumeOverviewTab.
@@ -64,11 +61,17 @@ function KpiCompareCard({ label, valueA, valueB, delta }: KpiRowProps) {
         </div>
         <span className="text-xs text-muted-foreground">B</span>
       </div>
-      <div className={cn("mt-2 flex items-center gap-1 text-sm font-medium", deltaColorClass(delta.percent))}>
+      <div
+        className={cn(
+          "mt-2 flex items-center gap-1 text-sm font-medium",
+          deltaColorClass(delta.percent),
+        )}
+      >
         {deltaIcon(delta.percent)}
         <span>{formatPercent(delta.percent)}</span>
         <span className="text-xs text-muted-foreground">
-          ({delta.absolute > 0 ? "+" : ""}{delta.absolute.toLocaleString("pt-BR")})
+          ({delta.absolute > 0 ? "+" : ""}
+          {delta.absolute.toLocaleString("pt-BR")})
         </span>
       </div>
     </Card>
@@ -144,7 +147,11 @@ export function VolumeCompareView({
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(240, byCategoryCompare.length * 36)}>
-            <BarChart data={byCategoryCompare} layout="vertical" margin={{ top: 10, right: 30, bottom: 0, left: 80 }}>
+            <BarChart
+              data={byCategoryCompare}
+              layout="vertical"
+              margin={{ top: 10, right: 30, bottom: 0, left: 80 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis
@@ -157,7 +164,10 @@ export function VolumeCompareView({
               <Tooltip
                 formatter={(value: number, name: string) => {
                   if (name === "deltaPercent") return [formatPercent(value), "Variação"];
-                  return [value.toLocaleString("pt-BR"), name === "countA" ? "Período A" : "Período B"];
+                  return [
+                    value.toLocaleString("pt-BR"),
+                    name === "countA" ? "Período A" : "Período B",
+                  ];
                 }}
               />
               <Legend
@@ -166,8 +176,18 @@ export function VolumeCompareView({
                   { value: "Período B", type: "square", color: "hsl(220, 80%, 50%)" },
                 ]}
               />
-              <Bar dataKey="countA" name="Período A" fill="hsl(220, 30%, 60%)" radius={[0, 2, 2, 0]} />
-              <Bar dataKey="countB" name="Período B" fill="hsl(220, 80%, 50%)" radius={[0, 2, 2, 0]}>
+              <Bar
+                dataKey="countA"
+                name="Período A"
+                fill="hsl(220, 30%, 60%)"
+                radius={[0, 2, 2, 0]}
+              />
+              <Bar
+                dataKey="countB"
+                name="Período B"
+                fill="hsl(220, 80%, 50%)"
+                radius={[0, 2, 2, 0]}
+              >
                 {byCategoryCompare.map((row, idx) => (
                   <Cell
                     key={idx}
@@ -175,8 +195,8 @@ export function VolumeCompareView({
                       row.deltaPercent > 25
                         ? "hsl(20, 80%, 50%)"
                         : row.deltaPercent < -25
-                        ? "hsl(140, 60%, 45%)"
-                        : "hsl(220, 80%, 50%)"
+                          ? "hsl(140, 60%, 45%)"
+                          : "hsl(220, 80%, 50%)"
                     }
                   />
                 ))}

@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
-import { useConfigEnvironment } from '@/contexts/ConfigEnvironmentContext';
-import { EnvironmentSwitcher } from '@/components/admin/settings/EnvironmentSwitcher';
-import { PageShell } from '@/components/ui/PageShell';
-import { Badge } from '@/components/ui/badge';
+import type { ReactNode } from "react";
+import { useConfigEnvironment } from "@/contexts/ConfigEnvironmentContext";
+import { EnvironmentSwitcher } from "@/components/admin/settings/EnvironmentSwitcher";
+import { PageShell } from "@/components/ui/PageShell";
+import { Badge } from "@/components/ui/badge";
 
 type SettingsLayoutProps = {
   title: string;
@@ -20,7 +20,7 @@ export function SettingsLayout({ title, description, children, actions }: Settin
       description={description}
       actions={
         <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-          <Badge variant={environment === 'production' ? 'default' : 'secondary'}>
+          <Badge variant={environment === "production" ? "default" : "secondary"}>
             {environmentLabel}
           </Badge>
           <EnvironmentSwitcher />
@@ -36,4 +36,3 @@ export function SettingsLayout({ title, description, children, actions }: Settin
     </PageShell>
   );
 }
-

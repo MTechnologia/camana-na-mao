@@ -1,17 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Star, Info, MapPin, ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import PageHeader from '@/components/ui/page-header';
-import { Skeleton } from '@/components/ui/skeleton';
-import { formatShortDate } from '@/lib/dateUtils';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { ReferralDialog } from '@/components/referral/ReferralDialog';
-import { useUserRole } from '@/hooks/useUserRole';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { Star, Info, MapPin, ChevronLeft, ChevronRight, MessageSquareText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import PageHeader from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatShortDate } from "@/lib/dateUtils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PAGE_SIZE = 10;
 
@@ -36,51 +36,48 @@ interface RatingsStats {
 }
 
 const serviceTypeLabels: Record<string, string> = {
-  ubs: 'UBS',
-  hospital: 'Hospital',
-  school: 'Escola',
-  ceu: 'CEU',
-  library: 'Biblioteca',
-  sports_center: 'Centro Esportivo',
-  street_market: 'Feira',
-  community_center: 'Centro Comunitário',
-  daycare: 'Creche',
-  park: 'Parque',
-  social_assistance: 'Assistência Social',
-  police_station: 'Delegacia',
-  transit_station: 'Transporte',
-  market: 'Mercado',
-  city_market: 'Mercado Municipal',
-  theater: 'Teatro/Cinema',
-  museum: 'Museu',
-  cemetery: 'Cemitério',
-  accessibility: 'Acessibilidade',
-  recycling_point: 'Reciclagem/Limpeza',
-  fire_station: 'Bombeiros',
-  other: 'Outro',
+  ubs: "UBS",
+  hospital: "Hospital",
+  school: "Escola",
+  ceu: "CEU",
+  library: "Biblioteca",
+  sports_center: "Centro Esportivo",
+  street_market: "Feira",
+  community_center: "Centro Comunitário",
+  daycare: "Creche",
+  park: "Parque",
+  social_assistance: "Assistência Social",
+  police_station: "Delegacia",
+  transit_station: "Transporte",
+  market: "Mercado",
+  city_market: "Mercado Municipal",
+  theater: "Teatro/Cinema",
+  museum: "Museu",
+  cemetery: "Cemitério",
+  accessibility: "Acessibilidade",
+  recycling_point: "Reciclagem/Limpeza",
+  fire_station: "Bombeiros",
+  other: "Outro",
 };
 
 const sentimentLabels: Record<string, string> = {
-  positive: 'Positivo',
-  neutral: 'Neutro',
-  negative: 'Negativo',
+  positive: "Positivo",
+  neutral: "Neutro",
+  negative: "Negativo",
 };
 
-const publicationStatusUi: Record<
-  string,
-  { label: string; className: string }
-> = {
+const publicationStatusUi: Record<string, { label: string; className: string }> = {
   published: {
-    label: 'Comentário público',
-    className: 'bg-green-500/10 text-green-800 border-green-500/25 dark:text-green-300',
+    label: "Comentário público",
+    className: "bg-green-500/10 text-green-800 border-green-500/25 dark:text-green-300",
   },
   pending_review: {
-    label: 'Comentário em revisão',
-    className: 'bg-amber-500/10 text-amber-900 border-amber-500/25 dark:text-amber-200',
+    label: "Comentário em revisão",
+    className: "bg-amber-500/10 text-amber-900 border-amber-500/25 dark:text-amber-200",
   },
   rejected: {
-    label: 'Comentário não publicado',
-    className: 'bg-destructive/10 text-destructive border-destructive/30',
+    label: "Comentário não publicado",
+    className: "bg-destructive/10 text-destructive border-destructive/30",
   },
 };
 
@@ -89,10 +86,12 @@ const COMMENT_PREVIEW_CHARS = 280;
 
 function RatingCommentBlock({ ratingId, text }: { ratingId: string; text: string | null }) {
   const [expanded, setExpanded] = useState(false);
-  const trimmed = text?.trim() ?? '';
+  const trimmed = text?.trim() ?? "";
   const isLong = trimmed.length > COMMENT_PREVIEW_CHARS;
   const displayText =
-    !trimmed || !isLong || expanded ? trimmed : `${trimmed.slice(0, COMMENT_PREVIEW_CHARS).trimEnd()}…`;
+    !trimmed || !isLong || expanded
+      ? trimmed
+      : `${trimmed.slice(0, COMMENT_PREVIEW_CHARS).trimEnd()}…`;
 
   return (
     <div
@@ -116,7 +115,7 @@ function RatingCommentBlock({ ratingId, text }: { ratingId: string; text: string
               className="h-auto p-0 mt-1.5 text-xs"
               onClick={() => setExpanded((e) => !e)}
             >
-              {expanded ? 'Ver menos' : 'Ver mais'}
+              {expanded ? "Ver menos" : "Ver mais"}
             </Button>
           )}
         </>
@@ -126,14 +125,13 @@ function RatingCommentBlock({ ratingId, text }: { ratingId: string; text: string
 }
 
 function parseStatsRpc(data: unknown): RatingsStats | null {
-  if (data == null || typeof data !== 'object') return null;
+  if (data == null || typeof data !== "object") return null;
   const o = data as { avg_stars?: unknown; total_count?: unknown };
-  const avg =
-    typeof o.avg_stars === 'number' && !Number.isNaN(o.avg_stars) ? o.avg_stars : null;
+  const avg = typeof o.avg_stars === "number" && !Number.isNaN(o.avg_stars) ? o.avg_stars : null;
   const total =
-    typeof o.total_count === 'number' && !Number.isNaN(o.total_count)
+    typeof o.total_count === "number" && !Number.isNaN(o.total_count)
       ? o.total_count
-      : typeof o.total_count === 'string'
+      : typeof o.total_count === "string"
         ? Number(o.total_count)
         : 0;
   return { avg_stars: avg, total_count: total };
@@ -151,7 +149,7 @@ export default function RatingsHistoryPage() {
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralReport, setReferralReport] = useState<{
     id: string;
-    type: 'service';
+    type: "service";
     title: string;
     description?: string;
     category?: string;
@@ -168,9 +166,9 @@ export default function RatingsHistoryPage() {
       const to = from + PAGE_SIZE - 1;
 
       const [statsResult, listResult] = await Promise.all([
-        supabase.rpc('get_user_service_ratings_stats'),
+        supabase.rpc("get_user_service_ratings_stats"),
         supabase
-          .from('service_ratings')
+          .from("service_ratings")
           .select(
             `
           id,
@@ -187,10 +185,10 @@ export default function RatingsHistoryPage() {
             district
           )
         `,
-            { count: 'exact' }
+            { count: "exact" },
           )
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
           .range(from, to),
       ]);
 
@@ -201,7 +199,7 @@ export default function RatingsHistoryPage() {
       setTotalCount(listResult.count ?? 0);
 
       if (statsResult.error) {
-        console.warn('[RatingsHistory] get_user_service_ratings_stats:', statsResult.error);
+        console.warn("[RatingsHistory] get_user_service_ratings_stats:", statsResult.error);
         const total = listResult.count ?? rows.length;
         setStats({ avg_stars: null, total_count: total });
       } else {
@@ -216,7 +214,7 @@ export default function RatingsHistoryPage() {
         }
       }
     } catch (err) {
-      console.error('Error loading ratings:', err);
+      console.error("Error loading ratings:", err);
       setRatings([]);
       setTotalCount(0);
       setStats(null);
@@ -244,7 +242,7 @@ export default function RatingsHistoryPage() {
       <Star
         key={i}
         className={`w-4 h-4 ${
-          i < stars ? 'fill-amber-400 text-amber-400' : 'fill-transparent text-muted-foreground'
+          i < stars ? "fill-amber-400 text-amber-400" : "fill-transparent text-muted-foreground"
         }`}
       />
     ));
@@ -254,7 +252,7 @@ export default function RatingsHistoryPage() {
   const showPagination = totalCount > PAGE_SIZE;
   const rangeLabel =
     totalCount === 0
-      ? ''
+      ? ""
       : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} de ${totalCount}`;
 
   return (
@@ -265,7 +263,8 @@ export default function RatingsHistoryPage() {
           <Alert className="bg-primary/5 border-primary/20">
             <Info className="h-4 w-4 text-primary" />
             <AlertDescription className="text-sm text-muted-foreground">
-              Suas avaliações de serviços públicos ajudam a melhorar a qualidade do atendimento na cidade.
+              Suas avaliações de serviços públicos ajudam a melhorar a qualidade do atendimento na
+              cidade.
             </AlertDescription>
           </Alert>
 
@@ -282,8 +281,8 @@ export default function RatingsHistoryPage() {
               <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">Nenhuma avaliação registrada ainda</p>
               <div className="flex flex-col gap-2 items-center">
-                <Button onClick={() => navigate('/servicos-proximos')}>Avaliar um serviço</Button>
-                <Button variant="outline" onClick={() => navigate('/ia')}>
+                <Button onClick={() => navigate("/servicos-proximos")}>Avaliar um serviço</Button>
+                <Button variant="outline" onClick={() => navigate("/ia")}>
                   Ou avaliar via chat com IA
                 </Button>
               </div>
@@ -314,30 +313,28 @@ export default function RatingsHistoryPage() {
               </Card>
 
               <div>
-                <h2 className="text-lg font-semibold text-foreground mb-1">Avaliações individuais</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">
+                  Avaliações individuais
+                </h2>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Cada item mostra o serviço, data, nota, sentimento (quando houver), o status de{' '}
-                  <strong className="text-foreground font-medium">publicação do comentário</strong> e o
-                  texto que você escreveu — ou a indicação de que não houve texto naquela avaliação.
+                  Cada item mostra o serviço, data, nota, sentimento (quando houver), o status de{" "}
+                  <strong className="text-foreground font-medium">publicação do comentário</strong>{" "}
+                  e o texto que você escreveu — ou a indicação de que não houve texto naquela
+                  avaliação.
                 </p>
-                {rangeLabel && (
-                  <p className="text-xs text-muted-foreground mb-3">{rangeLabel}</p>
-                )}
+                {rangeLabel && <p className="text-xs text-muted-foreground mb-3">{rangeLabel}</p>}
               </div>
 
               <div className="space-y-3">
                 {ratings.map((rating) => (
-                  <Card
-                    key={rating.id}
-                    className="hover:shadow-md transition-shadow border-border"
-                  >
+                  <Card key={rating.id} className="hover:shadow-md transition-shadow border-border">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <Star className="w-4 h-4 text-amber-500" />
                             <span className="font-medium">
-                              {rating.service?.name || 'Serviço não encontrado'}
+                              {rating.service?.name || "Serviço não encontrado"}
                             </span>
                           </div>
                           {rating.service?.service_type && (
@@ -364,10 +361,13 @@ export default function RatingsHistoryPage() {
                             </span>
                           )}
                           {(() => {
-                            const ps = rating.publication_status || 'published';
+                            const ps = rating.publication_status || "published";
                             const cfg = publicationStatusUi[ps] ?? publicationStatusUi.published;
                             return (
-                              <Badge variant="outline" className={`text-xs font-normal ${cfg.className}`}>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs font-normal ${cfg.className}`}
+                              >
                                 {cfg.label}
                               </Badge>
                             );
@@ -395,8 +395,8 @@ export default function RatingsHistoryPage() {
                             onClick={() => {
                               setReferralReport({
                                 id: rating.id,
-                                type: 'service',
-                                title: rating.service?.name || 'Avaliação de serviço',
+                                type: "service",
+                                title: rating.service?.name || "Avaliação de serviço",
                                 description: rating.rating_text || undefined,
                                 category: rating.service?.service_type || undefined,
                                 location: rating.service?.address || undefined,

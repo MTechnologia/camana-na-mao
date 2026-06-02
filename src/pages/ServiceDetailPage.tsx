@@ -43,14 +43,9 @@ const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
   sports_center: "Varía por unidade. Confirme no local.",
 };
 
-function getOpeningHoursDisplay(
-  openingHours: unknown,
-  serviceType?: string
-): string | null {
+function getOpeningHoursDisplay(openingHours: unknown, serviceType?: string): string | null {
   const text =
-    typeof openingHours === "string"
-      ? openingHours
-      : (openingHours as { text?: string })?.text;
+    typeof openingHours === "string" ? openingHours : (openingHours as { text?: string })?.text;
   if (text?.trim()) return text.trim();
   const type = serviceType ?? "other";
   return DEFAULT_OPENING_HOURS_BY_TYPE[type] ?? null;
@@ -101,7 +96,10 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
-  const [occupancy, setOccupancy] = useState<{ usersCount: number; lastPingAt: string | null } | null>(null);
+  const [occupancy, setOccupancy] = useState<{
+    usersCount: number;
+    lastPingAt: string | null;
+  } | null>(null);
   const [loadingOccupancy, setLoadingOccupancy] = useState(false);
 
   const loadService = useCallback(async () => {
@@ -148,7 +146,7 @@ export default function ServiceDetailPage() {
       }
 
       // Busca nos dados mockados
-      const mockedService = servicosProximos.find(s => s.id === id);
+      const mockedService = servicosProximos.find((s) => s.id === id);
       if (mockedService && mockedService.metadata) {
         // Converter formato mockado para formato esperado
         const serviceData = {
@@ -210,7 +208,7 @@ export default function ServiceDetailPage() {
 
   useEffect(() => {
     if (user && realServiceId) checkSubscription();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
   }, [user, realServiceId]);
 
   useEffect(() => {
@@ -225,19 +223,27 @@ export default function ServiceDetailPage() {
       setLoadingOccupancy(true);
       try {
         const supabaseAny = supabase as unknown as {
-          rpc: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>
+          rpc: (
+            name: string,
+            params: Record<string, unknown>,
+          ) => Promise<{ data: unknown; error: { message?: string } | null }>;
         };
-        const { data, error } = await supabaseAny.rpc("get_equipment_occupancy_summary_for_service", {
-          p_service_id: serviceIdForOccupancy,
-          p_window_minutes: OCCUPANCY_WINDOW_MINUTES,
-        });
+        const { data, error } = await supabaseAny.rpc(
+          "get_equipment_occupancy_summary_for_service",
+          {
+            p_service_id: serviceIdForOccupancy,
+            p_window_minutes: OCCUPANCY_WINDOW_MINUTES,
+          },
+        );
         if (cancelled) return;
         if (error) {
           console.warn("[service-occupancy] rpc error:", error.message);
           setOccupancy(null);
           return;
         }
-        const row = Array.isArray(data) ? (data[0] as { users_count?: number; last_ping_at?: string | null } | undefined) : undefined;
+        const row = Array.isArray(data)
+          ? (data[0] as { users_count?: number; last_ping_at?: string | null } | undefined)
+          : undefined;
         setOccupancy({
           usersCount: Number(row?.users_count ?? 0),
           lastPingAt: row?.last_ping_at ?? null,
@@ -260,7 +266,7 @@ export default function ServiceDetailPage() {
 
   const checkSubscription = async () => {
     if (!user || !realServiceId) return;
-    
+
     try {
       const { data } = await supabase
         .from("service_subscriptions")
@@ -309,13 +315,13 @@ export default function ServiceDetailPage() {
           longitude: service.longitude,
           phone: service.phone,
           city: "São Paulo",
-          state: "SP"
+          state: "SP",
         })
         .select()
         .single();
 
       if (error) throw error;
-      
+
       setRealServiceId(newService.id);
       return newService.id;
     } catch (error) {
@@ -343,14 +349,14 @@ export default function ServiceDetailPage() {
           .delete()
           .eq("user_id", user.id)
           .eq("service_id", serviceId);
-        
+
         setIsSubscribed(false);
         toast.success("Você não receberá mais atualizações");
       } else {
         await supabase
           .from("service_subscriptions")
           .insert({ user_id: user.id, service_id: serviceId });
-        
+
         setIsSubscribed(true);
         toast.success("Você receberá atualizações sobre este serviço");
       }
@@ -384,7 +390,7 @@ export default function ServiceDetailPage() {
           user_id: user.id,
           service_id: serviceId,
           expires_at: expiresAt.toISOString(),
-          status: "pending"
+          status: "pending",
         })
         .select()
         .single();
@@ -422,7 +428,7 @@ export default function ServiceDetailPage() {
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
       <PageHeader title={service.name} />
-      
+
       <div className="p-4 space-y-4">
         {/* Info Card */}
         <Card>
@@ -440,7 +446,8 @@ export default function ServiceDetailPage() {
                 const lng = Number((service as { longitude?: unknown }).longitude);
                 const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
                 if (!hasCoords) return null;
-                const stateOrigin = (location.state as { originLat?: unknown; originLng?: unknown } | null) ?? null;
+                const stateOrigin =
+                  (location.state as { originLat?: unknown; originLng?: unknown } | null) ?? null;
                 const originLat =
                   typeof stateOrigin?.originLat === "number" && !Number.isNaN(stateOrigin.originLat)
                     ? stateOrigin.originLat
@@ -479,7 +486,9 @@ export default function ServiceDetailPage() {
             )}
 
             {(() => {
-              const meta = getOperationalStatusMeta((service as { operational_status?: unknown }).operational_status);
+              const meta = getOperationalStatusMeta(
+                (service as { operational_status?: unknown }).operational_status,
+              );
               if (!meta) return null;
               return (
                 <div className="space-y-1">
@@ -510,9 +519,7 @@ export default function ServiceDetailPage() {
                   <Info className="w-4 h-4 text-muted-foreground" />
                   Capacidade (dados abertos)
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {service.capacity_info}
-                </p>
+                <p className="text-sm text-muted-foreground">{service.capacity_info}</p>
               </div>
             )}
 
@@ -556,7 +563,8 @@ export default function ServiceDetailPage() {
                         );
                       })()}
                       <p className="text-sm text-muted-foreground">
-                        Estimativa de presença nas últimas {Math.round(OCCUPANCY_WINDOW_MINUTES / 60)}h.
+                        Estimativa de presença nas últimas{" "}
+                        {Math.round(OCCUPANCY_WINDOW_MINUTES / 60)}h.
                       </p>
                     </>
                   )}
@@ -564,20 +572,24 @@ export default function ServiceDetailPage() {
                     Fonte: {OCCUPANCY_SOURCE_SHORT} (sinais de presença agregados).
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Base: {occupancy.usersCount} pessoa{occupancy.usersCount === 1 ? "" : "s"} com sinais recentes no app
+                    Base: {occupancy.usersCount} pessoa{occupancy.usersCount === 1 ? "" : "s"} com
+                    sinais recentes no app
                     {occupancy.lastPingAt
                       ? ` • último ping: ${new Date(occupancy.lastPingAt).toLocaleString("pt-BR")}`
                       : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Indicador estimado com base em interações de usuários do app (não é medição oficial da Prefeitura).
+                    Indicador estimado com base em interações de usuários do app (não é medição
+                    oficial da Prefeitura).
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Para desativar esse tipo de sinal, ajuste suas permissões de localização/notificações em{" "}
+                    Para desativar esse tipo de sinal, ajuste suas permissões de
+                    localização/notificações em{" "}
                     <a href="/perfil/preferencias" className="text-primary hover:underline">
                       Preferências
-                    </a>.
-                    Se desativar, a detecção de presença e os lembretes de avaliação podem não funcionar.
+                    </a>
+                    . Se desativar, a detecção de presença e os lembretes de avaliação podem não
+                    funcionar.
                   </p>
                 </div>
               ) : (
@@ -590,8 +602,7 @@ export default function ServiceDetailPage() {
             {/* O que este serviço oferece — tipo, serviços e ambientes quando existirem */}
             <div className="space-y-1">
               <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-                <Info className="w-4 h-4 text-muted-foreground" />
-                O que este serviço oferece
+                <Info className="w-4 h-4 text-muted-foreground" />O que este serviço oferece
               </h3>
               {(() => {
                 const svc = service as {
@@ -661,7 +672,10 @@ export default function ServiceDetailPage() {
                   ) : null}
                 </div>
               </div>
-              {needsVerificationForLowAverageRating(service.average_rating, service.total_ratings) && (
+              {needsVerificationForLowAverageRating(
+                service.average_rating,
+                service.total_ratings,
+              ) && (
                 <Alert
                   className="border-amber-600/40 bg-amber-500/10 text-amber-950 dark:text-amber-100 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-300"
                   role="status"
@@ -669,8 +683,9 @@ export default function ServiceDetailPage() {
                   <AlertTriangle className="h-4 w-4" aria-hidden />
                   <AlertTitle>Média de avaliações abaixo de 2 estrelas</AlertTitle>
                   <AlertDescription>
-                    Este equipamento está <strong>sinalizado para verificação</strong>. A média inclui notas já
-                    enviadas (publicadas ou em revisão); comentários só ficam visíveis a todos após moderação.
+                    Este equipamento está <strong>sinalizado para verificação</strong>. A média
+                    inclui notas já enviadas (publicadas ou em revisão); comentários só ficam
+                    visíveis a todos após moderação.
                   </AlertDescription>
                 </Alert>
               )}
@@ -690,11 +705,7 @@ export default function ServiceDetailPage() {
 
         {/* Actions */}
         <div className="space-y-2">
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handleEvaluate}
-          >
+          <Button className="w-full" size="lg" onClick={handleEvaluate}>
             <Star className="w-4 h-4 mr-2" />
             Avaliar este serviço
           </Button>
@@ -726,10 +737,10 @@ export default function ServiceDetailPage() {
                   Dados incorretos ou desatualizados?
                 </h2>
                 <p className="text-sm text-muted-foreground leading-snug">
-                  Se alguma informação deste equipamento estiver errada no app, você pode sugerir a correção.
-                  Um administrador valida em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas e você é notificado; o
-                  cadastro oficial só muda depois da aprovação e da atualização feita pela equipe (não automático pelo
-                  formulário).
+                  Se alguma informação deste equipamento estiver errada no app, você pode sugerir a
+                  correção. Um administrador valida em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS}{" "}
+                  horas e você é notificado; o cadastro oficial só muda depois da aprovação e da
+                  atualização feita pela equipe (não automático pelo formulário).
                 </p>
               </div>
               <ServiceCorrectionSuggestSection
@@ -742,7 +753,6 @@ export default function ServiceDetailPage() {
           </Card>
         </div>
       </div>
-
     </div>
   );
 }

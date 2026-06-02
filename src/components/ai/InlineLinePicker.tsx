@@ -98,7 +98,7 @@ export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
                     onClick={() => handleSelect(line)}
                     className="w-full text-left px-3 py-2 rounded-sm hover:bg-accent flex items-center gap-2 text-sm"
                   >
-                    {line.line_type === 'metro' ? (
+                    {line.line_type === "metro" ? (
                       <Train className="h-4 w-4 text-blue-500" />
                     ) : (
                       <Bus className="h-4 w-4 text-orange-500" />
@@ -115,12 +115,7 @@ export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
               <p className="text-xs text-muted-foreground">
                 Registramos o código que você digitou; a linha pode não constar no cadastro atual.
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCustomLine}
-                className="w-full"
-              >
+              <Button variant="outline" size="sm" onClick={handleCustomLine} className="w-full">
                 Usar código digitado: {query.toUpperCase()}
               </Button>
             </div>

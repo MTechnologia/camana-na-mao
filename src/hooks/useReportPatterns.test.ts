@@ -29,7 +29,9 @@ describe("useReportPatterns", () => {
     ];
     const chain = createQueryChain({ data: mockData, error: null });
 
-    vi.spyOn(supabase, "from").mockReturnValue(chain as unknown as ReturnType<typeof supabase.from>);
+    vi.spyOn(supabase, "from").mockReturnValue(
+      chain as unknown as ReturnType<typeof supabase.from>,
+    );
 
     const { result } = renderHook(() => useReportPatterns());
 
@@ -64,7 +66,9 @@ describe("useReportPatterns", () => {
 
   it("deve expor erro quando a query falhar", async () => {
     vi.spyOn(supabase, "from").mockReturnValue(
-      createQueryChain({ data: null, error: { message: "falhou" } }) as unknown as ReturnType<typeof supabase.from>,
+      createQueryChain({ data: null, error: { message: "falhou" } }) as unknown as ReturnType<
+        typeof supabase.from
+      >,
     );
 
     const { result } = renderHook(() => useReportPatterns());
@@ -81,7 +85,9 @@ describe("useReportPatterns", () => {
     const lineId = "line-123";
     const chain = createQueryChain({ data: [], error: null });
 
-    vi.spyOn(supabase, "from").mockReturnValue(chain as unknown as ReturnType<typeof supabase.from>);
+    vi.spyOn(supabase, "from").mockReturnValue(
+      chain as unknown as ReturnType<typeof supabase.from>,
+    );
 
     renderHook(() => useReportPatterns(lineId));
 

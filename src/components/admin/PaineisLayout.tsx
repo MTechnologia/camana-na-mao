@@ -1,8 +1,8 @@
-import { Outlet } from 'react-router-dom';
-import { AdminAppLayout } from '@/components/admin/AdminAppLayout';
-import { AdminProviders } from '@/components/admin/AdminProviders';
-import { PageSkeleton } from '@/components/skeletons/PageSkeleton';
-import { useUserRole } from '@/hooks/useUserRole';
+import { Outlet } from "react-router-dom";
+import { AdminAppLayout } from "@/components/admin/AdminAppLayout";
+import { AdminProviders } from "@/components/admin/AdminProviders";
+import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
+import { useUserRole } from "@/hooks/useUserRole";
 
 /** Staff institucional: shell admin PO; demais: conteúdo da rota sem sidebar. */
 export function PaineisLayout() {

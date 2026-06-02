@@ -18,7 +18,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
-  
+
   const isEmailValid = email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const validated = loginSchema.parse({ email, password });
       setLoading(true);
@@ -57,7 +57,7 @@ const Login = () => {
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }> };
       if (err?.errors) {
-        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
+        err.errors.forEach((e) => toast.error(e.message ?? "Erro"));
       }
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ const Login = () => {
             <ChevronLeft size={24} strokeWidth={2} />
           </button>
         </div>
-        
+
         {/* Logo Header */}
         <div className="flex items-center justify-center gap-4 pt-8 pb-8 px-6">
           <img src={brasaoSP} alt="Brasão São Paulo" className="w-20 h-20" />
@@ -93,7 +93,10 @@ const Login = () => {
             <form onSubmit={handleLogin} className="space-y-4 mb-6">
               {/* Email Input */}
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <Mail
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
                 <Input
                   type="email"
                   placeholder="Email"
@@ -103,13 +106,19 @@ const Login = () => {
                   required
                 />
                 {isEmailValid && (
-                  <Check className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" size={20} />
+                  <Check
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500"
+                    size={20}
+                  />
                 )}
               </div>
 
               {/* Password Input */}
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <Lock
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Senha"
@@ -130,8 +139,8 @@ const Login = () => {
               {/* Manter Logado e Esqueci a senha */}
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-2">
-                  <Checkbox 
-                    id="keep-logged" 
+                  <Checkbox
+                    id="keep-logged"
                     checked={keepLoggedIn}
                     onCheckedChange={(checked) => setKeepLoggedIn(checked as boolean)}
                   />

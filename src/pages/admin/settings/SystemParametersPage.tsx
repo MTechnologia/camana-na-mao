@@ -1,8 +1,8 @@
-import { toast } from 'sonner';
-import { SettingsLayout } from '@/components/admin/settings/SettingsLayout';
-import { useConfigEnvironment } from '@/contexts/ConfigEnvironmentContext';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { toast } from "sonner";
+import { SettingsLayout } from "@/components/admin/settings/SettingsLayout";
+import { useConfigEnvironment } from "@/contexts/ConfigEnvironmentContext";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export function SystemParametersPage() {
   const { config, environmentLabel } = useConfigEnvironment();
@@ -32,9 +32,9 @@ export function SystemParametersPage() {
                   <p className="text-xs text-muted-foreground">{p.description}</p>
                 </td>
                 <td className="px-4 py-3">
-                  {p.type === 'boolean' ? (
-                    <Badge variant={p.value ? 'default' : 'outline'}>
-                      {p.value ? 'Ativo' : 'Inativo'}
+                  {p.type === "boolean" ? (
+                    <Badge variant={p.value ? "default" : "outline"}>
+                      {p.value ? "Ativo" : "Inativo"}
                     </Badge>
                   ) : (
                     <span className="tabular-nums font-medium">{String(p.value)}</span>
@@ -47,7 +47,7 @@ export function SystemParametersPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      toast.success('Parâmetro atualizado', {
+                      toast.success("Parâmetro atualizado", {
                         description: `${p.key} — ${environmentLabel}.`,
                       })
                     }

@@ -65,4 +65,3 @@ export function useRoutesUsageAdminStats(): RoutesUsageAdminStats {
 
   return stats;
 }
-

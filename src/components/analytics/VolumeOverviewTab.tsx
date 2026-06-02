@@ -228,11 +228,7 @@ export function VolumeOverviewTab({ onDrillDown }: VolumeOverviewTabProps = {}) 
                   layout="vertical"
                   margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                    opacity={0.3}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                   <XAxis
                     type="number"
                     allowDecimals={false}
@@ -257,10 +253,7 @@ export function VolumeOverviewTab({ onDrillDown }: VolumeOverviewTabProps = {}) 
                   />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                     {topCategories.map((_, i) => (
-                      <Cell
-                        key={`cat-cell-${i}`}
-                        fill={colorPalette[i % colorPalette.length]}
-                      />
+                      <Cell key={`cat-cell-${i}`} fill={colorPalette[i % colorPalette.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -317,9 +310,7 @@ export function VolumeOverviewTab({ onDrillDown }: VolumeOverviewTabProps = {}) 
                         width={140}
                         stroke="hsl(var(--muted-foreground))"
                         fontSize={11}
-                        tickFormatter={(v: string) =>
-                          v.length > 20 ? `${v.slice(0, 20)}…` : v
-                        }
+                        tickFormatter={(v: string) => (v.length > 20 ? `${v.slice(0, 20)}…` : v)}
                       />
                       <Tooltip
                         contentStyle={{
@@ -328,10 +319,7 @@ export function VolumeOverviewTab({ onDrillDown }: VolumeOverviewTabProps = {}) 
                           borderRadius: 8,
                           fontSize: 12,
                         }}
-                        formatter={(value: number, _name, item) => [
-                          value,
-                          `${item.payload.zone}`,
-                        ]}
+                        formatter={(value: number, _name, item) => [value, `${item.payload.zone}`]}
                       />
                       <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                         {topRegions.map((_, i) => (
@@ -514,13 +502,7 @@ function VolumeTimelineChart({
   );
 }
 
-function EmptyChartState({
-  message,
-  icon,
-}: {
-  message: string;
-  icon?: React.ReactNode;
-}) {
+function EmptyChartState({ message, icon }: { message: string; icon?: React.ReactNode }) {
   return (
     <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
       {icon ?? <BarChart3 className="h-8 w-8" />}

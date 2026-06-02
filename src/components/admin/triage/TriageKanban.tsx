@@ -10,14 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  AlertCircle,
-  Calendar,
-  ChevronRight,
-  Building2,
-  GripVertical,
-  Hash,
-} from "lucide-react";
+import { AlertCircle, Calendar, ChevronRight, Building2, GripVertical, Hash } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,9 +38,7 @@ interface TriageKanbanProps {
   onMoveTo: (item: KanbanItem, targetStatus: TriageStatus) => Promise<void>;
 }
 
-const SHOWN_STATUSES: TriageStatus[] = TRIAGE_STATUS_ORDER.filter(
-  (s) => s !== "closed",
-);
+const SHOWN_STATUSES: TriageStatus[] = TRIAGE_STATUS_ORDER.filter((s) => s !== "closed");
 
 function cardKey(item: KanbanItem): string {
   return `${item.source}|${item.reportId}`;
@@ -96,12 +87,7 @@ export function TriageKanban({ data, onMoveTo }: TriageKanbanProps) {
         {SHOWN_STATUSES.map((status) => {
           const items = data.itemsByStatus[status] ?? [];
           return (
-            <KanbanColumn
-              key={status}
-              status={status}
-              items={items}
-              isAnyDragging={!!activeItem}
-            />
+            <KanbanColumn key={status} status={status} items={items} isAnyDragging={!!activeItem} />
           );
         })}
       </div>
@@ -140,9 +126,7 @@ function KanbanColumn({ status, items, isAnyDragging }: KanbanColumnProps) {
       <header className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold">{meta.label}</h3>
-          <p className="text-[10px] text-muted-foreground line-clamp-1">
-            {meta.description}
-          </p>
+          <p className="text-[10px] text-muted-foreground line-clamp-1">{meta.description}</p>
         </div>
         <Badge variant="outline" className="text-xs">
           {items.length}
@@ -155,9 +139,7 @@ function KanbanColumn({ status, items, isAnyDragging }: KanbanColumnProps) {
               {isAnyDragging ? "Solte aqui" : "Nenhum relato."}
             </p>
           ) : (
-            items.map((item) => (
-              <DraggableTriageCard key={cardKey(item)} item={item} />
-            ))
+            items.map((item) => <DraggableTriageCard key={cardKey(item)} item={item} />)
           )}
         </div>
       </ScrollArea>
@@ -176,11 +158,7 @@ function DraggableTriageCard({ item }: DraggableTriageCardProps) {
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{ opacity: isDragging ? 0 : 1 }}
-      {...attributes}
-    >
+    <div ref={setNodeRef} style={{ opacity: isDragging ? 0 : 1 }} {...attributes}>
       <TriageCard item={item} dragHandleProps={listeners} />
     </div>
   );

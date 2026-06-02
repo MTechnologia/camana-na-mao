@@ -48,10 +48,7 @@ export interface UseReportStatusEventsResult {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  append: (
-    eventType: ReportEventType,
-    eventData?: Record<string, unknown>,
-  ) => Promise<void>;
+  append: (eventType: ReportEventType, eventData?: Record<string, unknown>) => Promise<void>;
 }
 
 interface RawRow {
@@ -65,9 +62,7 @@ interface RawRow {
   actor?: { full_name: string | null; email: string | null } | null;
 }
 
-function sourceToTable(
-  source: ReportSource,
-): "urban_reports" | "transport_reports" {
+function sourceToTable(source: ReportSource): "urban_reports" | "transport_reports" {
   return source === "urban" ? "urban_reports" : "transport_reports";
 }
 
@@ -91,9 +86,7 @@ export function useReportStatusEvents(
     try {
       const { data, error: qErr } = await supabase
         .from(TABLE)
-        .select(
-          "id, source_table, report_id, event_type, event_data, actor_id, occurred_at",
-        )
+        .select("id, source_table, report_id, event_type, event_data, actor_id, occurred_at")
         .eq("source_table", sourceTable)
         .eq("report_id", reportId)
         .order("occurred_at", { ascending: true })
@@ -102,9 +95,7 @@ export function useReportStatusEvents(
       const rows = (data ?? []) as RawRow[];
 
       // Busca nomes dos atores em uma segunda query (evita join custoso).
-      const actorIds = Array.from(
-        new Set(rows.map((r) => r.actor_id).filter(Boolean) as string[]),
-      );
+      const actorIds = Array.from(new Set(rows.map((r) => r.actor_id).filter(Boolean) as string[]));
       const nameByUser = new Map<string, string>();
       if (actorIds.length > 0) {
         const { data: profs } = await supabase
@@ -124,7 +115,7 @@ export function useReportStatusEvents(
           eventType: r.event_type,
           eventData: r.event_data ?? {},
           actorId: r.actor_id,
-          actorName: r.actor_id ? nameByUser.get(r.actor_id) ?? null : null,
+          actorName: r.actor_id ? (nameByUser.get(r.actor_id) ?? null) : null,
           occurredAt: r.occurred_at,
         })),
       );
@@ -143,10 +134,7 @@ export function useReportStatusEvents(
   useRealtimeRefresh(REALTIME_TABLES, fetchData);
 
   const append = useCallback(
-    async (
-      eventType: ReportEventType,
-      eventData: Record<string, unknown> = {},
-    ): Promise<void> => {
+    async (eventType: ReportEventType, eventData: Record<string, unknown> = {}): Promise<void> => {
       if (!reportId || !sourceTable) return;
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id ?? null;

@@ -43,11 +43,7 @@ interface EficienciaFacetPickerProps {
 const SLA_OPTIONS: SlaWindow[] = ["24h", "48h", "7d", "30d", "all"];
 const STATUSES: ReportStatus[] = ["pending", "in_progress", "resolved", "rejected"];
 
-export function EficienciaFacetPicker({
-  value,
-  onChange,
-  disabled,
-}: EficienciaFacetPickerProps) {
+export function EficienciaFacetPicker({ value, onChange, disabled }: EficienciaFacetPickerProps) {
   const selectedStatuses = new Set(value.statuses ?? []);
 
   const toggleStatus = (s: ReportStatus) => {
@@ -91,9 +87,7 @@ export function EficienciaFacetPicker({
           </Label>
           <Select
             value={value.slaWindow ?? "all"}
-            onValueChange={(v) =>
-              onChange({ ...value, slaWindow: v as SlaWindow })
-            }
+            onValueChange={(v) => onChange({ ...value, slaWindow: v as SlaWindow })}
             disabled={disabled}
           >
             <SelectTrigger className="h-8 text-xs">

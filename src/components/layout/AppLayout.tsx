@@ -85,7 +85,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const isAdminRoute = location.pathname.startsWith("/admin") || isGestorPaineis;
 
   const isHeaderlessRoute = HEADERLESS_ROUTES.some(
-    (route) => location.pathname === route || location.pathname.startsWith("/admin")
+    (route) => location.pathname === route || location.pathname.startsWith("/admin"),
   );
 
   const getTitle = useCallback(() => {
@@ -93,7 +93,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (ROUTE_TITLES[location.pathname]) {
       return ROUTE_TITLES[location.pathname];
     }
-    
+
     // Check for dynamic routes
     const pathParts = location.pathname.split("/");
     if (pathParts[1] === "audiencias" && pathParts[2]) {
@@ -113,22 +113,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   // Admin routes have their own layout - skip AppLayout wrapper but keep Suspense
   if (isAdminRoute) {
-    return (
-      <Suspense fallback={<PageSkeleton />}>
-        {children}
-      </Suspense>
-    );
+    return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
   }
 
   return (
     <>
-      {!isHeaderlessRoute && (
-        <PageHeader 
-          title={getTitle()} 
-          onBack={() => navigate(-1)}
-        />
-      )}
-      
+      {!isHeaderlessRoute && <PageHeader title={getTitle()} onBack={() => navigate(-1)} />}
+
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}
@@ -138,12 +129,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           transition={{ duration: 0.15, ease: "easeOut" }}
           className={`min-h-screen bg-background ${!isHeaderlessRoute ? "pt-[60px]" : ""}`}
         >
-          <Suspense fallback={<PageSkeleton />}>
-            {children}
-          </Suspense>
+          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
         </motion.div>
       </AnimatePresence>
-      
+
       <MenuDrawer isOpen={isMenuOpen} onClose={closeMenu} />
     </>
   );

@@ -2,10 +2,7 @@ import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  aggregatePeakHours,
-  type PatternEntry,
-} from "@/hooks/usePatternsList";
+import { aggregatePeakHours, type PatternEntry } from "@/hooks/usePatternsList";
 
 /**
  * HU-9.1 — Visualizações complementares para a página /admin/padroes.
@@ -114,18 +111,12 @@ export function PatternsTimeline({ patterns, onlyActive = true, limit = 25 }: Ti
               </div>
               <div className="relative flex-1 h-5 bg-muted rounded-sm">
                 <div
-                  className={cn(
-                    "absolute top-0 bottom-0 rounded-sm",
-                    SEVERITY_COLORS_BAR[sev],
-                  )}
+                  className={cn("absolute top-0 bottom-0 rounded-sm", SEVERITY_COLORS_BAR[sev])}
                   style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                   title={`${p.firstDetectedAt} → ${p.lastOccurrenceAt ?? "agora"}`}
                 />
               </div>
-              <div
-                className="text-[10px] text-muted-foreground text-right"
-                style={{ width: 56 }}
-              >
+              <div className="text-[10px] text-muted-foreground text-right" style={{ width: 56 }}>
                 {p.occurrenceCount} occ
               </div>
             </div>
@@ -160,9 +151,7 @@ interface PeakHoursHeatmapProps {
 
 export function PeakHoursHeatmap({ patterns, onlyActive = true }: PeakHoursHeatmapProps) {
   const vec = useMemo(() => {
-    const filtered = onlyActive
-      ? patterns.filter((p) => p.status === "active")
-      : patterns;
+    const filtered = onlyActive ? patterns.filter((p) => p.status === "active") : patterns;
     return aggregatePeakHours(filtered);
   }, [patterns, onlyActive]);
 

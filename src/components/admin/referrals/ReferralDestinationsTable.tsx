@@ -1,5 +1,5 @@
-import { Badge } from '@/components/ui/badge';
-import type { ReferralDestination } from '@/lib/referralDestinations';
+import { Badge } from "@/components/ui/badge";
+import type { ReferralDestination } from "@/lib/referralDestinations";
 
 export function ReferralDestinationsTable({
   title,
@@ -35,14 +35,14 @@ export function ReferralDestinationsTable({
               key={d.id}
               className={
                 onDestinationClick
-                  ? 'cursor-pointer border-b border-border last:border-0 hover:bg-muted/40'
-                  : 'border-b border-border last:border-0 hover:bg-muted/30'
+                  ? "cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
+                  : "border-b border-border last:border-0 hover:bg-muted/30"
               }
               onClick={onDestinationClick ? () => onDestinationClick(d) : undefined}
               onKeyDown={
                 onDestinationClick
                   ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         onDestinationClick(d);
                       }
@@ -50,7 +50,7 @@ export function ReferralDestinationsTable({
                   : undefined
               }
               tabIndex={onDestinationClick ? 0 : undefined}
-              role={onDestinationClick ? 'button' : undefined}
+              role={onDestinationClick ? "button" : undefined}
             >
               <td className="px-4 py-3 font-medium text-foreground">{d.name}</td>
               <td className="px-4 py-3">

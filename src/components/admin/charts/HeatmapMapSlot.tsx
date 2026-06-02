@@ -1,7 +1,7 @@
-import { Map } from 'lucide-react';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import { heatmapChartLegend, heatmapMetricLabel } from '@/lib/analyticsParameterLegends';
-import { cn } from '@/lib/utils';
+import { Map } from "lucide-react";
+import { ParameterInfoListTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import { heatmapChartLegend, heatmapMetricLabel } from "@/lib/analyticsParameterLegends";
+import { cn } from "@/lib/utils";
 
 type HeatmapMapSlotProps = {
   metric: string;
@@ -19,8 +19,8 @@ export function HeatmapMapSlot({ metric, className }: HeatmapMapSlotProps) {
   return (
     <section
       className={cn(
-        'relative flex w-full flex-col overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted/25',
-        'min-h-[min(56vh,520px)] lg:min-h-[min(62vh,560px)]',
+        "relative flex w-full flex-col overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted/25",
+        "min-h-[min(56vh,520px)] lg:min-h-[min(62vh,560px)]",
         className,
       )}
       aria-label={`Área do mapa de calor — ${metricName}`}

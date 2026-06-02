@@ -1,7 +1,7 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { AdminProviders } from '@/components/admin/AdminProviders';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole } from '@/hooks/useUserRole';
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { AdminProviders } from "@/components/admin/AdminProviders";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 
 function AdminAccessLoading() {
   return (

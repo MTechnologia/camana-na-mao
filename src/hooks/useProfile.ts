@@ -23,12 +23,7 @@ export const useProfile = () => {
 
     try {
       const { data, error } = await withPoolRetry(
-        () =>
-          supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle(),
+        () => supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         { retries: 1, baseDelayMs: 700 },
       );
 
@@ -51,10 +46,10 @@ export const useProfile = () => {
 
   const getInitials = (name: string): string => {
     return name
-      .split(' ')
-      .map(n => n[0])
+      .split(" ")
+      .map((n) => n[0])
       .slice(0, 2)
-      .join('')
+      .join("")
       .toUpperCase();
   };
 

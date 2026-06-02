@@ -24,12 +24,12 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
   const handleDeleteConversation = async (conversationId: string) => {
     await deleteConversation(conversationId);
-    
+
     // Se deletou a conversa ativa, limpar estado e voltar para seleção de jornada
     if (activeConversationId === conversationId) {
       clearConversation();
     }
-    
+
     toast({
       title: "Conversa excluída",
       description: "A conversa foi removida com sucesso.",
@@ -38,12 +38,11 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
-    
+
     const query = searchQuery.toLowerCase();
     return conversations.filter(
       (conv) =>
-        conv.title.toLowerCase().includes(query) ||
-        conv.lastMessage.toLowerCase().includes(query)
+        conv.title.toLowerCase().includes(query) || conv.lastMessage.toLowerCase().includes(query),
     );
   }, [conversations, searchQuery]);
 
@@ -59,7 +58,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
     filteredConversations.forEach((conv) => {
       const diffInHours = (now.getTime() - conv.lastMessageAt.getTime()) / (1000 * 60 * 60);
-      
+
       if (diffInHours < 24) {
         groups["Hoje"].push(conv);
       } else if (diffInHours < 48) {
@@ -78,7 +77,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
   const handleConversationClick = (conversationId: string) => {
     setActiveConversationId(conversationId);
-    navigate('/');
+    navigate("/");
     onConversationClick?.();
   };
 
@@ -145,7 +144,6 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
           )}
         </div>
       </ScrollArea>
-
     </div>
   );
 };

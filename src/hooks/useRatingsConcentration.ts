@@ -89,8 +89,20 @@ async function fetchRawRatings(period: RatingsPeriod): Promise<RawRating[]> {
       rating_stars: number;
       rating_dimensions: Record<string, number> | null;
       public_services:
-        | { name: string | null; district: string | null; service_type: string | null; latitude: number | null; longitude: number | null }
-        | { name: string | null; district: string | null; service_type: string | null; latitude: number | null; longitude: number | null }[]
+        | {
+            name: string | null;
+            district: string | null;
+            service_type: string | null;
+            latitude: number | null;
+            longitude: number | null;
+          }
+        | {
+            name: string | null;
+            district: string | null;
+            service_type: string | null;
+            latitude: number | null;
+            longitude: number | null;
+          }[]
         | null;
     }>;
     rows.forEach((r) => {

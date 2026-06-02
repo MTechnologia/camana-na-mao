@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -9,16 +9,16 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+} from "recharts";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
 import {
   CHART_COLORS,
   chartTooltipStyle,
   formatChartNumber,
-} from '@/components/admin/analytics/chartTheme';
-import { reportsManagementUrlForCouncilMember } from '@/lib/commissionFilterNavigation';
-import type { CouncilMemberChartPoint } from '@/lib/councilMemberChart';
-import { cn } from '@/lib/utils';
+} from "@/components/admin/analytics/chartTheme";
+import { reportsManagementUrlForCouncilMember } from "@/lib/commissionFilterNavigation";
+import type { CouncilMemberChartPoint } from "@/lib/councilMemberChart";
+import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT_PX = 44;
 const MIN_CHART_HEIGHT_PX = 280;
@@ -46,7 +46,7 @@ export function CouncilMemberQueueBarChart({
     if (!id) return;
     navigate(
       reportsManagementUrlForCouncilMember(id, {
-        queueTab: 'all',
+        queueTab: "all",
         global: { period, region, category },
       }),
     );
@@ -61,7 +61,7 @@ export function CouncilMemberQueueBarChart({
   }
 
   return (
-    <div className={cn('w-full', className)} style={{ height: chartHeight }}>
+    <div className={cn("w-full", className)} style={{ height: chartHeight }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
@@ -84,9 +84,9 @@ export function CouncilMemberQueueBarChart({
             contentStyle={chartTooltipStyle}
             labelFormatter={(_, items) => {
               const row = (items?.[0]?.payload ?? null) as CouncilMemberChartPoint | null;
-              return row?.fullName ?? '';
+              return row?.fullName ?? "";
             }}
-            formatter={(v) => [formatChartNumber(Number(v)), 'Em andamento']}
+            formatter={(v) => [formatChartNumber(Number(v)), "Em andamento"]}
           />
           <Bar
             dataKey="value"

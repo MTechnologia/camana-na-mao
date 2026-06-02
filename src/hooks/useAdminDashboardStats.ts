@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardStats {
   totalUsers: number;
@@ -16,7 +16,7 @@ interface DashboardStats {
 
 interface Activity {
   id: string;
-  type: 'dashboard' | 'export' | 'user';
+  type: "dashboard" | "export" | "user";
   message: string;
   timestamp: string;
 }
@@ -40,72 +40,76 @@ export const useAdminDashboardStats = () => {
       try {
         // Buscar total de usuários
         const { count: totalUsers } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
+          .from("profiles")
+          .select("*", { count: "exact", head: true });
 
         // Buscar total de dashboards
         const { count: totalDashboards } = await supabase
-          .from('dashboards')
-          .select('*', { count: 'exact', head: true });
+          .from("dashboards")
+          .select("*", { count: "exact", head: true });
 
         // Buscar total de exportações
         const { count: totalExports } = await supabase
-          .from('export_logs')
-          .select('*', { count: 'exact', head: true });
+          .from("export_logs")
+          .select("*", { count: "exact", head: true });
 
         // Buscar usuários dos últimos 30 dias
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        
+
         const { count: recentUsers } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', thirtyDaysAgo.toISOString());
+          .from("profiles")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", thirtyDaysAgo.toISOString());
 
         // Buscar dashboards deste mês
         const firstDayOfMonth = new Date();
         firstDayOfMonth.setDate(1);
         firstDayOfMonth.setHours(0, 0, 0, 0);
-        
+
         const { count: monthDashboards } = await supabase
-          .from('dashboards')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', firstDayOfMonth.toISOString());
+          .from("dashboards")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", firstDayOfMonth.toISOString());
 
         // Buscar exportações da última semana
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
+
         const { count: weekExports } = await supabase
-          .from('export_logs')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', sevenDaysAgo.toISOString());
+          .from("export_logs")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", sevenDaysAgo.toISOString());
 
         // Calcular trends (comparação simples)
         const usersTrend = totalUsers ? Math.round((recentUsers || 0) / (totalUsers / 100)) : 0;
-        const dashboardsTrend = totalDashboards ? Math.round((monthDashboards || 0) / (totalDashboards / 100)) : 0;
-        const exportsTrend = totalExports ? Math.round((weekExports || 0) / (totalExports / 100)) : 0;
+        const dashboardsTrend = totalDashboards
+          ? Math.round((monthDashboards || 0) / (totalDashboards / 100))
+          : 0;
+        const exportsTrend = totalExports
+          ? Math.round((weekExports || 0) / (totalExports / 100))
+          : 0;
 
         // Buscar atividades recentes dos logs de auditoria
         const { data: auditLogs } = await supabase
-          .from('audit_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
+          .from("audit_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
           .limit(5);
 
         const recentActivities: Activity[] = (auditLogs || []).map((log) => {
-          let type: 'dashboard' | 'export' | 'user' = 'user';
-          let message = '';
+          let type: "dashboard" | "export" | "user" = "user";
+          let message = "";
 
-          if (log.entity_type === 'dashboard') {
-            type = 'dashboard';
-            message = `Dashboard ${log.action === 'create' ? 'criado' : log.action === 'update' ? 'atualizado' : 'deletado'}`;
-          } else if (log.entity_type === 'export') {
-            type = 'export';
-            message = 'Exportação concluída';
-          } else if (log.entity_type === 'user_role') {
-            type = 'user';
-            message = `Usuário ${log.action === 'create' ? 'promovido' : 'atualizado'}`;
+          if (log.entity_type === "dashboard") {
+            type = "dashboard";
+            message = `Dashboard ${log.action === "create" ? "criado" : log.action === "update" ? "atualizado" : "deletado"}`;
+          } else if (log.entity_type === "export") {
+            type = "export";
+            message = "Exportação concluída";
+          } else if (log.entity_type === "user_role") {
+            type = "user";
+            message = `Usuário ${log.action === "create" ? "promovido" : "atualizado"}`;
           } else {
             message = `${log.entity_type} ${log.action}`;
           }
@@ -120,9 +124,9 @@ export const useAdminDashboardStats = () => {
 
         // Estimativa de acessos baseado em audit logs
         const { count: totalAcessos } = await supabase
-          .from('audit_logs')
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', firstDayOfMonth.toISOString());
+          .from("audit_logs")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", firstDayOfMonth.toISOString());
 
         setStats({
           totalUsers: totalUsers || 0,
@@ -137,7 +141,7 @@ export const useAdminDashboardStats = () => {
           loading: false,
         });
       } catch (error) {
-        console.error('Error fetching admin stats:', error);
+        console.error("Error fetching admin stats:", error);
         setStats((prev) => ({ ...prev, loading: false }));
       }
     };
@@ -146,18 +150,18 @@ export const useAdminDashboardStats = () => {
 
     // Subscribe para atualizações em tempo real
     const profilesChannel = supabase
-      .channel('profiles_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchStats)
+      .channel("profiles_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, fetchStats)
       .subscribe();
 
     const dashboardsChannel = supabase
-      .channel('dashboards_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dashboards' }, fetchStats)
+      .channel("dashboards_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "dashboards" }, fetchStats)
       .subscribe();
 
     const exportsChannel = supabase
-      .channel('exports_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'export_logs' }, fetchStats)
+      .channel("exports_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "export_logs" }, fetchStats)
       .subscribe();
 
     return () => {

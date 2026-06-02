@@ -7,9 +7,9 @@ export function shouldOfferRatingCommentReview(
   draft: string,
 ): boolean {
   const rs = collectedFields.rating_stars;
-  const hasGeneral =
-    typeof rs === "number" && Number.isInteger(rs) && rs >= 1 && rs <= 5;
-  if (!hasGeneral && !isCompleteServiceRatingDimensions(collectedFields.rating_dimensions)) return false;
+  const hasGeneral = typeof rs === "number" && Number.isInteger(rs) && rs >= 1 && rs <= 5;
+  if (!hasGeneral && !isCompleteServiceRatingDimensions(collectedFields.rating_dimensions))
+    return false;
   if (collectedFields.rating_text) return false;
   const a = lastAssistantContent.toLowerCase();
   const asked =

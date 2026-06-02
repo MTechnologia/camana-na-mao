@@ -15,7 +15,9 @@ interface ChatInputProps {
   initialFocusLockSeconds?: number;
 }
 
-const isInApp = typeof window !== "undefined" && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+const isInApp =
+  typeof window !== "undefined" &&
+  !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
 
 const DEFAULT_FOCUS_LOCK_MS = 2500;
 
@@ -35,11 +37,12 @@ const ChatInput = ({
   const hasLoadedDraftRef = useRef(false);
   const { toast } = useToast();
 
-  const focusLockMs = isInApp && initialFocusLockSeconds != null
-    ? initialFocusLockSeconds * 1000
-    : isInApp
-      ? DEFAULT_FOCUS_LOCK_MS
-      : 0;
+  const focusLockMs =
+    isInApp && initialFocusLockSeconds != null
+      ? initialFocusLockSeconds * 1000
+      : isInApp
+        ? DEFAULT_FOCUS_LOCK_MS
+        : 0;
 
   const [allowFocusInApp, setAllowFocusInApp] = useState(!isInApp);
   useEffect(() => {
@@ -81,13 +84,17 @@ const ChatInput = ({
       setTimeout(() => {
         try {
           const el = document.activeElement;
-          if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && typeof (el as HTMLTextAreaElement).blur === "function") {
+          if (
+            el &&
+            (el.tagName === "INPUT" || el.tagName === "TEXTAREA") &&
+            typeof (el as HTMLTextAreaElement).blur === "function"
+          ) {
             (el as HTMLTextAreaElement).blur();
           }
         } catch {
           // ignore
         }
-      }, ms)
+      }, ms),
     );
     return () => timers.forEach((t) => clearTimeout(t));
   }, []);
@@ -100,16 +107,19 @@ const ChatInput = ({
       }
       onFocus?.();
     },
-    [isInApp, allowFocusInApp, onFocus]
+    [isInApp, allowFocusInApp, onFocus],
   );
 
   useEffect(() => {
     // Initialize Web Speech API (no app, o WebView pede permissão de microfone via react-native-webview)
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const w = window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition; SpeechRecognition?: new () => SpeechRecognition };
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+      const w = window as unknown as {
+        webkitSpeechRecognition?: new () => SpeechRecognition;
+        SpeechRecognition?: new () => SpeechRecognition;
+      };
       const SpeechRecognition = w.webkitSpeechRecognition ?? w.SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.lang = 'pt-BR';
+      recognitionRef.current.lang = "pt-BR";
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
 
@@ -117,12 +127,12 @@ const ChatInput = ({
         const transcript = Array.from(event.results)
           .map((result) => result[0])
           .map((result) => result.transcript)
-          .join('');
+          .join("");
         setInputValue(transcript);
       };
 
       recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Speech recognition error:', event.error);
+        console.error("Speech recognition error:", event.error);
         setIsRecording(false);
         toast({
           title: "Erro no reconhecimento de voz",
@@ -240,14 +250,14 @@ const ChatInput = ({
             className="w-full rounded-2xl border-2 border-border bg-card pl-3 sm:pl-4 pr-10 sm:pr-12 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground overflow-y-auto"
             style={{ maxHeight: "120px" }}
           />
-          
+
           {/* Microphone button for dictation - aligned to center vertically */}
           <button
             onClick={toggleDictation}
             disabled={disabled}
             className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-full transition-all ${
-              isRecording 
-                ? "text-white bg-primary animate-pulse" 
+              isRecording
+                ? "text-white bg-primary animate-pulse"
                 : "text-muted-foreground hover:text-primary-foreground hover:bg-primary"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             aria-label="Ditado por voz"

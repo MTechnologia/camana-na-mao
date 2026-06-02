@@ -224,10 +224,7 @@ async function fetchServiceRatings(
   return out;
 }
 
-function aggregate(
-  rows: RawReport[],
-  filters: ReportsVolumeFilters,
-): ReportsVolumeStats {
+function aggregate(rows: RawReport[], filters: ReportsVolumeFilters): ReportsVolumeStats {
   const selectedCategories = new Set((filters.categories || []).filter(Boolean));
   const selectedRegions = new Set((filters.regions || []).filter(Boolean));
   const selectedZones = new Set((filters.zones || []).filter(Boolean));
@@ -341,7 +338,9 @@ function aggregate(
     byCategory,
     byRegion,
     byZone,
-    availableCategories: Array.from(availableCategories).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    availableCategories: Array.from(availableCategories).sort((a, b) =>
+      a.localeCompare(b, "pt-BR"),
+    ),
     availableRegions: Array.from(availableRegions).sort((a, b) => a.localeCompare(b, "pt-BR")),
   };
 }

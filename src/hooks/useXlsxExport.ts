@@ -87,9 +87,7 @@ function buildFilename(dataset: DatasetMeta): string {
 
 function resolveFields(dataset: DatasetMeta, fieldIds: string[]): ExportField[] {
   const byId = new Map(dataset.fields.map((f) => [f.id, f]));
-  return fieldIds
-    .map((id) => byId.get(id))
-    .filter((f): f is ExportField => !!f);
+  return fieldIds.map((id) => byId.get(id)).filter((f): f is ExportField => !!f);
 }
 
 /**
@@ -151,174 +149,166 @@ export function useXlsxExport(): UseXlsxExportResult {
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef(false);
 
-  const exportXlsx = useCallback(
-    async (config: XlsxExportConfig): Promise<XlsxExportResult> => {
-      cancelRef.current = false;
-      setExporting(true);
-      setProgressLoaded(0);
-      setError(null);
+  const exportXlsx = useCallback(async (config: XlsxExportConfig): Promise<XlsxExportResult> => {
+    cancelRef.current = false;
+    setExporting(true);
+    setProgressLoaded(0);
+    setError(null);
 
-      const dataset = getDataset(config.dataset);
-      const fields = resolveFields(dataset, config.fieldIds);
-      if (fields.length === 0) {
-        const err = "Nenhum campo selecionado para exportação.";
-        setError(err);
-        setExporting(false);
-        throw new Error(err);
+    const dataset = getDataset(config.dataset);
+    const fields = resolveFields(dataset, config.fieldIds);
+    if (fields.length === 0) {
+      const err = "Nenhum campo selecionado para exportação.";
+      setError(err);
+      setExporting(false);
+      throw new Error(err);
+    }
+
+    const orderField = fields.find((f) => f.id === config.orderBy.fieldId);
+    const orderColumn = orderField?.dbColumn ?? dataset.defaultOrderColumn;
+    const orderAsc = config.orderBy.direction === "asc";
+
+    const categoryColumn = dataset.id === "urban_reports" ? "category" : "report_type";
+    const useRegionsServerSide = dataset.id === "urban_reports";
+
+    const requiredSelectCols = new Set<string>([
+      ...fields.map((f) => f.dbColumn),
+      dataset.defaultOrderColumn,
+      orderColumn,
+      dataset.defaultDateColumn,
+      categoryColumn,
+      "status", // Necessário para o Resumo agrupar por status
+    ]);
+    if (useRegionsServerSide) requiredSelectCols.add("neighborhood");
+    const selectCols = Array.from(requiredSelectCols).join(",");
+
+    const allRows: Array<Record<string, unknown>> = [];
+    let offset = 0;
+    const startIso = toIsoStart(config.filters?.startDate);
+    const endIso = toIsoEnd(config.filters?.endDate);
+    const cats = config.filters?.categories ?? [];
+    const regions = config.filters?.regions ?? [];
+    const zones = config.filters?.zones ?? [];
+
+    try {
+      while (true) {
+        if (cancelRef.current) throw new Error("CANCELLED");
+        if (offset >= XLSX_EXPORT_MAX_ROWS) break;
+
+        let q = supabase.from(dataset.table).select(selectCols);
+        if (startIso) q = q.gte(dataset.defaultDateColumn, startIso);
+        if (endIso) q = q.lte(dataset.defaultDateColumn, endIso);
+        if (cats.length > 0) q = q.in(categoryColumn, cats);
+        if (useRegionsServerSide && regions.length > 0) {
+          q = q.in("neighborhood", regions);
+        }
+        const status = config.filters?.status;
+        if (useRegionsServerSide && status) {
+          q = q.eq("status", status);
+        }
+        q = q.order(orderColumn, { ascending: orderAsc });
+        const to = Math.min(offset + XLSX_EXPORT_PAGE_SIZE - 1, XLSX_EXPORT_MAX_ROWS - 1);
+        q = q.range(offset, to);
+
+        const { data, error: queryError } = await q;
+        if (queryError) throw queryError;
+        const batch = (data ?? []) as Array<Record<string, unknown>>;
+        if (batch.length === 0) break;
+        allRows.push(...batch);
+        setProgressLoaded(allRows.length);
+
+        if (batch.length < XLSX_EXPORT_PAGE_SIZE) break;
+        offset += XLSX_EXPORT_PAGE_SIZE;
       }
 
-      const orderField = fields.find((f) => f.id === config.orderBy.fieldId);
-      const orderColumn = orderField?.dbColumn ?? dataset.defaultOrderColumn;
-      const orderAsc = config.orderBy.direction === "asc";
+      // Filtro client-side de zonas
+      let filtered = allRows;
+      if (zones.length > 0 && useRegionsServerSide) {
+        const { bairroParaZona } = await import("@/lib/regionMapping");
+        filtered = allRows.filter((r) => {
+          const bairro = (r.neighborhood as string | null) ?? "";
+          const lat = r.latitude as number | null | undefined;
+          const lng = r.longitude as number | null | undefined;
+          const z = bairroParaZona(bairro, lat ?? null, lng ?? null);
+          return zones.includes(z as ZonaVolumeOuDesconhecida);
+        });
+      }
 
-      const categoryColumn =
-        dataset.id === "urban_reports" ? "category" : "report_type";
-      const useRegionsServerSide = dataset.id === "urban_reports";
+      const headers: CsvHeader[] = fields.map((f) => ({
+        key: f.dbColumn,
+        label: f.label,
+      }));
 
-      const requiredSelectCols = new Set<string>([
-        ...fields.map((f) => f.dbColumn),
-        dataset.defaultOrderColumn,
-        orderColumn,
-        dataset.defaultDateColumn,
-        categoryColumn,
-        "status", // Necessário para o Resumo agrupar por status
-      ]);
-      if (useRegionsServerSide) requiredSelectCols.add("neighborhood");
-      const selectCols = Array.from(requiredSelectCols).join(",");
+      // Contexto humano para a aba Resumo: lista os filtros aplicados.
+      const contextLines: string[] = [
+        `Dataset: ${dataset.label}`,
+        startIso || endIso
+          ? `Período: ${startIso ?? "início"} → ${endIso ?? "agora"}`
+          : "Período: todo o histórico",
+      ];
+      if (cats.length > 0) contextLines.push(`Categorias: ${cats.join(", ")}`);
+      if (regions.length > 0) contextLines.push(`Bairros: ${regions.join(", ")}`);
+      if (zones.length > 0) contextLines.push(`Zonas: ${zones.join(", ")}`);
+      contextLines.push(`Gerado em: ${new Date().toLocaleString("pt-BR")}`);
 
-      const allRows: Array<Record<string, unknown>> = [];
-      let offset = 0;
-      const startIso = toIsoStart(config.filters?.startDate);
-      const endIso = toIsoEnd(config.filters?.endDate);
-      const cats = config.filters?.categories ?? [];
-      const regions = config.filters?.regions ?? [];
-      const zones = config.filters?.zones ?? [];
+      const summary = config.includeSummary
+        ? buildSummary(dataset, filtered, contextLines)
+        : undefined;
+
+      const buffer = buildXlsxWorkbook({
+        detail: { headers, rows: filtered },
+        summary,
+        workbookTitle: `Câmara na Mão — ${dataset.label}`,
+      });
+      const filename = buildFilename(dataset);
+      downloadXlsx(buffer, filename);
 
       try {
-         
-        while (true) {
-          if (cancelRef.current) throw new Error("CANCELLED");
-          if (offset >= XLSX_EXPORT_MAX_ROWS) break;
-
-          let q = supabase.from(dataset.table).select(selectCols);
-          if (startIso) q = q.gte(dataset.defaultDateColumn, startIso);
-          if (endIso) q = q.lte(dataset.defaultDateColumn, endIso);
-          if (cats.length > 0) q = q.in(categoryColumn, cats);
-          if (useRegionsServerSide && regions.length > 0) {
-            q = q.in("neighborhood", regions);
-          }
-          const status = config.filters?.status;
-          if (useRegionsServerSide && status) {
-            q = q.eq("status", status);
-          }
-          q = q.order(orderColumn, { ascending: orderAsc });
-          const to = Math.min(
-            offset + XLSX_EXPORT_PAGE_SIZE - 1,
-            XLSX_EXPORT_MAX_ROWS - 1,
-          );
-          q = q.range(offset, to);
-
-          const { data, error: queryError } = await q;
-          if (queryError) throw queryError;
-          const batch = (data ?? []) as Array<Record<string, unknown>>;
-          if (batch.length === 0) break;
-          allRows.push(...batch);
-          setProgressLoaded(allRows.length);
-
-          if (batch.length < XLSX_EXPORT_PAGE_SIZE) break;
-          offset += XLSX_EXPORT_PAGE_SIZE;
-        }
-
-        // Filtro client-side de zonas
-        let filtered = allRows;
-        if (zones.length > 0 && useRegionsServerSide) {
-          const { bairroParaZona } = await import("@/lib/regionMapping");
-          filtered = allRows.filter((r) => {
-            const bairro = (r.neighborhood as string | null) ?? "";
-            const lat = r.latitude as number | null | undefined;
-            const lng = r.longitude as number | null | undefined;
-            const z = bairroParaZona(bairro, lat ?? null, lng ?? null);
-            return zones.includes(z as ZonaVolumeOuDesconhecida);
-          });
-        }
-
-        const headers: CsvHeader[] = fields.map((f) => ({
-          key: f.dbColumn,
-          label: f.label,
-        }));
-
-        // Contexto humano para a aba Resumo: lista os filtros aplicados.
-        const contextLines: string[] = [
-          `Dataset: ${dataset.label}`,
-          startIso || endIso
-            ? `Período: ${startIso ?? "início"} → ${endIso ?? "agora"}`
-            : "Período: todo o histórico",
-        ];
-        if (cats.length > 0) contextLines.push(`Categorias: ${cats.join(", ")}`);
-        if (regions.length > 0) contextLines.push(`Bairros: ${regions.join(", ")}`);
-        if (zones.length > 0) contextLines.push(`Zonas: ${zones.join(", ")}`);
-        contextLines.push(`Gerado em: ${new Date().toLocaleString("pt-BR")}`);
-
-        const summary = config.includeSummary
-          ? buildSummary(dataset, filtered, contextLines)
-          : undefined;
-
-        const buffer = buildXlsxWorkbook({
-          detail: { headers, rows: filtered },
-          summary,
-          workbookTitle: `Câmara na Mão — ${dataset.label}`,
-        });
-        const filename = buildFilename(dataset);
-        downloadXlsx(buffer, filename);
-
-        try {
-          const { data: userResp } = await supabase.auth.getUser();
-          const userId = userResp.user?.id;
-          if (userId) {
-            await supabase.from("export_logs").insert([
-              {
-                user_id: userId,
-                export_type: dataset.id,
-                format: "xlsx",
-                row_count: filtered.length,
-                status: "completed",
-                completed_at: new Date().toISOString(),
-                filters: {
-                  startDate: startIso,
-                  endDate: endIso,
-                  categories: cats,
-                  regions,
-                  zones,
-                  fields: fields.map((f) => f.id),
-                  orderBy: {
-                    fieldId: orderField?.id ?? dataset.defaultOrderColumn,
-                    direction: orderAsc ? "asc" : "desc",
-                  },
-                  includeSummary: !!config.includeSummary,
+        const { data: userResp } = await supabase.auth.getUser();
+        const userId = userResp.user?.id;
+        if (userId) {
+          await supabase.from("export_logs").insert([
+            {
+              user_id: userId,
+              export_type: dataset.id,
+              format: "xlsx",
+              row_count: filtered.length,
+              status: "completed",
+              completed_at: new Date().toISOString(),
+              filters: {
+                startDate: startIso,
+                endDate: endIso,
+                categories: cats,
+                regions,
+                zones,
+                fields: fields.map((f) => f.id),
+                orderBy: {
+                  fieldId: orderField?.id ?? dataset.defaultOrderColumn,
+                  direction: orderAsc ? "asc" : "desc",
                 },
-              } as never,
-            ]);
-          }
-        } catch (logErr) {
-          console.warn("[useXlsxExport] falha ao gravar export_logs", logErr);
+                includeSummary: !!config.includeSummary,
+              },
+            } as never,
+          ]);
         }
-
-        setExporting(false);
-        return { rowCount: filtered.length, filename };
-      } catch (err) {
-        const message =
-          err instanceof Error && err.message === "CANCELLED"
-            ? "Exportação cancelada."
-            : err instanceof Error
-              ? err.message
-              : "Erro desconhecido ao exportar.";
-        setError(message);
-        setExporting(false);
-        throw err;
+      } catch (logErr) {
+        console.warn("[useXlsxExport] falha ao gravar export_logs", logErr);
       }
-    },
-    [],
-  );
+
+      setExporting(false);
+      return { rowCount: filtered.length, filename };
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message === "CANCELLED"
+          ? "Exportação cancelada."
+          : err instanceof Error
+            ? err.message
+            : "Erro desconhecido ao exportar.";
+      setError(message);
+      setExporting(false);
+      throw err;
+    }
+  }, []);
 
   const cancel = useCallback(() => {
     cancelRef.current = true;

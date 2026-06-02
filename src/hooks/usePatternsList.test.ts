@@ -32,7 +32,10 @@ describe("peakHoursToVector", () => {
 });
 
 describe("aggregatePeakHours", () => {
-  function pattern(peakHours: number[] | null, overrides: Partial<PatternEntry> = {}): PatternEntry {
+  function pattern(
+    peakHours: number[] | null,
+    overrides: Partial<PatternEntry> = {},
+  ): PatternEntry {
     return {
       id: "x",
       description: "x",

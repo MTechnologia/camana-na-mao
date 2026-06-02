@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdminStats {
   pendingUrbanReports: number;
@@ -25,26 +25,26 @@ export const useAdminStats = () => {
       try {
         // Count pending urban reports
         const { count: urbanCount } = await supabase
-          .from('urban_reports')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
+          .from("urban_reports")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending");
 
         // Count pending transport reports
         const { count: transportCount } = await supabase
-          .from('transport_reports')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
+          .from("transport_reports")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending");
 
         // Count pending referrals
         const { count: referralCount } = await supabase
-          .from('council_member_referrals')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
+          .from("council_member_referrals")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending");
 
         const { count: correctionsCount } = await supabase
-          .from('service_corrections')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
+          .from("service_corrections")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending");
 
         const urban = urbanCount || 0;
         const transport = transportCount || 0;
@@ -58,8 +58,8 @@ export const useAdminStats = () => {
           loading: false,
         });
       } catch (error) {
-        console.error('Error fetching admin stats:', error);
-        setStats(prev => ({ ...prev, loading: false }));
+        console.error("Error fetching admin stats:", error);
+        setStats((prev) => ({ ...prev, loading: false }));
       }
     };
 
@@ -67,24 +67,28 @@ export const useAdminStats = () => {
 
     // Subscribe to real-time updates
     const urbanChannel = supabase
-      .channel('urban_reports_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'urban_reports' }, () => {
+      .channel("urban_reports_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "urban_reports" }, () => {
         fetchStats();
       })
       .subscribe();
 
     const transportChannel = supabase
-      .channel('transport_reports_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_reports' }, () => {
+      .channel("transport_reports_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "transport_reports" }, () => {
         fetchStats();
       })
       .subscribe();
 
     const correctionsChannel = supabase
-      .channel('service_corrections_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_corrections' }, () => {
-        fetchStats();
-      })
+      .channel("service_corrections_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_corrections" },
+        () => {
+          fetchStats();
+        },
+      )
       .subscribe();
 
     return () => {

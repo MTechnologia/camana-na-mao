@@ -1,13 +1,5 @@
 import { useMemo } from "react";
-import {
-  Area,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,28 +38,16 @@ interface ForecastSummaryCardsProps {
   next30: ForecastSummary;
 }
 
-export function ForecastSummaryCards({
-  next7,
-  next14,
-  next30,
-}: ForecastSummaryCardsProps) {
+export function ForecastSummaryCards({ next7, next14, next30 }: ForecastSummaryCardsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <SummaryCard
-        label="Próximos 7 dias"
-        summary={next7}
-        subtitle="Comparado à última semana"
-      />
+      <SummaryCard label="Próximos 7 dias" summary={next7} subtitle="Comparado à última semana" />
       <SummaryCard
         label="Próximos 14 dias"
         summary={next14}
         subtitle="Comparado às últimas 2 semanas"
       />
-      <SummaryCard
-        label="Próximos 30 dias"
-        summary={next30}
-        subtitle="Comparado ao último mês"
-      />
+      <SummaryCard label="Próximos 30 dias" summary={next30} subtitle="Comparado ao último mês" />
     </div>
   );
 }
@@ -82,10 +62,8 @@ function SummaryCard({
   subtitle: string;
 }) {
   const delta = summary.deltaPct;
-  const direction =
-    Math.abs(delta) < 1 ? "stable" : delta > 0 ? "up" : "down";
-  const Icon =
-    direction === "up" ? TrendingUp : direction === "down" ? TrendingDown : Minus;
+  const direction = Math.abs(delta) < 1 ? "stable" : delta > 0 ? "up" : "down";
+  const Icon = direction === "up" ? TrendingUp : direction === "down" ? TrendingDown : Minus;
   const colorClass =
     direction === "up"
       ? "text-red-600"
@@ -98,9 +76,7 @@ function SummaryCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-3xl font-semibold text-foreground mt-1">
-            {formatPt(summary.total)}
-          </p>
+          <p className="text-3xl font-semibold text-foreground mt-1">{formatPt(summary.total)}</p>
           <p className="text-xs text-muted-foreground mt-0.5">relatos previstos</p>
         </div>
         <div className="text-right shrink-0">
@@ -108,9 +84,7 @@ function SummaryCard({
             <Icon className="h-3.5 w-3.5" />
             {direction === "stable" ? "estável" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {subtitle}
-          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
           <p className="text-[10px] text-muted-foreground mt-1">
             Base: {formatPt(summary.baseline)}
           </p>
@@ -131,11 +105,7 @@ interface ForecastChartProps {
   historyTail?: number;
 }
 
-export function ForecastChart({
-  history,
-  forecast,
-  historyTail = 30,
-}: ForecastChartProps) {
+export function ForecastChart({ history, forecast, historyTail = 30 }: ForecastChartProps) {
   const data = useMemo(() => {
     const tail = history.slice(-historyTail);
     const histRows = tail.map((p) => ({
@@ -195,7 +165,8 @@ export function ForecastChart({
               formatter={(value: unknown, name: string) => {
                 if (value === null || value === undefined) return ["—", name];
                 const n = Number(value);
-                if (name === "lower" || name === "upper") return [formatPt(n), name === "lower" ? "Mín. confiança" : "Máx. confiança"];
+                if (name === "lower" || name === "upper")
+                  return [formatPt(n), name === "lower" ? "Mín. confiança" : "Máx. confiança"];
                 return [formatPt(n), name === "historico" ? "Histórico" : "Previsão"];
               }}
             />
@@ -256,9 +227,7 @@ interface ForecastTableProps {
 export function ForecastTable({ forecast }: ForecastTableProps) {
   if (forecast.length === 0) {
     return (
-      <Card className="p-6 text-center text-sm text-muted-foreground">
-        Sem previsões a exibir.
-      </Card>
+      <Card className="p-6 text-center text-sm text-muted-foreground">Sem previsões a exibir.</Card>
     );
   }
   return (
@@ -284,7 +253,10 @@ export function ForecastTable({ forecast }: ForecastTableProps) {
             {forecast.map((p) => {
               const isWeekend = p.weekday === 0 || p.weekday === 6;
               return (
-                <tr key={p.date} className={cn("border-t border-border/60", isWeekend && "bg-muted/20")}>
+                <tr
+                  key={p.date}
+                  className={cn("border-t border-border/60", isWeekend && "bg-muted/20")}
+                >
                   <td className="px-4 py-2 flex items-center gap-2">
                     <Calendar className="h-3 w-3 text-muted-foreground" />
                     {formatDateLabel(p.date)}
@@ -298,8 +270,12 @@ export function ForecastTable({ forecast }: ForecastTableProps) {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right font-medium">{formatPt(p.prediction)}</td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">{formatPt(p.lower)}</td>
-                  <td className="px-4 py-2 text-right text-muted-foreground">{formatPt(p.upper)}</td>
+                  <td className="px-4 py-2 text-right text-muted-foreground">
+                    {formatPt(p.lower)}
+                  </td>
+                  <td className="px-4 py-2 text-right text-muted-foreground">
+                    {formatPt(p.upper)}
+                  </td>
                 </tr>
               );
             })}

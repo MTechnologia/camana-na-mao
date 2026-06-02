@@ -1,15 +1,15 @@
-import { useMemo } from 'react';
-import { buildAnalyticsChartBundle } from '@/lib/analyticsFromStats';
+import { useMemo } from "react";
+import { buildAnalyticsChartBundle } from "@/lib/analyticsFromStats";
 import {
   buildChartSeriesFromStats,
   buildDrillKpisForRegionFilter,
   buildSentimentPolarityFromStats,
-} from '@/lib/analyticsDrillFromStats';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
-import { useResolvedWidgetFilters } from '@/hooks/useResolvedWidgetFilters';
-import type { PanelWidget } from '@/types/customPanel';
-import type { AnalyticsMetric, DrillGrain } from '@/types/analyticsDrill';
+} from "@/lib/analyticsDrillFromStats";
+import { globalFiltersToReportsAnalytics } from "@/lib/globalFiltersToAnalytics";
+import { useReportsAnalytics } from "@/hooks/useReportsAnalytics";
+import { useResolvedWidgetFilters } from "@/hooks/useResolvedWidgetFilters";
+import type { PanelWidget } from "@/types/customPanel";
+import type { AnalyticsMetric, DrillGrain } from "@/types/analyticsDrill";
 
 export function usePanelWidgetAnalytics(widget: PanelWidget) {
   const resolved = useResolvedWidgetFilters(widget.filters);

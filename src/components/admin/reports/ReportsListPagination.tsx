@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 
 export const REPORTS_LIST_PAGE_SIZE = 25;
 
@@ -23,8 +23,8 @@ export function ReportsListPagination({
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-xs text-muted-foreground sm:text-sm">
-        Exibindo {from.toLocaleString('pt-BR')}–{to.toLocaleString('pt-BR')} de{' '}
-        {totalCount.toLocaleString('pt-BR')}
+        Exibindo {from.toLocaleString("pt-BR")}–{to.toLocaleString("pt-BR")} de{" "}
+        {totalCount.toLocaleString("pt-BR")}
       </p>
       <div className="flex gap-2">
         <Button

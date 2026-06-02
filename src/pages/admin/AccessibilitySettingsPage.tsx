@@ -1,5 +1,5 @@
-import { AccessibilityChartSection } from '@/components/admin/charts/SectionChartPanels';
-import { PageShell } from '@/components/ui/PageShell';
+import { AccessibilityChartSection } from "@/components/admin/charts/SectionChartPanels";
+import { PageShell } from "@/components/ui/PageShell";
 
 export function AccessibilitySettingsPage() {
   return (

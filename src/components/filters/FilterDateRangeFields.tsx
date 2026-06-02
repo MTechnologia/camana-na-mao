@@ -1,14 +1,10 @@
-import { Label } from '@/components/ui/label';
-import {
-  dateToInputValue,
-  inputValueToDate,
-  normalizeDateRange,
-} from '@/lib/dateRangeUtils';
-import type { DateRangeValue } from '@/components/filters/types';
-import { cn } from '@/lib/utils';
+import { Label } from "@/components/ui/label";
+import { dateToInputValue, inputValueToDate, normalizeDateRange } from "@/lib/dateRangeUtils";
+import type { DateRangeValue } from "@/components/filters/types";
+import { cn } from "@/lib/utils";
 
 const inputClass =
-  'flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+  "flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 type FilterDateRangeFieldsProps = {
   value: DateRangeValue | undefined;
@@ -22,8 +18,8 @@ type FilterDateRangeFieldsProps = {
 export function FilterDateRangeFields({
   value,
   onChange,
-  fromId = 'date-range-from',
-  toId = 'date-range-to',
+  fromId = "date-range-from",
+  toId = "date-range-to",
   className,
   inputClassName,
 }: FilterDateRangeFieldsProps) {
@@ -36,7 +32,7 @@ export function FilterDateRangeFields({
   };
 
   return (
-    <div className={cn('grid grid-cols-1 gap-2 sm:grid-cols-2', className)}>
+    <div className={cn("grid grid-cols-1 gap-2 sm:grid-cols-2", className)}>
       <div className="space-y-1">
         <Label htmlFor={fromId} className="text-xs text-muted-foreground">
           Data inicial

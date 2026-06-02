@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import {
-  EXPORT_DATASETS,
-  filterFieldsByRole,
-  getRowCap,
-  type ExportRole,
-} from "./exportFields";
+import { EXPORT_DATASETS, filterFieldsByRole, getRowCap, type ExportRole } from "./exportFields";
 import { effectiveExportRole } from "./exportStaffRole";
 import { buildXlsxWorkbook } from "./xlsxSerialize";
 

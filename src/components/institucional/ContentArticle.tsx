@@ -10,20 +10,12 @@ interface ContentArticleProps {
   children: ReactNode;
 }
 
-const ContentArticle = ({
-  title,
-  author,
-  date,
-  readTime,
-  children,
-}: ContentArticleProps) => {
+const ContentArticle = ({ title, author, date, readTime, children }: ContentArticleProps) => {
   return (
     <article className="space-y-6">
       {title && (
         <header className="space-y-4">
-          <h1 className="text-3xl font-bold text-foreground leading-tight">
-            {title}
-          </h1>
+          <h1 className="text-3xl font-bold text-foreground leading-tight">{title}</h1>
 
           {(author || date || readTime) && (
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -53,9 +45,7 @@ const ContentArticle = ({
       )}
 
       <div className="prose prose-slate max-w-none">
-        <div className="text-foreground leading-relaxed space-y-4">
-          {children}
-        </div>
+        <div className="text-foreground leading-relaxed space-y-4">{children}</div>
       </div>
     </article>
   );

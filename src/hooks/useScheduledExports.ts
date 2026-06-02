@@ -132,11 +132,10 @@ function toModel(row: RawRow): ScheduledExport {
     dataset: row.dataset as ExportDataset,
     format: row.format as "csv" | "xlsx",
     fields: (row.fields as string[]) ?? [],
-    orderBy:
-      (row.order_by as { fieldId: string; direction: "asc" | "desc" }) ?? {
-        fieldId: "created_at",
-        direction: "desc",
-      },
+    orderBy: (row.order_by as { fieldId: string; direction: "asc" | "desc" }) ?? {
+      fieldId: "created_at",
+      direction: "desc",
+    },
     filters: (row.filters as Record<string, unknown>) ?? {},
     includeSummary: row.include_summary,
     recurrence: row.recurrence as Recurrence,
@@ -144,7 +143,7 @@ function toModel(row: RawRow): ScheduledExport {
     runMinute: row.run_minute,
     weekday: row.weekday,
     monthday: row.monthday,
-    periodKind: ((row.period_kind ?? "relative") as PeriodKind),
+    periodKind: (row.period_kind ?? "relative") as PeriodKind,
     periodRelative: (row.period_relative as RelativePeriodKind | null) ?? null,
     notifyInApp: row.notify_in_app ?? true,
     enabled: row.enabled,

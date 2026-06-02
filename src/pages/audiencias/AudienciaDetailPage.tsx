@@ -1,6 +1,18 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText, Bell, CheckCircle2, CircleOff } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Clock,
+  Building2,
+  User,
+  Loader2,
+  FileText,
+  Bell,
+  CheckCircle2,
+  CircleOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import PageHeader from "@/components/ui/page-header";
@@ -19,7 +31,8 @@ import {
 import { readAudienciaBackPath } from "@/lib/audienciaNavigation";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
-const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
+const CMSP_AUDITORIOS_ONLINE_URL =
+  "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
 const CMSP_YOUTUBE_URL = "https://www.youtube.com/user/camarasaopaulo";
 const SPLEGIS_CONSULTA_DETALHADO =
   "https://splegisconsulta.saopaulo.sp.leg.br/Pesquisa/DetailsDetalhado";
@@ -44,7 +57,9 @@ interface ProjetoVinculado {
 }
 
 /** Normaliza projetos: no banco pode vir como array ou como string JSON (ex.: export). */
-function projetosAsArray(projetos: ProjetoVinculado[] | string | null | undefined): ProjetoVinculado[] {
+function projetosAsArray(
+  projetos: ProjetoVinculado[] | string | null | undefined,
+): ProjetoVinculado[] {
   if (projetos == null) return [];
   if (Array.isArray(projetos)) return projetos;
   if (typeof projetos === "string") {
@@ -83,8 +98,7 @@ interface Audiencia {
 }
 
 /** Endereço oficial para protocolo/secretaria da Comissão (site CMSP). */
-const CMSP_SECRETARIA_COMISSAO =
-  "Viaduto Jacareí, 100, Bela Vista, 2º andar, salas 213-A ou 210";
+const CMSP_SECRETARIA_COMISSAO = "Viaduto Jacareí, 100, Bela Vista, 2º andar, salas 213-A ou 210";
 
 /** URL do Google Maps para o endereço da Câmara (clicável no botão presencial). */
 const CMSP_MAPS_URL =
@@ -106,13 +120,13 @@ const AudienciaDetailPage = () => {
   useEffect(() => {
     const fetchAudiencia = async () => {
       if (!id) return;
-      
+
       const { data, error } = await supabase
-        .from('audiencias')
-        .select('*')
-        .eq('id', id)
+        .from("audiencias")
+        .select("*")
+        .eq("id", id)
         .maybeSingle();
-      
+
       if (!error && data) {
         setAudiencia(data);
       }
@@ -126,10 +140,10 @@ const AudienciaDetailPage = () => {
     if (!user?.id || !id) return;
     const check = async () => {
       const { data } = await supabase
-        .from('audiencia_inscricoes')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('audiencia_id', id)
+        .from("audiencia_inscricoes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("audiencia_id", id)
         .maybeSingle();
       setLembreteInscrito(!!data);
     };
@@ -140,11 +154,11 @@ const AudienciaDetailPage = () => {
     if (!user?.id || !id) return;
     const check = async () => {
       const { data } = await supabase
-        .from('audiencia_participacoes')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('audiencia_id', id)
-        .eq('tipo', 'videoconferencia')
+        .from("audiencia_participacoes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("audiencia_id", id)
+        .eq("tipo", "videoconferencia")
         .maybeSingle();
       setInscritoVideoconferencia(!!data);
     };
@@ -224,10 +238,18 @@ const AudienciaDetailPage = () => {
     toast.success("Inscrito! Você receberá lembretes desta audiência no celular e e-mail.");
   };
 
-  const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
+  const tituloExibicao = tituloCardAudiencia(
+    audiencia.comissao ?? null,
+    audiencia.titulo,
+    audiencia.descricao,
+    audiencia.tema,
+  );
   const hoje = new Date().toISOString().slice(0, 10);
   const permiteInscricaoVideo = audiencia.permite_inscricao_videoconferencia !== false;
-  const observacaoExibida = observacaoParaDetalheAudiencia(audiencia.observacao, permiteInscricaoVideo);
+  const observacaoExibida = observacaoParaDetalheAudiencia(
+    audiencia.observacao,
+    permiteInscricaoVideo,
+  );
   const isAudienciaFutura = audiencia.data >= hoje;
   const isAudienciaFinalizada =
     !isAudienciaFutura ||
@@ -237,7 +259,7 @@ const AudienciaDetailPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <PageHeader title={tituloExibicao} backTo={backTo} />
-      
+
       <div className="pt-[60px] p-6 space-y-6">
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
         <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
@@ -246,7 +268,8 @@ const AudienciaDetailPage = () => {
         {(() => {
           const projetosList = projetosAsArray(audiencia.projetos);
           const hasProjetos = projetosList.length > 0;
-          const hasFallback = audiencia.projeto_referencia?.trim() || audiencia.projeto_autores?.trim();
+          const hasFallback =
+            audiencia.projeto_referencia?.trim() || audiencia.projeto_autores?.trim();
           const hasTransmissao = audiencia.link_transmissao?.trim();
           const hasContato = audiencia.mais_informacoes?.trim() && isAudienciaFutura;
           const temDocumentos = hasProjetos || hasFallback || hasTransmissao || hasContato;
@@ -258,7 +281,9 @@ const AudienciaDetailPage = () => {
               </h4>
               <div className="text-sm space-y-4">
                 {!temDocumentos && (
-                  <p className="text-muted-foreground">Não há documentos ou materiais vinculados a esta audiência no momento.</p>
+                  <p className="text-muted-foreground">
+                    Não há documentos ou materiais vinculados a esta audiência no momento.
+                  </p>
                 )}
                 {(hasProjetos || hasFallback) && (
                   <div className="space-y-2">
@@ -268,7 +293,10 @@ const AudienciaDetailPage = () => {
                         {projetosList.map((p, i) => {
                           const detalheUrl = urlDetalhadoProjeto(p.referencia);
                           return (
-                            <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-3 last:border-0 last:pb-0 space-y-1">
+                            <li
+                              key={`${p.referencia}-${i}`}
+                              className="border-b border-border/60 pb-3 last:border-0 last:pb-0 space-y-1"
+                            >
                               <p className="font-medium text-foreground">
                                 {detalheUrl ? (
                                   <a
@@ -297,28 +325,31 @@ const AudienciaDetailPage = () => {
                       </ul>
                     ) : (
                       <>
-                        {audiencia.projeto_referencia?.trim() && (() => {
-                          const ref = audiencia.projeto_referencia!.trim();
-                          const detalheUrl = urlDetalhadoProjeto(ref);
-                          return (
-                            <p className="font-medium text-foreground">
-                              {detalheUrl ? (
-                                <a
-                                  href={detalheUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary underline underline-offset-2"
-                                >
-                                  {ref}
-                                </a>
-                              ) : (
-                                ref
-                              )}
-                            </p>
-                          );
-                        })()}
+                        {audiencia.projeto_referencia?.trim() &&
+                          (() => {
+                            const ref = audiencia.projeto_referencia!.trim();
+                            const detalheUrl = urlDetalhadoProjeto(ref);
+                            return (
+                              <p className="font-medium text-foreground">
+                                {detalheUrl ? (
+                                  <a
+                                    href={detalheUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary underline underline-offset-2"
+                                  >
+                                    {ref}
+                                  </a>
+                                ) : (
+                                  ref
+                                )}
+                              </p>
+                            );
+                          })()}
                         {audiencia.projeto_autores?.trim() && (
-                          <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
+                          <p className="text-muted-foreground">
+                            {audiencia.projeto_autores.trim()}
+                          </p>
                         )}
                       </>
                     )}
@@ -337,26 +368,29 @@ const AudienciaDetailPage = () => {
                     </a>
                   </div>
                 )}
-                {hasContato && (() => {
-                  const email = extrairEmailDeMaisInformacoes(audiencia.mais_informacoes!);
-                  return (
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">Contato para mais informações</p>
-                      {email ? (
-                        <a
-                          href={`mailto:${email}`}
-                          className="text-primary underline underline-offset-2 text-sm"
-                        >
-                          {email}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">
-                          {audiencia.mais_informacoes!.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
+                {hasContato &&
+                  (() => {
+                    const email = extrairEmailDeMaisInformacoes(audiencia.mais_informacoes!);
+                    return (
+                      <div className="space-y-1">
+                        <p className="font-medium text-foreground">Contato para mais informações</p>
+                        {email ? (
+                          <a
+                            href={`mailto:${email}`}
+                            className="text-primary underline underline-offset-2 text-sm"
+                          >
+                            {email}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            {audiencia
+                              .mais_informacoes!.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "")
+                              .trim()}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
               </div>
             </div>
           );
@@ -372,7 +406,7 @@ const AudienciaDetailPage = () => {
             projetosList.length > 0 &&
             descTrim &&
             projetosList.some(
-              (p) => p.ementa?.trim() && descTrim === p.ementa.trim().replace(/\r\n/g, "\n")
+              (p) => p.ementa?.trim() && descTrim === p.ementa.trim().replace(/\r\n/g, "\n"),
             );
           const texto = temaRico
             ? descricaoParaDetalhe(audiencia.tema)
@@ -395,23 +429,31 @@ const AudienciaDetailPage = () => {
         })()}
 
         {/* Convidados: nome em uma linha, cargo na seguinte ( – cargo) */}
-        {audiencia.convidados?.trim() && (() => {
-          const itens = parseConvidadosItens(audiencia.convidados);
-          if (itens.length === 0) return null;
-          return (
-            <div className="space-y-1 text-sm text-muted-foreground">
-              <p className="font-semibold text-foreground">Foram convidados para a Audiência Pública:</p>
-              <ul className="list-none space-y-1.5 pl-0">
-                {itens.map((item, i) => (
-                  <li key={i} className="space-y-0.5">
-                    <span className="block">- {item.nome}</span>
-                    {item.cargo ? <span className="block text-muted-foreground">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
+        {audiencia.convidados?.trim() &&
+          (() => {
+            const itens = parseConvidadosItens(audiencia.convidados);
+            if (itens.length === 0) return null;
+            return (
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p className="font-semibold text-foreground">
+                  Foram convidados para a Audiência Pública:
+                </p>
+                <ul className="list-none space-y-1.5 pl-0">
+                  {itens.map((item, i) => (
+                    <li key={i} className="space-y-0.5">
+                      <span className="block">- {item.nome}</span>
+                      {item.cargo ? (
+                        <span className="block text-muted-foreground">
+                          – {item.cargo}
+                          {i < itens.length - 1 ? ";" : ""}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
         {/* Observação (Mais informações está em Documentos e materiais de referência) */}
         {observacaoExibida?.trim() && (
@@ -444,7 +486,9 @@ const AudienciaDetailPage = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Horário</p>
-              <p className="text-sm text-muted-foreground">{audiencia.hora ? formatTime(audiencia.hora) : "Horário a definir"}</p>
+              <p className="text-sm text-muted-foreground">
+                {audiencia.hora ? formatTime(audiencia.hora) : "Horário a definir"}
+              </p>
             </div>
           </div>
 
@@ -465,9 +509,7 @@ const AudienciaDetailPage = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-foreground">Vagas Disponíveis</p>
-                <p className="text-sm text-muted-foreground">
-                  {audiencia.vagas_disponiveis} vagas
-                </p>
+                <p className="text-sm text-muted-foreground">{audiencia.vagas_disponiveis} vagas</p>
               </div>
             </div>
           )}
@@ -484,7 +526,8 @@ const AudienciaDetailPage = () => {
           {permiteInscricaoVideo ? (
             <>
               <p className="text-sm text-muted-foreground">
-                As audiências públicas são abertas a todos os cidadãos. Ao se inscrever você receberá:
+                As audiências públicas são abertas a todos os cidadãos. Ao se inscrever você
+                receberá:
               </p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4">
                 <li>• Link de acesso à audiência</li>
@@ -494,15 +537,21 @@ const AudienciaDetailPage = () => {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Esta audiência é com <strong className="text-foreground">participação somente presencial</strong> para
-              discursar no local. Não há inscrição por videoconferência. Você pode enviar manifestação por escrito pelo
-              botão abaixo e acompanhar a transmissão ao vivo pelos canais oficiais da Câmara quando indicado.
+              Esta audiência é com{" "}
+              <strong className="text-foreground">participação somente presencial</strong> para
+              discursar no local. Não há inscrição por videoconferência. Você pode enviar
+              manifestação por escrito pelo botão abaixo e acompanhar a transmissão ao vivo pelos
+              canais oficiais da Câmara quando indicado.
             </p>
           )}
         </div>
 
         {/* Localização da Câmara: comparecer no local ou protocolar na secretaria (padrão site oficial) */}
-        <div id="participar-presencial" ref={presencialRef} className="bg-muted/50 rounded-lg p-4 space-y-3">
+        <div
+          id="participar-presencial"
+          ref={presencialRef}
+          className="bg-muted/50 rounded-lg p-4 space-y-3"
+        >
           <h4 className="font-semibold text-foreground flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
             Localização da Câmara
@@ -512,11 +561,11 @@ const AudienciaDetailPage = () => {
           </p>
           <ul className="text-sm text-muted-foreground space-y-2 ml-4">
             <li>
-              <strong className="text-foreground">Comparecer no local:</strong>{" "}
-              {audiencia.local}
+              <strong className="text-foreground">Comparecer no local:</strong> {audiencia.local}
             </li>
             <li>
-              <strong className="text-foreground">Protocolar na Câmara:</strong> no Protocolo Legislativo ou na Secretaria da Comissão — {CMSP_SECRETARIA_COMISSAO}.
+              <strong className="text-foreground">Protocolar na Câmara:</strong> no Protocolo
+              Legislativo ou na Secretaria da Comissão — {CMSP_SECRETARIA_COMISSAO}.
             </li>
           </ul>
         </div>
@@ -582,8 +631,8 @@ const AudienciaDetailPage = () => {
         {/* Actions — layout minimalista: status em cinza, botões outline */}
         <div className="flex flex-col gap-3 pt-4">
           {/* Receber lembretes: só exibe quando a audiência não está finalizada (inscrições abertas) */}
-          {!isAudienciaFinalizada && (
-            lembreteInscrito ? (
+          {!isAudienciaFinalizada &&
+            (lembreteInscrito ? (
               <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
                 <CheckCircle2 className="h-5 w-5 shrink-0" />
                 <span>Você receberá lembretes desta audiência no celular e e-mail.</span>
@@ -603,8 +652,7 @@ const AudienciaDetailPage = () => {
                 )}
                 {user ? "Receber lembretes desta audiência" : "Receber lembretes (faça login)"}
               </Button>
-            )
-          )}
+            ))}
 
           {isAudienciaFinalizada ? (
             <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
@@ -622,7 +670,9 @@ const AudienciaDetailPage = () => {
                 ) : (
                   <Button
                     onClick={() =>
-                      navigate(`/audiencias/${id}/participar?tipo=videoconferencia`, { state: location.state })
+                      navigate(`/audiencias/${id}/participar?tipo=videoconferencia`, {
+                        state: location.state,
+                      })
                     }
                     className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
                   >
@@ -651,7 +701,11 @@ const AudienciaDetailPage = () => {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={() => navigate(backTo)} className="w-full border-border text-foreground hover:bg-muted/50">
+          <Button
+            variant="outline"
+            onClick={() => navigate(backTo)}
+            className="w-full border-border text-foreground hover:bg-muted/50"
+          >
             Voltar
           </Button>
         </div>

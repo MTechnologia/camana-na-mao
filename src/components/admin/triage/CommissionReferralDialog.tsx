@@ -134,16 +134,14 @@ export function CommissionReferralDialog({
             Encaminhar a comissão temática
           </DialogTitle>
           <DialogDescription>
-            A comissão receberá o relato com sua justificativa e poderá
-            registrar a decisão (aceitar, rejeitar ou processar).
+            A comissão receberá o relato com sua justificativa e poderá registrar a decisão
+            (aceitar, rejeitar ou processar).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div>
-            <label className="text-xs font-medium text-muted-foreground">
-              Comissão
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">Comissão</label>
             <Select
               value={commissionId}
               onValueChange={setCommissionId}
@@ -151,11 +149,7 @@ export function CommissionReferralDialog({
             >
               <SelectTrigger className="mt-1">
                 <SelectValue
-                  placeholder={
-                    loadingCommissions
-                      ? "Carregando..."
-                      : "Selecione a comissão"
-                  }
+                  placeholder={loadingCommissions ? "Carregando..." : "Selecione a comissão"}
                 />
               </SelectTrigger>
               <SelectContent>
@@ -170,9 +164,7 @@ export function CommissionReferralDialog({
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">
-                Justificativa
-              </label>
+              <label className="text-xs font-medium text-muted-foreground">Justificativa</label>
               <span className={cn("text-[10px]", counterColor)}>
                 {trimmedLength}/{COMMISSION_REFERRAL_MIN_JUSTIFICATION} mínimo
               </span>
@@ -194,11 +186,7 @@ export function CommissionReferralDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
           <Button onClick={() => void handleSubmit()} disabled={!formValid || submitting}>

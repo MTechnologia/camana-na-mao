@@ -2,10 +2,7 @@ import { Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type StandardTimeInputProps = Omit<
-  React.ComponentProps<typeof Input>,
-  "type"
-> & {
+export type StandardTimeInputProps = Omit<React.ComponentProps<typeof Input>, "type"> & {
   containerClassName?: string;
 };
 
@@ -28,10 +25,7 @@ export function StandardTimeInput({
         id={id}
         type="time"
         step={60}
-        className={cn(
-          "h-11 pl-10 pr-3 rounded-md font-normal tabular-nums",
-          className,
-        )}
+        className={cn("h-11 pl-10 pr-3 rounded-md font-normal tabular-nums", className)}
         {...props}
       />
     </div>

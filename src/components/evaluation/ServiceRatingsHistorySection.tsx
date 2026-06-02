@@ -95,8 +95,8 @@ export function ServiceRatingsHistorySection({
           Histórico de avaliações individuais
         </CardTitle>
         <p className="text-sm text-muted-foreground font-normal">
-          Cada item é uma avaliação publicada neste equipamento (estrelas e comentário). A lista respeita as regras de
-          visibilidade e moderação.
+          Cada item é uma avaliação publicada neste equipamento (estrelas e comentário). A lista
+          respeita as regras de visibilidade e moderação.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -143,10 +143,7 @@ export function ServiceRatingsHistorySection({
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {r.created_at ? (
-                        <time
-                          className="text-xs text-muted-foreground"
-                          dateTime={r.created_at}
-                        >
+                        <time className="text-xs text-muted-foreground" dateTime={r.created_at}>
                           {formatDateTime(r.created_at)}
                         </time>
                       ) : null}
@@ -158,7 +155,9 @@ export function ServiceRatingsHistorySection({
                     </div>
                   </div>
                   {r.rating_text?.trim() ? (
-                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">{r.rating_text.trim()}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap break-words">
+                      {r.rating_text.trim()}
+                    </p>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">Sem comentário escrito.</p>
                   )}
@@ -183,7 +182,11 @@ export function ServiceRatingsHistorySection({
               {totalPages > 1 &&
                 pageButtons.map((item, i) =>
                   item === "gap" ? (
-                    <span key={`gap-${i}`} className="px-1 text-muted-foreground text-sm" aria-hidden>
+                    <span
+                      key={`gap-${i}`}
+                      className="px-1 text-muted-foreground text-sm"
+                      aria-hidden
+                    >
                       …
                     </span>
                   ) : (

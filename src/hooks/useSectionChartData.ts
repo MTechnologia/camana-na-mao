@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { useOptionalGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
-import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
-import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
-import {
-  buildVolumeSeriesFromStats,
-  fetchSectionChartExtras,
-} from '@/lib/sectionChartData';
-import type { LabeledValue, SeriesPoint } from '@/lib/chartTypes';
+import { useEffect, useMemo, useState } from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { useOptionalGlobalReportsAnalytics } from "@/contexts/GlobalReportsAnalyticsContext";
+import { formatReportCategoryLabel } from "@/lib/reportCategoryLabels";
+import { buildMetricTrendsFromStats } from "@/lib/reportsAnalyticsAggregates";
+import { buildVolumeSeriesFromStats, fetchSectionChartExtras } from "@/lib/sectionChartData";
+import type { LabeledValue, SeriesPoint } from "@/lib/chartTypes";
 
 const emptyExtras = {
   classificationByCategory: [] as LabeledValue[],
@@ -55,9 +52,7 @@ export function useSectionChartData() {
 
   return useMemo(() => {
     const metricTrends =
-      extras.metricTrends.length > 0
-        ? extras.metricTrends
-        : buildMetricTrendsFromStats(stats);
+      extras.metricTrends.length > 0 ? extras.metricTrends : buildMetricTrendsFromStats(stats);
 
     return {
       ...extras,

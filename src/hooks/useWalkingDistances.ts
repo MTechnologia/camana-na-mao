@@ -21,7 +21,9 @@ declare global {
           getDistanceMatrix: (
             request: {
               origins: { lat: () => number; lng: () => number }[] | { lat: number; lng: number }[];
-              destinations: { lat: () => number; lng: () => number }[] | { lat: number; lng: number }[];
+              destinations:
+                | { lat: () => number; lng: () => number }[]
+                | { lat: number; lng: number }[];
               travelMode: string;
               unitSystem?: number;
             },
@@ -29,12 +31,12 @@ declare global {
               response: {
                 rows: { elements: { distance?: { value: number }; status: string }[] }[];
               },
-              status: string
-            ) => void
+              status: string,
+            ) => void,
           ) => void;
         };
       };
-    }
+    };
   }
 }
 
@@ -46,7 +48,7 @@ declare global {
 export function useWalkingDistances<T extends ServiceWithCoords>(
   services: T[],
   userLocation: { latitude: number; longitude: number } | null,
-  options: { enabled?: boolean } = {}
+  options: { enabled?: boolean } = {},
 ): { servicesWithWalkingDistance: T[]; loading: boolean } {
   const { enabled = true } = options;
   const [distances, setDistances] = useState<Record<string, number>>({});
@@ -54,7 +56,12 @@ export function useWalkingDistances<T extends ServiceWithCoords>(
   const abortRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || !userLocation || services.length === 0 || !window.google?.maps?.DistanceMatrixService) {
+    if (
+      !enabled ||
+      !userLocation ||
+      services.length === 0 ||
+      !window.google?.maps?.DistanceMatrixService
+    ) {
       setDistances({});
       setLoading(false);
       return;
@@ -80,7 +87,9 @@ export function useWalkingDistances<T extends ServiceWithCoords>(
     };
 
     chunks.forEach((chunk) => {
-      const destinations = chunk.map((s) => new window.google!.maps.LatLng(s.latitude, s.longitude));
+      const destinations = chunk.map(
+        (s) => new window.google!.maps.LatLng(s.latitude, s.longitude),
+      );
       const service = new window.google.maps.DistanceMatrixService();
       service.getDistanceMatrix(
         {
@@ -103,7 +112,7 @@ export function useWalkingDistances<T extends ServiceWithCoords>(
             });
           }
           onDone();
-        }
+        },
       );
     });
 

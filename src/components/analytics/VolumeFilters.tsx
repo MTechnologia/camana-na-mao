@@ -11,11 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import { FilterHint } from "@/components/analytics/FilterHint";
 import { cn } from "@/lib/utils";
@@ -196,9 +192,7 @@ export function VolumeFilters({
             hintText={zoneHint}
             options={ZONAS_FILTRO as unknown as readonly string[]}
             selected={value.zones}
-            onChange={(zones) =>
-              onChange({ ...value, zones: zones as ZonaVolumeOuDesconhecida[] })
-            }
+            onChange={(zones) => onChange({ ...value, zones: zones as ZonaVolumeOuDesconhecida[] })}
             searchPlaceholder="Buscar zona..."
           />
         )}
@@ -284,46 +278,46 @@ function MultiSelectPopover({
             )}
           </Button>
         </PopoverTrigger>
-      <PopoverContent className="w-64 p-0 z-50 bg-popover" align="start">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} className="h-9" />
-          <CommandList>
-            <CommandEmpty>Nenhum resultado.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => {
-                const isSelected = selected.includes(option);
-                return (
-                  <CommandItem
-                    key={option}
-                    value={option}
-                    onSelect={() => toggle(option)}
-                    className="cursor-pointer"
+        <PopoverContent className="w-64 p-0 z-50 bg-popover" align="start">
+          <Command>
+            <CommandInput placeholder={searchPlaceholder} className="h-9" />
+            <CommandList>
+              <CommandEmpty>Nenhum resultado.</CommandEmpty>
+              <CommandGroup>
+                {options.map((option) => {
+                  const isSelected = selected.includes(option);
+                  return (
+                    <CommandItem
+                      key={option}
+                      value={option}
+                      onSelect={() => toggle(option)}
+                      className="cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        className="mr-2 pointer-events-none"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{option}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+              {selected.length > 0 && (
+                <div className="border-t border-border p-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clear}
+                    className="w-full justify-center text-xs h-7"
                   >
-                    <Checkbox
-                      checked={isSelected}
-                      className="mr-2 pointer-events-none"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{option}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-            {selected.length > 0 && (
-              <div className="border-t border-border p-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clear}
-                  className="w-full justify-center text-xs h-7"
-                >
-                  Limpar seleção
-                </Button>
-              </div>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
+                    Limpar seleção
+                  </Button>
+                </div>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
       </Popover>
       {hintText && <FilterHint text={hintText} />}
     </div>

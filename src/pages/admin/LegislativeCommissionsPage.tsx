@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 type Commission = {
   id: string;
@@ -25,16 +25,18 @@ export default function LegislativeCommissionsPage() {
   const [rows, setRows] = useState<Commission[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, { keywords: string; sort: string; active: boolean }>>({});
+  const [drafts, setDrafts] = useState<
+    Record<string, { keywords: string; sort: string; active: boolean }>
+  >({});
 
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('legislative_commissions')
-      .select('id,code,name,description,match_keywords,sort_order,active')
-      .order('sort_order', { ascending: true });
+      .from("legislative_commissions")
+      .select("id,code,name,description,match_keywords,sort_order,active")
+      .order("sort_order", { ascending: true });
     if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao carregar', description: error.message });
+      toast({ variant: "destructive", title: "Erro ao carregar", description: error.message });
       setRows([]);
     } else {
       const list = (data || []) as Commission[];
@@ -42,7 +44,7 @@ export default function LegislativeCommissionsPage() {
       const d: Record<string, { keywords: string; sort: string; active: boolean }> = {};
       for (const r of list) {
         d[r.id] = {
-          keywords: (r.match_keywords || []).join(', '),
+          keywords: (r.match_keywords || []).join(", "),
           sort: String(r.sort_order),
           active: r.active,
         };
@@ -61,24 +63,24 @@ export default function LegislativeCommissionsPage() {
     if (!d) return;
     setSavingId(id);
     const keywords = d.keywords
-      .split(',')
+      .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     const sortOrder = parseInt(d.sort, 10);
     const { error } = await supabase
-      .from('legislative_commissions')
+      .from("legislative_commissions")
       .update({
         match_keywords: keywords,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
         active: d.active,
       })
-      .eq('id', id);
+      .eq("id", id);
     setSavingId(null);
     if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
+      toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
       return;
     }
-    toast({ title: 'Salvo', description: 'Comissão atualizada.' });
+    toast({ title: "Salvo", description: "Comissão atualizada." });
     await load();
   };
 
@@ -89,8 +91,9 @@ export default function LegislativeCommissionsPage() {
           <CardHeader>
             <CardTitle>Comissões legislativas</CardTitle>
             <CardDescription>
-              Gestão operacional das palavras-chave, ordem e ativação usadas para alinhar vereadores à comissão escolhida no wizard de encaminhamento.
-              O cadastro-base das comissões continua vindo da migration. Separe termos por vírgula (ex.: saúde, ubs, hospital).
+              Gestão operacional das palavras-chave, ordem e ativação usadas para alinhar vereadores
+              à comissão escolhida no wizard de encaminhamento. O cadastro-base das comissões
+              continua vindo da migration. Separe termos por vírgula (ex.: saúde, ubs, hospital).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -99,24 +102,32 @@ export default function LegislativeCommissionsPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma comissão encontrada. Aplique a migration HU-8.</p>
+              <p className="text-sm text-muted-foreground">
+                Nenhuma comissão encontrada. Aplique a migration HU-8.
+              </p>
             ) : (
               <div className="space-y-8">
                 {rows.map((r) => {
                   const draft = drafts[r.id] ?? {
-                    keywords: '',
-                    sort: '0',
+                    keywords: "",
+                    sort: "0",
                     active: true,
                   };
                   return (
-                    <div key={r.id} className="border-b border-border pb-6 last:border-0 last:pb-0 space-y-3">
+                    <div
+                      key={r.id}
+                      className="border-b border-border pb-6 last:border-0 last:pb-0 space-y-3"
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <h3 className="font-semibold">{r.name}</h3>
                           <p className="text-xs text-muted-foreground font-mono">{r.code}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Label htmlFor={`active-${r.id}`} className="text-xs text-muted-foreground">
+                          <Label
+                            htmlFor={`active-${r.id}`}
+                            className="text-xs text-muted-foreground"
+                          >
                             Ativa
                           </Label>
                           <Switch
@@ -175,7 +186,7 @@ export default function LegislativeCommissionsPage() {
                             Salvando…
                           </>
                         ) : (
-                          'Salvar alterações'
+                          "Salvar alterações"
                         )}
                       </Button>
                     </div>

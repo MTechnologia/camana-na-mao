@@ -49,7 +49,6 @@ export function useReportDetailModal(): ReportDetailContextValue {
       opened: null,
       open: () => {
         if (typeof window !== "undefined") {
-           
           console.warn("useReportDetailModal usado fora de ReportDetailProvider");
         }
       },

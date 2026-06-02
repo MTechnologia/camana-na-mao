@@ -16,8 +16,8 @@ const StepIndicator = ({ currentStep, totalSteps }: StepIndicatorProps) => {
             step === currentStep
               ? "w-8 bg-primary"
               : step < currentStep
-              ? "w-2 bg-primary/60"
-              : "w-2 bg-muted"
+                ? "w-2 bg-primary/60"
+                : "w-2 bg-muted",
           )}
         />
       ))}

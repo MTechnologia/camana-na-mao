@@ -1,10 +1,7 @@
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import type { RegionSentimentBreakdown } from '@/types/analyticsDrill';
-import {
-  SENTIMENT_COLORS,
-  chartTooltipStyle,
-} from '@/components/admin/analytics/chartTheme';
-import { cn } from '@/lib/utils';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import type { RegionSentimentBreakdown } from "@/types/analyticsDrill";
+import { SENTIMENT_COLORS, chartTooltipStyle } from "@/components/admin/analytics/chartTheme";
+import { cn } from "@/lib/utils";
 
 type SentimentPolarityPiesGridProps = {
   items: RegionSentimentBreakdown[];
@@ -22,9 +19,9 @@ export function sentimentPolarityHasData(item: RegionSentimentBreakdown): boolea
 }
 
 const EMPTY_GRID_MESSAGE =
-  'Não há dados de polaridade de sentimento para o recorte selecionado. Tente ampliar o período ou alterar os filtros.';
+  "Não há dados de polaridade de sentimento para o recorte selecionado. Tente ampliar o período ou alterar os filtros.";
 
-const EMPTY_CARD_MESSAGE = 'Nenhum relato nesta zona no recorte atual.';
+const EMPTY_CARD_MESSAGE = "Nenhum relato nesta zona no recorte atual.";
 
 export function SentimentPolarityPiesGrid({
   items,
@@ -53,10 +50,10 @@ export function SentimentPolarityPiesGrid({
   return (
     <div
       className={cn(
-        'grid gap-3',
+        "grid gap-3",
         items.length === 1
-          ? 'grid-cols-1 max-w-xs mx-auto'
-          : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
+          ? "grid-cols-1 max-w-xs mx-auto"
+          : "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
         className,
       )}
     >
@@ -69,18 +66,18 @@ export function SentimentPolarityPiesGrid({
           <div
             key={item.id}
             className={cn(
-              'flex flex-col rounded-lg border border-border/80 bg-muted/15 p-2',
-              interactive && 'cursor-pointer transition-colors hover:bg-muted/30',
-              isSelected && 'border-primary ring-1 ring-primary/30',
-              !hasData && 'opacity-90',
+              "flex flex-col rounded-lg border border-border/80 bg-muted/15 p-2",
+              interactive && "cursor-pointer transition-colors hover:bg-muted/30",
+              isSelected && "border-primary ring-1 ring-primary/30",
+              !hasData && "opacity-90",
             )}
-            role={interactive ? 'button' : undefined}
+            role={interactive ? "button" : undefined}
             tabIndex={interactive ? 0 : undefined}
             onClick={interactive ? () => onItemClick?.(item) : undefined}
             onKeyDown={
               interactive
                 ? (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       onItemClick?.(item);
                     }
@@ -108,7 +105,7 @@ export function SentimentPolarityPiesGrid({
                       {item.slices.map((slice) => (
                         <Cell
                           key={slice.id}
-                          fill={SENTIMENT_COLORS[slice.id] ?? 'hsl(var(--chart-3))'}
+                          fill={SENTIMENT_COLORS[slice.id] ?? "hsl(var(--chart-3))"}
                         />
                       ))}
                     </Pie>

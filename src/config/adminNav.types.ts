@@ -1,10 +1,10 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from "lucide-react";
 
 export type NavPermission =
-  | 'canManageUsers'
-  | 'canConfigureSystem'
-  | 'canViewAuditLogs'
-  | 'canModerateServiceCorrections';
+  | "canManageUsers"
+  | "canConfigureSystem"
+  | "canViewAuditLogs"
+  | "canModerateServiceCorrections";
 
 export type NavItem = {
   to: string;

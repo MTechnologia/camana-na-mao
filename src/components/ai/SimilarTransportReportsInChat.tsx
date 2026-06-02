@@ -44,7 +44,9 @@ function base64Utf8ToString(b64: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-export function parseSimilarTransportReportsB64(content: string): SimilarTransportReportPayload | null {
+export function parseSimilarTransportReportsB64(
+  content: string,
+): SimilarTransportReportPayload | null {
   const m = content.match(/\[SIMILAR_TRANSPORT_REPORTS_B64:([A-Za-z0-9+/=]+)\]/);
   if (!m?.[1]) return null;
   try {
@@ -127,7 +129,8 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
         {rows.map((r) => {
           const supported = supportedIds.has(r.id);
           const problem = transportProblems.find((p) => p.id === r.report_type);
-          const lineLabel = [r.line_code, r.line_name].filter(Boolean).join(" · ") || "Linha não informada";
+          const lineLabel =
+            [r.line_code, r.line_name].filter(Boolean).join(" · ") || "Linha não informada";
           const dirLabel = r.direction ? DIRECTION_LABEL[r.direction] || r.direction : null;
           return (
             <li
@@ -147,7 +150,10 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   {problem ? (
                     <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                      <problem.icon className={cn("h-3.5 w-3.5 shrink-0", problem.color)} aria-hidden />
+                      <problem.icon
+                        className={cn("h-3.5 w-3.5 shrink-0", problem.color)}
+                        aria-hidden
+                      />
                       {problem.label}
                     </span>
                   ) : (
@@ -160,7 +166,9 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
                   </span>
                 </div>
                 {r.description ? (
-                  <p className="text-foreground leading-snug line-clamp-3 break-words">{r.description}</p>
+                  <p className="text-foreground leading-snug line-clamp-3 break-words">
+                    {r.description}
+                  </p>
                 ) : null}
                 {r.location ? (
                   <p className="text-xs text-muted-foreground line-clamp-2">{r.location}</p>
@@ -187,7 +195,10 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
                   disabled={supported || loadingId === r.id}
                   onClick={() => apoiar(r.id)}
                 >
-                  <Heart className={cn("h-3.5 w-3.5 mr-1.5", supported && "fill-current")} aria-hidden />
+                  <Heart
+                    className={cn("h-3.5 w-3.5 mr-1.5", supported && "fill-current")}
+                    aria-hidden
+                  />
                   {supported ? "Curtido" : "Curtir"}
                 </Button>
               </div>

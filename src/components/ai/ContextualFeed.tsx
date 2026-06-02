@@ -27,27 +27,27 @@ const ContextualFeed = () => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  
+
   // Use hooks to get news and agenda from API
   const { data: noticiasData = [], isLoading: noticiasLoading } = useNoticias();
   const { data: agendaData = [], isLoading: agendaLoading } = useUpcomingAgenda(3);
-  
+
   const [emblaRef, emblaApi] = useEmblaCarousel(
-    { 
-      loop: true, 
+    {
+      loop: true,
       align: "start",
       containScroll: "keepSnaps",
       dragFree: false,
-      skipSnaps: false
+      skipSnaps: false,
     },
     [
-      Autoplay({ 
-        delay: 5000, 
-        stopOnInteraction: true, 
+      Autoplay({
+        delay: 5000,
+        stopOnInteraction: true,
         stopOnMouseEnter: true,
-        playOnInit: true
-      })
-    ]
+        playOnInit: true,
+      }),
+    ],
   );
 
   // Update selected index on scroll
@@ -59,12 +59,12 @@ const ContextualFeed = () => {
   // Set ready state and restart autoplay after user interaction
   useEffect(() => {
     if (!emblaApi) return;
-    
+
     // Mark as ready when carousel is initialized
     setIsReady(true);
-    
-    emblaApi.on('select', onSelect);
-    emblaApi.on('pointerUp', () => {
+
+    emblaApi.on("select", onSelect);
+    emblaApi.on("pointerUp", () => {
       const autoplay = emblaApi.plugins().autoplay;
       if (autoplay) {
         setTimeout(() => {
@@ -72,11 +72,11 @@ const ContextualFeed = () => {
         }, 3000); // Resume after 3 seconds
       }
     });
-    
+
     onSelect();
-    
+
     return () => {
-      emblaApi.off('select', onSelect);
+      emblaApi.off("select", onSelect);
     };
   }, [emblaApi, onSelect]);
 
@@ -135,19 +135,21 @@ const ContextualFeed = () => {
       description: news.description,
       date: news.pubDate,
       badge: isRecentNews(news.pubDate) ? "Novo" : undefined,
-      badgeColor: "destructive"
+      badgeColor: "destructive",
     })),
     ...agendaData.map((item) => ({
       id: item.id,
       type: "audiencia" as const,
       title: item.title,
-      description: item.description || `Evento sobre ${item.eventType}. Participe e contribua com sua opinião.`,
+      description:
+        item.description ||
+        `Evento sobre ${item.eventType}. Participe e contribua com sua opinião.`,
       date: item.eventDate,
       time: item.eventTime || "00:00",
       badge: isEventSoon(item.eventDate) ? "Em breve" : undefined,
       badgeColor: "amber",
-      link: item.link
-    }))
+      link: item.link,
+    })),
   ];
 
   // Show nothing while loading or if no items
@@ -162,15 +164,15 @@ const ContextualFeed = () => {
       navigate(`/institucional/noticias/${item.id}`);
     } else if (item.link) {
       // Open external link for events
-      window.open(item.link, '_blank');
+      window.open(item.link, "_blank");
     } else {
       // Fallback to agenda page
-      navigate('/institucional/agenda');
+      navigate("/institucional/agenda");
     }
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="w-full mt-4 mb-2"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: isReady ? 1 : 0, y: isReady ? 0 : 20 }}
@@ -178,9 +180,7 @@ const ContextualFeed = () => {
     >
       {/* Section Title */}
       <div className="mb-3 px-4">
-        <span className="text-sm font-semibold text-foreground">
-          Destaques
-        </span>
+        <span className="text-sm font-semibold text-foreground">Destaques</span>
       </div>
 
       {/* Carousel Container - overflow-x-clip allows shadows to show vertically */}
@@ -196,35 +196,39 @@ const ContextualFeed = () => {
               <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-background to-secondary/5 border border-border/60 shadow-sm hover:shadow-lg hover:border-primary/20 backdrop-blur-sm p-4 h-full min-h-[140px] transition-all duration-300">
                 {/* Decorative gradient orb */}
                 <div className="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-primary/15 to-transparent rounded-full blur-2xl transition-opacity duration-300 group-hover:opacity-80" />
-                
+
                 {/* Header */}
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {/* Type Chip */}
-                  <span className={cn(
-                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide",
-                    item.type === "news" 
-                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" 
-                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                  )}>
+                  <span
+                    className={cn(
+                      "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide",
+                      item.type === "news"
+                        ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                    )}
+                  >
                     {item.type === "news" ? "Notícia" : "Evento"}
                   </span>
 
                   {/* Status Badge */}
                   {item.badge && (
-                    <span className={cn(
-                      "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide",
-                      item.badgeColor === "destructive" 
-                        ? "bg-destructive/15 text-destructive animate-pulse" 
-                        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                    )}>
+                    <span
+                      className={cn(
+                        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide",
+                        item.badgeColor === "destructive"
+                          ? "bg-destructive/15 text-destructive animate-pulse"
+                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                      )}
+                    >
                       {item.badge}
                     </span>
                   )}
 
                   {/* Date/Time */}
                   <span className="text-[10px] text-muted-foreground ml-auto">
-                    {item.type === "news" 
-                      ? formatNewsTime(item.date) 
+                    {item.type === "news"
+                      ? formatNewsTime(item.date)
                       : formatEventDate(item.date, item.time || "00:00")}
                   </span>
                 </div>
@@ -253,9 +257,9 @@ const ContextualFeed = () => {
               onClick={() => scrollTo(idx)}
               className={cn(
                 "h-1.5 rounded-full transition-all duration-300",
-                selectedIndex === idx 
-                  ? "bg-primary w-4" 
-                  : "bg-muted-foreground/30 w-1.5 hover:bg-muted-foreground/50"
+                selectedIndex === idx
+                  ? "bg-primary w-4"
+                  : "bg-muted-foreground/30 w-1.5 hover:bg-muted-foreground/50",
               )}
               aria-label={`Ir para slide ${idx + 1}`}
             />

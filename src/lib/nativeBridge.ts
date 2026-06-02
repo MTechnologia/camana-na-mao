@@ -31,8 +31,8 @@ declare global {
 export function isInsideNativeApp(): boolean {
   if (typeof window === "undefined") return false;
   return (
-    window.__CAMARA_IN_APP__ === true
-    || typeof window.ReactNativeWebView?.postMessage === "function"
+    window.__CAMARA_IN_APP__ === true ||
+    typeof window.ReactNativeWebView?.postMessage === "function"
   );
 }
 
@@ -83,9 +83,7 @@ export function postFileToNative(
     return false;
   }
   const base64 =
-    typeof content === "string"
-      ? stringToBase64(content)
-      : arrayBufferToBase64(content);
+    typeof content === "string" ? stringToBase64(content) : arrayBufferToBase64(content);
 
   try {
     window.ReactNativeWebView.postMessage(

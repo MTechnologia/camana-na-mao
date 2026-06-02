@@ -3,10 +3,7 @@
  * Em respostas 4xx/5xx o cliente define `error` (FunctionsHttpError), mas o corpo
  * JSON com `{ error: "..." }` fica em `data` ou em `error.context`.
  */
-export async function parseEdgeFunctionError(
-  error: unknown,
-  data: unknown,
-): Promise<string> {
+export async function parseEdgeFunctionError(error: unknown, data: unknown): Promise<string> {
   if (data && typeof data === "object") {
     const record = data as Record<string, unknown>;
     if (typeof record.error === "string" && record.error.trim()) {

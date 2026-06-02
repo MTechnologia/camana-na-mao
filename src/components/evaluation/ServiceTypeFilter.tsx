@@ -78,7 +78,7 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
     selectedTypes.length === 0
       ? "Tipos de serviço"
       : selectedTypes.length === 1
-        ? SERVICE_TYPES.find((t) => t.value === selectedTypes[0])?.label ?? "1 tipo"
+        ? (SERVICE_TYPES.find((t) => t.value === selectedTypes[0])?.label ?? "1 tipo")
         : `${selectedTypes.length} tipos`;
 
   return (
@@ -118,7 +118,11 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
               onCheckedChange={(checked) => toggle(type.value, !!checked)}
               onSelect={(e) => e.preventDefault()}
             >
-              <ServiceTypeIcon serviceType={type.value} className="mr-2 text-foreground" size={20} />
+              <ServiceTypeIcon
+                serviceType={type.value}
+                className="mr-2 text-foreground"
+                size={20}
+              />
               {type.label}
             </DropdownMenuCheckboxItem>
           ))}

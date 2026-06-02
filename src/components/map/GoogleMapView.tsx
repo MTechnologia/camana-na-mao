@@ -1,28 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
-import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
-import { Card } from '@/components/ui/card';
-import { Navigation, MapPin } from 'lucide-react';
-import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
-import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
-import { getServiceDisplayName, buildGoogleMapsUrl, formatDistance, formatDistanceStraightLine } from '@/lib/mapUtils';
-import type { GeoSampaOverlayState } from '@/hooks/useGeoSampaOverlay';
+import { useEffect, useRef, useState } from "react";
+import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
+import { Card } from "@/components/ui/card";
+import { Navigation, MapPin } from "lucide-react";
+import { useLoadGoogleMaps } from "@/hooks/useLoadGoogleMaps";
+import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
+import {
+  getServiceDisplayName,
+  buildGoogleMapsUrl,
+  formatDistance,
+  formatDistanceStraightLine,
+} from "@/lib/mapUtils";
+import type { GeoSampaOverlayState } from "@/hooks/useGeoSampaOverlay";
 import {
   GEOSAMPA_WMS_BASE,
   GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
   buildWmsGetMapUrl,
-} from '@/config/geosampa-wms-imageamento';
+} from "@/config/geosampa-wms-imageamento";
 import {
   getServiceTypeBalloonIconUrl,
   getServiceTypeLabel,
   getServiceTypeMapColor,
   SERVICE_BALLOON_MARKER_LAYOUT,
   ServiceTypeIcon,
-} from '@/components/icons';
+} from "@/components/icons";
 import {
   getUserLocationMarkerIconDataUrl,
   USER_LOCATION_MARKER_LAYOUT,
-} from '@/lib/mapUserMarkerIcon';
-import { needsVerificationForLowAverageRating } from '@/lib/serviceRatingVerification';
+} from "@/lib/mapUserMarkerIcon";
+import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 
 interface Service {
   id: string;
@@ -48,7 +53,7 @@ interface GoogleMapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
-  distanceLabel?: 'walking' | 'driving' | 'straight';
+  distanceLabel?: "walking" | "driving" | "straight";
   /** Tipos de serviço ativos no filtro – a legenda do mapa lista estes com ícone e cor (OS-05). */
   activeServiceTypes?: string[];
   /** Camadas overlay GeoSampa (WFS GeoJSON) */
@@ -63,7 +68,7 @@ export const GoogleMapView = ({
   userLocation,
   services,
   onServiceClick,
-  distanceLabel = 'straight',
+  distanceLabel = "straight",
   activeServiceTypes = [],
   overlayLayers = {},
   wmsImageamentoEnabled = false,
@@ -91,18 +96,23 @@ export const GoogleMapView = ({
         ? { lat: userLocation.latitude, lng: userLocation.longitude }
         : { lat: -23.5505, lng: -46.6333 };
 
-      let mapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
-        typeof window.google?.maps?.Map === 'function'
-          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+      let mapCtor:
+        | (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+        | null =
+        typeof window.google?.maps?.Map === "function"
+          ? (window.google.maps.Map as new (
+              el: HTMLElement,
+              opts?: google.maps.MapOptions,
+            ) => google.maps.Map)
           : null;
 
       type MapCtor = new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map;
       const mapsApi = window.google.maps as typeof window.google.maps & {
         importLibrary?: (name: string) => Promise<{ Map?: MapCtor }>;
       };
-      if (!mapCtor && typeof mapsApi.importLibrary === 'function') {
+      if (!mapCtor && typeof mapsApi.importLibrary === "function") {
         try {
-          const mapsLib = await mapsApi.importLibrary('maps');
+          const mapsLib = await mapsApi.importLibrary("maps");
           mapCtor = mapsLib?.Map ?? null;
         } catch (e) {
           console.error('[GoogleMapView] importLibrary("maps") falhou:', e);
@@ -111,7 +121,7 @@ export const GoogleMapView = ({
 
       if (!mapCtor) {
         if (!cancelled) {
-          setLoadError('Google Maps carregou incompleto. Recarregue a página.');
+          setLoadError("Google Maps carregou incompleto. Recarregue a página.");
         }
         return;
       }
@@ -156,7 +166,7 @@ export const GoogleMapView = ({
     const map = mapInstanceRef.current;
     if (!map || !window.google?.maps) return;
     map.setMapTypeId(
-      wmsImageamentoEnabled ? google.maps.MapTypeId.HYBRID : google.maps.MapTypeId.ROADMAP
+      wmsImageamentoEnabled ? google.maps.MapTypeId.HYBRID : google.maps.MapTypeId.ROADMAP,
     );
   }, [wmsImageamentoEnabled]);
 
@@ -184,7 +194,7 @@ export const GoogleMapView = ({
         return getTileUrl(coord, zoom);
       },
       tileSize: new google.maps.Size(256, 256),
-      name: 'Imageamento (Ortofotos 2020)',
+      name: "Imageamento (Ortofotos 2020)",
       maxZoom: 21,
       minZoom: 0,
     });
@@ -206,7 +216,7 @@ export const GoogleMapView = ({
     const marker = new google.maps.Marker({
       position: { lat: userLocation.latitude, lng: userLocation.longitude },
       map: mapInstanceRef.current,
-      title: 'Você está aqui',
+      title: "Você está aqui",
       icon: {
         url: getUserLocationMarkerIconDataUrl(),
         scaledSize: new google.maps.Size(
@@ -228,7 +238,13 @@ export const GoogleMapView = ({
     const map = mapInstanceRef.current;
     if (!map || !focusOnService || !window.google?.maps) return;
     const { latitude: lat, longitude: lng } = focusOnService;
-    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) return;
+    if (
+      typeof lat !== "number" ||
+      typeof lng !== "number" ||
+      Number.isNaN(lat) ||
+      Number.isNaN(lng)
+    )
+      return;
     map.panTo({ lat, lng });
     const z = map.getZoom() ?? 14;
     if (z < 15) map.setZoom(15);
@@ -268,27 +284,38 @@ export const GoogleMapView = ({
       });
 
       const mapsUrl = userLocation
-        ? buildGoogleMapsUrl(userLocation.latitude, userLocation.longitude, service.latitude, service.longitude)
+        ? buildGoogleMapsUrl(
+            userLocation.latitude,
+            userLocation.longitude,
+            service.latitude,
+            service.longitude,
+          )
         : `https://www.google.com/maps?q=${service.latitude},${service.longitude}`;
-      const distanceText = service.distance != null
-        ? (distanceLabel === 'straight' ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance))
-        : '';
-      const lowRatingFlag = needsVerificationForLowAverageRating(service.average_rating, service.total_ratings);
+      const distanceText =
+        service.distance != null
+          ? distanceLabel === "straight"
+            ? formatDistanceStraightLine(service.distance)
+            : formatDistance(service.distance)
+          : "";
+      const lowRatingFlag = needsVerificationForLowAverageRating(
+        service.average_rating,
+        service.total_ratings,
+      );
       const infoContent = `
         <div style="padding:8px;min-width:180px;">
-          <p style="font-weight:600;margin:0 0 4px;">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          ${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : ''}
+          <p style="font-weight:600;margin:0 0 4px;">${displayName.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+          ${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>` : ""}
           ${
             lowRatingFlag
               ? `<p style="font-size:11px;color:#b45309;margin:8px 0 0;line-height:1.35;font-weight:500;">⚠ Média abaixo de 2★ — sinalizado para verificação</p>`
-              : ''
+              : ""
           }
-          <a href="${mapsUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1976d2;margin-top:6px;display:inline-block;">Como chegar</a>
+          <a href="${mapsUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1976d2;margin-top:6px;display:inline-block;">Como chegar</a>
         </div>
       `;
       const info = new google.maps.InfoWindow({ content: infoContent });
 
-      marker.addListener('click', () => {
+      marker.addListener("click", () => {
         info.open(mapInstanceRef.current!, marker);
         onServiceClick(service.id);
       });
@@ -308,22 +335,11 @@ export const GoogleMapView = ({
         }),
       });
     }
-  }, [
-    isLoaded,
-    services,
-    onServiceClick,
-    userLocation?.latitude,
-    userLocation?.longitude,
-  ]);
+  }, [isLoaded, services, onServiceClick, userLocation?.latitude, userLocation?.longitude]);
 
   // Overlay layers (GeoSampa WFS GeoJSON)
   const overlayLayersKey = JSON.stringify(
-    Object.entries(overlayLayers).map(([k, v]) => [
-      k,
-      !!v.geojson,
-      v.loading,
-      !!v.error,
-    ])
+    Object.entries(overlayLayers).map(([k, v]) => [k, !!v.geojson, v.loading, !!v.error]),
   );
 
   useEffect(() => {
@@ -355,7 +371,7 @@ export const GoogleMapView = ({
       try {
         dataLayer.addGeoJson(state.geojson as GeoJSON.FeatureCollection);
       } catch (err) {
-        console.warn('[GeoSampa overlay] addGeoJson falhou:', id, err);
+        console.warn("[GeoSampa overlay] addGeoJson falhou:", id, err);
         dataLayer.setMap(null);
         dataLayersRef.current.delete(id);
         continue;
@@ -363,16 +379,16 @@ export const GoogleMapView = ({
 
       const { layer } = state;
       dataLayer.setStyle(() => ({
-        fillColor: layer.fillColor ?? 'transparent',
+        fillColor: layer.fillColor ?? "transparent",
         fillOpacity: layer.fillOpacity ?? 0.15,
-        strokeColor: layer.strokeColor ?? '#666',
+        strokeColor: layer.strokeColor ?? "#666",
         strokeWeight: layer.strokeWeight ?? 1,
       }));
     }
 
     // Remove layers no longer in overlayLayers
     const toRemove = Array.from(dataLayersRef.current.keys()).filter(
-      (lid) => !(lid in overlayLayers) || !overlayLayers[lid]?.geojson
+      (lid) => !(lid in overlayLayers) || !overlayLayers[lid]?.geojson,
     );
     toRemove.forEach((lid) => {
       const data = dataLayersRef.current.get(lid);
@@ -437,7 +453,9 @@ export const GoogleMapView = ({
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm"
                       style={{
-                        boxShadow: color ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)` : undefined,
+                        boxShadow: color
+                          ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)`
+                          : undefined,
                       }}
                       aria-hidden
                     >
@@ -460,7 +478,10 @@ export const GoogleMapView = ({
           <Card
             className="absolute top-4 right-4 p-2 cursor-pointer hover:bg-secondary transition-colors z-10"
             onClick={() => {
-              mapInstanceRef.current?.panTo({ lat: userLocation.latitude, lng: userLocation.longitude });
+              mapInstanceRef.current?.panTo({
+                lat: userLocation.latitude,
+                lng: userLocation.longitude,
+              });
               mapInstanceRef.current?.setZoom(14);
             }}
           >

@@ -188,8 +188,8 @@ export function useReportTriage(
           });
         }
         if (
-          input.responsibleCommissionId !== undefined
-          && input.responsibleCommissionId !== triage?.responsibleCommissionId
+          input.responsibleCommissionId !== undefined &&
+          input.responsibleCommissionId !== triage?.responsibleCommissionId
         ) {
           events.push({
             type: "assigned",
@@ -199,10 +199,7 @@ export function useReportTriage(
             },
           });
         }
-        if (
-          input.triageStatus !== undefined
-          && input.triageStatus !== triage?.triageStatus
-        ) {
+        if (input.triageStatus !== undefined && input.triageStatus !== triage?.triageStatus) {
           events.push({
             type: "status_changed",
             data: { from: triage?.triageStatus ?? null, to: input.triageStatus },

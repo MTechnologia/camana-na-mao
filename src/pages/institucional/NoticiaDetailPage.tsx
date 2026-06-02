@@ -14,7 +14,7 @@ import { ptBR } from "date-fns/locale";
 const NoticiaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const { noticia, isLoading, error } = useNoticiaById(id);
 
   const handleShare = () => {
@@ -32,7 +32,7 @@ const NoticiaDetailPage = () => {
 
   const handleOpenOriginal = () => {
     if (noticia?.link) {
-      window.open(noticia.link, '_blank', 'noopener,noreferrer');
+      window.open(noticia.link, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -74,9 +74,7 @@ const NoticiaDetailPage = () => {
       <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/">
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">Notícia não encontrada</p>
-          <Button onClick={() => navigate("/institucional/noticias")}>
-            Ver todas as notícias
-          </Button>
+          <Button onClick={() => navigate("/institucional/noticias")}>Ver todas as notícias</Button>
         </div>
       </InstitutionalLayout>
     );
@@ -97,11 +95,7 @@ const NoticiaDetailPage = () => {
   };
 
   return (
-    <InstitutionalLayout 
-      title="Notícia" 
-      category={categoryStyle.label}
-      backTo="/"
-    >
+    <InstitutionalLayout title="Notícia" category={categoryStyle.label} backTo="/">
       <article className="space-y-6">
         {/* Header com categoria e badge NOVO */}
         <div className="flex items-center justify-between">
@@ -109,14 +103,11 @@ const NoticiaDetailPage = () => {
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
               <IconComponent className="w-6 h-6 text-primary" />
             </div>
-            <Badge 
-              variant="outline" 
-              className={`text-xs border ${categoryStyle.color}`}
-            >
+            <Badge variant="outline" className={`text-xs border ${categoryStyle.color}`}>
               {categoryStyle.label}
             </Badge>
           </div>
-          
+
           {isRecent() && (
             <Badge variant="secondary" className="text-xs">
               NOVO
@@ -127,8 +118,8 @@ const NoticiaDetailPage = () => {
         {/* Imagem de capa (se disponível) */}
         {noticia.imageUrl && (
           <div className="rounded-lg overflow-hidden">
-            <img 
-              src={noticia.imageUrl} 
+            <img
+              src={noticia.imageUrl}
               alt={noticia.title}
               className="w-full h-48 object-cover"
               loading="lazy"
@@ -137,14 +128,10 @@ const NoticiaDetailPage = () => {
         )}
 
         {/* Título */}
-        <h1 className="text-3xl font-bold text-foreground leading-tight">
-          {noticia.title}
-        </h1>
+        <h1 className="text-3xl font-bold text-foreground leading-tight">{noticia.title}</h1>
 
         {/* Descrição resumida */}
-        <p className="text-lg text-muted-foreground">
-          {noticia.description}
-        </p>
+        <p className="text-lg text-muted-foreground">{noticia.description}</p>
 
         {/* Metadados */}
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground pb-4 border-b border-border">
@@ -166,7 +153,7 @@ const NoticiaDetailPage = () => {
 
         {/* Conteúdo completo */}
         <div className="prose prose-slate max-w-none">
-          <div 
+          <div
             className="text-foreground leading-relaxed space-y-4"
             dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(noticia.fullContent) }}
           />
@@ -174,19 +161,11 @@ const NoticiaDetailPage = () => {
 
         {/* Ações */}
         <div className="flex gap-3 pt-6 border-t border-border">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleShare}
-          >
+          <Button variant="outline" className="flex-1" onClick={handleShare}>
             <Share2 className="w-4 h-4 mr-2" />
             Compartilhar
           </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleOpenOriginal}
-          >
+          <Button variant="outline" className="flex-1" onClick={handleOpenOriginal}>
             <ExternalLink className="w-4 h-4 mr-2" />
             Ver Original
           </Button>

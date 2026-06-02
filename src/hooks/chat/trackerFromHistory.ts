@@ -94,7 +94,8 @@ function restoreTransportFromHistory(text: string): HistoryTrackerRestore | null
   const recurrenceMatch = text.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
   if (recurrenceMatch) {
     const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
-    if (recurrenceRaw.includes("primeira vez")) reconstructedFields.recurrence_frequency = "primeira_vez";
+    if (recurrenceRaw.includes("primeira vez"))
+      reconstructedFields.recurrence_frequency = "primeira_vez";
     else if (recurrenceRaw.includes("algumas vezes"))
       reconstructedFields.recurrence_frequency = "algumas_vezes_mes";
     else if (recurrenceRaw.includes("toda semana"))

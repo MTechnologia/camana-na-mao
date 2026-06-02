@@ -18,13 +18,12 @@ export const ReportInteractions = ({ reportId, onCommentClick }: ReportInteracti
         size="sm"
         onClick={toggleLike}
         data-testid="like-button"
-        className={cn(
-          "flex items-center gap-1.5 h-8",
-          isLiked && "text-red-500"
-        )}
+        className={cn("flex items-center gap-1.5 h-8", isLiked && "text-red-500")}
       >
         <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
-        <span className="text-xs font-medium" data-testid="like-count">{likesCount}</span>
+        <span className="text-xs font-medium" data-testid="like-count">
+          {likesCount}
+        </span>
       </Button>
 
       <Button

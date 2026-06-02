@@ -1,8 +1,8 @@
-import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
-import type { DateRangeValue } from '@/components/filters/types';
-import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { isCompleteDateRange } from '@/lib/dateRangeUtils';
-import { dateRangeToIsoDates, globalPeriodKeyToDateRange } from '@/lib/globalPeriodRange';
+import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
+import type { DateRangeValue } from "@/components/filters/types";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { isCompleteDateRange } from "@/lib/dateRangeUtils";
+import { dateRangeToIsoDates, globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
 
 export type PeriodCompareFilterInput = {
   periodA?: DateRangeValue;
@@ -26,7 +26,7 @@ export function globalFiltersToReportsAnalytics(
     start = iso.startDate;
     end = iso.endDate;
   } else if (period === PERIOD_COMPARE_VALUE) {
-    const iso = dateRangeToIsoDates(globalPeriodKeyToDateRange('last_30d'));
+    const iso = dateRangeToIsoDates(globalPeriodKeyToDateRange("last_30d"));
     start = iso.startDate;
     end = iso.endDate;
   } else {
@@ -38,7 +38,7 @@ export function globalFiltersToReportsAnalytics(
   return {
     startDate: start,
     endDate: end,
-    ...(region !== 'all' ? { region } : {}),
-    ...(category !== 'all' ? { category } : {}),
+    ...(region !== "all" ? { region } : {}),
+    ...(category !== "all" ? { category } : {}),
   };
 }

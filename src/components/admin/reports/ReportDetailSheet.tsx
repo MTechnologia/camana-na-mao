@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Pencil, X, Lock, Send } from 'lucide-react';
-import { toast } from 'sonner';
-import { ReferralDestinationFields } from '@/components/admin/referrals/ReferralDestinationFields';
-import { ReferralRulesEditor } from '@/components/admin/referrals/ReferralRulesEditor';
-import { TriageEditor } from '@/components/admin/triage/TriageEditor';
-import { ReportTimelineTab } from '@/components/admin/triage/ReportTimelineTab';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { useReferralRoutingRules } from '@/contexts/ReferralRoutingRulesContext';
-import { PRIORITY_LABELS, STAGE_LABELS } from '@/lib/urbanReportLabels';
-import { suggestDestinations } from '@/lib/referralDestinations';
-import { useReferralDestinations } from '@/hooks/useReferralDestinations';
-import { useUserRole } from '@/hooks/useUserRole';
-import type { TriageRecord } from '@/hooks/useReportTriage';
-import { pairMatchScore } from '@/lib/referralRoutingEngine';
-import type { ReportWorkflowStage, UrbanReportRecord } from '@/types/urbanReportManagement';
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Pencil, X, Lock, Send } from "lucide-react";
+import { toast } from "sonner";
+import { ReferralDestinationFields } from "@/components/admin/referrals/ReferralDestinationFields";
+import { ReferralRulesEditor } from "@/components/admin/referrals/ReferralRulesEditor";
+import { TriageEditor } from "@/components/admin/triage/TriageEditor";
+import { ReportTimelineTab } from "@/components/admin/triage/ReportTimelineTab";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useReferralRoutingRules } from "@/contexts/ReferralRoutingRulesContext";
+import { PRIORITY_LABELS, STAGE_LABELS } from "@/lib/urbanReportLabels";
+import { suggestDestinations } from "@/lib/referralDestinations";
+import { useReferralDestinations } from "@/hooks/useReferralDestinations";
+import { useUserRole } from "@/hooks/useUserRole";
+import type { TriageRecord } from "@/hooks/useReportTriage";
+import { pairMatchScore } from "@/lib/referralRoutingEngine";
+import type { ReportWorkflowStage, UrbanReportRecord } from "@/types/urbanReportManagement";
 
 type ReportDetailSheetProps = {
   report: UrbanReportRecord | null;
@@ -40,32 +40,32 @@ export function ReportDetailSheet({
   const { rules } = useReferralRoutingRules();
   const { commissions, councilMembers } = useReferralDestinations();
   const { canManageTriage } = useUserRole();
-  const [commissionId, setCommissionId] = useState('');
-  const [councillorId, setCouncillorId] = useState('');
-  const [referralNote, setReferralNote] = useState('');
+  const [commissionId, setCommissionId] = useState("");
+  const [councillorId, setCouncillorId] = useState("");
+  const [referralNote, setReferralNote] = useState("");
   const [editingReferral, setEditingReferral] = useState(false);
 
   const commissionSuggestions = useMemo(
     () =>
       report
-        ? suggestDestinations(report.category, 'commission', commissions, councilMembers, rules)
-        : suggestDestinations('', 'commission', commissions, councilMembers, rules),
+        ? suggestDestinations(report.category, "commission", commissions, councilMembers, rules)
+        : suggestDestinations("", "commission", commissions, councilMembers, rules),
     [report, rules, commissions, councilMembers],
   );
   const councillorSuggestions = useMemo(
     () =>
       report
-        ? suggestDestinations(report.category, 'councillor', commissions, councilMembers, rules)
-        : suggestDestinations('', 'councillor', commissions, councilMembers, rules),
+        ? suggestDestinations(report.category, "councillor", commissions, councilMembers, rules)
+        : suggestDestinations("", "councillor", commissions, councilMembers, rules),
     [report, rules, commissions, councilMembers],
   );
 
   useEffect(() => {
     if (!report) return;
     setEditingReferral(false);
-    setReferralNote(report.referral?.note ?? '');
-    setCommissionId(report.referral?.commissionId ?? '');
-    setCouncillorId(report.referral?.councillorId ?? '');
+    setReferralNote(report.referral?.note ?? "");
+    setCommissionId(report.referral?.commissionId ?? "");
+    setCouncillorId(report.referral?.councillorId ?? "");
   }, [
     report?.id,
     report?.referral?.commissionId,
@@ -75,11 +75,9 @@ export function ReportDetailSheet({
 
   if (!report) return null;
 
-  const mustTriageFirst = report.stage === 'awaiting_triage';
+  const mustTriageFirst = report.stage === "awaiting_triage";
   const canRefer =
-    report.stage === 'triaged' ||
-    report.stage === 'in_analysis' ||
-    report.stage === 'referred';
+    report.stage === "triaged" || report.stage === "in_analysis" || report.stage === "referred";
   const showReferralBlock = canRefer || Boolean(report.referral);
 
   const appendTimeline = (
@@ -96,7 +94,7 @@ export function ReportDetailSheet({
         at: nowIso(),
         label,
         detail,
-        actor: 'Você (gestão)',
+        actor: "Você (gestão)",
       },
     ],
   });
@@ -114,14 +112,14 @@ export function ReportDetailSheet({
   const handleRefer = async (isUpdate = false) => {
     const { commission, councillor } = resolveReferralTargets();
     if (!commission || !councillor) {
-      toast.error('Selecione a comissão e o vereador para encaminhar');
+      toast.error("Selecione a comissão e o vereador para encaminhar");
       return;
     }
     const matchScore = pairMatchScore(report.category, commission, councillor, rules);
     const updated = appendTimeline(
       {
         ...report,
-        stage: 'referred',
+        stage: "referred",
         referral: {
           councilReferralId: report.referral?.councilReferralId,
           commissionId: commission.id,
@@ -133,13 +131,13 @@ export function ReportDetailSheet({
           note: referralNote.trim() || undefined,
         },
       },
-      isUpdate ? 'Encaminhamento atualizado' : 'Encaminhamento registrado',
+      isUpdate ? "Encaminhamento atualizado" : "Encaminhamento registrado",
       `${commission.name} · ${councillor.name} (${matchScore}%)`,
     );
     try {
       await onUpdate(updated);
       setEditingReferral(false);
-      toast.success(isUpdate ? 'Destinos atualizados' : 'Encaminhamento registrado');
+      toast.success(isUpdate ? "Destinos atualizados" : "Encaminhamento registrado");
     } catch {
       /* toast no hook */
     }
@@ -171,7 +169,10 @@ export function ReportDetailSheet({
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <p className="font-mono text-xs text-muted-foreground">{report.protocol}</p>
-            <h2 id="report-detail-title" className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
+            <h2
+              id="report-detail-title"
+              className="mt-0.5 text-sm font-semibold leading-snug text-foreground"
+            >
               {report.title}
             </h2>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -218,8 +219,8 @@ export function ReportDetailSheet({
                   <span className="absolute -left-[1.3rem] top-1.5 h-2 w-2 rounded-full bg-primary" />
                   <p className="font-medium text-foreground">{evt.label}</p>
                   <p className="text-[11px] text-muted-foreground">
-                    {new Date(evt.at).toLocaleString('pt-BR')}
-                    {evt.actor ? ` · ${evt.actor}` : ''}
+                    {new Date(evt.at).toLocaleString("pt-BR")}
+                    {evt.actor ? ` · ${evt.actor}` : ""}
                   </p>
                   {evt.detail ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{evt.detail}</p>
@@ -233,9 +234,9 @@ export function ReportDetailSheet({
             <div>
               <h3 className="text-sm font-semibold text-foreground">Triagem (HU-10.1)</h3>
               <p className="mt-1 text-xs text-muted-foreground">
-                Prioridade P0–P3, comissão responsável e status do funil ficam em{' '}
-                <code className="rounded bg-muted px-1">report_triage</code>. Conclua a triagem para liberar
-                encaminhamento à comissão.
+                Prioridade P0–P3, comissão responsável e status do funil ficam em{" "}
+                <code className="rounded bg-muted px-1">report_triage</code>. Conclua a triagem para
+                liberar encaminhamento à comissão.
               </p>
             </div>
             <TriageEditor
@@ -262,36 +263,36 @@ export function ReportDetailSheet({
               </h3>
               {report.referral && !editingReferral ? (
                 <>
-                <dl className="mt-2 space-y-1 text-sm">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Comissão</dt>
-                    <dd className="font-medium">{report.referral.commissionName}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Vereador(a)</dt>
-                    <dd className="font-medium">{report.referral.councillorName ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Afinidade (regras atuais)</dt>
-                    <dd>{report.referral.matchScore}%</dd>
-                  </div>
-                  {report.referral.note ? (
+                  <dl className="mt-2 space-y-1 text-sm">
                     <div>
-                      <dt className="text-xs text-muted-foreground">Mensagem</dt>
-                      <dd className="text-muted-foreground">{report.referral.note}</dd>
+                      <dt className="text-xs text-muted-foreground">Comissão</dt>
+                      <dd className="font-medium">{report.referral.commissionName}</dd>
                     </div>
-                  ) : null}
-                </dl>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 gap-1.5"
-                  onClick={() => setEditingReferral(true)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Editar comissão e vereador
-                </Button>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Vereador(a)</dt>
+                      <dd className="font-medium">{report.referral.councillorName ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Afinidade (regras atuais)</dt>
+                      <dd>{report.referral.matchScore}%</dd>
+                    </div>
+                    {report.referral.note ? (
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Mensagem</dt>
+                        <dd className="text-muted-foreground">{report.referral.note}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-1.5"
+                    onClick={() => setEditingReferral(true)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Editar comissão e vereador
+                  </Button>
                 </>
               ) : canRefer || editingReferral ? (
                 <div className="mt-3 space-y-4">
@@ -315,7 +316,7 @@ export function ReportDetailSheet({
                       onClick={() => handleRefer(editingReferral)}
                     >
                       <Send className="h-4 w-4" />
-                      {editingReferral ? 'Salvar alterações' : 'Registrar encaminhamento'}
+                      {editingReferral ? "Salvar alterações" : "Registrar encaminhamento"}
                     </Button>
                     {editingReferral ? (
                       <Button
@@ -329,7 +330,7 @@ export function ReportDetailSheet({
                     ) : null}
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Regras completas em{' '}
+                    Regras completas em{" "}
                     <Link
                       to="/admin/settings/referral-rules"
                       className="font-medium text-primary underline-offset-2 hover:underline"
@@ -353,7 +354,7 @@ export function ReportDetailSheet({
                 Atualizar status
               </h3>
               <div className="mt-2 flex flex-wrap gap-2">
-                {(['in_analysis', 'resolved'] as const).map((stage) => (
+                {(["in_analysis", "resolved"] as const).map((stage) => (
                   <Button
                     key={stage}
                     type="button"

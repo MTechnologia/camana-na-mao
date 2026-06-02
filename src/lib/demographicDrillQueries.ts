@@ -132,9 +132,7 @@ function applyDateFilter<T extends { created_at: string }>(
 ): T[] {
   if (!filters?.startDate && !filters?.endDate) return rows;
   const startMs = filters.startDate ? new Date(filters.startDate).setHours(0, 0, 0, 0) : null;
-  const endMs = filters.endDate
-    ? new Date(filters.endDate).setHours(23, 59, 59, 999)
-    : null;
+  const endMs = filters.endDate ? new Date(filters.endDate).setHours(23, 59, 59, 999) : null;
   return rows.filter((row) => {
     const t = new Date(row.created_at).getTime();
     if (Number.isNaN(t)) return false;
@@ -163,11 +161,15 @@ async function fetchDrillReportsClientSide(
   if (transportRes.error) throw transportRes.error;
 
   const urbanAll = applyDateFilter(
-    (urbanRes.data ?? []) as Array<Record<string, unknown> & { created_at: string; user_id: string | null }>,
+    (urbanRes.data ?? []) as Array<
+      Record<string, unknown> & { created_at: string; user_id: string | null }
+    >,
     filters,
   );
   const transportAll = applyDateFilter(
-    (transportRes.data ?? []) as Array<Record<string, unknown> & { created_at: string; user_id: string | null }>,
+    (transportRes.data ?? []) as Array<
+      Record<string, unknown> & { created_at: string; user_id: string | null }
+    >,
     filters,
   );
   const ratingsAll = applyDateFilter(

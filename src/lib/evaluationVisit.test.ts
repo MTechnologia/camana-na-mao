@@ -4,9 +4,11 @@ import { evaluationVisitErrorMessage, validateEvaluationVisit } from "./evaluati
 describe("validateEvaluationVisit", () => {
   it("aceita visita pendente dentro do prazo", () => {
     expect(
-      validateEvaluationVisit(
-        { id: "v1", status: "pending", expires_at: new Date(Date.now() + 60_000).toISOString() },
-      ).ok,
+      validateEvaluationVisit({
+        id: "v1",
+        status: "pending",
+        expires_at: new Date(Date.now() + 60_000).toISOString(),
+      }).ok,
     ).toBe(true);
   });
 

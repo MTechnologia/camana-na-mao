@@ -2,16 +2,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
-export type AuditAction = 
-  | 'login' 
-  | 'logout' 
-  | 'create' 
-  | 'update' 
-  | 'delete' 
-  | 'view' 
-  | 'export'
-  | 'subscribe'
-  | 'unsubscribe';
+export type AuditAction =
+  | "login"
+  | "logout"
+  | "create"
+  | "update"
+  | "delete"
+  | "view"
+  | "export"
+  | "subscribe"
+  | "unsubscribe";
 
 interface AuditLogData {
   action: AuditAction;
@@ -30,7 +30,7 @@ export const useAuditLog = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase.from('audit_logs').insert({
+      const { error } = await supabase.from("audit_logs").insert({
         user_id: user.id,
         action: data.action,
         entity_type: data.entityType,
@@ -43,10 +43,10 @@ export const useAuditLog = () => {
       });
 
       if (error) {
-        console.error('Erro ao registrar log de auditoria:', error);
+        console.error("Erro ao registrar log de auditoria:", error);
       }
     } catch (error) {
-      console.error('Erro ao registrar log de auditoria:', error);
+      console.error("Erro ao registrar log de auditoria:", error);
     }
   };
 
@@ -55,16 +55,16 @@ export const useAuditLog = () => {
 
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .from("audit_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Erro ao buscar logs:', error);
+      console.error("Erro ao buscar logs:", error);
       toast({
         title: "Erro ao carregar logs",
         description: "Não foi possível carregar o histórico de auditoria.",
@@ -83,25 +83,22 @@ export const useAuditLog = () => {
     limit?: number;
   }) => {
     try {
-      let query = supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let query = supabase.from("audit_logs").select("*").order("created_at", { ascending: false });
 
       if (filters?.action) {
-        query = query.eq('action', filters.action);
+        query = query.eq("action", filters.action);
       }
       if (filters?.entityType) {
-        query = query.eq('entity_type', filters.entityType);
+        query = query.eq("entity_type", filters.entityType);
       }
       if (filters?.userId) {
-        query = query.eq('user_id', filters.userId);
+        query = query.eq("user_id", filters.userId);
       }
       if (filters?.startDate) {
-        query = query.gte('created_at', filters.startDate.toISOString());
+        query = query.gte("created_at", filters.startDate.toISOString());
       }
       if (filters?.endDate) {
-        query = query.lte('created_at', filters.endDate.toISOString());
+        query = query.lte("created_at", filters.endDate.toISOString());
       }
       if (filters?.limit) {
         query = query.limit(filters.limit);
@@ -112,7 +109,7 @@ export const useAuditLog = () => {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Erro ao buscar todos os logs:', error);
+      console.error("Erro ao buscar todos os logs:", error);
       toast({
         title: "Erro ao carregar logs",
         description: "Não foi possível carregar os logs de auditoria.",
@@ -126,14 +123,16 @@ export const useAuditLog = () => {
    * HU-12.2 — Lista de atores únicos que aparecem em audit_logs.
    * Usada pra popular o select de "Usuário" no filtro da UI.
    */
-  const getActors = async (): Promise<Array<{
-    userId: string;
-    fullName: string;
-    email: string;
-    logCount: number;
-  }>> => {
+  const getActors = async (): Promise<
+    Array<{
+      userId: string;
+      fullName: string;
+      email: string;
+      logCount: number;
+    }>
+  > => {
     try {
-      const { data, error } = await supabase.rpc('list_audit_log_actors');
+      const { data, error } = await supabase.rpc("list_audit_log_actors");
       if (error) throw error;
       const rows = (data ?? []) as Array<{
         user_id: string;
@@ -148,7 +147,7 @@ export const useAuditLog = () => {
         logCount: Number(r.log_count),
       }));
     } catch (error) {
-      console.error('Erro ao listar atores:', error);
+      console.error("Erro ao listar atores:", error);
       return [];
     }
   };

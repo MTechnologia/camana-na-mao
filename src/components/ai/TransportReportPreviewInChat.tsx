@@ -65,7 +65,8 @@ export function TransportReportPreviewInChat({ preview }: Props) {
           "Tipo",
           (() => {
             const base =
-              preview.report_type && (REPORT_TYPE_LABELS[preview.report_type] || preview.report_type);
+              preview.report_type &&
+              (REPORT_TYPE_LABELS[preview.report_type] || preview.report_type);
             const sub = subcategoryLabel(preview.report_type, preview.sub_category);
             if (base && sub) return `${base} — ${sub}`;
             return base || sub || "—";

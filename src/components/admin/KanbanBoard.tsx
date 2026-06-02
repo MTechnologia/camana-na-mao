@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,13 +13,13 @@ import {
   DragEndEvent,
   DragOverEvent,
   CollisionDetection,
-} from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { UnifiedManifest, ManifestType } from '@/hooks/useReportsAdmin';
-import { KanbanColumn } from './KanbanColumn';
-import { KanbanCardDragPreview } from './KanbanCardDragPreview';
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { UnifiedManifest, ManifestType } from "@/hooks/useReportsAdmin";
+import { KanbanColumn } from "./KanbanColumn";
+import { KanbanCardDragPreview } from "./KanbanCardDragPreview";
 
-const STATUSES = ['pending', 'in_progress', 'resolved', 'rejected'];
+const STATUSES = ["pending", "in_progress", "resolved", "rejected"];
 
 type ItemsState = Record<string, UnifiedManifest[]>;
 
@@ -42,23 +42,23 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  
+
   // Estado local para gerenciar items por coluna durante o drag
   const [itemsState, setItemsState] = useState<ItemsState>(() => ({
-    pending: manifests.filter(m => m.status === 'pending'),
-    in_progress: manifests.filter(m => m.status === 'in_progress'),
-    resolved: manifests.filter(m => m.status === 'resolved'),
-    rejected: manifests.filter(m => m.status === 'rejected'),
+    pending: manifests.filter((m) => m.status === "pending"),
+    in_progress: manifests.filter((m) => m.status === "in_progress"),
+    resolved: manifests.filter((m) => m.status === "resolved"),
+    rejected: manifests.filter((m) => m.status === "rejected"),
   }));
 
   // Sincronizar com props quando manifests mudam (e não estamos arrastando)
   useEffect(() => {
     if (!activeId) {
       setItemsState({
-        pending: manifests.filter(m => m.status === 'pending'),
-        in_progress: manifests.filter(m => m.status === 'in_progress'),
-        resolved: manifests.filter(m => m.status === 'resolved'),
-        rejected: manifests.filter(m => m.status === 'rejected'),
+        pending: manifests.filter((m) => m.status === "pending"),
+        in_progress: manifests.filter((m) => m.status === "in_progress"),
+        resolved: manifests.filter((m) => m.status === "resolved"),
+        rejected: manifests.filter((m) => m.status === "rejected"),
       });
     }
   }, [manifests, activeId]);
@@ -77,41 +77,47 @@ export function KanbanBoard({
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   // Helper para encontrar container de um item
-  const findContainer = useCallback((id: string): string | null => {
-    // Primeiro verifica se é um status (container)
-    if (STATUSES.includes(id)) return id;
-    
-    // Busca em qual container o item está
-    for (const status of STATUSES) {
-      if (itemsState[status]?.some(item => item.id === id)) {
-        return status;
-      }
-    }
-    return null;
-  }, [itemsState]);
+  const findContainer = useCallback(
+    (id: string): string | null => {
+      // Primeiro verifica se é um status (container)
+      if (STATUSES.includes(id)) return id;
 
-  const getManifestById = useCallback((id: string) => {
-    return manifests.find(m => m.id === id);
-  }, [manifests]);
+      // Busca em qual container o item está
+      for (const status of STATUSES) {
+        if (itemsState[status]?.some((item) => item.id === id)) {
+          return status;
+        }
+      }
+      return null;
+    },
+    [itemsState],
+  );
+
+  const getManifestById = useCallback(
+    (id: string) => {
+      return manifests.find((m) => m.id === id);
+    },
+    [manifests],
+  );
 
   // Collision detection customizada que prioriza containers
   const collisionDetectionStrategy: CollisionDetection = useCallback((args) => {
     // Primeiro, verificar colisões com containers usando rectIntersection
     const rectCollisions = rectIntersection(args);
-    
+
     // Priorizar colisões com containers (colunas)
-    const containerCollision = rectCollisions.find(collision => 
-      STATUSES.includes(collision.id as string)
+    const containerCollision = rectCollisions.find((collision) =>
+      STATUSES.includes(collision.id as string),
     );
-    
+
     if (containerCollision) {
       return [containerCollision];
     }
-    
+
     // Fallback para closestCorners para items dentro de containers
     return closestCorners(args);
   }, []);
@@ -132,9 +138,7 @@ export function KanbanBoard({
 
     // Encontrar container de origem e destino
     const activeContainer = findContainer(activeId);
-    const overContainer = STATUSES.includes(overId) 
-      ? overId 
-      : findContainer(overId);
+    const overContainer = STATUSES.includes(overId) ? overId : findContainer(overId);
 
     setOverId(overContainer);
 
@@ -143,19 +147,19 @@ export function KanbanBoard({
     }
 
     // Mover item visualmente para o novo container
-    setItemsState(prev => {
+    setItemsState((prev) => {
       const activeItems = [...(prev[activeContainer] || [])];
       const overItems = [...(prev[overContainer] || [])];
-      
-      const activeIndex = activeItems.findIndex(i => i.id === activeId);
+
+      const activeIndex = activeItems.findIndex((i) => i.id === activeId);
       if (activeIndex === -1) return prev;
-      
+
       const [movedItem] = activeItems.splice(activeIndex, 1);
-      
+
       // Encontrar posição de inserção
-      const overIndex = overItems.findIndex(i => i.id === overId);
+      const overIndex = overItems.findIndex((i) => i.id === overId);
       const insertIndex = overIndex >= 0 ? overIndex : overItems.length;
-      
+
       overItems.splice(insertIndex, 0, movedItem);
 
       return {
@@ -168,27 +172,27 @@ export function KanbanBoard({
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     const draggedId = active.id as string;
-    const originalManifest = manifests.find(m => m.id === draggedId);
-    
+    const originalManifest = manifests.find((m) => m.id === draggedId);
+
     setActiveId(null);
     setOverId(null);
 
     if (!over || !originalManifest) {
       // Cancelado - resetar estado
       setItemsState({
-        pending: manifests.filter(m => m.status === 'pending'),
-        in_progress: manifests.filter(m => m.status === 'in_progress'),
-        resolved: manifests.filter(m => m.status === 'resolved'),
-        rejected: manifests.filter(m => m.status === 'rejected'),
+        pending: manifests.filter((m) => m.status === "pending"),
+        in_progress: manifests.filter((m) => m.status === "in_progress"),
+        resolved: manifests.filter((m) => m.status === "resolved"),
+        rejected: manifests.filter((m) => m.status === "rejected"),
       });
       return;
     }
 
     // Determinar novo container baseado em onde o item está agora
     const newContainer = findContainer(draggedId);
-    
+
     // Se mudou de status, persistir no backend
     if (newContainer && newContainer !== originalManifest.status) {
       try {
@@ -196,10 +200,10 @@ export function KanbanBoard({
       } catch {
         // Em caso de erro, reverter para o estado original
         setItemsState({
-          pending: manifests.filter(m => m.status === 'pending'),
-          in_progress: manifests.filter(m => m.status === 'in_progress'),
-          resolved: manifests.filter(m => m.status === 'resolved'),
-          rejected: manifests.filter(m => m.status === 'rejected'),
+          pending: manifests.filter((m) => m.status === "pending"),
+          in_progress: manifests.filter((m) => m.status === "in_progress"),
+          resolved: manifests.filter((m) => m.status === "resolved"),
+          rejected: manifests.filter((m) => m.status === "rejected"),
         });
       }
     }
@@ -210,10 +214,10 @@ export function KanbanBoard({
     setOverId(null);
     // Resetar estado para o original
     setItemsState({
-      pending: manifests.filter(m => m.status === 'pending'),
-      in_progress: manifests.filter(m => m.status === 'in_progress'),
-      resolved: manifests.filter(m => m.status === 'resolved'),
-      rejected: manifests.filter(m => m.status === 'rejected'),
+      pending: manifests.filter((m) => m.status === "pending"),
+      in_progress: manifests.filter((m) => m.status === "in_progress"),
+      resolved: manifests.filter((m) => m.status === "resolved"),
+      rejected: manifests.filter((m) => m.status === "rejected"),
     });
   };
 
@@ -222,7 +226,7 @@ export function KanbanBoard({
   // Custom drop animation for smoother transitions
   const dropAnimation = {
     duration: 200,
-    easing: 'ease-out' as const,
+    easing: "ease-out" as const,
   };
 
   return (
@@ -251,9 +255,7 @@ export function KanbanBoard({
 
       {/* Drag Overlay - shows the dragged card preview */}
       <DragOverlay dropAnimation={dropAnimation}>
-        {activeManifest ? (
-          <KanbanCardDragPreview manifest={activeManifest} />
-        ) : null}
+        {activeManifest ? <KanbanCardDragPreview manifest={activeManifest} /> : null}
       </DragOverlay>
     </DndContext>
   );

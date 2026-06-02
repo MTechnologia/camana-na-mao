@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import type { User } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { rolesGrantPermission } from '@/lib/permissions';
-import { withPoolRetry } from '@/lib/supabaseRetry';
-import { withTimeout } from '@/lib/promiseTimeout';
+import { useState, useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { rolesGrantPermission } from "@/lib/permissions";
+import { withPoolRetry } from "@/lib/supabaseRetry";
+import { withTimeout } from "@/lib/promiseTimeout";
 
 const ROLE_FETCH_TIMEOUT_MS = 12_000;
 
@@ -12,15 +12,15 @@ function isLikelyAuthNetworkFailure(err: unknown): boolean {
   if (err instanceof TypeError) {
     return /fetch|network|load failed|aborted/i.test(err.message);
   }
-  if (typeof err === 'object' && err !== null && 'message' in err) {
+  if (typeof err === "object" && err !== null && "message" in err) {
     const m = String((err as { message: string }).message).toLowerCase();
     return (
-      m.includes('failed to fetch')
-      || m.includes('network error')
-      || m.includes('load failed')
-      || m.includes('fetch')
-      || m.includes('aborted')
-      || m.includes('timeout')
+      m.includes("failed to fetch") ||
+      m.includes("network error") ||
+      m.includes("load failed") ||
+      m.includes("fetch") ||
+      m.includes("aborted") ||
+      m.includes("timeout")
     );
   }
   return false;
@@ -32,14 +32,19 @@ function isLikelyAuthNetworkFailure(err: unknown): boolean {
  */
 async function getAuthUserResilient(): Promise<User | null> {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
     if (!error && user) return user;
     if (error && isLikelyAuthNetworkFailure(error)) {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user) {
         if (import.meta.env.DEV) {
           console.warn(
-            '[useUserRole] Auth indisponível (rede). Usando sessão local para carregar perfis.',
+            "[useUserRole] Auth indisponível (rede). Usando sessão local para carregar perfis.",
             error.message,
           );
         }
@@ -47,22 +52,24 @@ async function getAuthUserResilient(): Promise<User | null> {
       }
     }
     if (error && import.meta.env.DEV) {
-      console.warn('[useUserRole] getUser()', error.message);
+      console.warn("[useUserRole] getUser()", error.message);
     }
     return user ?? null;
   } catch (err) {
     if (isLikelyAuthNetworkFailure(err)) {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user) {
         if (import.meta.env.DEV) {
           console.warn(
-            '[useUserRole] Auth indisponível (rede). Usando sessão local para carregar perfis.',
+            "[useUserRole] Auth indisponível (rede). Usando sessão local para carregar perfis.",
           );
         }
         return session.user;
       }
       if (import.meta.env.DEV) {
-        console.warn('[useUserRole] Falha de rede ao validar sessão; sem usuário em cache.', err);
+        console.warn("[useUserRole] Falha de rede ao validar sessão; sem usuário em cache.", err);
       }
       return null;
     }
@@ -71,20 +78,20 @@ async function getAuthUserResilient(): Promise<User | null> {
 }
 
 export type UserRole =
-  | 'admin'
-  | 'gestor'
-  | 'vereador'
-  | 'assessor'
-  | 'cidadao'
-  | 'cidadao_engajado';
+  | "admin"
+  | "gestor"
+  | "vereador"
+  | "assessor"
+  | "cidadao"
+  | "cidadao_engajado";
 
 const ROLE_PRIORITY: UserRole[] = [
-  'admin',
-  'gestor',
-  'vereador',
-  'assessor',
-  'cidadao_engajado',
-  'cidadao',
+  "admin",
+  "gestor",
+  "vereador",
+  "assessor",
+  "cidadao_engajado",
+  "cidadao",
 ];
 
 const normalizeSingleRole = (roles: UserRole[]): UserRole[] => {
@@ -108,10 +115,12 @@ export const useUserRole = () => {
   useEffect(() => {
     fetchUserRoles();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         fetchUserRoles();
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === "SIGNED_OUT") {
         setRoles([]);
         setCouncilMemberId(null);
         setIsAdmin(false);
@@ -130,7 +139,9 @@ export const useUserRole = () => {
 
   const fetchUserRoles = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.user) {
         setRoles([]);
         setCouncilMemberId(null);
@@ -151,30 +162,29 @@ export const useUserRole = () => {
       // Prefer direct table read (fast + typed), but fall back to RPC if RLS blocks it.
       const [{ data, error }, { data: gabineteLink, error: gabineteError }] = await withTimeout(
         Promise.all([
-        withPoolRetry(
-          () =>
-            supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', user.id),
-          { retries: 1, baseDelayMs: 700 },
-        ),
-        supabase
-          .from('vereador_user_links')
-          .select('council_member_id')
-          .eq('user_id', user.id)
-          .maybeSingle(),
+          withPoolRetry(() => supabase.from("user_roles").select("role").eq("user_id", user.id), {
+            retries: 1,
+            baseDelayMs: 700,
+          }),
+          supabase
+            .from("vereador_user_links")
+            .select("council_member_id")
+            .eq("user_id", user.id)
+            .maybeSingle(),
         ]),
         ROLE_FETCH_TIMEOUT_MS,
-        'ROLE_FETCH_TIMEOUT',
+        "ROLE_FETCH_TIMEOUT",
       );
 
       if (!error) {
         userRoles = (data || []).map((r) => r.role as UserRole);
       } else {
-        console.warn('[RBAC] Could not read public.user_roles directly; falling back to get_user_roles()', error);
+        console.warn(
+          "[RBAC] Could not read public.user_roles directly; falling back to get_user_roles()",
+          error,
+        );
 
-        const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_roles', {
+        const { data: rpcData, error: rpcError } = await supabase.rpc("get_user_roles", {
           _user_id: user.id,
         });
 
@@ -186,51 +196,45 @@ export const useUserRole = () => {
       userRoles = normalizeSingleRole(userRoles);
 
       // Safety net: if roles are empty (misconfigured DB/migrations), assume default citizen to avoid UI "no permissions".
-      if (userRoles.length === 0) userRoles = ['cidadao'];
+      if (userRoles.length === 0) userRoles = ["cidadao"];
 
       if (gabineteError) {
-        console.warn('[RBAC] Could not read public.vereador_user_links directly', gabineteError);
+        console.warn("[RBAC] Could not read public.vereador_user_links directly", gabineteError);
         setCouncilMemberId(null);
       } else {
         setCouncilMemberId(gabineteLink?.council_member_id ?? null);
       }
-      
+
       setRoles(userRoles);
 
       const { data: permRows, error: permErr } = await withTimeout(
         withPoolRetry(
-          () =>
-            supabase
-              .from('role_permissions')
-              .select('permission_key')
-              .in('role', userRoles),
+          () => supabase.from("role_permissions").select("permission_key").in("role", userRoles),
           { retries: 1, baseDelayMs: 700 },
         ),
         ROLE_FETCH_TIMEOUT_MS,
-        'ROLE_FETCH_TIMEOUT',
+        "ROLE_FETCH_TIMEOUT",
       );
       if (permErr) {
-        console.warn('[useUserRole] role_permissions', permErr);
+        console.warn("[useUserRole] role_permissions", permErr);
         setPermissionKeys(new Set());
       } else {
-        setPermissionKeys(
-          new Set((permRows ?? []).map((r) => r.permission_key as string)),
-        );
+        setPermissionKeys(new Set((permRows ?? []).map((r) => r.permission_key as string)));
       }
 
-      setIsAdmin(userRoles.includes('admin'));
-      setIsGestor(userRoles.includes('gestor'));
-      setIsVereador(userRoles.includes('vereador'));
-      setIsAssessor(userRoles.includes('assessor'));
-      setIsCidadao(userRoles.includes('cidadao'));
-      setIsCidadaoEngajado(userRoles.includes('cidadao_engajado'));
+      setIsAdmin(userRoles.includes("admin"));
+      setIsGestor(userRoles.includes("gestor"));
+      setIsVereador(userRoles.includes("vereador"));
+      setIsAssessor(userRoles.includes("assessor"));
+      setIsCidadao(userRoles.includes("cidadao"));
+      setIsCidadaoEngajado(userRoles.includes("cidadao_engajado"));
     } catch (error) {
       if (isLikelyAuthNetworkFailure(error)) {
         if (import.meta.env.DEV) {
-          console.warn('[useUserRole] Rede ao carregar perfis; tente atualizar a página.', error);
+          console.warn("[useUserRole] Rede ao carregar perfis; tente atualizar a página.", error);
         }
       } else {
-        console.error('[useUserRole] Erro ao carregar perfis:', error);
+        console.error("[useUserRole] Erro ao carregar perfis:", error);
       }
     } finally {
       setLoading(false);
@@ -249,7 +253,7 @@ export const useUserRole = () => {
   const canViewDashboards =
     canUseStaffPaineis ||
     isCidadaoEngajado ||
-    rolesGrantPermission(roles, 'analytics.view_advanced', permissionKeys);
+    rolesGrantPermission(roles, "analytics.view_advanced", permissionKeys);
   const canCreateDashboards = canViewDashboards;
   const canManageDashboards = isAdmin || isGestor;
 

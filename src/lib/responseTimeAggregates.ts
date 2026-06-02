@@ -1,28 +1,21 @@
-import { supabase } from '@/integrations/supabase/client';
-import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
-import {
-  categoryDbValuesForRpc,
-  resolveGlobalCategoryFilter,
-} from '@/lib/globalCategoryFilter';
-import { regionLabel } from '@/lib/analyticsLabels';
-import { normalizeCitizenReportStatus } from '@/lib/citizenReportStatus';
-import {
-  bairroParaZona,
-  ZONAS_FILTRO,
-  type ZonaVolumeOuDesconhecida,
-} from '@/lib/regionMapping';
+import { supabase } from "@/integrations/supabase/client";
+import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
+import { categoryDbValuesForRpc, resolveGlobalCategoryFilter } from "@/lib/globalCategoryFilter";
+import { regionLabel } from "@/lib/analyticsLabels";
+import { normalizeCitizenReportStatus } from "@/lib/citizenReportStatus";
+import { bairroParaZona, ZONAS_FILTRO, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
 import {
   districtLabelFromGeoRow,
   type GeoReportRow,
   type TerritoryGeoRow,
   type UrbanReportRow,
-} from '@/lib/reportsAnalyticsAggregates';
+} from "@/lib/reportsAnalyticsAggregates";
 
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 5;
 
 export type ResponseTimeRecord = {
-  source: 'urbano' | 'transporte' | 'encaminhamento';
+  source: "urbano" | "transporte" | "encaminhamento";
   category: string;
   /** Tipo principal do relato de transporte (ex.: atraso). */
   reportType?: string;
@@ -73,7 +66,7 @@ function diffHours(start: string, end: string): number {
   return ms > 0 ? ms / 36e5 : 0;
 }
 
-function safeText(value: unknown, fallback = 'Não informado'): string {
+function safeText(value: unknown, fallback = "Não informado"): string {
   const text = (value as string | null | undefined)?.toString().trim();
   return text && text.length > 0 ? text : fallback;
 }
@@ -81,10 +74,10 @@ function safeText(value: unknown, fallback = 'Não informado'): string {
 function normalizeDistrictKey(value: string): string {
   return value
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -93,7 +86,7 @@ function normalizeCategory(value: string): string {
 }
 
 function zoneFromGeoRow(row: GeoReportRow): ZonaVolumeOuDesconhecida {
-  const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+  const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
   return bairroParaZona(text, row.latitude, row.longitude);
 }
 
@@ -102,7 +95,7 @@ function triageMapKey(sourceTable: string, reportId: string): string {
 }
 
 function isResolvedReportStatus(status: string | null | undefined): boolean {
-  return normalizeCitizenReportStatus(status) === 'resolved';
+  return normalizeCitizenReportStatus(status) === "resolved";
 }
 
 /** Mapa report_triage.resolved_at por (source_table, report_id). */
@@ -111,9 +104,9 @@ export async function fetchTriageResolvedAtMap(): Promise<Map<string, string>> {
   try {
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const { data, error } = await supabase
-        .from('report_triage')
-        .select('source_table, report_id, resolved_at')
-        .not('resolved_at', 'is', null)
+        .from("report_triage")
+        .select("source_table, report_id, resolved_at")
+        .not("resolved_at", "is", null)
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       if (error) throw error;
       const rows = data ?? [];
@@ -124,7 +117,7 @@ export async function fetchTriageResolvedAtMap(): Promise<Map<string, string>> {
       if (rows.length < PAGE_SIZE) break;
     }
   } catch (err) {
-    console.warn('[fetchTriageResolvedAtMap]', err);
+    console.warn("[fetchTriageResolvedAtMap]", err);
   }
   return map;
 }
@@ -142,11 +135,10 @@ export function recordsFromTerritoryGeoRows(
     if (!isResolvedReportStatus(row.status)) continue;
     if (!row.created_at) continue;
 
-    const sourceTable =
-      row.source === 'urbano' ? 'urban_reports' : 'transport_reports';
+    const sourceTable = row.source === "urbano" ? "urban_reports" : "transport_reports";
     const closedAt =
       (row.id && triageResolvedAt?.get(triageMapKey(sourceTable, row.id))) ||
-      (row.source === 'transporte' ? row.responded_at : null) ||
+      (row.source === "transporte" ? row.responded_at : null) ||
       row.updated_at;
     if (!closedAt) continue;
 
@@ -159,7 +151,7 @@ export function recordsFromTerritoryGeoRows(
 
     out.push({
       source: row.source,
-      category: safeText(row.category, 'Sem categoria'),
+      category: safeText(row.category, "Sem categoria"),
       reportType: row.reportType,
       neighborhood: districtLabelFromGeoRow(geo),
       zone: zoneFromGeoRow(geo),
@@ -175,7 +167,7 @@ export function recordsFromTerritoryGeoRows(
 export function recordsFromUrbanRows(rows: UrbanReportRow[]): ResponseTimeRecord[] {
   const territoryRows: TerritoryGeoRow[] = rows.map((row) => ({
     id: row.id,
-    source: 'urbano' as const,
+    source: "urbano" as const,
     status: row.status,
     category: row.category,
     reportType: undefined,
@@ -190,7 +182,7 @@ export function recordsFromUrbanRows(rows: UrbanReportRow[]): ResponseTimeRecord
 }
 
 function stripDistrictPrefix(value: string): string {
-  return value.replace(/^(vila|vl|jardim|jd)\s+/, '').trim();
+  return value.replace(/^(vila|vl|jardim|jd)\s+/, "").trim();
 }
 
 function districtKeysMatch(a: string, b: string): boolean {
@@ -252,7 +244,7 @@ export function filterResponseTimeRecords(
     if (filters.status && r.status !== filters.status) return false;
     if (!allowedCategories) return true;
     const cat = normalizeCategory(r.category);
-    const reportType = normalizeCategory(r.reportType ?? '');
+    const reportType = normalizeCategory(r.reportType ?? "");
     return allowedCategories.some((c) => {
       const allowed = normalizeCategory(c);
       return allowed === cat || (reportType.length > 0 && allowed === reportType);
@@ -276,7 +268,10 @@ export function buildResponseTimeDrillStats(records: ResponseTimeRecord[]): Resp
   const zoneBuckets = new Map<ZonaVolumeOuDesconhecida, { sum: number; count: number }>();
   for (const zona of ZONAS_FILTRO) zoneBuckets.set(zona, { sum: 0, count: 0 });
 
-  const districtBuckets = new Map<string, { zone: ZonaVolumeOuDesconhecida; sum: number; count: number }>();
+  const districtBuckets = new Map<
+    string,
+    { zone: ZonaVolumeOuDesconhecida; sum: number; count: number }
+  >();
 
   for (const r of records) {
     const z = zoneBuckets.get(r.zone) ?? { sum: 0, count: 0 };
@@ -302,7 +297,7 @@ export function buildResponseTimeDrillStats(records: ResponseTimeRecord[]): Resp
 
   const byNeighborhood = [...districtBuckets.entries()]
     .map(([key, b]) => ({
-      neighborhood: key.split('\u0000')[1] ?? 'Sem bairro',
+      neighborhood: key.split("\u0000")[1] ?? "Sem bairro",
       zone: b.zone,
       avgHours: b.count > 0 ? roundHours(b.sum / b.count) : 0,
       count: b.count,
@@ -366,7 +361,7 @@ export async function computeResponseTimeDrillStats(
     }
     return buildResponseTimeDrillStats(filterResponseTimeRecords(merged, filters));
   } catch (err) {
-    console.warn('[computeResponseTimeDrillStats]', err);
+    console.warn("[computeResponseTimeDrillStats]", err);
     return EMPTY_RESPONSE_TIME_DRILL;
   }
 }

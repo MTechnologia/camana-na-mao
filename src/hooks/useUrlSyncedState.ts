@@ -186,12 +186,9 @@ export function useUrlSyncedState<T extends Record<string, unknown>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const setStateWrapped = useCallback(
-    (next: T | ((prev: T) => T)) => {
-      setState((prev) => (typeof next === "function" ? (next as (p: T) => T)(prev) : next));
-    },
-    [],
-  );
+  const setStateWrapped = useCallback((next: T | ((prev: T) => T)) => {
+    setState((prev) => (typeof next === "function" ? (next as (p: T) => T)(prev) : next));
+  }, []);
 
   return [state, setStateWrapped];
 }
@@ -206,9 +203,7 @@ function shallowEqual(a: unknown, b: unknown): boolean {
     const ka = Object.keys(a as Record<string, unknown>);
     const kb = Object.keys(b as Record<string, unknown>);
     if (ka.length !== kb.length) return false;
-    return ka.every(
-      (k) => (a as Record<string, unknown>)[k] === (b as Record<string, unknown>)[k],
-    );
+    return ka.every((k) => (a as Record<string, unknown>)[k] === (b as Record<string, unknown>)[k]);
   }
   return false;
 }

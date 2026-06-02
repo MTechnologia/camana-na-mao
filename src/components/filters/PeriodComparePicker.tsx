@@ -1,21 +1,21 @@
-import { useMemo } from 'react';
-import { ArrowLeftRight, Calendar, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { useMemo } from "react";
+import { ArrowLeftRight, Calendar, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { FilterDateRangeFields } from '@/components/filters/FilterDateRangeFields';
-import type { DateRangeValue } from '@/components/filters/types';
-import { PERIOD_FILTER_OPTIONS, PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { globalPeriodKeyToDateRange } from '@/lib/globalPeriodRange';
-import { isCompleteDateRange, normalizeDateRange } from '@/lib/dateRangeUtils';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/select";
+import { FilterDateRangeFields } from "@/components/filters/FilterDateRangeFields";
+import type { DateRangeValue } from "@/components/filters/types";
+import { PERIOD_FILTER_OPTIONS, PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
+import { isCompleteDateRange, normalizeDateRange } from "@/lib/dateRangeUtils";
+import { cn } from "@/lib/utils";
 
 /**
  * HU-5.1 — Seletor de dois períodos para comparação A vs B.
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
  * Período B: preset ou intervalo personalizado com os mesmos campos.
  */
 
-export type ComparePreset = 'previous' | 'year_ago' | 'custom';
+export type ComparePreset = "previous" | "year_ago" | "custom";
 
 export interface PeriodComparePickerValue {
   periodA: DateRangeValue | undefined;
@@ -45,13 +45,13 @@ export function computePeriodB(
 ): DateRangeValue | null {
   if (!isCompleteDateRange(periodA)) return null;
 
-  if (preset === 'previous') {
+  if (preset === "previous") {
     const ms = periodA.to.getTime() - periodA.from.getTime();
     const to = new Date(periodA.from.getTime() - 24 * 3600 * 1000);
     const from = new Date(to.getTime() - ms);
     return normalizeDateRange(from, to) ?? null;
   }
-  if (preset === 'year_ago') {
+  if (preset === "year_ago") {
     const from = new Date(periodA.from);
     from.setFullYear(from.getFullYear() - 1);
     const to = new Date(periodA.to);
@@ -63,15 +63,19 @@ export function computePeriodB(
 }
 
 function formatRange(p: DateRangeValue | null | undefined): string {
-  if (!isCompleteDateRange(p)) return '—';
+  if (!isCompleteDateRange(p)) return "—";
   const fmt = (d: Date) =>
-    d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   return `${fmt(p.from)} – ${fmt(p.to)}`;
 }
 
 const QUICK_PERIOD_PRESETS = PERIOD_FILTER_OPTIONS.filter((p) => p.value !== PERIOD_COMPARE_VALUE);
 
-export function PeriodComparePicker({ value, onChange, compact = false }: PeriodComparePickerProps) {
+export function PeriodComparePicker({
+  value,
+  onChange,
+  compact = false,
+}: PeriodComparePickerProps) {
   const { periodA, periodB, preset } = value;
   const compareEnabled = periodB !== null;
   const periodAComplete = isCompleteDateRange(periodA);
@@ -85,7 +89,7 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
     const { from, to } = globalPeriodKeyToDateRange(periodKey);
     const nextA = normalizeDateRange(from, to);
     let nextB = periodB;
-    if (compareEnabled && preset !== 'custom') {
+    if (compareEnabled && preset !== "custom") {
       nextB = computePeriodB(nextA, preset, periodB);
     }
     onChange({ periodA: nextA, periodB: nextB, preset });
@@ -93,7 +97,7 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
 
   const handleTogglePeriodCompare = (enabled: boolean) => {
     if (enabled) {
-      const nextPreset = preset === 'custom' ? 'previous' : preset;
+      const nextPreset = preset === "custom" ? "previous" : preset;
       const next = computePeriodB(periodA, nextPreset, periodB);
       onChange({ periodA, periodB: next, preset: nextPreset });
     } else {
@@ -103,7 +107,7 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
 
   const handlePresetChange = (next: ComparePreset) => {
     const nextB =
-      next === 'custom'
+      next === "custom"
         ? periodB && (periodB.from || periodB.to)
           ? periodB
           : { from: undefined, to: undefined }
@@ -113,7 +117,7 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
 
   const handlePeriodAChange = (next: DateRangeValue | undefined) => {
     let nextB = periodB;
-    if (compareEnabled && preset !== 'custom') {
+    if (compareEnabled && preset !== "custom") {
       nextB = computePeriodB(next, preset, periodB);
     }
     onChange({ periodA: next, periodB: nextB, preset });
@@ -123,13 +127,13 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
     onChange({
       periodA,
       periodB: next ?? null,
-      preset: 'custom',
+      preset: "custom",
     });
   };
 
   return (
     <div className="space-y-3">
-      <div className={cn('space-y-2', compact ? '' : 'md:pr-4')}>
+      <div className={cn("space-y-2", compact ? "" : "md:pr-4")}>
         <Label className="flex items-center gap-1 text-xs">
           <Calendar className="h-3.5 w-3.5" />
           Período principal (A)
@@ -206,7 +210,7 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
             </Select>
           </div>
 
-          {preset === 'custom' ? (
+          {preset === "custom" ? (
             <FilterDateRangeFields
               value={periodB ?? undefined}
               onChange={handlePeriodBChange}
@@ -220,8 +224,8 @@ export function PeriodComparePicker({ value, onChange, compact = false }: Period
           )}
 
           <p className="text-xs text-muted-foreground">
-            Comparando <strong>{formatRange(periodA)}</strong> com{' '}
-            <strong>{formatRange(preset === 'custom' ? periodB : computedB)}</strong>.
+            Comparando <strong>{formatRange(periodA)}</strong> com{" "}
+            <strong>{formatRange(preset === "custom" ? periodB : computedB)}</strong>.
           </p>
         </div>
       ) : null}

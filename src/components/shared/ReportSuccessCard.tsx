@@ -38,7 +38,7 @@ export const ReportSuccessCard = ({
           "border-2",
           isUrban
             ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-200 dark:border-green-800"
-            : "border-green-500/20"
+            : "border-green-500/20",
         )}
       >
         <CardContent className={cn("pt-6", !isUrban && "p-6 text-center")}>
@@ -52,16 +52,14 @@ export const ReportSuccessCard = ({
               <div
                 className={cn(
                   "flex items-center justify-center",
-                  isUrban
-                    ? "h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/50"
-                    : ""
+                  isUrban ? "h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/50" : "",
                 )}
               >
                 <CheckCircle2
                   className={cn(
                     isUrban
                       ? "h-8 w-8 text-green-600 dark:text-green-400"
-                      : "w-16 h-16 text-green-500"
+                      : "w-16 h-16 text-green-500",
                   )}
                 />
               </div>
@@ -72,9 +70,7 @@ export const ReportSuccessCard = ({
               <h3
                 className={cn(
                   "font-semibold",
-                  isUrban
-                    ? "text-lg text-green-800 dark:text-green-200"
-                    : "text-xl"
+                  isUrban ? "text-lg text-green-800 dark:text-green-200" : "text-xl",
                 )}
               >
                 {isUrban ? "Relato Registrado!" : "Relato enviado com sucesso!"}
@@ -82,21 +78,19 @@ export const ReportSuccessCard = ({
               <p
                 className={cn(
                   "text-sm",
-                  isUrban
-                    ? "text-green-700 dark:text-green-300"
-                    : "text-muted-foreground"
+                  isUrban ? "text-green-700 dark:text-green-300" : "text-muted-foreground",
                 )}
               >
                 {isUrban
                   ? "Seu relato foi enviado e está sendo analisado por inteligência artificial. Você pode acompanhar o status em 'Meus Relatos'."
                   : "Seu relato foi registrado e está sendo analisado por IA. Geralmente em poucos minutos você verá a classificação e prioridade definidas."}
               </p>
-              <p className={cn(
-                "text-xs mt-2",
-                isUrban 
-                  ? "text-green-600/80 dark:text-green-400/80"
-                  : "text-muted-foreground/80"
-              )}>
+              <p
+                className={cn(
+                  "text-xs mt-2",
+                  isUrban ? "text-green-600/80 dark:text-green-400/80" : "text-muted-foreground/80",
+                )}
+              >
                 ⏱️ Tempo estimado de análise: 1-5 minutos
               </p>
             </div>
@@ -105,7 +99,7 @@ export const ReportSuccessCard = ({
             <div
               className={cn(
                 "w-full",
-                isUrban ? "flex flex-col sm:flex-row gap-3 pt-2" : "pt-4 space-y-2"
+                isUrban ? "flex flex-col sm:flex-row gap-3 pt-2" : "pt-4 space-y-2",
               )}
             >
               {isUrban ? (
@@ -126,12 +120,13 @@ export const ReportSuccessCard = ({
                     </Button>
                   )}
 
-                  {subscribeContent ?? (onSubscribe && (
-                    <Button variant="outline" onClick={onSubscribe} className="w-full">
-                      <Bell className="w-4 h-4 mr-2" />
-                      Receber atualizações
-                    </Button>
-                  ))}
+                  {subscribeContent ??
+                    (onSubscribe && (
+                      <Button variant="outline" onClick={onSubscribe} className="w-full">
+                        <Bell className="w-4 h-4 mr-2" />
+                        Receber atualizações
+                      </Button>
+                    ))}
                 </>
               )}
             </div>
@@ -143,7 +138,7 @@ export const ReportSuccessCard = ({
                 className={cn(
                   isUrban
                     ? "text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
-                    : "w-full"
+                    : "w-full",
                 )}
                 onClick={onNewReport}
               >

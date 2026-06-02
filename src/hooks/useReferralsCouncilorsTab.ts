@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { councilMemberPointsFromDestinations } from '@/lib/councilMemberChart';
-import type { CouncilMemberChartPoint } from '@/lib/councilMemberChart';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { councilMemberPointsFromDestinations } from "@/lib/councilMemberChart";
+import type { CouncilMemberChartPoint } from "@/lib/councilMemberChart";
 import {
   fetchCouncilMemberDestinations,
   type ReferralDestination,
-} from '@/lib/referralDestinations';
+} from "@/lib/referralDestinations";
 import {
   buildCouncilMemberDestinationsFromReferrals,
   fetchFilteredCouncilMemberReferrals,
   type FilteredCouncilReferralRow,
-} from '@/lib/referralsGlobalFilters';
+} from "@/lib/referralsGlobalFilters";
 
 export type CouncilMemberCatalogEntry = {
   councilMemberId: string;
@@ -53,7 +53,7 @@ export function useReferralsCouncilorsTab(selectedCouncilMemberIds: string[]) {
       );
       setReferralRows(rows);
     } catch (err) {
-      console.error('[useReferralsCouncilorsTab] load', err);
+      console.error("[useReferralsCouncilorsTab] load", err);
       setCatalog([]);
       setBaselineDestinations([]);
       setReferralRows([]);
@@ -77,10 +77,7 @@ export function useReferralsCouncilorsTab(selectedCouncilMemberIds: string[]) {
   );
 
   const allDestinations = useMemo(() => {
-    const fromFiltered = buildCouncilMemberDestinationsFromReferrals(
-      referralRows,
-      catalogForBuild,
-    );
+    const fromFiltered = buildCouncilMemberDestinationsFromReferrals(referralRows, catalogForBuild);
     if (fromFiltered.length > 0) return fromFiltered;
     return baselineDestinations;
   }, [referralRows, catalogForBuild, baselineDestinations]);

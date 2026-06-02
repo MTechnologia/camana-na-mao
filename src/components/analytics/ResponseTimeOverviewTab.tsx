@@ -33,7 +33,10 @@ import { KPICard } from "@/components/analytics/KPICard";
 import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
 import { EficienciaFacetPicker } from "@/components/analytics/facets/EficienciaFacetPicker";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
-import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
+import {
+  EMPTY_VOLUME_FILTERS,
+  type VolumeFiltersValue,
+} from "@/components/analytics/volumeFiltersConstants";
 import {
   EMPTY_EFICIENCIA_FACET,
   countActiveEficienciaFacet,
@@ -87,7 +90,9 @@ const TYPE_LABEL: Record<"urbano" | "transporte" | "encaminhamento", string> = {
 
 export function ResponseTimeOverviewTab() {
   // HU-3.3 — período sincronizado com URL
-  const [periodState, setPeriodState] = useUrlSyncedState<{ p: { startDate?: string; endDate?: string } | null }>({
+  const [periodState, setPeriodState] = useUrlSyncedState<{
+    p: { startDate?: string; endDate?: string } | null;
+  }>({
     prefix: "eff",
     defaults: { p: null },
     serializers: { p: dateRangeSerializer() },
@@ -121,10 +126,7 @@ export function ResponseTimeOverviewTab() {
   const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
   // HU-14.4 — Facet da aba Eficiência (SLA + range + status) sincronizado com URL.
-  const [efiFacet, setEfiFacet] = useFacetUrlState<EficienciaFacet>(
-    "efi",
-    EMPTY_EFICIENCIA_FACET,
-  );
+  const [efiFacet, setEfiFacet] = useFacetUrlState<EficienciaFacet>("efi", EMPTY_EFICIENCIA_FACET);
   const debouncedEfiFacet = useDebouncedValue(efiFacet, 300);
   const facetActiveCount = countActiveEficienciaFacet(efiFacet);
 
@@ -226,11 +228,7 @@ export function ResponseTimeOverviewTab() {
         facetHint="Filtros específicos da aba Eficiência — limita a janela de SLA e a faixa de tempo de resolução considerada. Aplicam-se apenas a este corte."
         facetActiveCount={facetActiveCount}
         facet={
-          <EficienciaFacetPicker
-            value={efiFacet}
-            onChange={setEfiFacet}
-            disabled={isLoading}
-          />
+          <EficienciaFacetPicker value={efiFacet} onChange={setEfiFacet} disabled={isLoading} />
         }
       />
       {(period?.from || period?.to) && (
@@ -244,9 +242,7 @@ export function ResponseTimeOverviewTab() {
         <Card className="p-4 col-span-2">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs text-muted-foreground mb-1">
-                Tempo médio até resolução
-              </p>
+              <p className="text-xs text-muted-foreground mb-1">Tempo médio até resolução</p>
               <p className="text-3xl font-semibold text-foreground">
                 {formatHours(stats.avgHours)}
               </p>
@@ -259,9 +255,8 @@ export function ResponseTimeOverviewTab() {
                 >
                   <DirectionIcon className="h-4 w-4" aria-hidden="true" />
                   <span>
-                    {directionLabel[stats.direction]} —{" "}
-                    {Math.abs(stats.deltaPct).toFixed(1)}% vs. {formatHours(stats.avgHoursPrevious)}{" "}
-                    no período anterior
+                    {directionLabel[stats.direction]} — {Math.abs(stats.deltaPct).toFixed(1)}% vs.{" "}
+                    {formatHours(stats.avgHoursPrevious)} no período anterior
                   </span>
                 </div>
               )}
@@ -285,10 +280,7 @@ export function ResponseTimeOverviewTab() {
       </div>
 
       {/* Trend de tempo médio */}
-      <ChartCard
-        title="Tendência do tempo de resolução"
-        subtitle="Tempo médio por dia (em horas)"
-      >
+      <ChartCard title="Tendência do tempo de resolução" subtitle="Tempo médio por dia (em horas)">
         <div className="h-72">
           {isLoading && trendData.length === 0 ? (
             <div className="h-full w-full bg-muted/40 rounded animate-pulse" />
@@ -296,15 +288,8 @@ export function ResponseTimeOverviewTab() {
             <EmptyState message="Nenhum relato resolvido no período selecionado." />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={trendData}
-                margin={{ top: 8, right: 16, left: 0, bottom: 4 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  opacity={0.3}
-                />
+              <LineChart data={trendData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                 <XAxis
                   dataKey="label"
                   stroke="hsl(var(--muted-foreground))"
@@ -416,11 +401,7 @@ function BreakdownPanel({ title, subtitle, items, isLoading }: BreakdownPanelPro
               layout="vertical"
               margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
             >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                opacity={0.3}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
               <XAxis
                 type="number"
                 stroke="hsl(var(--muted-foreground))"

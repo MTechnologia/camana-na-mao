@@ -1,29 +1,29 @@
-import { useMemo, useState } from 'react';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PageShell } from '@/components/ui/PageShell';
-import { KpiCard } from '@/components/ui/KpiCard';
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Link } from "react-router-dom";
+import { RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageShell } from "@/components/ui/PageShell";
+import { KpiCard } from "@/components/ui/KpiCard";
 import {
   PUBLIC_HEARINGS_KPI_LEGENDS,
   PUBLIC_HEARINGS_PAGE_LEGEND,
-} from '@/lib/analyticsParameterLegends';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFiltersToAudiencias } from '@/lib/globalFiltersToAudiencias';
-import { useAudienciasAnalytics } from '@/hooks/useAudienciasAnalytics';
-import { useUserRole } from '@/hooks/useUserRole';
-import { formatAudienciaTitulo } from '@/lib/audienciaDisplay';
+} from "@/lib/analyticsParameterLegends";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { globalFiltersToAudiencias } from "@/lib/globalFiltersToAudiencias";
+import { useAudienciasAnalytics } from "@/hooks/useAudienciasAnalytics";
+import { useUserRole } from "@/hooks/useUserRole";
+import { formatAudienciaTitulo } from "@/lib/audienciaDisplay";
 import {
   PublicHearingsKpiSheet,
   type PublicHearingsKpiMode,
-} from '@/components/admin/public-hearings/PublicHearingsKpiSheet';
-import { AudienciaEngagementDetailSheet } from '@/components/admin/public-hearings/AudienciaEngagementDetailSheet';
-import type { AudienciaRanking } from '@/hooks/useAudienciasAnalytics';
+} from "@/components/admin/public-hearings/PublicHearingsKpiSheet";
+import { AudienciaEngagementDetailSheet } from "@/components/admin/public-hearings/AudienciaEngagementDetailSheet";
+import type { AudienciaRanking } from "@/hooks/useAudienciasAnalytics";
 
 export function PublicHearingsPage() {
   const { period, region } = useGlobalFilters();
@@ -50,36 +50,36 @@ export function PublicHearingsPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard
           label="Audiências abertas"
-          value={isLoading ? '—' : String(stats.audienciasAbertas)}
+          value={isLoading ? "—" : String(stats.audienciasAbertas)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.open}
           hint="Clique para ver a lista de audiências abertas"
-          onOpenDetail={() => setKpiMode('open')}
+          onOpenDetail={() => setKpiMode("open")}
         />
         <KpiCard
           label="Inscrições confirmadas"
-          value={isLoading ? '—' : String(stats.totalInscricoes)}
+          value={isLoading ? "—" : String(stats.totalInscricoes)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.registrations}
           hint="Clique para ver inscrições por audiência"
-          onOpenDetail={() => setKpiMode('registrations')}
+          onOpenDetail={() => setKpiMode("registrations")}
         />
         <KpiCard
           label="Manifestações recebidas"
-          value={isLoading ? '—' : String(stats.totalEscritas)}
+          value={isLoading ? "—" : String(stats.totalEscritas)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.statements}
           hint="Clique para ver manifestações por audiência"
-          onOpenDetail={() => setKpiMode('manifestations')}
+          onOpenDetail={() => setKpiMode("manifestations")}
         />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
         {lastUpdate && (
           <p className="text-xs text-muted-foreground">
-            Atualizado às{' '}
-            {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            Atualizado às{" "}
+            {lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </p>
         )}
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
-          <RefreshCw className={cn('mr-2 h-4 w-4', busy && 'animate-spin')} />
+          <RefreshCw className={cn("mr-2 h-4 w-4", busy && "animate-spin")} />
           Atualizar
         </Button>
       </div>
@@ -105,7 +105,9 @@ export function PublicHearingsPage() {
             ))}
           </div>
         ) : listItems.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma audiência no período.</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">
+            Nenhuma audiência no período.
+          </p>
         ) : (
           <ul className="divide-y divide-border">
             {listItems.map((a) => {
@@ -123,13 +125,13 @@ export function PublicHearingsPage() {
                   <div className="min-w-0">
                     <p className="font-medium text-foreground truncate">{titulo}</p>
                     <p className="text-xs text-muted-foreground">
-                      {a.comissao ?? 'Sem comissão'} ·{' '}
-                      {format(new Date(a.data), 'dd/MM/yyyy', { locale: ptBR })} · {a.zona}
+                      {a.comissao ?? "Sem comissão"} ·{" "}
+                      {format(new Date(a.data), "dd/MM/yyyy", { locale: ptBR })} · {a.zona}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <Badge variant="secondary">
-                      {a.inscricoes} {a.inscricoes === 1 ? 'inscrição' : 'inscrições'}
+                      {a.inscricoes} {a.inscricoes === 1 ? "inscrição" : "inscrições"}
                     </Badge>
                     {a.aberta && <Badge variant="default">Aberta</Badge>}
                     {a.ocupacaoPct != null && (

@@ -44,11 +44,7 @@ const SEVERITY_BG: Record<Severity, string> = {
   critical: "bg-destructive/15 text-destructive border-destructive/40",
 };
 
-export function CriticidadeFacetPicker({
-  value,
-  onChange,
-  disabled,
-}: CriticidadeFacetPickerProps) {
+export function CriticidadeFacetPicker({ value, onChange, disabled }: CriticidadeFacetPickerProps) {
   const selectedSeverities = new Set(value.severities ?? []);
 
   const toggleSeverity = (s: Severity) => {
@@ -107,9 +103,7 @@ export function CriticidadeFacetPicker({
         >
           <Checkbox
             checked={!!value.criticalOnly}
-            onCheckedChange={(checked) =>
-              onChange({ ...value, criticalOnly: checked === true })
-            }
+            onCheckedChange={(checked) => onChange({ ...value, criticalOnly: checked === true })}
             disabled={disabled}
           />
           <span className="text-xs flex items-center gap-1">

@@ -18,7 +18,7 @@ export interface SubmitInscricaoToCmspResult {
 }
 
 export async function submitInscricaoToCmsp(
-  params: SubmitInscricaoToCmspParams
+  params: SubmitInscricaoToCmspParams,
 ): Promise<SubmitInscricaoToCmspResult> {
   const { nome, email, telefone, apCode, slug } = params;
   if (!slug?.trim() || !apCode?.trim()) {
@@ -59,7 +59,9 @@ export async function submitInscricaoToCmsp(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = Array.isArray(data?.errors) ? data.errors.join(", ") : data?.message ?? res.statusText;
+      const msg = Array.isArray(data?.errors)
+        ? data.errors.join(", ")
+        : (data?.message ?? res.statusText);
       console.warn("[submitInscricaoToCmsp] API respondeu com erro:", res.status, msg);
       return { ok: false, error: msg };
     }

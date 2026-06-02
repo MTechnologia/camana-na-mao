@@ -21,7 +21,7 @@ if (useStrict) {
   root.render(
     <StrictMode>
       <App />
-    </StrictMode>
+    </StrictMode>,
   );
 } else {
   root.render(<App />);

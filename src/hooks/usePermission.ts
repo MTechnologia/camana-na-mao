@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
-import {
-  rolesGrantPermission,
-  type PermissionKey,
-} from "@/lib/permissions";
+import { rolesGrantPermission, type PermissionKey } from "@/lib/permissions";
 
 /**
  * HU-11.3 — Hook canônico de checagem de permissão.
@@ -42,9 +39,10 @@ export function usePermission(key: PermissionKey | string): UsePermissionResult 
  * Variante para checar múltiplas permissões de uma vez.
  * Retorna mapa { key: allowed }.
  */
-export function usePermissions(
-  keys: readonly (PermissionKey | string)[],
-): { results: Record<string, boolean>; loading: boolean } {
+export function usePermissions(keys: readonly (PermissionKey | string)[]): {
+  results: Record<string, boolean>;
+  loading: boolean;
+} {
   const { roles, permissionKeys, loading } = useUserRole();
 
   const results = useMemo(() => {

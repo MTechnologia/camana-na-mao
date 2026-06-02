@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 
 export type AnalyticsLiveSource = {
   lastUpdate: Date | null;
@@ -41,14 +41,17 @@ export function AnalyticsLiveProvider({ children }: { children: ReactNode }) {
     setLastUpdate(pickMostRecent(sourcesRef.current));
   }, []);
 
-  const register = useCallback<RegisterFn>((id, source) => {
-    sourcesRef.current.set(id, source);
-    recompute();
-    return () => {
-      sourcesRef.current.delete(id);
+  const register = useCallback<RegisterFn>(
+    (id, source) => {
+      sourcesRef.current.set(id, source);
       recompute();
-    };
-  }, [recompute]);
+      return () => {
+        sourcesRef.current.delete(id);
+        recompute();
+      };
+    },
+    [recompute],
+  );
 
   const refreshAll = useCallback(() => {
     for (const source of sourcesRef.current.values()) {
@@ -61,15 +64,13 @@ export function AnalyticsLiveProvider({ children }: { children: ReactNode }) {
     [register, lastUpdate, refreshAll],
   );
 
-  return (
-    <AnalyticsLiveContext.Provider value={value}>{children}</AnalyticsLiveContext.Provider>
-  );
+  return <AnalyticsLiveContext.Provider value={value}>{children}</AnalyticsLiveContext.Provider>;
 }
 
 export function useAnalyticsLive(): AnalyticsLiveContextValue {
   const ctx = useContext(AnalyticsLiveContext);
   if (!ctx) {
-    throw new Error('useAnalyticsLive must be used within AnalyticsLiveProvider');
+    throw new Error("useAnalyticsLive must be used within AnalyticsLiveProvider");
   }
   return ctx;
 }

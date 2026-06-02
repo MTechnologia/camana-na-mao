@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
-import { Settings2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useReferralRoutingRules } from '@/contexts/ReferralRoutingRulesContext';
+import { Link } from "react-router-dom";
+import { Settings2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useReferralRoutingRules } from "@/contexts/ReferralRoutingRulesContext";
 
 type ReferralRulesSummaryProps = {
   className?: string;
@@ -12,13 +12,13 @@ export function ReferralRulesSummary({ className }: ReferralRulesSummaryProps) {
 
   const summary = rules.enabled
     ? `Sugestão ativa: tema ${rules.themeMatchWeight}% · fila ${rules.loadWeight}%${
-        rules.preferLowerLoad ? ' (prefere menor fila)' : ''
+        rules.preferLowerLoad ? " (prefere menor fila)" : ""
       }`
-    : 'Sugestão desativada — destinos sem ordenação por afinidade';
+    : "Sugestão desativada — destinos sem ordenação por afinidade";
 
   return (
     <div
-      className={`flex flex-col gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${className ?? ''}`}
+      className={`flex flex-col gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${className ?? ""}`}
     >
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">Regras de encaminhamento inteligente</p>

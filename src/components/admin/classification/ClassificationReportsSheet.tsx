@@ -1,14 +1,14 @@
-import { X } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useClassificationReports } from '@/hooks/useClassificationReports';
+import { X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useClassificationReports } from "@/hooks/useClassificationReports";
 import {
   CLASSIFICATION_SHEET_TITLES,
   type ClassificationReportKind,
-} from '@/lib/classificationReports';
-import { CLASSIFICATION_KPI_LEGENDS } from '@/lib/analyticsParameterLegends';
+} from "@/lib/classificationReports";
+import { CLASSIFICATION_KPI_LEGENDS } from "@/lib/analyticsParameterLegends";
 
 type ClassificationReportsSheetProps = {
   kind: ClassificationReportKind | null;
@@ -52,8 +52,8 @@ export function ClassificationReportsSheet({
             <p className="mt-0.5 text-xs text-muted-foreground">{parameter.description}</p>
             <p className="mt-1 text-xs font-medium text-foreground">
               {isLoading
-                ? 'Carregando…'
-                : `${items.length.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} relatos`}
+                ? "Carregando…"
+                : `${items.length.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")} relatos`}
             </p>
           </div>
           <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
@@ -96,7 +96,7 @@ export function ClassificationReportsSheet({
                     <div>
                       <dt className="text-muted-foreground">Confiança</dt>
                       <dd className="tabular-nums font-medium text-foreground">
-                        {report.confidencePct != null ? `${report.confidencePct}%` : '—'}
+                        {report.confidencePct != null ? `${report.confidencePct}%` : "—"}
                       </dd>
                     </div>
                     {report.feedbackLabel ? (

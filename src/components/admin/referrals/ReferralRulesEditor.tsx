@@ -1,13 +1,13 @@
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { useReferralRoutingRules } from '@/contexts/ReferralRoutingRulesContext';
-import { REFERRAL_RULE_LABELS } from '@/lib/referralRoutingRulesDefaults';
-import type { ReferralRoutingRules } from '@/types/referralRoutingRules';
+import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useReferralRoutingRules } from "@/contexts/ReferralRoutingRulesContext";
+import { REFERRAL_RULE_LABELS } from "@/lib/referralRoutingRulesDefaults";
+import type { ReferralRoutingRules } from "@/types/referralRoutingRules";
 
 const inputClass =
-  'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  "flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 type ReferralRulesEditorProps = {
   /** Formulário compacto para o painel lateral do relato. */
@@ -39,9 +39,9 @@ export function ReferralRulesEditor({
 
   const summary = rules.enabled
     ? `Tema ${rules.themeMatchWeight}% · Fila ${rules.loadWeight}%${
-        rules.preferLowerLoad ? ' (menor fila)' : ''
+        rules.preferLowerLoad ? " (menor fila)" : ""
       }`
-    : 'Sugestão desativada — listas sem ordenação por afinidade';
+    : "Sugestão desativada — listas sem ordenação por afinidade";
 
   return (
     <div className="rounded-lg border border-border bg-card/80">
@@ -67,11 +67,11 @@ export function ReferralRulesEditor({
       </button>
 
       {expanded ? (
-        <div className={`space-y-4 border-t border-border px-3 py-3 ${compact ? '' : 'pt-4'}`}>
+        <div className={`space-y-4 border-t border-border px-3 py-3 ${compact ? "" : "pt-4"}`}>
           {!compact ? (
             <p className="text-sm text-muted-foreground">
               Definem como comissões e vereadores são ordenados e como o % de afinidade é calculado
-              ao abrir um relato. Ambiente:{' '}
+              ao abrir um relato. Ambiente:{" "}
               <strong className="text-foreground">{environmentKey}</strong>.
             </p>
           ) : null}
@@ -79,7 +79,7 @@ export function ReferralRulesEditor({
           <ul className="space-y-3">
             {REFERRAL_RULE_LABELS.map((field) => {
               const value = rules[field.key];
-              if (field.type === 'boolean') {
+              if (field.type === "boolean") {
                 return (
                   <li
                     key={field.key}
@@ -121,12 +121,17 @@ export function ReferralRulesEditor({
 
           {rules.updatedAt ? (
             <p className="text-[11px] text-muted-foreground">
-              Última alteração:{' '}
-              {new Date(rules.updatedAt).toLocaleString('pt-BR')}
+              Última alteração: {new Date(rules.updatedAt).toLocaleString("pt-BR")}
             </p>
           ) : null}
 
-          <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={resetRules}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={resetRules}
+          >
             <RotateCcw className="h-3.5 w-3.5" />
             Restaurar padrão
           </Button>

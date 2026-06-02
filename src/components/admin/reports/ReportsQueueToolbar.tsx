@@ -1,17 +1,17 @@
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ReportsPriorityFilter } from '@/components/admin/reports/ReportsPriorityFilter';
-import { ReportsResponsibleFilter } from '@/components/admin/reports/ReportsResponsibleFilter';
-import type { TriagePriority } from '@/lib/triage';
-import type { LegislativeCommissionOption } from '@/lib/reportCommissionReferrals';
-import type { ReportQueueTab } from '@/types/urbanReportManagement';
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ReportsPriorityFilter } from "@/components/admin/reports/ReportsPriorityFilter";
+import { ReportsResponsibleFilter } from "@/components/admin/reports/ReportsResponsibleFilter";
+import type { TriagePriority } from "@/lib/triage";
+import type { LegislativeCommissionOption } from "@/lib/reportCommissionReferrals";
+import type { ReportQueueTab } from "@/types/urbanReportManagement";
 
 const TAB_LABELS: { id: ReportQueueTab; label: string; hint: string }[] = [
-  { id: 'triage', label: 'Fila de triagem', hint: 'Priorizar relatos recebidos' },
-  { id: 'all', label: 'Todos', hint: 'Visão completa' },
-  { id: 'referrals', label: 'Encaminhamentos', hint: 'Enviados à comissão ou vereador' },
-  { id: 'tracking', label: 'Acompanhamento', hint: 'Status e linha do tempo' },
+  { id: "triage", label: "Fila de triagem", hint: "Priorizar relatos recebidos" },
+  { id: "all", label: "Todos", hint: "Visão completa" },
+  { id: "referrals", label: "Encaminhamentos", hint: "Enviados à comissão ou vereador" },
+  { id: "tracking", label: "Acompanhamento", hint: "Status e linha do tempo" },
 ];
 
 export function ReportsQueueToolbar({
@@ -77,20 +77,20 @@ export function ReportsQueueToolbar({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           {TAB_LABELS.find((t) => t.id === queueTab)?.hint}
-          {councilReferralFilterLabel ? ` · ${councilReferralFilterLabel}` : ''}
+          {councilReferralFilterLabel ? ` · ${councilReferralFilterLabel}` : ""}
           {councilReferralStats
             ? ` · ${councilReferralStats.referralTotal} encaminhamento${
-                councilReferralStats.referralTotal === 1 ? '' : 's'
+                councilReferralStats.referralTotal === 1 ? "" : "s"
               } (${councilReferralStats.urbanLinked} urbano${
-                councilReferralStats.urbanLinked === 1 ? '' : 's'
+                councilReferralStats.urbanLinked === 1 ? "" : "s"
               }${
                 councilReferralStats.nonUrban > 0
                   ? `, ${councilReferralStats.nonUrban} transporte/avaliação fora desta lista`
-                  : ''
+                  : ""
               })`
-            : ''}
-          {' · '}
-          {resultCount} registro{resultCount === 1 ? '' : 's'} na lista
+            : ""}
+          {" · "}
+          {resultCount} registro{resultCount === 1 ? "" : "s"} na lista
         </p>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <ReportsPriorityFilter

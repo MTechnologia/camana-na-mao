@@ -1,9 +1,9 @@
-import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
-import type { AnalyticsMetric } from '@/types/analyticsDrill';
-import { metricLabel } from '@/lib/analyticsLabels';
-import { cn } from '@/lib/utils';
+import { useAnalyticsDrill } from "@/contexts/AnalyticsDrillContext";
+import type { AnalyticsMetric } from "@/types/analyticsDrill";
+import { metricLabel } from "@/lib/analyticsLabels";
+import { cn } from "@/lib/utils";
 
-const metrics: AnalyticsMetric[] = ['volume', 'response_time', 'sentiment', 'patterns'];
+const metrics: AnalyticsMetric[] = ["volume", "response_time", "sentiment", "patterns"];
 
 export function MetricSwitcher() {
   const { metric, setMetric } = useAnalyticsDrill();
@@ -20,14 +20,17 @@ export function MetricSwitcher() {
           type="button"
           onClick={() => setMetric(m)}
           className={cn(
-            'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+            "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
             metric === m
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
           aria-pressed={metric === m}
         >
-          {metricLabel(m).replace(' de relatos', '').replace(' agregado', '').replace(' médio de resposta', '')}
+          {metricLabel(m)
+            .replace(" de relatos", "")
+            .replace(" agregado", "")
+            .replace(" médio de resposta", "")}
         </button>
       ))}
     </div>

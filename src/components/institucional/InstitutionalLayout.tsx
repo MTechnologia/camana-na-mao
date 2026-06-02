@@ -22,7 +22,7 @@ const InstitutionalLayout = ({
   backTo = "/",
 }: InstitutionalLayoutProps) => {
   const navigate = useNavigate();
-  
+
   return (
     <div className="min-h-screen bg-background">
       <PageHeader title={title} backTo={backTo} />
@@ -42,7 +42,7 @@ const InstitutionalLayout = ({
               </Badge>
             )}
           </div>
-          
+
           <div className="flex items-center gap-1">
             {showSearch && (
               <button
@@ -59,9 +59,7 @@ const InstitutionalLayout = ({
 
       {/* Content */}
       <div className="pt-[120px] pb-24">
-        <div className="max-w-3xl mx-auto px-6">
-          {children}
-        </div>
+        <div className="max-w-3xl mx-auto px-6">{children}</div>
       </div>
     </div>
   );

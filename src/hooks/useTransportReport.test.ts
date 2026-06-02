@@ -19,7 +19,9 @@ describe("useTransportReport", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as unknown as ReturnType<typeof useToast>);
+    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as unknown as ReturnType<
+      typeof useToast
+    >);
     vi.mocked(supabase.auth.getUser).mockResolvedValue({
       data: { user: mockUser },
       error: null,

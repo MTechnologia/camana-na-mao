@@ -36,10 +36,7 @@ import {
 } from "@/lib/interestAudienciaMapping";
 import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 import { tituloHistoricoAudiencia } from "@/lib/audienciaDisplay";
-import {
-  PERFIL_INSCRICOES_AUDIENCIAS_BACK,
-  withAudienciaFrom,
-} from "@/lib/audienciaNavigation";
+import { PERFIL_INSCRICOES_AUDIENCIAS_BACK, withAudienciaFrom } from "@/lib/audienciaNavigation";
 
 type AudienciaRef = {
   id: string;
@@ -82,23 +79,25 @@ export default function SubscriptionsPage() {
   const [recommendedAudiencias, setRecommendedAudiencias] = useState<AudienciaRecomendada[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
-  const { 
-    subscriptions: serviceSubs, 
-    loading: loadingServices, 
-    toggleSubscription: toggleService 
+  const {
+    subscriptions: serviceSubs,
+    loading: loadingServices,
+    toggleSubscription: toggleService,
   } = useServiceSubscriptions();
-  
-  const { 
-    subscriptions: transportSubs, 
-    loading: loadingTransport, 
+
+  const {
+    subscriptions: transportSubs,
+    loading: loadingTransport,
     toggleSubscription: toggleTransport,
     subscribeToLine,
   } = useTransportSubscriptions();
-  
+
   const { searchLinesRemote } = useTransportLines({ loadCatalog: false });
 
   const [transportSearch, setTransportSearch] = useState("");
-  const [transportSearchResults, setTransportSearchResults] = useState<TransportLineSearchRow[]>([]);
+  const [transportSearchResults, setTransportSearchResults] = useState<TransportLineSearchRow[]>(
+    [],
+  );
   const [loadingTransportSearch, setLoadingTransportSearch] = useState(false);
   const activeTab = searchParams.get("aba") === "audiencias" ? "audiencias" : "alertas";
 
@@ -252,13 +251,17 @@ export default function SubscriptionsPage() {
       const [resInsc, resPart] = await Promise.all([
         supabase
           .from("audiencia_inscricoes")
-          .select("id, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
+          .select(
+            "id, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)",
+          )
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(50),
         supabase
           .from("audiencia_participacoes")
-          .select("id, tipo, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)")
+          .select(
+            "id, tipo, created_at, audiencia:audiencias(id, titulo, data, status, comissao, descricao, tema)",
+          )
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(50),
@@ -291,15 +294,25 @@ export default function SubscriptionsPage() {
   };
 
   const tipoLabel = (tipo: string) =>
-    tipo === "videoconferencia" ? "Videoconferência" : tipo === "escrito" ? "Manifestação escrita" : tipo;
+    tipo === "videoconferencia"
+      ? "Videoconferência"
+      : tipo === "escrito"
+        ? "Manifestação escrita"
+        : tipo;
 
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
         <h1 className="text-xl font-bold mb-2">Acesso restrito</h1>
-        <p className="text-muted-foreground mb-6">Você precisa estar logado para gerenciar suas inscrições.</p>
-        <Button onClick={() => navigate("/login", { state: { from: `/perfil/inscricoes${window.location.search}` } })}>
+        <p className="text-muted-foreground mb-6">
+          Você precisa estar logado para gerenciar suas inscrições.
+        </p>
+        <Button
+          onClick={() =>
+            navigate("/login", { state: { from: `/perfil/inscricoes${window.location.search}` } })
+          }
+        >
           Entrar
         </Button>
       </div>
@@ -308,7 +321,8 @@ export default function SubscriptionsPage() {
 
   const isLoading = loadingServices || loadingTransport;
 
-  const isServiceSubscribed = (serviceId: string) => serviceSubs.some(s => s.service_id === serviceId);
+  const isServiceSubscribed = (serviceId: string) =>
+    serviceSubs.some((s) => s.service_id === serviceId);
   const isTransportSubscribed = (lineId: string) =>
     transportSubs.some((s) => s.line_id === lineId && s.subscription_type === "alert");
 
@@ -322,17 +336,14 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <PageHeader 
-        title="Minhas Inscrições" 
-        backTo="/perfil"
-      />
-      
+      <PageHeader title="Minhas Inscrições" backTo="/perfil" />
+
       <div className="pt-[70px] px-4 max-w-2xl mx-auto space-y-8">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            Gerencie alertas (notificações) sobre serviços e linhas de transporte nas quais você se inscreveu.
-            Também veja seu histórico de participações e recomendações sobre próximas audiências com base em seus
-            interesses.
+            Gerencie alertas (notificações) sobre serviços e linhas de transporte nas quais você se
+            inscreveu. Também veja seu histórico de participações e recomendações sobre próximas
+            audiências com base em seus interesses.
           </p>
         </div>
         <Tabs
@@ -389,7 +400,11 @@ export default function SubscriptionsPage() {
                           <p className="text-sm text-muted-foreground">
                             Você não está seguindo nenhum equipamento público no momento.
                           </p>
-                          <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate("/servicos-proximos")}
+                          >
                             Explorar serviços próximos
                           </Button>
                         </div>
@@ -398,7 +413,9 @@ export default function SubscriptionsPage() {
                           {serviceSubs.map((sub) => (
                             <div key={sub.id} className="flex items-center justify-between p-4">
                               <div className="flex-1 min-w-0 mr-4">
-                                <p className="font-medium text-sm truncate">{sub.public_services?.name || "Serviço"}</p>
+                                <p className="font-medium text-sm truncate">
+                                  {sub.public_services?.name || "Serviço"}
+                                </p>
                                 <p className="text-xs text-muted-foreground truncate">
                                   {sub.public_services?.district}
                                 </p>
@@ -435,11 +452,13 @@ export default function SubscriptionsPage() {
                       )}
                     </div>
 
-                    {transportSearch.trim().length >= 2 && !loadingTransportSearch && transportSearchResults.length === 0 && (
-                      <p className="mt-2 px-1 text-xs text-muted-foreground">
-                        Nenhuma linha encontrada na SPTrans para este termo.
-                      </p>
-                    )}
+                    {transportSearch.trim().length >= 2 &&
+                      !loadingTransportSearch &&
+                      transportSearchResults.length === 0 && (
+                        <p className="mt-2 px-1 text-xs text-muted-foreground">
+                          Nenhuma linha encontrada na SPTrans para este termo.
+                        </p>
+                      )}
 
                     {transportSearchResults.length > 0 && (
                       <Card className="mt-2 shadow-sm">
@@ -449,39 +468,44 @@ export default function SubscriptionsPage() {
                               ? isTransportSubscribed(line.id)
                               : subscribedLineCodes.has(line.line_code.trim().toLowerCase());
                             return (
-                            <div key={`${line.line_code}-${line.sptrans_codigo_linha ?? "x"}`} className="flex items-center justify-between p-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium">{line.line_code}</p>
-                                <p className="text-xs text-muted-foreground truncate">{line.line_name}</p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                disabled={following}
-                                className={getTransportButtonClasses(following)}
-                                onClick={() =>
-                                  void subscribeToLine({
-                                    id: line.id,
-                                    line_code: line.line_code,
-                                    line_name: line.line_name,
-                                    line_type: line.line_type,
-                                    sptrans_codigo_linha: line.sptrans_codigo_linha,
-                                  })
-                                }
+                              <div
+                                key={`${line.line_code}-${line.sptrans_codigo_linha ?? "x"}`}
+                                className="flex items-center justify-between p-3"
                               >
-                                {following ? (
-                                  <>
-                                    <Check className="mr-1.5 h-3.5 w-3.5" />
-                                    Seguindo
-                                  </>
-                                ) : (
-                                  <>
-                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                    Seguir
-                                  </>
-                                )}
-                              </Button>
-                            </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium">{line.line_code}</p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {line.line_name}
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={following}
+                                  className={getTransportButtonClasses(following)}
+                                  onClick={() =>
+                                    void subscribeToLine({
+                                      id: line.id,
+                                      line_code: line.line_code,
+                                      line_name: line.line_name,
+                                      line_type: line.line_type,
+                                      sptrans_codigo_linha: line.sptrans_codigo_linha,
+                                    })
+                                  }
+                                >
+                                  {following ? (
+                                    <>
+                                      <Check className="mr-1.5 h-3.5 w-3.5" />
+                                      Seguindo
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                      Seguir
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
                             );
                           })}
                         </CardContent>
@@ -494,8 +518,8 @@ export default function SubscriptionsPage() {
                       {transportSubs.length === 0 ? (
                         <div className="p-8 text-center">
                           <p className="text-sm text-muted-foreground">
-                            Você não está seguindo nenhuma linha de transporte no momento.
-                            Use a busca acima para encontrar uma linha.
+                            Você não está seguindo nenhuma linha de transporte no momento. Use a
+                            busca acima para encontrar uma linha.
                           </p>
                         </div>
                       ) : (
@@ -559,9 +583,14 @@ export default function SubscriptionsPage() {
                     <Card className="border-dashed">
                       <CardContent className="p-4 text-center space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          Selecione pelo menos 3 interesses no perfil para ver audiências recomendadas.
+                          Selecione pelo menos 3 interesses no perfil para ver audiências
+                          recomendadas.
                         </p>
-                        <Button variant="outline" size="sm" onClick={() => navigate("/perfil/interesses")}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate("/perfil/interesses")}
+                        >
                           Definir interesses
                         </Button>
                       </CardContent>
@@ -570,7 +599,8 @@ export default function SubscriptionsPage() {
                     <Card className="border-dashed">
                       <CardContent className="p-4 text-center space-y-2">
                         <p className="text-sm text-muted-foreground">
-                          Nenhuma audiência futura no calendário combina com seus interesses neste momento.
+                          Nenhuma audiência futura no calendário combina com seus interesses neste
+                          momento.
                         </p>
                         <Button variant="outline" size="sm" onClick={() => navigate("/audiencias")}>
                           Ver todas as audiências
@@ -603,7 +633,8 @@ export default function SubscriptionsPage() {
 
           <TabsContent value="audiencias" className="space-y-6">
             <p className="text-sm text-muted-foreground">
-              Registro das suas inscrições para lembretes e das suas participações em audiências públicas.
+              Registro das suas inscrições para lembretes e das suas participações em audiências
+              públicas.
             </p>
 
             {loadingAudiencias ? (
@@ -620,7 +651,8 @@ export default function SubscriptionsPage() {
                   {participacoesAudiencia.length === 0 ? (
                     <Card>
                       <CardContent className="p-4 text-center text-muted-foreground text-sm">
-                        Você ainda não tem inscrições para participar de audiências (videoconferência ou manifestação escrita).
+                        Você ainda não tem inscrições para participar de audiências
+                        (videoconferência ou manifestação escrita).
                       </CardContent>
                     </Card>
                   ) : (
@@ -651,10 +683,16 @@ export default function SubscriptionsPage() {
                                   {tituloHistoricoAudiencia(audiencia)}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                  {tipoLabel(participacao.tipo)} · {audiencia?.data ? formatData(audiencia.data) : "—"}
+                                  {tipoLabel(participacao.tipo)} ·{" "}
+                                  {audiencia?.data ? formatData(audiencia.data) : "—"}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Inscrito em {format(new Date(participacao.created_at), "d MMM yyyy 'às' HH:mm", { locale: ptBR })}
+                                  Inscrito em{" "}
+                                  {format(
+                                    new Date(participacao.created_at),
+                                    "d MMM yyyy 'às' HH:mm",
+                                    { locale: ptBR },
+                                  )}
                                 </p>
                               </div>
                             </CardContent>
@@ -678,9 +716,11 @@ export default function SubscriptionsPage() {
                         </p>
                         <p className="text-xs text-muted-foreground leading-relaxed">
                           Nas audiências públicas, use o botão{" "}
-                          <strong className="font-medium text-foreground">Receber lembretes desta audiência</strong>{" "}
-                          em cada evento de seu interesse. Você receberá confirmação e avisos antes da data (push e
-                          e-mail, conforme suas preferências).
+                          <strong className="font-medium text-foreground">
+                            Receber lembretes desta audiência
+                          </strong>{" "}
+                          em cada evento de seu interesse. Você receberá confirmação e avisos antes
+                          da data (push e e-mail, conforme suas preferências).
                         </p>
                         <Button className="w-full gap-2" onClick={() => navigate("/audiencias")}>
                           Ver audiências e inscrever em lembretes

@@ -1,56 +1,59 @@
-import { supabase } from '@/integrations/supabase/client';
-import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
-import type { LabeledValue, SeriesPoint } from '@/lib/chartTypes';
+import { supabase } from "@/integrations/supabase/client";
+import type { ReportsAnalyticsStats } from "@/hooks/useReportsAnalytics";
+import type { LabeledValue, SeriesPoint } from "@/lib/chartTypes";
 import {
   globalFiltersToReportsAnalytics,
   type PeriodCompareFilterInput,
-} from '@/lib/globalFiltersToAnalytics';
-import { fetchFilteredCouncilMemberReferrals } from '@/lib/referralsGlobalFilters';
-import { fetchCouncilMemberDestinations, fetchThematicCommissions } from '@/lib/referralDestinations';
-import { bairroParaZona } from '@/lib/regionMapping';
+} from "@/lib/globalFiltersToAnalytics";
+import { fetchFilteredCouncilMemberReferrals } from "@/lib/referralsGlobalFilters";
+import {
+  fetchCouncilMemberDestinations,
+  fetchThematicCommissions,
+} from "@/lib/referralDestinations";
+import { bairroParaZona } from "@/lib/regionMapping";
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrador',
-  gestor: 'Gestor',
-  vereador: 'Vereador',
-  assessor: 'Assessor',
-  cidadao_engajado: 'Cidadão engajado',
-  cidadao: 'Cidadão',
+  admin: "Administrador",
+  gestor: "Gestor",
+  vereador: "Vereador",
+  assessor: "Assessor",
+  cidadao_engajado: "Cidadão engajado",
+  cidadao: "Cidadão",
 };
 
 const CORRECTION_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovada',
-  rejected: 'Rejeitada',
-  applied: 'Aplicada',
+  pending: "Pendente",
+  approved: "Aprovada",
+  rejected: "Rejeitada",
+  applied: "Aplicada",
 };
 
 const REFERRAL_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendentes',
-  sent: 'Enviados',
-  acknowledged: 'Reconhecidos',
-  resolved: 'Resolvidos',
+  pending: "Pendentes",
+  sent: "Enviados",
+  acknowledged: "Reconhecidos",
+  resolved: "Resolvidos",
 };
 
 function dateRangeFromFilters(period: string, periodCompare?: PeriodCompareFilterInput | null) {
-  const f = globalFiltersToReportsAnalytics(period, 'all', 'all', periodCompare ?? undefined);
+  const f = globalFiltersToReportsAnalytics(period, "all", "all", periodCompare ?? undefined);
   return { start: f.startDate, end: f.endDate };
 }
 
 function formatDayLabel(isoDate: string): string {
   const d = new Date(isoDate);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 export function buildVolumeSeriesFromStats(stats: ReportsAnalyticsStats | null): SeriesPoint[] {
   if (!stats?.timeline?.length) return [];
   const resolvedByDate = new Map(
     stats.byStatus
-      .filter((s) => s.status === 'resolved' || s.status === 'closed')
+      .filter((s) => s.status === "resolved" || s.status === "closed")
       .map(() => [] as string[]),
   );
   void resolvedByDate;
-  const resolvedTotal = stats.byStatus.find((s) => s.status === 'resolved')?.count ?? 0;
+  const resolvedTotal = stats.byStatus.find((s) => s.status === "resolved")?.count ?? 0;
   const ratio = stats.total > 0 ? resolvedTotal / stats.total : 0.3;
 
   return stats.timeline.map((p) => ({
@@ -103,48 +106,48 @@ export async function fetchSectionChartExtras(
     commissions,
     council,
   ] = await Promise.all([
-    supabase.from('v_classification_accuracy_by_source').select('*'),
+    supabase.from("v_classification_accuracy_by_source").select("*"),
     supabase
-      .from('export_logs')
-      .select('format, created_at')
-      .gte('created_at', startIso ?? '1970-01-01')
-      .lte('created_at', endIso ?? '2099-12-31'),
+      .from("export_logs")
+      .select("format, created_at")
+      .gte("created_at", startIso ?? "1970-01-01")
+      .lte("created_at", endIso ?? "2099-12-31"),
     supabase
-      .from('scheduled_exports')
-      .select('last_run_at')
-      .not('last_run_at', 'is', null)
-      .gte('last_run_at', startIso ?? '1970-01-01')
-      .lte('last_run_at', endIso ?? '2099-12-31'),
+      .from("scheduled_exports")
+      .select("last_run_at")
+      .not("last_run_at", "is", null)
+      .gte("last_run_at", startIso ?? "1970-01-01")
+      .lte("last_run_at", endIso ?? "2099-12-31"),
     supabase
-      .from('audit_logs')
-      .select('created_at, entity_type')
-      .gte('created_at', startIso ?? '1970-01-01')
-      .lte('created_at', endIso ?? '2099-12-31'),
-    supabase.from('user_roles').select('role'),
-    supabase.from('user_preferences').select('font_size, reading_mode, text_spacing, theme'),
+      .from("audit_logs")
+      .select("created_at, entity_type")
+      .gte("created_at", startIso ?? "1970-01-01")
+      .lte("created_at", endIso ?? "2099-12-31"),
+    supabase.from("user_roles").select("role"),
+    supabase.from("user_preferences").select("font_size, reading_mode, text_spacing, theme"),
     supabase
-      .from('notifications')
-      .select('created_at, is_read, discarded_at')
-      .gte('created_at', startIso ?? '1970-01-01')
-      .lte('created_at', endIso ?? '2099-12-31'),
-    supabase.from('dashboards').select('created_at, config'),
-    supabase.from('service_corrections').select('status'),
+      .from("notifications")
+      .select("created_at, is_read, discarded_at")
+      .gte("created_at", startIso ?? "1970-01-01")
+      .lte("created_at", endIso ?? "2099-12-31"),
+    supabase.from("dashboards").select("created_at, config"),
+    supabase.from("service_corrections").select("status"),
     supabase
-      .from('service_ratings')
-      .select('wait_time_score, created_at, public_services(district)')
-      .gte('created_at', startIso ?? '1970-01-01')
-      .lte('created_at', endIso ?? '2099-12-31'),
+      .from("service_ratings")
+      .select("wait_time_score, created_at, public_services(district)")
+      .gte("created_at", startIso ?? "1970-01-01")
+      .lte("created_at", endIso ?? "2099-12-31"),
     fetchThematicCommissions(),
     fetchCouncilMemberDestinations(),
   ]);
 
   const classificationByCategory: LabeledValue[] = (accuracyRes.data ?? []).map((r) => ({
     label:
-      r.report_type === 'urban'
-        ? 'Urbano'
-        : r.report_type === 'transport'
-          ? 'Transporte'
-          : String(r.report_type ?? 'Outro'),
+      r.report_type === "urban"
+        ? "Urbano"
+        : r.report_type === "transport"
+          ? "Transporte"
+          : String(r.report_type ?? "Outro"),
     value: Math.round(Number(r.category_accuracy_pct ?? 0)),
   }));
 
@@ -160,7 +163,7 @@ export async function fetchSectionChartExtras(
     category,
     periodCompare,
   );
-  const referralFunnel: LabeledValue[] = ['pending', 'sent', 'acknowledged', 'resolved'].map(
+  const referralFunnel: LabeledValue[] = ["pending", "sent", "acknowledged", "resolved"].map(
     (status) => ({
       label: REFERRAL_STATUS_LABELS[status] ?? status,
       value: referrals.filter((r) => r.status === status).length,
@@ -187,7 +190,7 @@ export async function fetchSectionChartExtras(
   const councilMemberQueue: LabeledValue[] = council
     .sort((a, b) => b.activeReferrals - a.activeReferrals)
     .slice(0, 8)
-    .map((c) => ({ label: c.name.split(' (')[0].slice(0, 22), value: c.activeReferrals }));
+    .map((c) => ({ label: c.name.split(" (")[0].slice(0, 22), value: c.activeReferrals }));
 
   const notifDay = new Map<string, { enviadas: number; entregues: number; falhas: number }>();
   for (const n of notifRes.data ?? []) {
@@ -205,7 +208,7 @@ export async function fetchSectionChartExtras(
 
   const formatCounts = new Map<string, number>();
   for (const e of exportRes.data ?? []) {
-    const fmt = String(e.format ?? 'outro').toUpperCase();
+    const fmt = String(e.format ?? "outro").toUpperCase();
     formatCounts.set(fmt, (formatCounts.get(fmt) ?? 0) + 1);
   }
 
@@ -231,7 +234,7 @@ export async function fetchSectionChartExtras(
 
   const corrCounts = new Map<string, number>();
   for (const c of correctionsRes.data ?? []) {
-    const st = String(c.status ?? 'pending');
+    const st = String(c.status ?? "pending");
     corrCounts.set(st, (corrCounts.get(st) ?? 0) + 1);
   }
   const correctionsByStatus: LabeledValue[] = [...corrCounts.entries()].map(([k, value]) => ({
@@ -243,9 +246,10 @@ export async function fetchSectionChartExtras(
   for (const d of dashboardsRes.data ?? []) {
     const cfg = d.config as { widgets?: { type?: string }[] } | null;
     const widgets = cfg?.widgets ?? [];
-    if (widgets.length === 0) widgetCounts.set('Sem widgets', (widgetCounts.get('Sem widgets') ?? 0) + 1);
+    if (widgets.length === 0)
+      widgetCounts.set("Sem widgets", (widgetCounts.get("Sem widgets") ?? 0) + 1);
     for (const w of widgets) {
-      const t = w.type ?? 'outro';
+      const t = w.type ?? "outro";
       widgetCounts.set(t, (widgetCounts.get(t) ?? 0) + 1);
     }
   }
@@ -258,7 +262,7 @@ export async function fetchSectionChartExtras(
   for (const d of dashboardsRes.data ?? []) {
     if (!d.created_at) continue;
     const dt = new Date(d.created_at as string);
-    const key = dt.toLocaleDateString('pt-BR', { month: 'short' });
+    const key = dt.toLocaleDateString("pt-BR", { month: "short" });
     monthCounts.set(key, (monthCounts.get(key) ?? 0) + 1);
   }
   const savedPanelsTrend: LabeledValue[] = [...monthCounts.entries()].map(([label, value]) => ({
@@ -267,17 +271,18 @@ export async function fetchSectionChartExtras(
   }));
 
   const panelBuilderFunnel: LabeledValue[] = [
-    { label: 'Painéis criados', value: dashboardsRes.data?.length ?? 0 },
+    { label: "Painéis criados", value: dashboardsRes.data?.length ?? 0 },
     {
-      label: 'Com widgets',
+      label: "Com widgets",
       value: (dashboardsRes.data ?? []).filter((d) => {
         const cfg = d.config as { widgets?: unknown[] } | null;
         return (cfg?.widgets?.length ?? 0) > 0;
       }).length,
     },
     {
-      label: 'Aprovados',
-      value: (dashboardsRes.data ?? []).filter((d) => (d as { is_approved?: boolean }).is_approved).length,
+      label: "Aprovados",
+      value: (dashboardsRes.data ?? []).filter((d) => (d as { is_approved?: boolean }).is_approved)
+        .length,
     },
   ];
 
@@ -286,21 +291,21 @@ export async function fetchSectionChartExtras(
   let spacing = 0;
   let dark = 0;
   for (const p of prefsRes.data ?? []) {
-    if (p.font_size && p.font_size !== 'normal') fontLarge += 1;
+    if (p.font_size && p.font_size !== "normal") fontLarge += 1;
     if (p.reading_mode) reading += 1;
     if (p.text_spacing) spacing += 1;
-    if (p.theme === 'dark') dark += 1;
+    if (p.theme === "dark") dark += 1;
   }
   const accessibilityAdoption: LabeledValue[] = [
-    { label: 'Fonte ampliada', value: fontLarge },
-    { label: 'Modo leitura', value: reading },
-    { label: 'Espaçamento', value: spacing },
-    { label: 'Tema escuro', value: dark },
+    { label: "Fonte ampliada", value: fontLarge },
+    { label: "Modo leitura", value: reading },
+    { label: "Espaçamento", value: spacing },
+    { label: "Tema escuro", value: dark },
   ];
 
   const entityCounts = new Map<string, number>();
   for (const a of auditRes.data ?? []) {
-    const t = String(a.entity_type ?? 'outro');
+    const t = String(a.entity_type ?? "outro");
     entityCounts.set(t, (entityCounts.get(t) ?? 0) + 1);
   }
   const moduleAccess: LabeledValue[] = [...entityCounts.entries()]
@@ -317,13 +322,13 @@ export async function fetchSectionChartExtras(
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-7)
     .map(([label, value]) => ({
-      label: new Date(label).toLocaleDateString('pt-BR', { weekday: 'short' }),
+      label: new Date(label).toLocaleDateString("pt-BR", { weekday: "short" }),
       value,
     }));
 
   const roleCounts = new Map<string, number>();
   for (const r of rolesRes.data ?? []) {
-    const role = String(r.role ?? 'cidadao');
+    const role = String(r.role ?? "cidadao");
     roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
   }
   const usersByRole: LabeledValue[] = [...roleCounts.entries()].map(([k, value]) => ({
@@ -336,8 +341,8 @@ export async function fetchSectionChartExtras(
   const zoneWait = new Map<string, { sum: number; n: number }>();
   for (const r of ratingsRes.data ?? []) {
     const district = (r.public_services as { district?: string } | null)?.district;
-    const zone = district ? bairroParaZona(district) : 'Desconhecida';
-    if (region !== 'all' && zone !== region) continue;
+    const zone = district ? bairroParaZona(district) : "Desconhecida";
+    if (region !== "all" && zone !== region) continue;
     zoneRatings.set(zone, (zoneRatings.get(zone) ?? 0) + 1);
     zoneDemand.set(zone, (zoneDemand.get(zone) ?? 0) + 1);
     if (r.wait_time_score != null) {
@@ -349,14 +354,14 @@ export async function fetchSectionChartExtras(
   }
 
   const heatmapByTerritory = (metric: string): LabeledValue[] => {
-    const zones = ['Centro', 'Zona Norte', 'Zona Sul', 'Zona Leste', 'Zona Oeste', 'Desconhecida'];
+    const zones = ["Centro", "Zona Norte", "Zona Sul", "Zona Leste", "Zona Oeste", "Desconhecida"];
     return zones
-      .filter((z) => region === 'all' || z.toLowerCase().includes(region) || region === z)
+      .filter((z) => region === "all" || z.toLowerCase().includes(region) || region === z)
       .map((label) => {
-        if (metric === 'avaliacoes') {
+        if (metric === "avaliacoes") {
           return { label, value: zoneRatings.get(label) ?? 0 };
         }
-        if (metric === 'espera') {
+        if (metric === "espera") {
           const w = zoneWait.get(label);
           const avg = w && w.n > 0 ? Math.round((w.sum / w.n) * 10) : 0;
           return { label, value: avg };

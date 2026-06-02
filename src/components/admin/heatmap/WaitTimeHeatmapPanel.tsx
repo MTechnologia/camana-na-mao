@@ -1,25 +1,23 @@
-import { useMemo } from 'react';
-import { useGlobalHeatmapExtendedPeriod } from '@/hooks/useGlobalHeatmapExtendedPeriod';
-import { Clock, RefreshCw, AlertTriangle } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { useMemo } from "react";
+import { useGlobalHeatmapExtendedPeriod } from "@/hooks/useGlobalHeatmapExtendedPeriod";
+import { Clock, RefreshCw, AlertTriangle } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { IntensityDemandMap, colorForWait } from '@/components/admin/IntensityDemandMap';
-import type { ZoneIntensity } from '@/hooks/useIntensityDemand';
-import { useWaitTimeByZone } from '@/hooks/useWaitTimeByZone';
-import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
-import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
-import {
-  waitTimeHeatmapPanelLegends,
-} from '@/lib/analyticsParameterLegends';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { IntensityDemandMap, colorForWait } from "@/components/admin/IntensityDemandMap";
+import type { ZoneIntensity } from "@/hooks/useIntensityDemand";
+import { useWaitTimeByZone } from "@/hooks/useWaitTimeByZone";
+import { HeatmapPanelIntro } from "@/components/admin/heatmap/HeatmapPanelIntro";
+import { HeatmapVisualScale } from "@/components/admin/heatmap/HeatmapVisualScale";
+import { waitTimeHeatmapPanelLegends } from "@/lib/analyticsParameterLegends";
 
 /** Converte score 1–5 em horas equivalentes para a escala de cor do mapa. */
 function scoreToHours(score: number): number {
@@ -75,7 +73,7 @@ export function WaitTimeHeatmapPanel() {
           </Card>
           <Card className="p-4">
             <div className="text-2xl font-bold tabular-nums text-destructive">
-              {summary.worstZone?.zone ?? '—'}
+              {summary.worstZone?.zone ?? "—"}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">Zona com maior tempo médio</div>
           </Card>
@@ -85,7 +83,7 @@ export function WaitTimeHeatmapPanel() {
       <Card className="p-4 md:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-end gap-3">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -108,9 +106,11 @@ export function WaitTimeHeatmapPanel() {
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-muted-foreground">Referência rápida:</span>
-          <Badge style={{ backgroundColor: colorForWait(24), color: 'white' }}>Espera menor</Badge>
-          <Badge style={{ backgroundColor: colorForWait(120), color: 'black' }}>Intermediária</Badge>
-          <Badge style={{ backgroundColor: colorForWait(168), color: 'white' }}>Espera maior</Badge>
+          <Badge style={{ backgroundColor: colorForWait(24), color: "white" }}>Espera menor</Badge>
+          <Badge style={{ backgroundColor: colorForWait(120), color: "black" }}>
+            Intermediária
+          </Badge>
+          <Badge style={{ backgroundColor: colorForWait(168), color: "white" }}>Espera maior</Badge>
         </div>
         {summary.truncated ? (
           <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">

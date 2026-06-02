@@ -1,6 +1,6 @@
-import { ExecutiveKpiRow } from '@/components/admin/analytics/ExecutiveKpiRow';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import { EXECUTIVE_KPI_LEGENDS_LIST } from '@/lib/analyticsParameterLegends';
+import { ExecutiveKpiRow } from "@/components/admin/analytics/ExecutiveKpiRow";
+import { ParameterInfoListTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import { EXECUTIVE_KPI_LEGENDS_LIST } from "@/lib/analyticsParameterLegends";
 
 export function ExecutiveKpiSection() {
   return (

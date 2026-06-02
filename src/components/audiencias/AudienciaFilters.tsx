@@ -54,14 +54,14 @@ const AudienciaFilters = ({
 }: AudienciaFiltersProps) => {
   const toggleTheme = (themeId: string) => {
     const newThemes = filters.themes.includes(themeId)
-      ? filters.themes.filter(t => t !== themeId)
+      ? filters.themes.filter((t) => t !== themeId)
       : [...filters.themes, themeId];
     onFiltersChange({ ...filters, themes: newThemes });
   };
 
   const toggleRegion = (region: string) => {
     const newRegions = filters.regions.includes(region)
-      ? filters.regions.filter(r => r !== region)
+      ? filters.regions.filter((r) => r !== region)
       : [...filters.regions, region];
     onFiltersChange({ ...filters, regions: newRegions });
   };
@@ -103,9 +103,7 @@ const AudienciaFilters = ({
               </Button>
             )}
           </div>
-          <SheetDescription>
-            Refine sua busca por audiências públicas
-          </SheetDescription>
+          <SheetDescription>Refine sua busca por audiências públicas</SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6 py-6 overflow-y-auto max-h-[calc(85vh-180px)]">
@@ -139,9 +137,9 @@ const AudienciaFilters = ({
           {availableRegions.length > 0 && (
             <div className="space-y-3">
               <Label className="text-base font-semibold inline-flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
-              Região
-            </Label>
+                <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                Região
+              </Label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {availableRegions.map((region) => (
                   <div
@@ -178,19 +176,27 @@ const AudienciaFilters = ({
             >
               <div className="flex items-center space-x-2 p-2">
                 <RadioGroupItem value="all" id="status-all" />
-                <Label htmlFor="status-all" className="cursor-pointer">Todas</Label>
+                <Label htmlFor="status-all" className="cursor-pointer">
+                  Todas
+                </Label>
               </div>
               <div className="flex items-center space-x-2 p-2">
                 <RadioGroupItem value="upcoming" id="status-upcoming" />
-                <Label htmlFor="status-upcoming" className="cursor-pointer">Próximas</Label>
+                <Label htmlFor="status-upcoming" className="cursor-pointer">
+                  Próximas
+                </Label>
               </div>
               <div className="flex items-center space-x-2 p-2">
                 <RadioGroupItem value="ongoing" id="status-ongoing" />
-                <Label htmlFor="status-ongoing" className="cursor-pointer">Em andamento</Label>
+                <Label htmlFor="status-ongoing" className="cursor-pointer">
+                  Em andamento
+                </Label>
               </div>
               <div className="flex items-center space-x-2 p-2">
                 <RadioGroupItem value="finished" id="status-finished" />
-                <Label htmlFor="status-finished" className="cursor-pointer">Finalizadas</Label>
+                <Label htmlFor="status-finished" className="cursor-pointer">
+                  Finalizadas
+                </Label>
               </div>
             </RadioGroup>
           </div>
@@ -200,7 +206,9 @@ const AudienciaFilters = ({
             <Label className="text-base font-semibold">📅 Período</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="filter-date-from" className="text-sm text-muted-foreground">Data inicial</Label>
+                <Label htmlFor="filter-date-from" className="text-sm text-muted-foreground">
+                  Data inicial
+                </Label>
                 <input
                   id="filter-date-from"
                   type="date"
@@ -210,7 +218,9 @@ const AudienciaFilters = ({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="filter-date-to" className="text-sm text-muted-foreground">Data final</Label>
+                <Label htmlFor="filter-date-to" className="text-sm text-muted-foreground">
+                  Data final
+                </Label>
                 <input
                   id="filter-date-to"
                   type="date"

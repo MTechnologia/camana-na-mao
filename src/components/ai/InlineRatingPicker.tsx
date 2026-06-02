@@ -69,7 +69,11 @@ export const InlineRatingPicker = ({
         <Star className="h-3 w-3" />
         <span>{effectivePrompt}</span>
       </div>
-      <div className="flex gap-1" role="group" aria-label={dimensionKey ? `Avaliação de ${dimensionKey}` : "Avaliação por estrelas"}>
+      <div
+        className="flex gap-1"
+        role="group"
+        aria-label={dimensionKey ? `Avaliação de ${dimensionKey}` : "Avaliação por estrelas"}
+      >
         {[1, 2, 3, 4, 5].map((star) => {
           const isFilled = star <= (hoveredStar ?? 0);
           return (
@@ -81,14 +85,14 @@ export const InlineRatingPicker = ({
               onMouseEnter={() => setHoveredStar(star)}
               onMouseLeave={() => setHoveredStar(null)}
               className="relative p-1 transition-transform hover:scale-110"
-              aria-label={`${star} estrela${star > 1 ? 's' : ''} — ${effectiveLabels[star - 1] || ''}`}
+              aria-label={`${star} estrela${star > 1 ? "s" : ""} — ${effectiveLabels[star - 1] || ""}`}
             >
               <Star
                 className={cn(
                   "w-8 h-8 transition-colors",
-                  isFilled 
-                    ? "fill-amber-400 text-amber-400" 
-                    : "text-muted-foreground/50 hover:text-amber-300"
+                  isFilled
+                    ? "fill-amber-400 text-amber-400"
+                    : "text-muted-foreground/50 hover:text-amber-300",
                 )}
               />
             </button>

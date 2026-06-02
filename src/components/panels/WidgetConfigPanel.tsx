@@ -1,23 +1,23 @@
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { getCatalogEntry } from '@/lib/widgetCatalog';
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { getCatalogEntry } from "@/lib/widgetCatalog";
 import {
   CATEGORY_FILTER_OPTIONS,
   PERIOD_FILTER_OPTIONS,
   REGION_FILTER_OPTIONS,
-} from '@/lib/globalFilterOptions';
-import type { AnalyticsMetric } from '@/types/analyticsDrill';
-import type { PanelColSpan, PanelRowSpan, PanelWidget } from '@/types/customPanel';
+} from "@/lib/globalFilterOptions";
+import type { AnalyticsMetric } from "@/types/analyticsDrill";
+import type { PanelColSpan, PanelRowSpan, PanelWidget } from "@/types/customPanel";
 
 const METRIC_OPTIONS: { value: AnalyticsMetric; label: string }[] = [
-  { value: 'volume', label: 'Volume' },
-  { value: 'response_time', label: 'Tempo de resposta' },
-  { value: 'sentiment', label: 'Sentimento' },
-  { value: 'patterns', label: 'Padrões' },
+  { value: "volume", label: "Volume" },
+  { value: "response_time", label: "Tempo de resposta" },
+  { value: "sentiment", label: "Sentimento" },
+  { value: "patterns", label: "Padrões" },
 ];
 
 const selectClass =
-  'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function WidgetConfigPanel({
   widget,
@@ -38,7 +38,7 @@ export function WidgetConfigPanel({
   const supportsMetric = Boolean(entry.supportedMetrics?.length || entry.defaultFilters?.metric);
 
   const patch = (partial: Partial<PanelWidget>) => onChange({ ...widget, ...partial });
-  const patchFilters = (partial: PanelWidget['filters']) =>
+  const patchFilters = (partial: PanelWidget["filters"]) =>
     patch({ filters: { ...widget.filters, ...partial } });
 
   return (
@@ -119,7 +119,7 @@ export function WidgetConfigPanel({
             <select
               id="w-region"
               className={selectClass}
-              value={widget.filters.region ?? 'all'}
+              value={widget.filters.region ?? "all"}
               onChange={(e) => patchFilters({ region: e.target.value })}
             >
               {REGION_FILTER_OPTIONS.map((o) => (
@@ -134,7 +134,7 @@ export function WidgetConfigPanel({
             <select
               id="w-category"
               className={selectClass}
-              value={widget.filters.category ?? 'all'}
+              value={widget.filters.category ?? "all"}
               onChange={(e) => patchFilters({ category: e.target.value })}
             >
               {CATEGORY_FILTER_OPTIONS.map((o) => (
@@ -153,7 +153,7 @@ export function WidgetConfigPanel({
           <select
             id="w-metric"
             className={selectClass}
-            value={widget.filters.metric ?? 'volume'}
+            value={widget.filters.metric ?? "volume"}
             onChange={(e) => patchFilters({ metric: e.target.value as AnalyticsMetric })}
           >
             {METRIC_OPTIONS.map((o) => (
@@ -165,7 +165,7 @@ export function WidgetConfigPanel({
         </div>
       ) : null}
 
-      {widget.type === 'chart_bar_drill' ? (
+      {widget.type === "chart_bar_drill" ? (
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -177,7 +177,7 @@ export function WidgetConfigPanel({
         </label>
       ) : null}
 
-      {(widget.type === 'list_patterns_top' || widget.type === 'list_patterns_region') && (
+      {(widget.type === "list_patterns_top" || widget.type === "list_patterns_region") && (
         <div className="space-y-2">
           <Label htmlFor="w-topn">Itens exibidos</Label>
           <Input
@@ -212,5 +212,3 @@ export function WidgetConfigPanel({
     </div>
   );
 }
-
-

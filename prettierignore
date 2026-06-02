@@ -1,6 +1,8 @@
 node_modules
 dist
 dist-ssr
+dev-dist
+coverage
 mobile/node_modules
 supabase/.temp
 supabase/.branches

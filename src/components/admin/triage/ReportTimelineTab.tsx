@@ -21,15 +21,9 @@ import {
   type ReportEventType,
   type ReportStatusEvent,
 } from "@/hooks/useReportStatusEvents";
-import {
-  useCommissionReferrals,
-} from "@/hooks/useCommissionReferrals";
-import {
-  useReportTriage,
-} from "@/hooks/useReportTriage";
-import {
-  fetchActiveLegislativeCommissions,
-} from "@/lib/reportCommissionReferrals";
+import { useCommissionReferrals } from "@/hooks/useCommissionReferrals";
+import { useReportTriage } from "@/hooks/useReportTriage";
+import { fetchActiveLegislativeCommissions } from "@/lib/reportCommissionReferrals";
 import { TRIAGE_PRIORITIES, TRIAGE_STATUSES } from "@/lib/triage";
 import type { ReportSource } from "@/contexts/ReportDetailContext";
 
@@ -114,19 +108,10 @@ function fmt(iso: string): string {
   });
 }
 
-export function ReportTimelineTab({
-  reportId,
-  source,
-}: ReportTimelineTabProps) {
+export function ReportTimelineTab({ reportId, source }: ReportTimelineTabProps) {
   const { triage, isLoading: loadingTriage } = useReportTriage(reportId, source);
-  const { events, isLoading: loadingEvents } = useReportStatusEvents(
-    reportId,
-    source,
-  );
-  const { referrals, isLoading: loadingReferrals } = useCommissionReferrals(
-    reportId,
-    source,
-  );
+  const { events, isLoading: loadingEvents } = useReportStatusEvents(reportId, source);
+  const { referrals, isLoading: loadingReferrals } = useCommissionReferrals(reportId, source);
 
   const isLoading = loadingTriage || loadingEvents || loadingReferrals;
 
@@ -146,14 +131,11 @@ export function ReportTimelineTab({
   }, []);
 
   const responsibleCommissionLabel = triage?.responsibleCommissionId
-    ? commissionNameById.get(triage.responsibleCommissionId) ?? "Comissão"
+    ? (commissionNameById.get(triage.responsibleCommissionId) ?? "Comissão")
     : null;
 
   const sortedEvents = useMemo(
-    () =>
-      [...events].sort((a, b) =>
-        b.occurredAt.localeCompare(a.occurredAt),
-      ),
+    () => [...events].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
     [events],
   );
 
@@ -170,9 +152,7 @@ export function ReportTimelineTab({
     <div className="space-y-4">
       {/* Resumo do funil */}
       <Card className="p-3">
-        <p className="text-xs font-semibold text-muted-foreground mb-2">
-          Estado atual
-        </p>
+        <p className="text-xs font-semibold text-muted-foreground mb-2">Estado atual</p>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">
             <Clock className="h-3 w-3 mr-1" />
@@ -213,9 +193,7 @@ export function ReportTimelineTab({
             {referrals.map((r) => (
               <li key={r.id} className="text-xs border-l-2 border-primary/30 pl-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">
-                    {r.commissionName ?? "(comissão)"}
-                  </span>
+                  <span className="font-medium">{r.commissionName ?? "(comissão)"}</span>
                   <Badge variant="outline" className="text-[10px]">
                     {r.status === "pending"
                       ? "Pendente"
@@ -229,9 +207,7 @@ export function ReportTimelineTab({
                 <p className="text-muted-foreground italic mt-0.5 line-clamp-2">
                   &quot;{r.justification}&quot;
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {fmt(r.referredAt)}
-                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{fmt(r.referredAt)}</p>
               </li>
             ))}
           </ul>
@@ -246,8 +222,7 @@ export function ReportTimelineTab({
         </p>
         {sortedEvents.length === 0 ? (
           <p className="text-xs text-muted-foreground italic">
-            Sem eventos registrados ainda. A timeline é populada conforme
-            a triagem avança.
+            Sem eventos registrados ainda. A timeline é populada conforme a triagem avança.
           </p>
         ) : (
           <ol className="relative border-l-2 border-border space-y-3 pl-4">

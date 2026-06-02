@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { fetchThematicCommissions, type ReferralDestination } from '@/lib/referralDestinations';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { fetchThematicCommissions, type ReferralDestination } from "@/lib/referralDestinations";
 import {
   buildCommissionDestinationsFromReferrals,
   fetchFilteredReportCommissionReferrals,
   type FilteredCommissionReferralRow,
-} from '@/lib/referralsGlobalFilters';
+} from "@/lib/referralsGlobalFilters";
 import {
   fetchActiveLegislativeCommissions,
   type LegislativeCommissionOption,
-} from '@/lib/reportCommissionReferrals';
-import {
-  commissionPointsFromDestinations,
-  type CommissionChartPoint,
-} from '@/lib/commissionChart';
+} from "@/lib/reportCommissionReferrals";
+import { commissionPointsFromDestinations, type CommissionChartPoint } from "@/lib/commissionChart";
 
 export type CommissionCatalogEntry = LegislativeCommissionOption & { themes: string[] };
 
@@ -41,16 +38,17 @@ export function useReferralsCommissionsTab(selectedCommissionIds: string[]) {
         fetchThematicCommissions(),
       ]);
 
-      const themesById = new Map(
-        thematicList.map((t) => [t.id, t.themes] as const),
-      );
+      const themesById = new Map(thematicList.map((t) => [t.id, t.themes] as const));
 
       setCatalog(
-        (commCatalog.length > 0 ? commCatalog : thematicList.map((t) => ({
-          commissionId: t.id,
-          name: t.name,
-          code: null as string | null,
-        }))).map((c) => ({
+        (commCatalog.length > 0
+          ? commCatalog
+          : thematicList.map((t) => ({
+              commissionId: t.id,
+              name: t.name,
+              code: null as string | null,
+            }))
+        ).map((c) => ({
           ...c,
           themes: themesById.get(c.commissionId) ?? [],
         })),
@@ -66,11 +64,11 @@ export function useReferralsCommissionsTab(selectedCommissionIds: string[]) {
         );
         setReferralRows(rows);
       } catch (err) {
-        console.error('[useReferralsCommissionsTab] filtered referrals', err);
+        console.error("[useReferralsCommissionsTab] filtered referrals", err);
         setReferralRows([]);
       }
     } catch (err) {
-      console.error('[useReferralsCommissionsTab] load', err);
+      console.error("[useReferralsCommissionsTab] load", err);
       setCatalog([]);
       setBaselineDestinations([]);
       setReferralRows([]);
@@ -95,10 +93,7 @@ export function useReferralsCommissionsTab(selectedCommissionIds: string[]) {
   );
 
   const allDestinations = useMemo(() => {
-    const fromFiltered = buildCommissionDestinationsFromReferrals(
-      referralRows,
-      catalogForBuild,
-    );
+    const fromFiltered = buildCommissionDestinationsFromReferrals(referralRows, catalogForBuild);
     if (fromFiltered.length > 0) return fromFiltered;
     return baselineDestinations;
   }, [referralRows, catalogForBuild, baselineDestinations]);

@@ -1,32 +1,29 @@
-import { useState } from 'react';
-import { useGlobalShortcutPeriod } from '@/hooks/useGlobalShortcutPeriod';
-import { Card } from '@/components/ui/card';
+import { useState } from "react";
+import { useGlobalShortcutPeriod } from "@/hooks/useGlobalShortcutPeriod";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { AdminReportsHeatmap } from '@/components/admin/AdminReportsHeatmap';
-import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
-import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
-import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
-import {
-  useUsageHeatmap,
-  type UsageHeatmapTypeFilter,
-} from '@/hooks/useUsageHeatmap';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { AdminReportsHeatmap } from "@/components/admin/AdminReportsHeatmap";
+import { HeatmapFilterLabel } from "@/components/admin/heatmap/HeatmapFilterLabel";
+import { HeatmapPanelIntro } from "@/components/admin/heatmap/HeatmapPanelIntro";
+import { HeatmapVisualScale } from "@/components/admin/heatmap/HeatmapVisualScale";
+import { useUsageHeatmap, type UsageHeatmapTypeFilter } from "@/hooks/useUsageHeatmap";
 import {
   USAGE_HEATMAP_SOURCE_FILTER_LEGEND,
   usageHeatmapPanelLegends,
-} from '@/lib/analyticsParameterLegends';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+} from "@/lib/analyticsParameterLegends";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 
 export function UsageHeatmapPanel() {
-  const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>('all_usage');
+  const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>("all_usage");
   const period = useGlobalShortcutPeriod();
 
   const { data, isLoading, error, refresh } = useUsageHeatmap({ typeFilter, period });
@@ -37,9 +34,9 @@ export function UsageHeatmapPanel() {
       <HeatmapPanelIntro
         intro={
           <>
-            Concentração de uso da plataforma no território de São Paulo. Passe o mouse nos parâmetros (
-            <span className="font-medium text-foreground">?</span>) ou expanda a legenda abaixo para
-            entender cada indicador.
+            Concentração de uso da plataforma no território de São Paulo. Passe o mouse nos
+            parâmetros (<span className="font-medium text-foreground">?</span>) ou expanda a legenda
+            abaixo para entender cada indicador.
           </>
         }
         legends={usageHeatmapPanelLegends()}
@@ -74,7 +71,7 @@ export function UsageHeatmapPanel() {
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -96,24 +93,30 @@ export function UsageHeatmapPanel() {
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
           <span className="text-muted-foreground">Referência rápida:</span>
-          <Badge style={{ backgroundColor: 'hsl(221, 83%, 40%)', color: 'white' }}>Menor densidade</Badge>
-          <Badge style={{ backgroundColor: 'hsl(78, 70%, 42%)', color: 'black' }}>Intermediária</Badge>
-          <Badge style={{ backgroundColor: 'hsl(0, 72%, 48%)', color: 'white' }}>Maior densidade</Badge>
+          <Badge style={{ backgroundColor: "hsl(221, 83%, 40%)", color: "white" }}>
+            Menor densidade
+          </Badge>
+          <Badge style={{ backgroundColor: "hsl(78, 70%, 42%)", color: "black" }}>
+            Intermediária
+          </Badge>
+          <Badge style={{ backgroundColor: "hsl(0, 72%, 48%)", color: "white" }}>
+            Maior densidade
+          </Badge>
         </div>
 
         {data && (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-muted-foreground">
               {data.points.length} células no mapa
-              {data.truncated ? ' (resultado truncado para performance)' : ''}.
+              {data.truncated ? " (resultado truncado para performance)" : ""}.
               {data.start_at
-                ? ` Dados desde ${new Date(data.start_at).toLocaleString('pt-BR')}.`
-                : ''}
+                ? ` Dados desde ${new Date(data.start_at).toLocaleString("pt-BR")}.`
+                : ""}
             </p>
             <p className="text-xs text-muted-foreground">
               Período do mapa segue o filtro global de tempo do dashboard.
             </p>
-            {(typeFilter === 'transport' || typeFilter === 'all_usage') && (
+            {(typeFilter === "transport" || typeFilter === "all_usage") && (
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 Transporte usa agregação por zona (centroide), então a densidade visual não equivale
                 a um ponto por relato individual.

@@ -1,7 +1,7 @@
-import { supabase } from '@/integrations/supabase/client';
-import { rankDestinations } from '@/lib/referralRoutingEngine';
-import { DEFAULT_REFERRAL_ROUTING_RULES } from '@/lib/referralRoutingRulesDefaults';
-import type { ReferralRoutingRules } from '@/types/referralRoutingRules';
+import { supabase } from "@/integrations/supabase/client";
+import { rankDestinations } from "@/lib/referralRoutingEngine";
+import { DEFAULT_REFERRAL_ROUTING_RULES } from "@/lib/referralRoutingRulesDefaults";
+import type { ReferralRoutingRules } from "@/types/referralRoutingRules";
 
 /** Destino de encaminhamento — comissão ou vereador. */
 export type ReferralDestination = {
@@ -12,17 +12,17 @@ export type ReferralDestination = {
   matchScore?: number;
 };
 
-const ACTIVE_REFERRAL_STATUSES = ['pending', 'sent', 'acknowledged'] as const;
+const ACTIVE_REFERRAL_STATUSES = ["pending", "sent", "acknowledged"] as const;
 
 async function countActiveReferralsByCommission(): Promise<Map<string, number>> {
   const { data, error } = await supabase
-    .from('council_member_referrals')
-    .select('legislative_commission_id')
-    .in('status', [...ACTIVE_REFERRAL_STATUSES])
-    .not('legislative_commission_id', 'is', null);
+    .from("council_member_referrals")
+    .select("legislative_commission_id")
+    .in("status", [...ACTIVE_REFERRAL_STATUSES])
+    .not("legislative_commission_id", "is", null);
 
   if (error) {
-    console.warn('[referralDestinations] commission counts', error.message);
+    console.warn("[referralDestinations] commission counts", error.message);
     return new Map();
   }
 
@@ -36,12 +36,12 @@ async function countActiveReferralsByCommission(): Promise<Map<string, number>> 
 
 async function countActiveReferralsByCouncilMember(): Promise<Map<string, number>> {
   const { data, error } = await supabase
-    .from('council_member_referrals')
-    .select('council_member_id')
-    .in('status', [...ACTIVE_REFERRAL_STATUSES]);
+    .from("council_member_referrals")
+    .select("council_member_id")
+    .in("status", [...ACTIVE_REFERRAL_STATUSES]);
 
   if (error) {
-    console.warn('[referralDestinations] council counts', error.message);
+    console.warn("[referralDestinations] council counts", error.message);
     return new Map();
   }
 
@@ -57,14 +57,14 @@ export async function fetchThematicCommissions(): Promise<ReferralDestination[]>
   const [counts, { data, error }] = await Promise.all([
     countActiveReferralsByCommission(),
     supabase
-      .from('legislative_commissions')
-      .select('id, name, match_keywords, active')
-      .eq('active', true)
-      .order('sort_order', { ascending: true }),
+      .from("legislative_commissions")
+      .select("id, name, match_keywords, active")
+      .eq("active", true)
+      .order("sort_order", { ascending: true }),
   ]);
 
   if (error) {
-    console.warn('[referralDestinations] commissions', error.message);
+    console.warn("[referralDestinations] commissions", error.message);
     return [];
   }
 
@@ -80,15 +80,15 @@ export async function fetchCouncilMemberDestinations(): Promise<ReferralDestinat
   const [counts, { data, error }] = await Promise.all([
     countActiveReferralsByCouncilMember(),
     supabase
-      .from('council_members_cache')
-      .select('id, name, party, region, is_on_leave')
-      .eq('is_on_leave', false)
-      .order('name', { ascending: true })
+      .from("council_members_cache")
+      .select("id, name, party, region, is_on_leave")
+      .eq("is_on_leave", false)
+      .order("name", { ascending: true })
       .limit(80),
   ]);
 
   if (error) {
-    console.warn('[referralDestinations] council members', error.message);
+    console.warn("[referralDestinations] council members", error.message);
     return [];
   }
 
@@ -102,11 +102,11 @@ export async function fetchCouncilMemberDestinations(): Promise<ReferralDestinat
 
 export function suggestDestinations(
   category: string,
-  type: 'commission' | 'councillor',
+  type: "commission" | "councillor",
   commissions: ReferralDestination[],
   councilMembers: ReferralDestination[],
   rules: ReferralRoutingRules = DEFAULT_REFERRAL_ROUTING_RULES,
 ) {
-  const list = type === 'commission' ? commissions : councilMembers;
+  const list = type === "commission" ? commissions : councilMembers;
   return rankDestinations(category, list, rules);
 }

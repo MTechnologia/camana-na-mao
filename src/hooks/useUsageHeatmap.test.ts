@@ -52,9 +52,9 @@ describe("mergePoints", () => {
 
   it("agrupa pontos próximos no mesmo cell de 4 decimais", () => {
     const a: HeatmapPoint[] = [
-      { lat: -23.55050, lng: -46.48610, weight: 1 },
+      { lat: -23.5505, lng: -46.4861, weight: 1 },
       { lat: -23.55051, lng: -46.48611, weight: 2 }, // mesmo cell
-      { lat: -23.5510, lng: -46.4870, weight: 3 }, // cell diferente
+      { lat: -23.551, lng: -46.487, weight: 3 }, // cell diferente
     ];
     const merged = mergePoints(a);
     expect(merged.length).toBeGreaterThanOrEqual(2);

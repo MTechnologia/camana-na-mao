@@ -52,26 +52,26 @@ const ConfirmarEmail = () => {
           </h1>
           <p className="text-muted-foreground">
             {isEmailConfirmed ? (
-              <>
-                Seu e-mail já está confirmado. Você já pode acessar o app.
-              </>
+              <>Seu e-mail já está confirmado. Você já pode acessar o app.</>
             ) : email ? (
               <>
                 {requiresSupabaseConfiguration ? (
                   <>
-                    O cadastro foi criado para <strong className="text-foreground">{email}</strong>, mas o Supabase marcou o e-mail como confirmado automaticamente.
+                    O cadastro foi criado para <strong className="text-foreground">{email}</strong>,
+                    mas o Supabase marcou o e-mail como confirmado automaticamente.
                   </>
                 ) : (
                   <>
-                    Enviamos um link de confirmação para <strong className="text-foreground">{email}</strong>.
-                    Abra seu e-mail e clique no link para ativar sua conta.
+                    Enviamos um link de confirmação para{" "}
+                    <strong className="text-foreground">{email}</strong>. Abra seu e-mail e clique
+                    no link para ativar sua conta.
                   </>
                 )}
               </>
             ) : (
               <>
-                Enviamos um link de confirmação para o e-mail informado no cadastro.
-                Abra sua caixa de entrada e clique no link para ativar sua conta.
+                Enviamos um link de confirmação para o e-mail informado no cadastro. Abra sua caixa
+                de entrada e clique no link para ativar sua conta.
               </>
             )}
           </p>
@@ -81,13 +81,10 @@ const ConfirmarEmail = () => {
             ? "Se o app não abrir automaticamente, use o botão abaixo."
             : requiresSupabaseConfiguration
               ? "Para exigir validação real, ative a confirmação de e-mail no Supabase Auth. Até lá, este navegador não liberará o login desse cadastro."
-            : "Depois de confirmar, você poderá fazer login e acessar o app normalmente."}
+              : "Depois de confirmar, você poderá fazer login e acessar o app normalmente."}
         </p>
         <div className="flex flex-col gap-3 pt-4">
-          <Button
-            onClick={() => void handlePrimaryAction()}
-            className="w-full"
-          >
+          <Button onClick={() => void handlePrimaryAction()} className="w-full">
             {isEmailConfirmed ? "Entrar no app" : "Ir para o login"}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
@@ -103,10 +100,7 @@ const ConfirmarEmail = () => {
               {resending ? "Reenviando..." : "Reenviar e-mail de confirmação"}
             </Button>
           )}
-          <Link
-            to="/welcome"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
+          <Link to="/welcome" className="text-sm text-muted-foreground hover:text-foreground">
             Voltar ao início
           </Link>
         </div>

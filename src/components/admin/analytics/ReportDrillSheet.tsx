@@ -1,16 +1,16 @@
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
-import { useReportDetailModal } from '@/contexts/ReportDetailContext';
-import type { DrillReportSource } from '@/types/analyticsDrill';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAnalyticsDrill } from "@/contexts/AnalyticsDrillContext";
+import { useReportDetailModal } from "@/contexts/ReportDetailContext";
+import type { DrillReportSource } from "@/types/analyticsDrill";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 function sourceLabel(source: DrillReportSource): string {
-  if (source === 'urban') return 'Urbano';
-  if (source === 'transport') return 'Transporte';
-  return 'Avaliação';
+  if (source === "urban") return "Urbano";
+  if (source === "transport") return "Transporte";
+  return "Avaliação";
 }
 
 export function ReportDrillSheet() {
@@ -55,17 +55,23 @@ export function ReportDrillSheet() {
             <p className="text-xs text-muted-foreground">Recorte: {selectedBar.label}</p>
             {!throughLoading && throughTotal > 0 ? (
               <p className="text-xs text-muted-foreground">
-                {throughTotal} {throughTotal === 1 ? 'relato' : 'relatos'} no período
+                {throughTotal} {throughTotal === 1 ? "relato" : "relatos"} no período
                 {selectedBar.value > 0 && throughTotal !== Math.round(selectedBar.value) ? (
                   <span className="block text-amber-700 dark:text-amber-400">
-                    Gráfico: {Math.round(selectedBar.value).toLocaleString('pt-BR')} · listados:{' '}
-                    {throughTotal.toLocaleString('pt-BR')}
+                    Gráfico: {Math.round(selectedBar.value).toLocaleString("pt-BR")} · listados:{" "}
+                    {throughTotal.toLocaleString("pt-BR")}
                   </span>
                 ) : null}
               </p>
             ) : null}
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={closeDrillThrough} aria-label="Fechar">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={closeDrillThrough}
+            aria-label="Fechar"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -80,22 +86,22 @@ export function ReportDrillSheet() {
           ) : (
             <ul className="space-y-2">
               {throughReportsPage.map((r) => {
-                const clickable = r.source === 'urban' || r.source === 'transport';
+                const clickable = r.source === "urban" || r.source === "transport";
                 return (
                   <li
                     key={`${r.source}-${r.id}`}
                     className={cn(
-                      'rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm',
+                      "rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm",
                       clickable &&
-                        'cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/50',
+                        "cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/50",
                     )}
-                    role={clickable ? 'button' : undefined}
+                    role={clickable ? "button" : undefined}
                     tabIndex={clickable ? 0 : undefined}
                     onClick={() => {
                       if (clickable) openReport(r.id, r.source);
                     }}
                     onKeyDown={(e) => {
-                      if (clickable && (e.key === 'Enter' || e.key === ' ')) {
+                      if (clickable && (e.key === "Enter" || e.key === " ")) {
                         e.preventDefault();
                         openReport(r.id, r.source);
                       }

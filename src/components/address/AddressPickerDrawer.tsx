@@ -48,16 +48,11 @@ export function AddressPickerDrawer({
             <MapPin className="h-5 w-5 text-primary" />
             Buscar endereço
           </DrawerTitle>
-          <DrawerDescription>
-            Digite parte do endereço para buscar
-          </DrawerDescription>
+          <DrawerDescription>Digite parte do endereço para buscar</DrawerDescription>
         </DrawerHeader>
 
         <div className="px-4 pb-6 space-y-4">
-          <AddressAutocomplete
-            onSelect={handleSelect}
-            placeholder="Ex: Rua Augusta, São Paulo"
-          />
+          <AddressAutocomplete onSelect={handleSelect} placeholder="Ex: Rua Augusta, São Paulo" />
 
           {selectedAddress && (
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -66,15 +61,19 @@ export function AddressPickerDrawer({
                 Endereço selecionado
               </div>
               <div className="text-sm space-y-1">
-                <p className="font-medium">{selectedAddress.street}{selectedAddress.streetNumber ? `, ${selectedAddress.streetNumber}` : ''}</p>
+                <p className="font-medium">
+                  {selectedAddress.street}
+                  {selectedAddress.streetNumber ? `, ${selectedAddress.streetNumber}` : ""}
+                </p>
                 <p className="text-muted-foreground">
-                  {selectedAddress.neighborhood}{selectedAddress.neighborhood && selectedAddress.city ? ' - ' : ''}
+                  {selectedAddress.neighborhood}
+                  {selectedAddress.neighborhood && selectedAddress.city ? " - " : ""}
                   {selectedAddress.city}
-                  {selectedAddress.state ? `, ${selectedAddress.state}` : ''}
+                  {selectedAddress.state ? `, ${selectedAddress.state}` : ""}
                 </p>
                 {selectedAddress.cep && (
                   <p className="text-muted-foreground text-xs">
-                    CEP: {selectedAddress.cep.replace(/(\d{5})(\d{3})/, '$1-$2')}
+                    CEP: {selectedAddress.cep.replace(/(\d{5})(\d{3})/, "$1-$2")}
                   </p>
                 )}
               </div>
@@ -82,18 +81,10 @@ export function AddressPickerDrawer({
           )}
 
           <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleClose}
-            >
+            <Button variant="outline" className="flex-1" onClick={handleClose}>
               Cancelar
             </Button>
-            <Button
-              className="flex-1"
-              onClick={handleConfirm}
-              disabled={!selectedAddress}
-            >
+            <Button className="flex-1" onClick={handleConfirm} disabled={!selectedAddress}>
               Confirmar
             </Button>
           </div>

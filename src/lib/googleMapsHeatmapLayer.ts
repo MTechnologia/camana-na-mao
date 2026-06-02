@@ -1,8 +1,16 @@
-import { HeatmapLayer } from '@deck.gl/aggregation-layers';
-import { GoogleMapsOverlay } from '@deck.gl/google-maps';
-import type { HeatmapWeightedPoint, HeatmapLayerOptions, GoogleHeatmapLayer } from './googleMapsHeatmapTypes';
+import { HeatmapLayer } from "@deck.gl/aggregation-layers";
+import { GoogleMapsOverlay } from "@deck.gl/google-maps";
+import type {
+  HeatmapWeightedPoint,
+  HeatmapLayerOptions,
+  GoogleHeatmapLayer,
+} from "./googleMapsHeatmapTypes";
 
-export type { GoogleHeatmapLayer, HeatmapWeightedPoint, HeatmapLayerOptions } from './googleMapsHeatmapTypes';
+export type {
+  GoogleHeatmapLayer,
+  HeatmapWeightedPoint,
+  HeatmapLayerOptions,
+} from "./googleMapsHeatmapTypes";
 
 /** Paleta semelhante ao gradiente padrão do Google (azul → verde → amarelo → vermelho). */
 const BASE_COLOR_RANGE: ReadonlyArray<[number, number, number, number]> = [
@@ -44,7 +52,7 @@ function waitForMapIdle(map: google.maps.Map): Promise<void> {
       resolve();
     };
 
-    const listener = map.addListener('idle', finish);
+    const listener = map.addListener("idle", finish);
     const fallbackId = window.setTimeout(finish, 900);
 
     try {
@@ -100,7 +108,7 @@ export async function createGoogleHeatmapLayer(
   options: HeatmapLayerOptions = {},
 ): Promise<GoogleHeatmapLayer> {
   if (points.length === 0) {
-    throw new Error('Sem pontos para o mapa de calor.');
+    throw new Error("Sem pontos para o mapa de calor.");
   }
 
   if (options.skipMapIdle) {
@@ -133,8 +141,8 @@ export async function createGoogleHeatmapLayer(
 
 export function heatmapLayerErrorMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes('weightsTexture') || msg.includes('deck') || msg.includes('WebGL')) {
-    return 'Não foi possível renderizar o mapa de calor (WebGL). Recarregue a página ou tente outro navegador.';
+  if (msg.includes("weightsTexture") || msg.includes("deck") || msg.includes("WebGL")) {
+    return "Não foi possível renderizar o mapa de calor (WebGL). Recarregue a página ou tente outro navegador.";
   }
-  return 'Não foi possível renderizar o mapa de calor.';
+  return "Não foi possível renderizar o mapa de calor.";
 }

@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  applyAudienciasFacet,
-  applyCriticidadeFacet,
-  applyEficienciaFacet,
-} from "./applyFacets";
+import { applyAudienciasFacet, applyCriticidadeFacet, applyEficienciaFacet } from "./applyFacets";
 
 /**
  * HU-14 — Testes dos utils de aplicação de facets.

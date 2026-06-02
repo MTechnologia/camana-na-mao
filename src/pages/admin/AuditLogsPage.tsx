@@ -1,4 +1,4 @@
-import AuditLogs from '@/pages/admin/AuditLogs';
+import AuditLogs from "@/pages/admin/AuditLogs";
 
 /** Auditoria — conteúdo real, shell do AdminAppLayout. */
 export function AuditLogsPage() {

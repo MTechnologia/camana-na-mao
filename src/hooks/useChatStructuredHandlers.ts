@@ -273,11 +273,7 @@ export function useChatStructuredHandlers({
   );
 
   const handleApplyNearbyFilters = useCallback(
-    (filters: {
-      radiusMeters: number;
-      minRating: "all" | 4 | 3 | 2;
-      searchQuery: string;
-    }) => {
+    (filters: { radiusMeters: number; minRating: "all" | 4 | 3 | 2; searchQuery: string }) => {
       const radiusStr =
         filters.radiusMeters < 1000
           ? `${filters.radiusMeters}m`

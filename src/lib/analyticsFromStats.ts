@@ -1,4 +1,4 @@
-import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
+import type { ReportsAnalyticsStats } from "@/hooks/useReportsAnalytics";
 import type {
   ChartBarPoint,
   DrillGrain,
@@ -8,15 +8,15 @@ import type {
   RegionSentimentBreakdown,
   TerritoryIntensity,
   TimeSeriesPoint,
-} from '@/types/analyticsDrill';
+} from "@/types/analyticsDrill";
 import {
   buildDrillKpisForRegionFilter,
   buildCorrelationFromStats,
   buildPatternsByRegionFromStats,
   buildSentimentPolarityFromStats,
-} from '@/lib/analyticsDrillFromStats';
-import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
-import { formatTimelineDayLabel, patternRankFromAlerts } from '@/lib/reportsAnalyticsAggregates';
+} from "@/lib/analyticsDrillFromStats";
+import { formatReportCategoryLabel } from "@/lib/reportCategoryLabels";
+import { formatTimelineDayLabel, patternRankFromAlerts } from "@/lib/reportsAnalyticsAggregates";
 
 const emptyKpis: DrillKpis = {
   volume: 0,
@@ -43,7 +43,7 @@ export function buildAnalyticsChartBundle(
     : stats && stats.total > 0
       ? [
           {
-            label: 'Total no período',
+            label: "Total no período",
             volume: stats.total,
             resolved: stats.resolved,
           },
@@ -54,7 +54,7 @@ export function buildAnalyticsChartBundle(
     ? stats.categories.map((c) => ({
         id: c.category,
         label: formatReportCategoryLabel(c.category),
-        filterKey: 'category' as const,
+        filterKey: "category" as const,
         filterValue: c.category,
         value: c.count,
       }))
@@ -77,21 +77,20 @@ export function buildAnalyticsChartBundle(
       }))
     : [];
 
-  const sentimentGrain: DrillGrain = region === 'all' ? 'overview' : 'region';
+  const sentimentGrain: DrillGrain = region === "all" ? "overview" : "region";
   const sentimentByRegion: RegionSentimentBreakdown[] = buildSentimentPolarityFromStats(
     stats,
     sentimentGrain,
-    region === 'all' ? undefined : region,
+    region === "all" ? undefined : region,
   );
 
   const topPatterns: PatternRankRow[] = stats?.criticality?.patterns?.length
     ? patternRankFromAlerts(stats.criticality.patterns)
     : [];
 
-  const patternsByRegion: RegionPatternSummary[] =
-    stats?.territoryPatterns?.length
-      ? stats.territoryPatterns
-      : buildPatternsByRegionFromStats(stats, region === 'all' ? undefined : region);
+  const patternsByRegion: RegionPatternSummary[] = stats?.territoryPatterns?.length
+    ? stats.territoryPatterns
+    : buildPatternsByRegionFromStats(stats, region === "all" ? undefined : region);
   const correlationPoints = buildCorrelationFromStats(stats);
 
   void period;

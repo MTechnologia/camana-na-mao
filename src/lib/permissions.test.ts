@@ -132,8 +132,14 @@ describe("groupPermissionsByDomain", () => {
   it("cobre todos os 8 domínios", () => {
     const grouped = groupPermissionsByDomain();
     const domains: PermissionDomain[] = [
-      "users", "reports", "triage", "exports",
-      "analytics", "audiences", "gabinete", "system",
+      "users",
+      "reports",
+      "triage",
+      "exports",
+      "analytics",
+      "audiences",
+      "gabinete",
+      "system",
     ];
     for (const d of domains) {
       expect(grouped[d]).toBeDefined();

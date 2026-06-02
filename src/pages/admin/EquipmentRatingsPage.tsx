@@ -1,10 +1,10 @@
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { RefreshCw, Search, Star } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { RefreshCw, Search, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -12,34 +12,34 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { PageShell } from '@/components/ui/PageShell';
-import { KpiCard } from '@/components/ui/KpiCard';
+} from "@/components/ui/table";
+import { PageShell } from "@/components/ui/PageShell";
+import { KpiCard } from "@/components/ui/KpiCard";
 import {
   EQUIPMENT_RATINGS_KPI_LEGENDS,
   EQUIPMENT_RATINGS_PAGE_LEGEND,
-} from '@/lib/analyticsParameterLegends';
-import { useEquipmentRatingsAdmin } from '@/hooks/useEquipmentRatingsAdmin';
-import { toast } from 'sonner';
+} from "@/lib/analyticsParameterLegends";
+import { useEquipmentRatingsAdmin } from "@/hooks/useEquipmentRatingsAdmin";
+import { toast } from "sonner";
 
 const statusUi: Record<
   string,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
 > = {
-  published: { label: 'Publicada', variant: 'default' },
-  pending_review: { label: 'Em revisão', variant: 'secondary' },
-  rejected: { label: 'Rejeitada', variant: 'destructive' },
+  published: { label: "Publicada", variant: "default" },
+  pending_review: { label: "Em revisão", variant: "secondary" },
+  rejected: { label: "Rejeitada", variant: "destructive" },
 };
 
 export function EquipmentRatingsPage() {
   const { rows, kpis, loading, search, setSearch, refresh, moderate } = useEquipmentRatingsAdmin();
 
-  const onModerate = async (id: string, status: 'published' | 'rejected') => {
+  const onModerate = async (id: string, status: "published" | "rejected") => {
     try {
       await moderate(id, status);
-      toast.success(status === 'published' ? 'Avaliação publicada.' : 'Avaliação rejeitada.');
+      toast.success(status === "published" ? "Avaliação publicada." : "Avaliação rejeitada.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Não foi possível atualizar.');
+      toast.error(e instanceof Error ? e.message : "Não foi possível atualizar.");
     }
   };
 
@@ -48,17 +48,17 @@ export function EquipmentRatingsPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard
           label="Total no período"
-          value={loading ? '—' : String(kpis.total)}
+          value={loading ? "—" : String(kpis.total)}
           parameter={EQUIPMENT_RATINGS_KPI_LEGENDS.total}
         />
         <KpiCard
           label="Pendentes de moderação"
-          value={loading ? '—' : String(kpis.pendingModeration)}
+          value={loading ? "—" : String(kpis.pendingModeration)}
           parameter={EQUIPMENT_RATINGS_KPI_LEGENDS.pending}
         />
         <KpiCard
           label="Tempo de espera (média)"
-          value={loading || kpis.avgWaitScore == null ? '—' : `${kpis.avgWaitScore}/5`}
+          value={loading || kpis.avgWaitScore == null ? "—" : `${kpis.avgWaitScore}/5`}
           parameter={EQUIPMENT_RATINGS_KPI_LEGENDS.avgWait}
         />
       </div>
@@ -74,7 +74,7 @@ export function EquipmentRatingsPage() {
           />
         </div>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>
@@ -107,7 +107,7 @@ export function EquipmentRatingsPage() {
               {rows.map((r) => {
                 const st = statusUi[r.publication_status] ?? {
                   label: r.publication_status,
-                  variant: 'outline' as const,
+                  variant: "outline" as const,
                 };
                 return (
                   <TableRow key={r.id}>
@@ -126,29 +126,29 @@ export function EquipmentRatingsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {r.wait_time_score != null ? `${r.wait_time_score}/5` : '—'}
+                      {r.wait_time_score != null ? `${r.wait_time_score}/5` : "—"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{r.district ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.district ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant={st.variant}>{st.label}</Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                      {format(new Date(r.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.publication_status === 'pending_review' && (
+                      {r.publication_status === "pending_review" && (
                         <div className="flex justify-end gap-1">
                           <Button
                             size="sm"
                             variant="default"
-                            onClick={() => void onModerate(r.id, 'published')}
+                            onClick={() => void onModerate(r.id, "published")}
                           >
                             Aprovar
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => void onModerate(r.id, 'rejected')}
+                            onClick={() => void onModerate(r.id, "rejected")}
                           >
                             Rejeitar
                           </Button>

@@ -1,12 +1,12 @@
-import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
-import { regionLabel } from '@/lib/analyticsLabels';
+import type { ReportsAnalyticsFilters } from "@/hooks/useReportsAnalytics";
+import { regionLabel } from "@/lib/analyticsLabels";
 import {
   hasCategoryFilterTargets,
   resolveGlobalCategoryFilter,
   type GlobalCategoryFilterSlice,
-} from '@/lib/globalCategoryFilter';
-import { bairroParaZona } from '@/lib/regionMapping';
-import type { UnifiedReport } from '@/lib/analyticsDimensions';
+} from "@/lib/globalCategoryFilter";
+import { bairroParaZona } from "@/lib/regionMapping";
+import type { UnifiedReport } from "@/lib/analyticsDimensions";
 
 type DateFilterableQuery<T> = {
   gte: (col: string, v: string) => T;
@@ -19,17 +19,15 @@ export function applyCrossAnalyticsDateFilters<T extends DateFilterableQuery<T>>
 ): T {
   let q = query;
   if (filters.startDate) {
-    q = q.gte('created_at', `${filters.startDate}T00:00:00`);
+    q = q.gte("created_at", `${filters.startDate}T00:00:00`);
   }
   if (filters.endDate) {
-    q = q.lte('created_at', `${filters.endDate}T23:59:59`);
+    q = q.lte("created_at", `${filters.endDate}T23:59:59`);
   }
   return q;
 }
 
-export function resolveCrossCategorySlice(
-  category?: string,
-): GlobalCategoryFilterSlice {
+export function resolveCrossCategorySlice(category?: string): GlobalCategoryFilterSlice {
   return resolveGlobalCategoryFilter(category);
 }
 
@@ -50,10 +48,10 @@ export function filterUnifiedReportsByRegion(
   reports: UnifiedReport[],
   region?: string,
 ): UnifiedReport[] {
-  if (!region || region === 'all') return reports;
+  if (!region || region === "all") return reports;
   const zoneLabel = regionLabel(region);
   return reports.filter((row) => {
-    const text = [row.neighborhood].filter(Boolean).join(' ');
+    const text = [row.neighborhood].filter(Boolean).join(" ");
     return bairroParaZona(text, row.latitude, row.longitude) === zoneLabel;
   });
 }

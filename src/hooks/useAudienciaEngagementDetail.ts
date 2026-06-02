@@ -47,10 +47,7 @@ export function useAudienciaEngagementDetail() {
       if (inscError) throw inscError;
 
       const userIds = [...new Set((inscricoes ?? []).map((i) => i.user_id))];
-      const profileMap = new Map<
-        string,
-        { full_name: string | null; phone: string | null }
-      >();
+      const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
 
       if (userIds.length > 0) {
         const { data: profiles, error: profError } = await supabase
@@ -64,8 +61,7 @@ export function useAudienciaEngagementDetail() {
       }
 
       const emailByUserId = new Map<string, string>();
-      const { data: emailRows, error: emailsError } =
-        await supabase.rpc("admin_user_emails");
+      const { data: emailRows, error: emailsError } = await supabase.rpc("admin_user_emails");
       if (emailsError) {
         console.warn("[useAudienciaEngagementDetail] admin_user_emails", emailsError);
       } else {
@@ -88,22 +84,25 @@ export function useAudienciaEngagementDetail() {
         };
       });
 
-      const { data: participacoes, error: partError } = await (supabase as unknown as {
-        from: (table: string) => {
-          select: (cols: string) => {
-            eq: (col: string, val: string) => {
-              order: (
+      const { data: participacoes, error: partError } = await (
+        supabase as unknown as {
+          from: (table: string) => {
+            select: (cols: string) => {
+              eq: (
                 col: string,
-                opts: { ascending: boolean },
-              ) => Promise<{ data: ParticipacaoRowDetail[] | null; error: unknown }>;
+                val: string,
+              ) => {
+                order: (
+                  col: string,
+                  opts: { ascending: boolean },
+                ) => Promise<{ data: ParticipacaoRowDetail[] | null; error: unknown }>;
+              };
             };
           };
-        };
-      })
+        }
+      )
         .from("audiencia_participacoes")
-        .select(
-          "id, tipo, nome, email, telefone, entidade, created_at, protocolo, sugestao",
-        )
+        .select("id, tipo, nome, email, telefone, entidade, created_at, protocolo, sugestao")
         .eq("audiencia_id", audienciaId)
         .order("created_at", { ascending: false });
 

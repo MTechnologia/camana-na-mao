@@ -6,29 +6,27 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import {
-  useOptionalGlobalReportsAnalytics,
-} from '@/contexts/GlobalReportsAnalyticsContext';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
+} from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { useOptionalGlobalReportsAnalytics } from "@/contexts/GlobalReportsAnalyticsContext";
+import { globalFiltersToReportsAnalytics } from "@/lib/globalFiltersToAnalytics";
 import {
   useReportsAnalytics,
   type ReportsAnalyticsFilters,
   type ReportsAnalyticsStats,
-} from '@/hooks/useReportsAnalytics';
+} from "@/hooks/useReportsAnalytics";
 import {
   buildChartSeriesFromStats,
   buildDrillKpisForRegionFilter,
   buildDrillKpisFromStats,
-} from '@/lib/analyticsDrillFromStats';
+} from "@/lib/analyticsDrillFromStats";
 import {
   DRILL_THROUGH_PAGE_SIZE,
   drillThroughTotalPages,
   fetchDrillThroughReports,
   paginateDrillThroughReports,
-} from '@/lib/fetchDrillThroughReports';
-import { regionLabel } from '@/lib/analyticsLabels';
+} from "@/lib/fetchDrillThroughReports";
+import { regionLabel } from "@/lib/analyticsLabels";
 import type {
   AnalyticsMetric,
   ChartBarPoint,
@@ -36,7 +34,7 @@ import type {
   DrillGrain,
   DrillKpis,
   DrillReportRow,
-} from '@/types/analyticsDrill';
+} from "@/types/analyticsDrill";
 
 type AnalyticsDrillContextValue = {
   metric: AnalyticsMetric;
@@ -67,7 +65,11 @@ type AnalyticsDrillContextValue = {
 
 const AnalyticsDrillContext = createContext<AnalyticsDrillContextValue | null>(null);
 
-const OVERVIEW_CRUMB: DrillCrumb = { id: 'overview', grain: 'overview', label: 'São Paulo (capital)' };
+const OVERVIEW_CRUMB: DrillCrumb = {
+  id: "overview",
+  grain: "overview",
+  label: "São Paulo (capital)",
+};
 
 function AnalyticsDrillLocalLoader({
   children,
@@ -95,8 +97,8 @@ function AnalyticsDrillStateProvider({
 }) {
   const { region, setRegion, setCategory } = useGlobalFilters();
 
-  const [metric, setMetric] = useState<AnalyticsMetric>('volume');
-  const [grain, setGrain] = useState<DrillGrain>('overview');
+  const [metric, setMetric] = useState<AnalyticsMetric>("volume");
+  const [grain, setGrain] = useState<DrillGrain>("overview");
   const [drillPath, setDrillPath] = useState<DrillCrumb[]>([OVERVIEW_CRUMB]);
   const [activeRegion, setActiveRegion] = useState<string | undefined>();
   const [activeDistrict, setActiveDistrict] = useState<string | undefined>();
@@ -107,10 +109,7 @@ function AnalyticsDrillStateProvider({
   const [throughPage, setThroughPage] = useState(1);
   const [throughLoading, setThroughLoading] = useState(false);
 
-  const throughTotalPages = useMemo(
-    () => drillThroughTotalPages(throughTotal),
-    [throughTotal],
-  );
+  const throughTotalPages = useMemo(() => drillThroughTotalPages(throughTotal), [throughTotal]);
 
   const throughReportsPage = useMemo(
     () => paginateDrillThroughReports(throughReports, throughPage),
@@ -118,7 +117,7 @@ function AnalyticsDrillStateProvider({
   );
 
   const resetDrill = useCallback(() => {
-    setGrain('overview');
+    setGrain("overview");
     setDrillPath([OVERVIEW_CRUMB]);
     setActiveRegion(undefined);
     setActiveDistrict(undefined);
@@ -130,23 +129,23 @@ function AnalyticsDrillStateProvider({
   }, []);
 
   useEffect(() => {
-    if (region === 'all') {
-      if (grain !== 'overview') resetDrill();
+    if (region === "all") {
+      if (grain !== "overview") resetDrill();
       return;
     }
     if (activeRegion !== region) {
       setActiveRegion(region);
       setActiveDistrict(undefined);
-      setGrain('region');
+      setGrain("region");
       setDrillPath([
         OVERVIEW_CRUMB,
-        { id: `region-${region}`, grain: 'region', label: regionLabel(region) },
+        { id: `region-${region}`, grain: "region", label: regionLabel(region) },
       ]);
     }
   }, [region, grain, activeRegion, resetDrill]);
 
   const kpis = useMemo(() => {
-    if (region !== 'all' && grain === 'region' && activeRegion === region) {
+    if (region !== "all" && grain === "region" && activeRegion === region) {
       return buildDrillKpisForRegionFilter(stats, region);
     }
     return buildDrillKpisFromStats(stats, grain, activeRegion, activeDistrict);
@@ -176,7 +175,7 @@ function AnalyticsDrillStateProvider({
         }
       })
       .catch((err) => {
-        console.warn('[AnalyticsDrill] drill-through', err);
+        console.warn("[AnalyticsDrill] drill-through", err);
         if (!cancelled) {
           setThroughReports([]);
           setThroughTotal(0);
@@ -193,29 +192,29 @@ function AnalyticsDrillStateProvider({
       setSelectedBar(point);
       setThroughOpen(false);
 
-      if (point.filterKey === 'region') {
+      if (point.filterKey === "region") {
         setActiveRegion(point.filterValue);
         setActiveDistrict(undefined);
-        setGrain('region');
+        setGrain("region");
         setRegion(point.filterValue);
         setDrillPath([
           OVERVIEW_CRUMB,
-          { id: `region-${point.filterValue}`, grain: 'region', label: point.label },
+          { id: `region-${point.filterValue}`, grain: "region", label: point.label },
         ]);
         return;
       }
 
-      if (point.filterKey === 'district') {
+      if (point.filterKey === "district") {
         setActiveDistrict(point.filterValue);
-        setGrain('street');
+        setGrain("street");
         setDrillPath((prev) => [
           ...prev.slice(0, 2),
-          { id: `district-${point.filterValue}`, grain: 'street', label: point.label },
+          { id: `district-${point.filterValue}`, grain: "street", label: point.label },
         ]);
         return;
       }
 
-      if (point.filterKey === 'category') {
+      if (point.filterKey === "category") {
         setCategory(point.filterValue);
       }
     },
@@ -229,17 +228,17 @@ function AnalyticsDrillStateProvider({
 
       if (index <= 0) {
         resetDrill();
-        setRegion('all');
-        setCategory('all');
+        setRegion("all");
+        setCategory("all");
         return;
       }
 
       const nextPath = drillPath.slice(0, index + 1);
       const crumb = nextPath[nextPath.length - 1];
 
-      if (crumb.grain === 'region') {
-        const regionId = crumb.id.replace('region-', '');
-        setGrain('region');
+      if (crumb.grain === "region") {
+        const regionId = crumb.id.replace("region-", "");
+        setGrain("region");
         setActiveRegion(regionId);
         setActiveDistrict(undefined);
         setRegion(regionId);
@@ -247,11 +246,11 @@ function AnalyticsDrillStateProvider({
         return;
       }
 
-      if (crumb.grain === 'street' && crumb.id.startsWith('district-')) {
-        const districtId = crumb.id.replace('district-', '');
-        const regionCrumb = nextPath.find((c) => c.grain === 'region');
-        const regionId = regionCrumb?.id.replace('region-', '') ?? activeRegion;
-        setGrain('street');
+      if (crumb.grain === "street" && crumb.id.startsWith("district-")) {
+        const districtId = crumb.id.replace("district-", "");
+        const regionCrumb = nextPath.find((c) => c.grain === "region");
+        const regionId = regionCrumb?.id.replace("region-", "") ?? activeRegion;
+        setGrain("street");
         setActiveRegion(regionId);
         setActiveDistrict(districtId);
         if (regionId) setRegion(regionId);
@@ -260,7 +259,7 @@ function AnalyticsDrillStateProvider({
       }
 
       resetDrill();
-      setRegion('all');
+      setRegion("all");
     },
     [drillPath, resetDrill, setRegion, setCategory],
   );
@@ -289,8 +288,8 @@ function AnalyticsDrillStateProvider({
       drillUp,
       clearDrill: () => {
         resetDrill();
-        setRegion('all');
-        setCategory('all');
+        setRegion("all");
+        setCategory("all");
       },
       selectBar: setSelectedBar,
       openDrillThrough: () => setThroughOpen(true),
@@ -321,9 +320,7 @@ function AnalyticsDrillStateProvider({
     ],
   );
 
-  return (
-    <AnalyticsDrillContext.Provider value={value}>{children}</AnalyticsDrillContext.Provider>
-  );
+  return <AnalyticsDrillContext.Provider value={value}>{children}</AnalyticsDrillContext.Provider>;
 }
 
 /** Sempre montado no layout admin — ReportDrillSheet depende deste contexto. */
@@ -352,7 +349,7 @@ export function AnalyticsDrillProvider({ children }: { children: ReactNode }) {
 export function useAnalyticsDrill(): AnalyticsDrillContextValue {
   const ctx = useContext(AnalyticsDrillContext);
   if (!ctx) {
-    throw new Error('useAnalyticsDrill must be used within AnalyticsDrillProvider');
+    throw new Error("useAnalyticsDrill must be used within AnalyticsDrillProvider");
   }
   return ctx;
 }

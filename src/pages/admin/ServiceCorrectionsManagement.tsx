@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AdminPageShell } from '@/components/admin/AdminPageShell';
+import { AdminPageShell } from "@/components/admin/AdminPageShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,10 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useServiceCorrectionsAdmin, type ServiceCorrectionRow } from "@/hooks/useServiceCorrectionsAdmin";
+import {
+  useServiceCorrectionsAdmin,
+  type ServiceCorrectionRow,
+} from "@/hooks/useServiceCorrectionsAdmin";
 import {
   correctionDisplayLabel,
   correctionFieldLabel,
@@ -96,7 +99,9 @@ function statusBadge(status: string | null) {
     case "rejected":
       return <Badge className="bg-rose-500/15 text-rose-800 border-rose-500/30">Recusada</Badge>;
     case "applied":
-      return <Badge className="bg-emerald-500/15 text-emerald-800 border-emerald-500/30">Aplicada</Badge>;
+      return (
+        <Badge className="bg-emerald-500/15 text-emerald-800 border-emerald-500/30">Aplicada</Badge>
+      );
     default:
       return <Badge variant="secondary">{status ?? "—"}</Badge>;
   }
@@ -116,13 +121,7 @@ function ModerationStepper({ status }: { status: string | null }) {
   if (applied) cadastroVariant = "done";
   else if (approved) cadastroVariant = "active";
 
-  const Step = ({
-    label,
-    variant,
-  }: {
-    label: string;
-    variant: "done" | "active" | "todo";
-  }) => (
+  const Step = ({ label, variant }: { label: string; variant: "done" | "active" | "todo" }) => (
     <div className="flex flex-col items-center gap-1 flex-1 min-w-0 text-center">
       {variant === "done" ? (
         <CheckCircle2 className="h-6 w-6 text-primary shrink-0" aria-hidden />
@@ -133,7 +132,11 @@ function ModerationStepper({ status }: { status: string | null }) {
       )}
       <span
         className={`text-[10px] sm:text-xs font-medium leading-tight ${
-          variant === "active" ? "text-primary" : variant === "done" ? "text-foreground" : "text-muted-foreground"
+          variant === "active"
+            ? "text-primary"
+            : variant === "done"
+              ? "text-foreground"
+              : "text-muted-foreground"
         }`}
       >
         {label}
@@ -148,9 +151,18 @@ function ModerationStepper({ status }: { status: string | null }) {
       aria-label="Etapas da moderação"
     >
       <Step label="Recebida" variant="done" />
-      <div className="self-center h-px flex-1 bg-border min-w-[8px] mx-0.5 mt-[-20px]" aria-hidden />
-      <Step label="Aprovação" variant={approvalDone ? "done" : approvalActive ? "active" : "todo"} />
-      <div className="self-center h-px flex-1 bg-border min-w-[8px] mx-0.5 mt-[-20px]" aria-hidden />
+      <div
+        className="self-center h-px flex-1 bg-border min-w-[8px] mx-0.5 mt-[-20px]"
+        aria-hidden
+      />
+      <Step
+        label="Aprovação"
+        variant={approvalDone ? "done" : approvalActive ? "active" : "todo"}
+      />
+      <div
+        className="self-center h-px flex-1 bg-border min-w-[8px] mx-0.5 mt-[-20px]"
+        aria-hidden
+      />
       <Step label={cadastroLabel} variant={cadastroVariant} />
     </div>
   );
@@ -181,7 +193,8 @@ function PendingQueueTable({
         <Inbox className="h-12 w-12 text-muted-foreground mb-3" aria-hidden />
         <p className="font-medium text-foreground">Nenhuma sugestão pendente</p>
         <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-          Quando munícipes enviarem correções sobre equipamentos, elas aparecerão aqui para validação.
+          Quando munícipes enviarem correções sobre equipamentos, elas aparecerão aqui para
+          validação.
         </p>
       </div>
     );
@@ -195,7 +208,9 @@ function PendingQueueTable({
         {
           header: "Equipamento",
           accessor: (row) => (
-            <span className="font-medium line-clamp-2 max-w-[200px]">{row.public_services?.name ?? "—"}</span>
+            <span className="font-medium line-clamp-2 max-w-[200px]">
+              {row.public_services?.name ?? "—"}
+            </span>
           ),
         },
         {
@@ -213,7 +228,9 @@ function PendingQueueTable({
         {
           header: "Enviada em",
           accessor: (row) =>
-            row.created_at ? format(new Date(row.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }) : "—",
+            row.created_at
+              ? format(new Date(row.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })
+              : "—",
           hideOnMobile: true,
         },
         {
@@ -224,7 +241,9 @@ function PendingQueueTable({
         {
           header: "Resumo",
           accessor: (row) => (
-            <span className="text-sm text-muted-foreground line-clamp-2 max-w-[240px]">{row.suggested_value}</span>
+            <span className="text-sm text-muted-foreground line-clamp-2 max-w-[240px]">
+              {row.suggested_value}
+            </span>
           ),
           hideOnMobile: true,
         },
@@ -244,7 +263,9 @@ function PendingQueueTable({
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Equipamento</p>
               <p className="font-medium">{row.public_services?.name ?? "—"}</p>
             </div>
-            <Badge className="shrink-0 bg-amber-500/15 text-amber-800 border-amber-500/30">Pendente</Badge>
+            <Badge className="shrink-0 bg-amber-500/15 text-amber-800 border-amber-500/30">
+              Pendente
+            </Badge>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Tipo</p>
@@ -316,7 +337,9 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
   const runAction = async (status: "approved" | "rejected" | "applied") => {
     if (!detail) return;
     if (status === "rejected" && staffNotes.trim().length < MIN_NOTES_ON_REJECT) {
-      toast.error(`Ao recusar, preencha as notas internas com pelo menos ${MIN_NOTES_ON_REJECT} caracteres (motivo registrado).`);
+      toast.error(
+        `Ao recusar, preencha as notas internas com pelo menos ${MIN_NOTES_ON_REJECT} caracteres (motivo registrado).`,
+      );
       return;
     }
     setActing(true);
@@ -347,7 +370,9 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
 
   const requestReject = () => {
     if (staffNotes.trim().length < MIN_NOTES_ON_REJECT) {
-      toast.error(`Informe o motivo da recusa nas notas internas (mín. ${MIN_NOTES_ON_REJECT} caracteres).`);
+      toast.error(
+        `Informe o motivo da recusa nas notas internas (mín. ${MIN_NOTES_ON_REJECT} caracteres).`,
+      );
       return;
     }
     setRejectDialogOpen(true);
@@ -363,10 +388,11 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
               Painel — sugestões de correção de equipamentos
             </h1>
             <p className="text-muted-foreground mt-1 max-w-2xl">
-              <strong>Fluxo:</strong> primeiro <strong>aceitar</strong> a sugestão (aprovação); só então atualize o
-              cadastro oficial (ex.: GeoSampa/backoffice) e marque <strong>cadastro atualizado</strong>. O munícipe é
-              notificado na aprovação e de novo quando a correção estiver refletida.{" "}
-              <strong>Meta:</strong> fila pendente em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h.
+              <strong>Fluxo:</strong> primeiro <strong>aceitar</strong> a sugestão (aprovação); só
+              então atualize o cadastro oficial (ex.: GeoSampa/backoffice) e marque{" "}
+              <strong>cadastro atualizado</strong>. O munícipe é notificado na aprovação e de novo
+              quando a correção estiver refletida. <strong>Meta:</strong> fila pendente em até{" "}
+              {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
@@ -381,7 +407,10 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
           className="space-y-4"
         >
           <TabsList className="grid w-full max-w-xl grid-cols-2 h-auto p-1 gap-1">
-            <TabsTrigger value="queue" className="flex flex-wrap items-center justify-center gap-2 py-2.5">
+            <TabsTrigger
+              value="queue"
+              className="flex flex-wrap items-center justify-center gap-2 py-2.5"
+            >
               <Inbox className="h-4 w-4 shrink-0" />
               <span>Fila de pendentes</span>
               {statusCounts.pending > 0 ? (
@@ -419,8 +448,9 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                       {statusCounts.pending} sugestão(ões) aguardando validação
                     </p>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Ordem: fora do prazo de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h primeiro; depois as mais próximas do
-                      limite. Clique em <strong>Validar</strong> para decidir.
+                      Ordem: fora do prazo de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h primeiro;
+                      depois as mais próximas do limite. Clique em <strong>Validar</strong> para
+                      decidir.
                     </p>
                     {statusCounts.pendingOverSla > 0 ? (
                       <p className="text-sm font-medium text-destructive mt-2 flex items-center gap-1.5">
@@ -511,7 +541,9 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                     <Skeleton className="h-12 w-full" />
                   </div>
                 ) : rows.length === 0 ? (
-                  <p className="p-8 text-center text-muted-foreground">Nenhuma sugestão neste filtro.</p>
+                  <p className="p-8 text-center text-muted-foreground">
+                    Nenhuma sugestão neste filtro.
+                  </p>
                 ) : (
                   <ul className="divide-y divide-border">
                     {rows.map((row) => {
@@ -537,13 +569,17 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                   {row.created_at
-                                    ? format(new Date(row.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                                    ? format(new Date(row.created_at), "dd/MM/yyyy HH:mm", {
+                                        locale: ptBR,
+                                      })
                                     : "—"}{" "}
                                   · {row.submitter?.full_name ?? row.user_id.slice(0, 8)}
                                 </p>
                               </div>
                             </div>
-                            <p className="text-sm mt-2 line-clamp-2 text-foreground/90">{row.suggested_value}</p>
+                            <p className="text-sm mt-2 line-clamp-2 text-foreground/90">
+                              {row.suggested_value}
+                            </p>
                           </button>
                         </li>
                       );
@@ -596,9 +632,13 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                     <p className="text-muted-foreground mt-1">
                       Validar até{" "}
                       <strong className="text-foreground">
-                        {format(serviceCorrectionSlaDeadline(detail.created_at), "dd/MM/yyyy 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
+                        {format(
+                          serviceCorrectionSlaDeadline(detail.created_at),
+                          "dd/MM/yyyy 'às' HH:mm",
+                          {
+                            locale: ptBR,
+                          },
+                        )}
                       </strong>
                       {" — "}
                       {formatDistanceToNow(serviceCorrectionSlaDeadline(detail.created_at), {
@@ -630,7 +670,9 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                     {detail.staff_notes ? (
                       <p>
                         <span className="text-muted-foreground">Notas internas:</span>{" "}
-                        <span className="text-foreground whitespace-pre-wrap">{detail.staff_notes}</span>
+                        <span className="text-foreground whitespace-pre-wrap">
+                          {detail.staff_notes}
+                        </span>
                       </p>
                     ) : null}
                   </div>
@@ -703,9 +745,9 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                     {detail.status === "pending" ? (
                       <p className="text-[11px] text-muted-foreground">
                         <strong>Aceitar:</strong> aprova a sugestão — o cadastro oficial{" "}
-                        <strong>não</strong> muda neste passo; atualize-o no processo interno e depois marque &quot;Cadastro
-                        atualizado&quot; no histórico. <strong>Recusar:</strong> exige motivo nas notas — o munícipe é
-                        notificado.
+                        <strong>não</strong> muda neste passo; atualize-o no processo interno e
+                        depois marque &quot;Cadastro atualizado&quot; no histórico.{" "}
+                        <strong>Recusar:</strong> exige motivo nas notas — o munícipe é notificado.
                       </p>
                     ) : (
                       <div className="rounded-md border border-blue-500/25 bg-blue-500/5 p-3 text-[11px] text-muted-foreground space-y-1">
@@ -713,8 +755,8 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
                         <p>
                           Atualize o registro oficial (fonte de verdade). Somente depois use{" "}
                           <strong>Cadastro oficial atualizado</strong> — o sistema não altera{" "}
-                          <code className="text-xs bg-muted px-1 rounded">public_services</code> automaticamente a partir
-                          desta tela.
+                          <code className="text-xs bg-muted px-1 rounded">public_services</code>{" "}
+                          automaticamente a partir desta tela.
                         </p>
                       </div>
                     )}
@@ -725,17 +767,32 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
             <DialogFooter className="flex-col sm:flex-row gap-2">
               {detail?.status === "pending" && (
                 <>
-                  <Button variant="destructive" disabled={acting} onClick={requestReject} type="button">
+                  <Button
+                    variant="destructive"
+                    disabled={acting}
+                    onClick={requestReject}
+                    type="button"
+                  >
                     Recusar…
                   </Button>
-                  <Button variant="secondary" disabled={acting} onClick={() => runAction("approved")} type="button">
+                  <Button
+                    variant="secondary"
+                    disabled={acting}
+                    onClick={() => runAction("approved")}
+                    type="button"
+                  >
                     Aceitar (aprovar)
                   </Button>
                 </>
               )}
               {detail?.status === "approved" && (
                 <>
-                  <Button variant="outline" disabled={acting} onClick={() => setDetail(null)} type="button">
+                  <Button
+                    variant="outline"
+                    disabled={acting}
+                    onClick={() => setDetail(null)}
+                    type="button"
+                  >
                     Fechar
                   </Button>
                   <Button disabled={acting} onClick={() => runAction("applied")} type="button">
@@ -757,8 +814,8 @@ export default function ServiceCorrectionsManagement({ embedded }: { embedded?: 
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar recusa?</AlertDialogTitle>
               <AlertDialogDescription>
-                O munícipe será notificado de que a sugestão não será aplicada. As notas internas ficam apenas para a
-                equipe.
+                O munícipe será notificado de que a sugestão não será aplicada. As notas internas
+                ficam apenas para a equipe.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

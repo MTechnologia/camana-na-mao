@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from "framer-motion";
 
 interface BarData {
   label: string;
@@ -13,20 +13,20 @@ interface CompactBarChartProps {
   showPercentage?: boolean;
 }
 
-export const CompactBarChart = ({ 
-  data, 
-  total, 
+export const CompactBarChart = ({
+  data,
+  total,
   onItemClick,
-  showPercentage = true 
+  showPercentage = true,
 }: CompactBarChartProps) => {
-  const maxValue = Math.max(...data.map(d => d.value), 1);
+  const maxValue = Math.max(...data.map((d) => d.value), 1);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden p-2">
       {/* min-h-0: necessário para o flex-1 respeitar a altura do pai (evita sobreposição do título no build) */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden pr-1">
         {data.map((item, index) => {
-          const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
+          const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0";
           const barWidth = total > 0 ? (item.value / maxValue) * 100 : 0;
 
           return (
@@ -35,7 +35,7 @@ export const CompactBarChart = ({
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.08 }}
-              className={`grid grid-cols-[72px_1fr_96px] items-center gap-3 ${onItemClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+              className={`grid grid-cols-[72px_1fr_96px] items-center gap-3 ${onItemClick ? "cursor-pointer hover:opacity-80" : ""}`}
               onClick={() => onItemClick?.(item.label)}
             >
               {/* Label */}

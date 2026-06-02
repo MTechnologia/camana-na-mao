@@ -4,7 +4,7 @@ import { WaitTimePicker } from "@/components/ai/WaitTimePicker";
 /**
  * Página temporária para validação visual do WaitTimePicker.
  * Acesse: /test-wait-time
- * 
+ *
  * REMOVER APÓS VALIDAÇÃO.
  */
 const TestWaitTimePicker = () => {
@@ -15,8 +15,9 @@ const TestWaitTimePicker = () => {
     setSelectedLabel(displayLabel);
     setSelectedScore(score);
     console.log("[TEST] WaitTimePicker selecionado:", { displayLabel, score });
-    console.log("[TEST] Mensagem que seria enviada:", 
-      `Tempo de espera: ${displayLabel} ${score === null ? '[WAIT_TIME:null]' : `[WAIT_TIME:${score}]`}`
+    console.log(
+      "[TEST] Mensagem que seria enviada:",
+      `Tempo de espera: ${displayLabel} ${score === null ? "[WAIT_TIME:null]" : `[WAIT_TIME:${score}]`}`,
     );
   };
 
@@ -25,9 +26,7 @@ const TestWaitTimePicker = () => {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-xl font-bold">🧪 Teste: WaitTimePicker</h1>
-          <p className="text-sm text-muted-foreground">
-            Validação visual do componente OS-06
-          </p>
+          <p className="text-sm text-muted-foreground">Validação visual do componente OS-06</p>
         </div>
 
         {/* Simula a bolha do assistente */}
@@ -35,7 +34,7 @@ const TestWaitTimePicker = () => {
           <p className="text-sm font-medium">
             <strong>Quanto tempo você esperou</strong> para ser atendido? Escolha uma opção abaixo.
           </p>
-          
+
           <WaitTimePicker onSelect={handleSelect} />
         </div>
 
@@ -46,8 +45,13 @@ const TestWaitTimePicker = () => {
               ✅ Seleção capturada:
             </p>
             <div className="text-sm space-y-1">
-              <p><strong>Label:</strong> {selectedLabel}</p>
-              <p><strong>Score:</strong> {selectedScore === null ? "null (Não se aplica)" : selectedScore}</p>
+              <p>
+                <strong>Label:</strong> {selectedLabel}
+              </p>
+              <p>
+                <strong>Score:</strong>{" "}
+                {selectedScore === null ? "null (Não se aplica)" : selectedScore}
+              </p>
               <p className="font-mono text-xs bg-background/80 p-2 rounded mt-2">
                 Tempo de espera: {selectedLabel}{" "}
                 {selectedScore === null ? "[WAIT_TIME:null]" : `[WAIT_TIME:${selectedScore}]`}
@@ -69,11 +73,26 @@ const TestWaitTimePicker = () => {
               </tr>
             </thead>
             <tbody className="divide-y">
-              <tr><td>{"< 15 min"}</td><td className="font-mono">5</td></tr>
-              <tr><td>15–30 min</td><td className="font-mono">4</td></tr>
-              <tr><td>30–60 min</td><td className="font-mono">3</td></tr>
-              <tr><td>{"> 1 hora"}</td><td className="font-mono">2</td></tr>
-              <tr><td>Não se aplica</td><td className="font-mono">null</td></tr>
+              <tr>
+                <td>{"< 15 min"}</td>
+                <td className="font-mono">5</td>
+              </tr>
+              <tr>
+                <td>15–30 min</td>
+                <td className="font-mono">4</td>
+              </tr>
+              <tr>
+                <td>30–60 min</td>
+                <td className="font-mono">3</td>
+              </tr>
+              <tr>
+                <td>{"> 1 hora"}</td>
+                <td className="font-mono">2</td>
+              </tr>
+              <tr>
+                <td>Não se aplica</td>
+                <td className="font-mono">null</td>
+              </tr>
             </tbody>
           </table>
         </div>

@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, Building2, MoreHorizontal } from "lucide-react";
 
 export interface InlineServiceTypePickerProps {
@@ -67,7 +63,9 @@ export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerPro
 
   return (
     <div className="mt-3 w-full max-w-md space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <p className="text-xs font-medium text-foreground">Filtrar por tipo (igual ao Perto de você)</p>
+      <p className="text-xs font-medium text-foreground">
+        Filtrar por tipo (igual ao Perto de você)
+      </p>
 
       {/* Principais */}
       <div>
@@ -91,8 +89,16 @@ export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerPro
       {/* Outros tipos (expansível) */}
       <Collapsible open={openOutrosTipos} onOpenChange={setOpenOutrosTipos}>
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground">
-            {openOutrosTipos ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {openOutrosTipos ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
             Outros tipos
           </Button>
         </CollapsibleTrigger>

@@ -138,7 +138,11 @@ async function validateManualEntryNotRatedToday(
   if (term.length < 2) return { blocked: false };
 
   const applyType = (strict: boolean) => {
-    const q = supabase.from("public_services").select("id, name, district").is("duplicate_of", null).limit(40);
+    const q = supabase
+      .from("public_services")
+      .select("id, name, district")
+      .is("duplicate_of", null)
+      .limit(40);
     if (!st) return q;
     if (strict) return q.eq("service_type", st);
     if (st === "hospital") return q.in("service_type", ["hospital", "other"] as string[]);
@@ -194,7 +198,10 @@ async function validateManualEntryNotRatedToday(
 
   const ids = [...ratedIds];
   if (ids.length === 0) return { blocked: false };
-  const { data: ratedDetails } = await supabase.from("public_services").select("id, name").in("id", ids);
+  const { data: ratedDetails } = await supabase
+    .from("public_services")
+    .select("id, name")
+    .in("id", ids);
   for (const svc of ratedDetails || []) {
     if (svc?.name && freeTextLikelySameService(typed, svc.name)) {
       return { blocked: true, matchedName: svc.name };
@@ -204,7 +211,12 @@ async function validateManualEntryNotRatedToday(
   return { blocked: false };
 }
 
-export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onSelect }: InlineServicePickerProps) => {
+export const InlineServicePicker = ({
+  serviceType,
+  district,
+  hideRatedToday,
+  onSelect,
+}: InlineServicePickerProps) => {
   const [query, setQuery] = useState("");
   const [services, setServices] = useState<PublicService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -234,11 +246,15 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
       setIsLoading(true);
       try {
         const baseSelect = () =>
-          supabase.from("public_services").select("id, name, service_type, district, address").is("duplicate_of", null).limit(80);
+          supabase
+            .from("public_services")
+            .select("id, name, service_type, district, address")
+            .is("duplicate_of", null)
+            .limit(80);
 
         const applyType = (
           q: ReturnType<typeof baseSelect>,
-          strict: boolean
+          strict: boolean,
         ): ReturnType<typeof baseSelect> => {
           if (!st) return q;
           if (strict) return q.eq("service_type", st);
@@ -344,7 +360,7 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
           const inArea = rows.filter(
             (r) =>
               (r.district && foldAccents(r.district).toLowerCase().includes(dFold)) ||
-              (r.address && foldAccents(r.address).toLowerCase().includes(dFold))
+              (r.address && foldAccents(r.address).toLowerCase().includes(dFold)),
           );
           if (inArea.length > 0) rows = inArea;
         }
@@ -383,12 +399,12 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
         setIsLoading(false);
       }
     },
-    [serviceType, district, hideRatedToday]
+    [serviceType, district, hideRatedToday],
   );
 
   const normalizedServiceType = useMemo(
     () => normalizeServiceTypeToDbEnum(serviceType),
-    [serviceType]
+    [serviceType],
   );
 
   /** Busca inicial + refinamento: antes, com district+type o debounce era ignorado e digitar não atualizava a lista */
@@ -472,10 +488,7 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
         <div className="p-3">
           <p className="text-sm text-muted-foreground mb-2">Serviço não encontrado</p>
           {manualEntryBlock && (
-            <p
-              className="text-sm text-amber-700 dark:text-amber-500 mb-2"
-              role="alert"
-            >
+            <p className="text-sm text-amber-700 dark:text-amber-500 mb-2" role="alert">
               {manualEntryBlock}
             </p>
           )}
@@ -549,13 +562,15 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
       </div>
       {hasPreloadContext && services.length > 0 && !query.trim() && (
         <p className="mb-2 text-[11px] text-muted-foreground">
-          Equipamentos em <strong className="text-foreground">{district}</strong> para o tipo escolhido.
+          Equipamentos em <strong className="text-foreground">{district}</strong> para o tipo
+          escolhido.
         </p>
       )}
       {hideRatedToday && allInListRatedToday && !query.trim() && (
         <p className="mb-2 text-[11px] text-amber-700 dark:text-amber-500">
-          Você já avaliou hoje todos os equipamentos desta lista para o tipo e bairro escolhidos. Refine o nome para
-          buscar outro local ou volte amanhã para repetir a avaliação no mesmo serviço.
+          Você já avaliou hoje todos os equipamentos desta lista para o tipo e bairro escolhidos.
+          Refine o nome para buscar outro local ou volte amanhã para repetir a avaliação no mesmo
+          serviço.
         </p>
       )}
 

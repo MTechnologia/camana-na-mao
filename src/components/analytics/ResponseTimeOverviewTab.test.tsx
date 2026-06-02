@@ -20,7 +20,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderWithStats(stats: Partial<ReturnType<typeof useResponseTimeAnalytics>["stats"]> = {}) {
+function renderWithStats(
+  stats: Partial<ReturnType<typeof useResponseTimeAnalytics>["stats"]> = {},
+) {
   mockedHook.mockReturnValue({
     stats: {
       count: 0,

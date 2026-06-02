@@ -48,9 +48,15 @@ export function usePublishedServiceRatings(
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      const { data, error: qError, count } = await supabase
+      const {
+        data,
+        error: qError,
+        count,
+      } = await supabase
         .from("service_ratings")
-        .select("id, rating_stars, rating_text, created_at, is_anonymous, user_id", { count: "exact" })
+        .select("id, rating_stars, rating_text, created_at, is_anonymous, user_id", {
+          count: "exact",
+        })
         .eq("service_id", serviceId)
         .eq("publication_status", "published")
         .order("created_at", { ascending: false })

@@ -7,12 +7,7 @@
 
 export type TriagePriority = "P0" | "P1" | "P2" | "P3";
 
-export type TriageStatus =
-  | "untriaged"
-  | "triaged"
-  | "in_progress"
-  | "resolved"
-  | "closed";
+export type TriageStatus = "untriaged" | "triaged" | "in_progress" | "resolved" | "closed";
 
 export interface TriagePriorityMeta {
   code: TriagePriority;

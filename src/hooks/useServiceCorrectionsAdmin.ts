@@ -45,15 +45,27 @@ const emptyCounts: ServiceCorrectionStatusCounts = {
 async function fetchStatusCounts(): Promise<ServiceCorrectionStatusCounts> {
   const slaCutoff = new Date(Date.now() - SLA_MS).toISOString();
   const [pending, pendingOverSla, approved, rejected, applied, all] = await Promise.all([
-    supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    supabase
+      .from("service_corrections")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
     supabase
       .from("service_corrections")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending")
       .lt("created_at", slaCutoff),
-    supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "approved"),
-    supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "rejected"),
-    supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "applied"),
+    supabase
+      .from("service_corrections")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "approved"),
+    supabase
+      .from("service_corrections")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "rejected"),
+    supabase
+      .from("service_corrections")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "applied"),
     supabase.from("service_corrections").select("*", { count: "exact", head: true }),
   ]);
   return {

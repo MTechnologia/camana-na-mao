@@ -22,9 +22,7 @@ describe("describeAiOrchestratorFailure", () => {
 
 describe("isStatementTimeoutFailure", () => {
   it("detecta timeout em texto plano", () => {
-    expect(
-      isStatementTimeoutFailure("canceling statement due to statement timeout"),
-    ).toBe(true);
+    expect(isStatementTimeoutFailure("canceling statement due to statement timeout")).toBe(true);
   });
 
   it("detecta timeout em JSON", () => {
@@ -38,9 +36,9 @@ describe("isStatementTimeoutFailure", () => {
 
 describe("extractFieldRequestFromContent", () => {
   it("extrai nome do campo", () => {
-    expect(
-      extractFieldRequestFromContent("[FIELD_REQUEST:affected_scope]Quem mais?"),
-    ).toBe("affected_scope");
+    expect(extractFieldRequestFromContent("[FIELD_REQUEST:affected_scope]Quem mais?")).toBe(
+      "affected_scope",
+    );
   });
 });
 

@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Download } from 'lucide-react';
-import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
-import { ReportsListPagination } from '@/components/admin/reports/ReportsListPagination';
-import { getExportTypeLabel } from '@/lib/exportTypeLabels';
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Download } from "lucide-react";
+import { ResponsiveTable } from "@/components/admin/ResponsiveTable";
+import { ReportsListPagination } from "@/components/admin/reports/ReportsListPagination";
+import { getExportTypeLabel } from "@/lib/exportTypeLabels";
 
 export const EXPORT_LOGS_PAGE_SIZE = 10;
 
@@ -24,11 +24,11 @@ interface ExportLog {
 
 function getStatusBadge(status: string) {
   switch (status) {
-    case 'completed':
+    case "completed":
       return <Badge className="bg-green-500/10 text-green-500">Concluído</Badge>;
-    case 'pending':
+    case "pending":
       return <Badge className="bg-yellow-500/10 text-yellow-500">Pendente</Badge>;
-    case 'error':
+    case "error":
       return <Badge className="bg-red-500/10 text-red-500">Erro</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
@@ -50,9 +50,9 @@ export function ExportLogsTable() {
       const to = from + EXPORT_LOGS_PAGE_SIZE - 1;
 
       const { data, error, count } = await supabase
-        .from('export_logs')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+        .from("export_logs")
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
         .range(from, to);
 
       if (error) throw error;
@@ -64,9 +64,9 @@ export function ExportLogsTable() {
       let profilesData: { id: string; full_name: string }[] | null = null;
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
         profilesData = profiles;
       }
 
@@ -77,8 +77,8 @@ export function ExportLogsTable() {
         })),
       );
     } catch (error) {
-      console.error('[ExportLogsTable]', error);
-      toast.error('Erro ao carregar histórico de exportações');
+      console.error("[ExportLogsTable]", error);
+      toast.error("Erro ao carregar histórico de exportações");
     } finally {
       setLoading(false);
     }
@@ -114,19 +114,19 @@ export function ExportLogsTable() {
   }
 
   return (
-    <div className={loading ? 'pointer-events-none opacity-60' : undefined}>
+    <div className={loading ? "pointer-events-none opacity-60" : undefined}>
       <ResponsiveTable
         data={logs}
         keyExtractor={(log) => log.id}
         columns={[
           {
-            header: 'Tipo',
+            header: "Tipo",
             accessor: (log) => (
               <span className="font-medium">{getExportTypeLabel(log.export_type)}</span>
             ),
           },
           {
-            header: 'Formato',
+            header: "Formato",
             accessor: (log) => (
               <Badge variant="outline" className="text-xs">
                 {log.format.toUpperCase()}
@@ -135,27 +135,27 @@ export function ExportLogsTable() {
             hideOnMobile: true,
           },
           {
-            header: 'Status',
+            header: "Status",
             accessor: (log) => getStatusBadge(log.status),
           },
           {
-            header: 'Registros',
-            accessor: (log) => (log.row_count ? log.row_count.toLocaleString('pt-BR') : '—'),
+            header: "Registros",
+            accessor: (log) => (log.row_count ? log.row_count.toLocaleString("pt-BR") : "—"),
             hideOnMobile: true,
           },
           {
-            header: 'Usuário',
-            accessor: (log) => log.profiles?.full_name || 'Desconhecido',
+            header: "Usuário",
+            accessor: (log) => log.profiles?.full_name || "Desconhecido",
             hideOnMobile: true,
           },
           {
-            header: 'Criado em',
-            accessor: (log) => new Date(log.created_at).toLocaleDateString('pt-BR'),
+            header: "Criado em",
+            accessor: (log) => new Date(log.created_at).toLocaleDateString("pt-BR"),
           },
           {
-            header: 'Completado em',
+            header: "Completado em",
             accessor: (log) =>
-              log.completed_at ? new Date(log.completed_at).toLocaleDateString('pt-BR') : '—',
+              log.completed_at ? new Date(log.completed_at).toLocaleDateString("pt-BR") : "—",
             hideOnMobile: true,
           },
         ]}
@@ -165,7 +165,7 @@ export function ExportLogsTable() {
               <div className="flex-1">
                 <p className="font-medium">{getExportTypeLabel(log.export_type)}</p>
                 <p className="text-sm text-muted-foreground">
-                  {log.profiles?.full_name || 'Desconhecido'}
+                  {log.profiles?.full_name || "Desconhecido"}
                 </p>
               </div>
               {getStatusBadge(log.status)}
@@ -176,14 +176,14 @@ export function ExportLogsTable() {
               </Badge>
               {log.row_count != null && (
                 <span className="text-muted-foreground">
-                  {log.row_count.toLocaleString('pt-BR')} registros
+                  {log.row_count.toLocaleString("pt-BR")} registros
                 </span>
               )}
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{new Date(log.created_at).toLocaleDateString('pt-BR')}</span>
+              <span>{new Date(log.created_at).toLocaleDateString("pt-BR")}</span>
               {log.completed_at && (
-                <span>Concluído: {new Date(log.completed_at).toLocaleDateString('pt-BR')}</span>
+                <span>Concluído: {new Date(log.completed_at).toLocaleDateString("pt-BR")}</span>
               )}
             </div>
           </div>

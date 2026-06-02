@@ -1,5 +1,14 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { motion } from 'framer-motion';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { motion } from "framer-motion";
 
 interface AgeGroupData {
   ageGroup: string;
@@ -15,10 +24,12 @@ interface AgePyramidProps {
 }
 
 export const AgePyramid = ({ data, onBarClick }: AgePyramidProps) => {
-  const ageOrder = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
-  const sortedData = [...data].sort((a, b) => {
-    return ageOrder.indexOf(a.ageGroup) - ageOrder.indexOf(b.ageGroup);
-  }).reverse();
+  const ageOrder = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+  const sortedData = [...data]
+    .sort((a, b) => {
+      return ageOrder.indexOf(a.ageGroup) - ageOrder.indexOf(b.ageGroup);
+    })
+    .reverse();
 
   return (
     <motion.div
@@ -33,19 +44,19 @@ export const AgePyramid = ({ data, onBarClick }: AgePyramidProps) => {
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-          <XAxis 
-            type="number" 
+          <XAxis
+            type="number"
             stroke="hsl(var(--muted-foreground))"
             tickFormatter={(value) => `${value}%`}
           />
-          <YAxis 
-            type="category" 
-            dataKey="ageGroup" 
+          <YAxis
+            type="category"
+            dataKey="ageGroup"
             width={80}
             stroke="hsl(var(--muted-foreground))"
           />
           <Tooltip
-            cursor={{ fill: 'hsl(var(--muted))', opacity: 0.2 }}
+            cursor={{ fill: "hsl(var(--muted))", opacity: 0.2 }}
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 const data = payload[0].payload;
@@ -64,18 +75,18 @@ export const AgePyramid = ({ data, onBarClick }: AgePyramidProps) => {
               return null;
             }}
           />
-          <Bar 
-            dataKey="percentage" 
+          <Bar
+            dataKey="percentage"
             fill="hsl(var(--chart-1))"
             radius={[0, 4, 4, 0]}
             onClick={(data) => onBarClick?.(data.key ?? data.ageGroup)}
-            className={onBarClick ? 'cursor-pointer' : ''}
+            className={onBarClick ? "cursor-pointer" : ""}
           >
             {sortedData.map((entry, index) => (
-              <Cell 
+              <Cell
                 key={`cell-${index}`}
                 fill={`hsl(var(--chart-${(index % 5) + 1}))`}
-                className={onBarClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}
+                className={onBarClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
               />
             ))}
           </Bar>

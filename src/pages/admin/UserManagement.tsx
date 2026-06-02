@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { AdminPageShell } from '@/components/admin/AdminPageShell';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useState } from "react";
+import { AdminPageShell } from "@/components/admin/AdminPageShell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Building,
   MoreVertical,
@@ -13,42 +19,42 @@ import {
   ShieldOff,
   Trash2,
   UserPlus,
-} from 'lucide-react';
-import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
-import { UserRoleModal } from '@/components/admin/UserRoleModal';
-import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
-import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
-import { SuspendUserDialog } from '@/components/admin/SuspendUserDialog';
-import { GabineteLinkDialog } from '@/components/admin/GabineteLinkDialog';
+} from "lucide-react";
+import { useAdminUsers, AdminUser } from "@/hooks/useAdminUsers";
+import { UserRoleModal } from "@/components/admin/UserRoleModal";
+import { DeleteUserDialog } from "@/components/admin/DeleteUserDialog";
+import { InviteUserDialog } from "@/components/admin/InviteUserDialog";
+import { SuspendUserDialog } from "@/components/admin/SuspendUserDialog";
+import { GabineteLinkDialog } from "@/components/admin/GabineteLinkDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
-import { usePermissions } from '@/hooks/usePermission';
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ResponsiveTable } from "@/components/admin/ResponsiveTable";
+import { usePermissions } from "@/hooks/usePermission";
 
 const roleColors: Record<string, string> = {
-  admin: 'bg-red-500/10 text-red-500 border-red-500/20',
-  gestor: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  vereador: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  assessor: 'bg-green-500/10 text-green-500 border-green-500/20',
-  cidadao_engajado: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  cidadao: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  admin: "bg-red-500/10 text-red-500 border-red-500/20",
+  gestor: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+  vereador: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  assessor: "bg-green-500/10 text-green-500 border-green-500/20",
+  cidadao_engajado: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  cidadao: "bg-gray-500/10 text-gray-500 border-gray-500/20",
 };
 
 const roleLabels: Record<string, string> = {
-  admin: 'Admin',
-  gestor: 'Gestor',
-  vereador: 'Vereador',
-  assessor: 'Assessor',
-  cidadao_engajado: 'Cidadão Engajado',
-  cidadao: 'Cidadão',
+  admin: "Admin",
+  gestor: "Gestor",
+  vereador: "Vereador",
+  assessor: "Assessor",
+  cidadao_engajado: "Cidadão Engajado",
+  cidadao: "Cidadão",
 };
 
 export default function UserManagement({ embedded }: { embedded?: boolean } = {}) {
@@ -71,17 +77,17 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
   const [inviteOpen, setInviteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { results: permissions, loading: permissionsLoading } = usePermissions([
-    'users.invite',
-    'users.update_role',
-    'users.link_gabinete',
-    'users.suspend',
-    'users.delete',
+    "users.invite",
+    "users.update_role",
+    "users.link_gabinete",
+    "users.suspend",
+    "users.delete",
   ]);
-  const canInviteUser = permissions['users.invite'];
-  const canUpdateRole = permissions['users.update_role'];
-  const canLinkGabinete = permissions['users.link_gabinete'];
-  const canSuspendUser = permissions['users.suspend'];
-  const canDeleteUser = permissions['users.delete'];
+  const canInviteUser = permissions["users.invite"];
+  const canUpdateRole = permissions["users.update_role"];
+  const canLinkGabinete = permissions["users.link_gabinete"];
+  const canSuspendUser = permissions["users.suspend"];
+  const canDeleteUser = permissions["users.delete"];
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
@@ -90,7 +96,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
       await deleteUser(userToDelete.id);
       setUserToDelete(null);
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error("Error deleting user:", error);
     } finally {
       setDeleting(false);
     }
@@ -98,13 +104,13 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
 
   const handleReactivate = async (user: AdminUser) => {
     try {
-      const { error } = await supabase.rpc('reactivate_user', { _target_id: user.id });
+      const { error } = await supabase.rpc("reactivate_user", { _target_id: user.id });
       if (error) throw error;
       toast.success(`${user.full_name} reativado.`);
       refetch?.();
     } catch (err) {
-      console.error('[reactivate]', err);
-      const msg = err instanceof Error ? err.message : 'Erro desconhecido.';
+      console.error("[reactivate]", err);
+      const msg = err instanceof Error ? err.message : "Erro desconhecido.";
       toast.error(`Não foi possível reativar: ${msg}`);
     }
   };
@@ -145,7 +151,9 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
             <SelectContent>
               <SelectItem value="all">Todos os Perfis</SelectItem>
               {Object.entries(roleLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -164,7 +172,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
             keyExtractor={(user) => user.id}
             columns={[
               {
-                header: 'Usuário',
+                header: "Usuário",
                 accessor: (user) => (
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
@@ -176,12 +184,12 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                 ),
               },
               {
-                header: 'Email',
-                accessor: (user) => user.email || 'N/A',
+                header: "Email",
+                accessor: (user) => user.email || "N/A",
                 hideOnMobile: true,
               },
               {
-                header: 'Perfil',
+                header: "Perfil",
                 accessor: (user) => (
                   <div className="flex flex-wrap gap-1">
                     {user.roles.length > 0 ? (
@@ -194,7 +202,10 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                       <span className="text-sm text-muted-foreground">Sem perfil</span>
                     )}
                     {user.suspended_at && (
-                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
+                      <Badge
+                        variant="outline"
+                        className="bg-destructive/10 text-destructive border-destructive/30"
+                      >
                         <ShieldOff className="h-3 w-3 mr-1" />
                         Suspenso
                       </Badge>
@@ -203,20 +214,16 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                 ),
               },
               {
-                header: 'Cadastro',
-                accessor: (user) => new Date(user.created_at).toLocaleDateString('pt-BR'),
+                header: "Cadastro",
+                accessor: (user) => new Date(user.created_at).toLocaleDateString("pt-BR"),
                 hideOnMobile: true,
               },
               {
-                header: 'Ações',
+                header: "Ações",
                 accessor: (user) => (
                   <div className="flex items-center gap-2">
                     {canUpdateRole ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedUser(user)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => setSelectedUser(user)}>
                         Editar Perfil
                       </Button>
                     ) : null}
@@ -228,25 +235,25 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {canLinkGabinete &&
-                          (user.roles.includes('vereador') || user.roles.includes('assessor')) && (
+                          (user.roles.includes("vereador") || user.roles.includes("assessor")) && (
                             <DropdownMenuItem onClick={() => setUserForGabinete(user)}>
                               <Building className="h-4 w-4 mr-2" />
-                              {user.council_member_id ? 'Editar gabinete' : 'Vincular a gabinete'}
+                              {user.council_member_id ? "Editar gabinete" : "Vincular a gabinete"}
                             </DropdownMenuItem>
-                        )}
-                        {canSuspendUser
-                          ? (user.suspended_at ? (
-                              <DropdownMenuItem onClick={() => void handleReactivate(user)}>
-                                <ShieldCheck className="h-4 w-4 mr-2 text-green-600" />
-                                Reativar conta
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onClick={() => setUserToSuspend(user)}>
-                                <ShieldOff className="h-4 w-4 mr-2 text-destructive" />
-                                Suspender conta
-                              </DropdownMenuItem>
-                            ))
-                          : null}
+                          )}
+                        {canSuspendUser ? (
+                          user.suspended_at ? (
+                            <DropdownMenuItem onClick={() => void handleReactivate(user)}>
+                              <ShieldCheck className="h-4 w-4 mr-2 text-green-600" />
+                              Reativar conta
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => setUserToSuspend(user)}>
+                              <ShieldOff className="h-4 w-4 mr-2 text-destructive" />
+                              Suspender conta
+                            </DropdownMenuItem>
+                          )
+                        ) : null}
                         {canDeleteUser ? (
                           <>
                             <DropdownMenuSeparator />
@@ -280,7 +287,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
                       </p>
                     ) : null}
                     <p className="text-sm text-muted-foreground">
-                      {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                      {new Date(user.created_at).toLocaleDateString("pt-BR")}
                     </p>
                   </div>
                 </div>
@@ -336,7 +343,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
           open={!!userToDelete}
           onClose={() => setUserToDelete(null)}
           onConfirm={handleDeleteUser}
-          userName={userToDelete?.full_name || ''}
+          userName={userToDelete?.full_name || ""}
           loading={deleting}
         />
 
@@ -360,7 +367,7 @@ export default function UserManagement({ embedded }: { embedded?: boolean } = {}
           targetUserId={userForGabinete?.id ?? null}
           targetUserName={userForGabinete?.full_name ?? null}
           targetUserRole={
-            userForGabinete?.roles.find((r) => r === 'vereador' || r === 'assessor') ?? null
+            userForGabinete?.roles.find((r) => r === "vereador" || r === "assessor") ?? null
           }
           currentCouncilMemberId={userForGabinete?.council_member_id ?? null}
           onSaved={() => refetch?.()}

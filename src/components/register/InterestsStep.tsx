@@ -4,7 +4,12 @@ import { INTEREST_ICONS } from "@/components/icons";
 import CollapsibleInfoCard from "./CollapsibleInfoCard";
 
 const INTEREST_CATEGORIES = [
-  { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
+  {
+    id: "legislativo",
+    label: "Legislativo",
+    icon: "📜",
+    description: "Projetos de lei e votações",
+  },
   { id: "mobilidade", label: "Mobilidade", icon: "🚌", description: "Transporte e trânsito" },
   { id: "cultura", label: "Cultura", icon: "🎭", description: "Eventos culturais" },
   { id: "saude", label: "Saúde", icon: "🏥", description: "Políticas de saúde" },
@@ -21,7 +26,12 @@ interface InterestsStepProps {
   loading?: boolean;
 }
 
-const InterestsStep = ({ selectedInterests, onToggle, onContinue, loading }: InterestsStepProps) => {
+const InterestsStep = ({
+  selectedInterests,
+  onToggle,
+  onContinue,
+  loading,
+}: InterestsStepProps) => {
   const canContinue = selectedInterests.length >= 3;
 
   return (
@@ -53,17 +63,14 @@ const InterestsStep = ({ selectedInterests, onToggle, onContinue, loading }: Int
             }`}
           >
             <div className="flex items-center justify-center w-9 h-9 mb-2 text-primary">
-              {INTEREST_ICONS[category.id] && (() => {
-                const Icon = INTEREST_ICONS[category.id];
-                return <Icon size={28} aria-hidden />;
-              })()}
+              {INTEREST_ICONS[category.id] &&
+                (() => {
+                  const Icon = INTEREST_ICONS[category.id];
+                  return <Icon size={28} aria-hidden />;
+                })()}
             </div>
-            <h3 className="font-semibold text-foreground text-sm mb-0.5">
-              {category.label}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {category.description}
-            </p>
+            <h3 className="font-semibold text-foreground text-sm mb-0.5">{category.label}</h3>
+            <p className="text-xs text-muted-foreground">{category.description}</p>
           </button>
         ))}
       </div>
@@ -71,11 +78,7 @@ const InterestsStep = ({ selectedInterests, onToggle, onContinue, loading }: Int
       {/* Contador */}
       <div className="text-center text-sm text-muted-foreground">
         {selectedInterests.length} de {INTEREST_CATEGORIES.length} selecionados
-        {selectedInterests.length < 3 && (
-          <span className="text-primary ml-1">
-            (mínimo: 3)
-          </span>
-        )}
+        {selectedInterests.length < 3 && <span className="text-primary ml-1">(mínimo: 3)</span>}
       </div>
 
       {/* Botão */}

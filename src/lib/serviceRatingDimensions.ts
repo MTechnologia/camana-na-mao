@@ -21,7 +21,7 @@ export const SERVICE_RATING_DIMENSION_LABELS: Record<ServiceRatingDimensionKey, 
 };
 
 export function isCompleteServiceRatingDimensions(
-  value: unknown
+  value: unknown,
 ): value is ServiceRatingDimensions {
   if (!value || typeof value !== "object") return false;
   const o = value as Record<string, unknown>;
@@ -57,7 +57,7 @@ export function parseRatingDimensionsFromMessage(content: string): ServiceRating
 
 export function buildServiceRatingDimensionsUserMessage(dim: ServiceRatingDimensions): string {
   const lines = SERVICE_RATING_DIMENSION_KEYS.map(
-    (k) => `• ${SERVICE_RATING_DIMENSION_LABELS[k]}: ${dim[k]}`
+    (k) => `• ${SERVICE_RATING_DIMENSION_LABELS[k]}: ${dim[k]}`,
   ).join("\n");
   const json = JSON.stringify(dim);
   return `Avaliação por dimensão (1 a 5):\n${lines}\n${MARKER_PREFIX}${json}]`;

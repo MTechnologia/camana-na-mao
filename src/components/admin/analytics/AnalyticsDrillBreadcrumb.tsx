@@ -1,17 +1,17 @@
-import { ChevronRight, RotateCcw } from 'lucide-react';
-import { useAnalyticsDrill } from '@/contexts/AnalyticsDrillContext';
-import { metricLabel } from '@/lib/analyticsLabels';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from '@/config/analyticsUi';
-import { labelForCategory, labelForPeriod } from '@/lib/globalFilterOptions';
-import { cn } from '@/lib/utils';
+import { ChevronRight, RotateCcw } from "lucide-react";
+import { useAnalyticsDrill } from "@/contexts/AnalyticsDrillContext";
+import { metricLabel } from "@/lib/analyticsLabels";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { USE_UNIFIED_ANALYTICS_CONTEXT_BAR } from "@/config/analyticsUi";
+import { labelForCategory, labelForPeriod } from "@/lib/globalFilterOptions";
+import { cn } from "@/lib/utils";
 
 export function AnalyticsDrillBreadcrumb() {
   const { drillPath, drillUp, clearDrill, metric, grain } = useAnalyticsDrill();
   const { period, region, category } = useGlobalFilters();
 
   const hasActiveRecorte =
-    drillPath.length > 1 || grain !== 'overview' || region !== 'all' || category !== 'all';
+    drillPath.length > 1 || grain !== "overview" || region !== "all" || category !== "all";
 
   return (
     <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:flex-row sm:items-stretch">
@@ -21,7 +21,9 @@ export function AnalyticsDrillBreadcrumb() {
       >
         {drillPath.map((crumb, i) => (
           <span key={crumb.id} className="flex items-center gap-1">
-            {i > 0 ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden /> : null}
+            {i > 0 ? (
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            ) : null}
             {i === drillPath.length - 1 ? (
               <span className="font-semibold text-foreground">{crumb.label}</span>
             ) : (
@@ -56,17 +58,17 @@ export function AnalyticsDrillBreadcrumb() {
           onClick={clearDrill}
           aria-label="Limpar recorte analítico e restaurar visão geral"
           className={cn(
-            'inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold',
-            'transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            "inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold",
+            "transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             hasActiveRecorte
-              ? 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90 active:scale-[0.98]'
-              : 'cursor-not-allowed border border-dashed border-border bg-background/80 text-muted-foreground opacity-70',
+              ? "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 active:scale-[0.98]"
+              : "cursor-not-allowed border border-dashed border-border bg-background/80 text-muted-foreground opacity-70",
           )}
         >
           <span
             className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-full',
-              hasActiveRecorte ? 'bg-primary-foreground/15' : 'bg-muted',
+              "flex h-6 w-6 items-center justify-center rounded-full",
+              hasActiveRecorte ? "bg-primary-foreground/15" : "bg-muted",
             )}
             aria-hidden
           >

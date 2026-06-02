@@ -29,9 +29,10 @@ export function buildManualReportNavigateOptions(params: {
   };
 }
 
-export function resolveReturnToChatAction(
-  state: ManualReportNavigationState | null | undefined,
-): { path: string; conversationId: string | null } {
+export function resolveReturnToChatAction(state: ManualReportNavigationState | null | undefined): {
+  path: string;
+  conversationId: string | null;
+} {
   const conversationId =
     typeof state?.returnToChatConversationId === "string" &&
     state.returnToChatConversationId.trim() !== ""

@@ -8,8 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { clearOnboardingStorageForUser } from "@/contexts/OnboardingContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  Shield, 
+import {
+  Shield,
   Trash2,
   Edit,
   Download,
@@ -18,7 +18,7 @@ import {
   CheckCircle,
   Info,
   FileText,
-  XCircle
+  XCircle,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -52,15 +52,17 @@ const UserRightsPage = () => {
     setLoading(true);
     try {
       // Get session token
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token;
 
       if (!token) {
-        throw new Error('Token de autenticação não encontrado');
+        throw new Error("Token de autenticação não encontrado");
       }
 
       // Call Edge Function to delete user
-      const { error } = await supabase.functions.invoke('delete-own-account', {
+      const { error } = await supabase.functions.invoke("delete-own-account", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -79,8 +81,10 @@ const UserRightsPage = () => {
       await signOut();
       navigate("/");
     } catch (error: unknown) {
-      console.error('Error deleting account:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao excluir conta. Tente novamente.');
+      console.error("Error deleting account:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao excluir conta. Tente novamente.",
+      );
     } finally {
       setLoading(false);
       setShowDeleteDialog(false);
@@ -90,54 +94,54 @@ const UserRightsPage = () => {
 
   const rights = [
     {
-      id: 'access',
-      title: 'Acesso aos Dados',
-      description: 'Visualizar todos os seus dados pessoais',
+      id: "access",
+      title: "Acesso aos Dados",
+      description: "Visualizar todos os seus dados pessoais",
       icon: Eye,
-      iconColor: 'text-blue-600',
-      iconBg: 'bg-blue-100',
-      action: () => navigate('/perfil'),
-      actionLabel: 'Ver meus dados',
+      iconColor: "text-blue-600",
+      iconBg: "bg-blue-100",
+      action: () => navigate("/perfil"),
+      actionLabel: "Ver meus dados",
     },
     {
-      id: 'export',
-      title: 'Exportar Dados',
-      description: 'Exportar seus dados em formato JSON',
+      id: "export",
+      title: "Exportar Dados",
+      description: "Exportar seus dados em formato JSON",
       icon: Download,
-      iconColor: 'text-purple-600',
-      iconBg: 'bg-purple-100',
-      action: () => navigate('/perfil/exportar-dados'),
-      actionLabel: 'Exportar dados',
+      iconColor: "text-purple-600",
+      iconBg: "bg-purple-100",
+      action: () => navigate("/perfil/exportar-dados"),
+      actionLabel: "Exportar dados",
     },
     {
-      id: 'correction',
-      title: 'Correção de Dados',
-      description: 'Atualizar ou corrigir informações pessoais',
+      id: "correction",
+      title: "Correção de Dados",
+      description: "Atualizar ou corrigir informações pessoais",
       icon: Edit,
-      iconColor: 'text-green-600',
-      iconBg: 'bg-green-100',
-      action: () => navigate('/perfil/dados-pessoais'),
-      actionLabel: 'Editar dados',
+      iconColor: "text-green-600",
+      iconBg: "bg-green-100",
+      action: () => navigate("/perfil/dados-pessoais"),
+      actionLabel: "Editar dados",
     },
     {
-      id: 'consents',
-      title: 'Consentimentos',
-      description: 'Gerenciar seus consentimentos LGPD',
+      id: "consents",
+      title: "Consentimentos",
+      description: "Gerenciar seus consentimentos LGPD",
       icon: Shield,
-      iconColor: 'text-indigo-600',
-      iconBg: 'bg-indigo-100',
-      action: () => navigate('/perfil/consentimentos'),
-      actionLabel: 'Gerenciar consentimentos',
+      iconColor: "text-indigo-600",
+      iconBg: "bg-indigo-100",
+      action: () => navigate("/perfil/consentimentos"),
+      actionLabel: "Gerenciar consentimentos",
     },
     {
-      id: 'deletion',
-      title: 'Exclusão de Conta',
-      description: 'Excluir permanentemente sua conta e todos os dados',
+      id: "deletion",
+      title: "Exclusão de Conta",
+      description: "Excluir permanentemente sua conta e todos os dados",
       icon: Trash2,
-      iconColor: 'text-red-600',
-      iconBg: 'bg-red-100',
+      iconColor: "text-red-600",
+      iconBg: "bg-red-100",
       action: () => setShowDeleteDialog(true),
-      actionLabel: 'Excluir conta',
+      actionLabel: "Excluir conta",
       isDestructive: true,
     },
   ];
@@ -159,15 +163,15 @@ const UserRightsPage = () => {
                   Lei Geral de Proteção de Dados (LGPD)
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Você tem direito a acessar, corrigir, exportar, revogar consentimentos 
-                  e excluir seus dados pessoais a qualquer momento. Todos os seus direitos 
-                  estão garantidos pela LGPD.
+                  Você tem direito a acessar, corrigir, exportar, revogar consentimentos e excluir
+                  seus dados pessoais a qualquer momento. Todos os seus direitos estão garantidos
+                  pela LGPD.
                 </p>
                 <Button
                   variant="link"
                   size="sm"
                   className="p-0 h-auto text-primary"
-                  onClick={() => navigate('/privacidade')}
+                  onClick={() => navigate("/privacidade")}
                 >
                   Ver Política de Privacidade completa →
                 </Button>
@@ -186,16 +190,14 @@ const UserRightsPage = () => {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${right.iconBg}`}>
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${right.iconBg}`}
+                        >
                           <Icon className={`h-5 w-5 ${right.iconColor}`} />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-base font-semibold text-foreground">
-                            {right.title}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {right.description}
-                          </p>
+                          <h3 className="text-base font-semibold text-foreground">{right.title}</h3>
+                          <p className="text-sm text-muted-foreground">{right.description}</p>
                         </div>
                       </div>
                     </div>
@@ -225,9 +227,9 @@ const UserRightsPage = () => {
                   Exclusão permanente
                 </p>
                 <p className="text-xs text-red-800 dark:text-red-300">
-                  A exclusão da conta é permanente e irreversível. Todos os seus dados 
-                  serão removidos do sistema, incluindo relatos, avaliações e histórico. 
-                  Esta ação não pode ser desfeita.
+                  A exclusão da conta é permanente e irreversível. Todos os seus dados serão
+                  removidos do sistema, incluindo relatos, avaliações e histórico. Esta ação não
+                  pode ser desfeita.
                 </p>
               </div>
             </div>
@@ -236,11 +238,7 @@ const UserRightsPage = () => {
 
         {/* Botão voltar */}
         <div className="pt-4">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/perfil")}
-            className="w-full"
-          >
+          <Button variant="outline" onClick={() => navigate("/perfil")} className="w-full">
             Voltar ao Perfil
           </Button>
         </div>
@@ -256,13 +254,11 @@ const UserRightsPage = () => {
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3 pt-2">
               <p>
-                Você está prestes a excluir sua conta permanentemente. Esta ação 
+                Você está prestes a excluir sua conta permanentemente. Esta ação
                 <strong className="text-foreground"> não pode ser desfeita</strong>.
               </p>
               <div className="bg-muted p-3 rounded-lg space-y-2">
-                <p className="text-sm font-medium text-foreground">
-                  Serão excluídos:
-                </p>
+                <p className="text-sm font-medium text-foreground">Serão excluídos:</p>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                   <li>Seu perfil e dados pessoais</li>
                   <li>Todos os seus relatos (urbanos e transporte)</li>
@@ -288,9 +284,7 @@ const UserRightsPage = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={loading}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteAccount}
               disabled={loading || deleteConfirmText !== "EXCLUIR"}

@@ -1,23 +1,21 @@
-import { Check, Copy, LayoutGrid, Pencil, Trash2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useCustomPanels } from '@/contexts/CustomPanelsContext';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Check, Copy, LayoutGrid, Pencil, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useCustomPanels } from "@/contexts/CustomPanelsContext";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function PanelSelector({ compact }: { compact?: boolean }) {
-  const {
-    panels,
-    activePanelId,
-    setActivePanelId,
-    deletePanel,
-    duplicatePanel,
-  } = useCustomPanels();
+  const { panels, activePanelId, setActivePanelId, deletePanel, duplicatePanel } =
+    useCustomPanels();
 
   if (panels.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nenhum painel salvo.{' '}
-        <Link to="/paineis/criar" className="font-medium text-primary underline-offset-2 hover:underline">
+        Nenhum painel salvo.{" "}
+        <Link
+          to="/paineis/criar"
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
           Criar o primeiro
         </Link>
       </p>
@@ -28,7 +26,7 @@ export function PanelSelector({ compact }: { compact?: boolean }) {
     return (
       <select
         className="flex h-9 min-w-[200px] rounded-md border border-input bg-background px-3 text-sm"
-        value={activePanelId ?? ''}
+        value={activePanelId ?? ""}
         onChange={(e) => setActivePanelId(e.target.value || null)}
         aria-label="Selecionar painel"
       >
@@ -53,16 +51,16 @@ export function PanelSelector({ compact }: { compact?: boolean }) {
               aria-pressed={active}
               onClick={() => setActivePanelId(panel.id)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   setActivePanelId(panel.id);
                 }
               }}
               className={cn(
-                'flex w-full cursor-pointer flex-col rounded-xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                "flex w-full cursor-pointer flex-col rounded-xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active
-                  ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
-                  : 'border-border bg-card hover:border-primary/30 hover:bg-muted/30',
+                  ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                  : "border-border bg-card hover:border-primary/30 hover:bg-muted/30",
               )}
             >
               <span className="flex items-start justify-between gap-2">
@@ -78,10 +76,12 @@ export function PanelSelector({ compact }: { compact?: boolean }) {
               </span>
               <span className="mt-3 font-semibold text-foreground">{panel.name}</span>
               {panel.description ? (
-                <span className="mt-1 line-clamp-2 text-xs text-muted-foreground">{panel.description}</span>
+                <span className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {panel.description}
+                </span>
               ) : null}
               <span className="mt-2 text-xs text-muted-foreground">
-                {panel.widgets.length} widget{panel.widgets.length === 1 ? '' : 's'}
+                {panel.widgets.length} widget{panel.widgets.length === 1 ? "" : "s"}
               </span>
               <span className="mt-3 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
                 <Button variant="outline" size="sm" className="h-7 text-xs" asChild>

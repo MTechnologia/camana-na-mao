@@ -14,19 +14,15 @@ interface Message {
 }
 
 interface ChatEvaluationProps {
-  onComplete: (data: {
-    rating: number;
-    comments: string;
-    sentiment?: string;
-  }) => void;
+  onComplete: (data: { rating: number; comments: string; sentiment?: string }) => void;
 }
 
 export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Olá! Vou te ajudar a avaliar este serviço. Que nota você daria de 1 a 5 estrelas?"
-    }
+      content: "Olá! Vou te ajudar a avaliar este serviço. Que nota você daria de 1 a 5 estrelas?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [currentRating, setCurrentRating] = useState(0);
@@ -49,13 +45,14 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
       setTimeout(() => {
         const assistantMessage: Message = {
           role: "assistant",
-          content: currentRating >= 4 
-            ? "Ótimo! O que você mais gostou neste serviço?" 
-            : currentRating >= 3
-            ? "Obrigado! O que você mais gostou ou o que poderia melhorar?"
-            : "Entendi. O que poderia melhorar neste serviço?"
+          content:
+            currentRating >= 4
+              ? "Ótimo! O que você mais gostou neste serviço?"
+              : currentRating >= 3
+                ? "Obrigado! O que você mais gostou ou o que poderia melhorar?"
+                : "Entendi. O que poderia melhorar neste serviço?",
         };
-        setMessages(prev => [...prev, assistantMessage]);
+        setMessages((prev) => [...prev, assistantMessage]);
         setStep(2);
         setIsLoading(false);
       }, 500);
@@ -70,18 +67,18 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
     if (step === 1) {
       const assistantMessage: Message = {
         role: "assistant",
-        content: "Por favor, selecione uma nota de 1 a 5 estrelas acima antes de continuar."
+        content: "Por favor, selecione uma nota de 1 a 5 estrelas acima antes de continuar.",
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
       return;
     }
 
     const userMessage: Message = {
       role: "user",
-      content: messageText
+      content: messageText,
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
@@ -89,18 +86,19 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
     setTimeout(() => {
       const assistantMessage: Message = {
         role: "assistant",
-        content: "Muito obrigado pela sua avaliação! Suas informações nos ajudam a melhorar os serviços públicos."
+        content:
+          "Muito obrigado pela sua avaliação! Suas informações nos ajudam a melhorar os serviços públicos.",
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
       setStep(3);
       setIsLoading(false);
-      
+
       // Complete evaluation
       setTimeout(() => {
         onComplete({
           rating: currentRating,
           comments: messageText,
-          sentiment: currentRating >= 4 ? "positive" : currentRating >= 3 ? "neutral" : "negative"
+          sentiment: currentRating >= 4 ? "positive" : currentRating >= 3 ? "neutral" : "negative",
         });
       }, 1000);
     }, 500);
@@ -114,21 +112,18 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
           {messages.map((message, index) => (
             <div
               key={index}
-              className={cn(
-                "flex",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
+              className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
             >
               <div
                 className={cn(
                   "max-w-[80%] rounded-lg p-3",
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground"
+                    : "bg-secondary text-secondary-foreground",
                 )}
               >
                 <p className="text-sm">{message.content}</p>
-                
+
                 {message.options && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {message.options.map((option, i) => (
@@ -147,7 +142,7 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
               </div>
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-secondary text-secondary-foreground rounded-lg p-3">
@@ -155,18 +150,14 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
         {/* Rating Stars (visible in step 1) */}
         {step === 1 && (
           <div className="flex flex-col items-center gap-2 py-3 border-t border-border">
-            <RatingStars
-              rating={currentRating}
-              onRatingChange={setCurrentRating}
-              size="lg"
-            />
+            <RatingStars rating={currentRating} onRatingChange={setCurrentRating} size="lg" />
             {currentRating > 0 && (
               <p className="text-sm text-muted-foreground">
                 {currentRating === 5 && "Excelente!"}

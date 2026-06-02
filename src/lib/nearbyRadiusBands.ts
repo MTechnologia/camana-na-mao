@@ -8,9 +8,10 @@ export function clampNearbyRadiusMeters(m: number): NearbyRadiusPreset {
   const allowed = [...NEARBY_RADIUS_PRESETS];
   if (m <= allowed[0]) return allowed[0];
   if (m >= allowed[allowed.length - 1]) return allowed[allowed.length - 1];
-  return allowed.reduce((prev, cur) =>
-    Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev,
-  allowed[0]);
+  return allowed.reduce(
+    (prev, cur) => (Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev),
+    allowed[0],
+  );
 }
 
 /**

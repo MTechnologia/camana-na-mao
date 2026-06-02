@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bell, BellOff, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
-import type { TransportSubscriptionWithLine } from '@/hooks/useTransportSubscriptions';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Bell, BellOff, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import type { TransportSubscriptionWithLine } from "@/hooks/useTransportSubscriptions";
 
 type Props = {
   lineId: string;
@@ -18,7 +18,7 @@ type Props = {
 export function TransportLineFollowButton({
   lineId,
   lineLabel,
-  subscriptionType = 'alert',
+  subscriptionType = "alert",
   subscriptions,
   loading,
   toggleSubscription,
@@ -34,7 +34,7 @@ export function TransportLineFollowButton({
 
   const handleClick = async () => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
     setBusy(true);
@@ -45,7 +45,7 @@ export function TransportLineFollowButton({
     }
   };
 
-  const label = following ? 'Deixar de acompanhar' : 'Acompanhar esta linha';
+  const label = following ? "Deixar de acompanhar" : "Acompanhar esta linha";
   const titleHint = lineLabel ? `Linha: ${lineLabel}` : undefined;
 
   return (

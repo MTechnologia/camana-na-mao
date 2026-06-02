@@ -65,13 +65,7 @@ describe("TRIAGE_STATUSES", () => {
       visited.push(curr);
       curr = TRIAGE_STATUSES[curr].next;
     }
-    expect(visited).toEqual([
-      "untriaged",
-      "triaged",
-      "in_progress",
-      "resolved",
-      "closed",
-    ]);
+    expect(visited).toEqual(["untriaged", "triaged", "in_progress", "resolved", "closed"]);
   });
 });
 

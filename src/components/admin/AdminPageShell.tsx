@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
+import type { ReactNode } from "react";
+import { AdminLayout } from "@/layouts/AdminLayout";
 
 type AdminPageShellProps = {
   embedded?: boolean;

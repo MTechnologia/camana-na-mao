@@ -1,7 +1,7 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { defaultConfigByEnvironment } from '@/data/defaultSystemConfig';
-import { useAiConfig } from '@/hooks/useAiConfig';
-import type { ConfigEnvironment, EnvironmentConfigBundle } from '@/types/systemConfig';
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { defaultConfigByEnvironment } from "@/data/defaultSystemConfig";
+import { useAiConfig } from "@/hooks/useAiConfig";
+import type { ConfigEnvironment, EnvironmentConfigBundle } from "@/types/systemConfig";
 
 type ConfigEnvironmentContextValue = {
   environment: ConfigEnvironment;
@@ -16,12 +16,12 @@ type ConfigEnvironmentContextValue = {
 const ConfigEnvironmentContext = createContext<ConfigEnvironmentContextValue | null>(null);
 
 const LABELS: Record<ConfigEnvironment, string> = {
-  production: 'Produção',
-  homologation: 'Homologação',
+  production: "Produção",
+  homologation: "Homologação",
 };
 
 export function ConfigEnvironmentProvider({ children }: { children: ReactNode }) {
-  const [environment, setEnvironment] = useState<ConfigEnvironment>('production');
+  const [environment, setEnvironment] = useState<ConfigEnvironment>("production");
   const {
     bundle: aiBundle,
     isLoading: aiConfigLoading,
@@ -63,7 +63,7 @@ export function ConfigEnvironmentProvider({ children }: { children: ReactNode })
 export function useConfigEnvironment(): ConfigEnvironmentContextValue {
   const ctx = useContext(ConfigEnvironmentContext);
   if (!ctx) {
-    throw new Error('useConfigEnvironment must be used within ConfigEnvironmentProvider');
+    throw new Error("useConfigEnvironment must be used within ConfigEnvironmentProvider");
   }
   return ctx;
 }

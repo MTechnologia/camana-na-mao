@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addressSchema } from "@/lib/validations";
@@ -24,9 +30,33 @@ interface Coordinates {
 }
 
 const ESTADOS = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
 ];
 
 const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
@@ -49,10 +79,10 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
   const loadAddress = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('user_addresses')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_primary', true)
+        .from("user_addresses")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("is_primary", true)
         .maybeSingle();
 
       if (error) throw error;
@@ -90,34 +120,34 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
     setGeocoding(true);
     try {
       const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke(
-        'google-places-autocomplete',
-        { body: { query: fullAddress } }
+        "google-places-autocomplete",
+        { body: { query: fullAddress } },
       );
 
       if (autocompleteError) {
-        console.error('Autocomplete error:', autocompleteError);
+        console.error("Autocomplete error:", autocompleteError);
         return null;
       }
 
       if (!autocompleteData?.predictions?.length) {
-        console.log('No predictions found for address:', fullAddress);
+        console.log("No predictions found for address:", fullAddress);
         return null;
       }
 
       const firstPrediction = autocompleteData.predictions[0];
       const placeId = firstPrediction?.placeId ?? firstPrediction?.place_id;
       if (!placeId) {
-        console.log('No placeId in first prediction:', firstPrediction);
+        console.log("No placeId in first prediction:", firstPrediction);
         return null;
       }
-      
+
       const { data: detailsData, error: detailsError } = await supabase.functions.invoke(
-        'google-places-details',
-        { body: { placeId } }
+        "google-places-details",
+        { body: { placeId } },
       );
 
       if (detailsError) {
-        console.error('Details error:', detailsError);
+        console.error("Details error:", detailsError);
         return null;
       }
 
@@ -133,7 +163,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
 
       return null;
     } catch (error) {
-      console.error('Geocoding failed:', error);
+      console.error("Geocoding failed:", error);
       return null;
     } finally {
       setGeocoding(false);
@@ -143,7 +173,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
   const handleZipCodeChange = async (value: string) => {
     const cleanedZipCode = value.replace(/\D/g, "");
     setZipCode(cleanedZipCode);
-    
+
     if (cleanedZipCode.length < 8) {
       setCoordinates(null);
       setAddressFilledFromCep(false);
@@ -157,7 +187,9 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
           if (result.errorType === "not_found") {
             toast.error("CEP não encontrado");
           } else {
-            toast.info("Não foi possível consultar o CEP agora. Você pode preencher o endereço manualmente.");
+            toast.info(
+              "Não foi possível consultar o CEP agora. Você pode preencher o endereço manualmente.",
+            );
           }
           return;
         }
@@ -179,7 +211,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
           .join(", ");
 
         const coords = fullAddress ? await geocodeAddress(fullAddress) : null;
-        
+
         if (coords) {
           toast.success("Endereço encontrado com localização mapeada!");
         } else {
@@ -218,7 +250,9 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
       // e que "Usar endereço cadastrado" traga serviços ordenados por proximidade
       let coordsToSave = coordinates;
       if (!coordsToSave?.latitude && !coordsToSave?.longitude && (street || neighborhood)) {
-        const fullAddress = [street, number, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+        const fullAddress = [street, number, neighborhood, city, state, "Brasil"]
+          .filter(Boolean)
+          .join(", ");
         const geocoded = fullAddress ? await geocodeAddress(fullAddress) : null;
         if (geocoded) {
           coordsToSave = geocoded;
@@ -241,18 +275,16 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
 
       if (addressId) {
         const { error } = await supabase
-          .from('user_addresses')
+          .from("user_addresses")
           .update(addressData)
-          .eq('id', addressId);
+          .eq("id", addressId);
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('user_addresses')
-          .insert({
-            user_id: userId,
-            ...addressData,
-          });
+        const { error } = await supabase.from("user_addresses").insert({
+          user_id: userId,
+          ...addressData,
+        });
 
         if (error) throw error;
       }
@@ -266,7 +298,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
       if (err?.errors) {
-        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
+        err.errors.forEach((e) => toast.error(e.message ?? "Erro"));
       } else {
         toast.error(err?.message || "Erro ao salvar endereço");
       }
@@ -284,9 +316,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
             <MapPin className="h-4 w-4 text-primary" />
             Localização
           </CardTitle>
-          <CardDescription>
-            Digite o CEP para buscar automaticamente
-          </CardDescription>
+          <CardDescription>Digite o CEP para buscar automaticamente</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
@@ -311,7 +341,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
               )}
             </div>
           </div>
-          
+
           {coordinates && (
             <div className="flex items-center gap-2 p-2.5 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -330,9 +360,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
             <Home className="h-4 w-4 text-primary" />
             Endereço Completo
           </CardTitle>
-          <CardDescription>
-            Detalhes do seu endereço
-          </CardDescription>
+          <CardDescription>Detalhes do seu endereço</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -366,9 +394,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
             </div>
 
             <div>
-              <label className="text-sm text-muted-foreground mb-1.5 block">
-                Complemento
-              </label>
+              <label className="text-sm text-muted-foreground mb-1.5 block">Complemento</label>
               <Input
                 type="text"
                 placeholder="Apto 45"
@@ -439,10 +465,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
           checked={isPrimary}
           onCheckedChange={(checked) => setIsPrimary(checked as boolean)}
         />
-        <label
-          htmlFor="primary"
-          className="text-sm text-muted-foreground cursor-pointer"
-        >
+        <label htmlFor="primary" className="text-sm text-muted-foreground cursor-pointer">
           Definir como endereço principal
         </label>
       </div>
@@ -455,9 +478,7 @@ const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
         {loading ? "Salvando..." : "Salvar Endereço"}
       </Button>
 
-      <p className="text-xs text-muted-foreground text-center">
-        * Campos obrigatórios
-      </p>
+      <p className="text-xs text-muted-foreground text-center">* Campos obrigatórios</p>
     </div>
   );
 };

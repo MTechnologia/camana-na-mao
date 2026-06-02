@@ -28,24 +28,22 @@ const CollapsibleInfoCard = ({ icon: Icon, title, description }: CollapsibleInfo
           </div>
           <span className="font-medium text-foreground text-sm">{title}</span>
         </div>
-        <ChevronDown 
+        <ChevronDown
           className={cn(
             "w-4 h-4 text-muted-foreground transition-transform duration-200",
-            isOpen && "rotate-180"
-          )} 
+            isOpen && "rotate-180",
+          )}
         />
       </button>
-      
+
       <div
         className={cn(
           "grid transition-all duration-200 ease-in-out",
-          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
         <div className="overflow-hidden">
-          <p className="px-4 pb-4 text-xs text-muted-foreground leading-relaxed">
-            {description}
-          </p>
+          <p className="px-4 pb-4 text-xs text-muted-foreground leading-relaxed">{description}</p>
         </div>
       </div>
     </Card>

@@ -16,7 +16,8 @@ interface Props {
 
 export function TransportReportComments({ reportId, onThreadChanged }: Props) {
   const { user } = useAuth();
-  const { comments, loading, submitting, addComment, deleteComment } = useTransportReportComments(reportId);
+  const { comments, loading, submitting, addComment, deleteComment } =
+    useTransportReportComments(reportId);
   const [commentText, setCommentText] = useState("");
 
   const handleSubmit = async () => {
@@ -58,7 +59,11 @@ export function TransportReportComments({ reportId, onThreadChanged }: Props) {
           className="min-h-[80px] resize-none"
         />
         <div className="flex justify-end">
-          <Button onClick={() => void handleSubmit()} disabled={!commentText.trim() || submitting} size="sm">
+          <Button
+            onClick={() => void handleSubmit()}
+            disabled={!commentText.trim() || submitting}
+            size="sm"
+          >
             <Send className="w-4 h-4 mr-2" />
             Comentar
           </Button>
@@ -98,7 +103,9 @@ export function TransportReportComments({ reportId, onThreadChanged }: Props) {
                   <p className="text-sm text-foreground">{comment.comment_text}</p>
                 </div>
                 <span className="text-xs text-muted-foreground ml-3 mt-1 inline-block">
-                  {format(new Date(comment.created_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                  {format(new Date(comment.created_at), "dd 'de' MMMM 'às' HH:mm", {
+                    locale: ptBR,
+                  })}
                 </span>
               </div>
             </div>

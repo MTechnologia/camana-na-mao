@@ -24,19 +24,18 @@ export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
     setChatSessionEpoch((n) => n + 1);
   }, []);
 
-  const value = useMemo(() => ({
-    activeConversationId,
-    setActiveConversationId,
-    clearConversation,
-    chatSessionEpoch,
-    startNewChatSession,
-  }), [activeConversationId, clearConversation, chatSessionEpoch, startNewChatSession]);
-
-  return (
-    <AIJourneyContext.Provider value={value}>
-      {children}
-    </AIJourneyContext.Provider>
+  const value = useMemo(
+    () => ({
+      activeConversationId,
+      setActiveConversationId,
+      clearConversation,
+      chatSessionEpoch,
+      startNewChatSession,
+    }),
+    [activeConversationId, clearConversation, chatSessionEpoch, startNewChatSession],
   );
+
+  return <AIJourneyContext.Provider value={value}>{children}</AIJourneyContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook

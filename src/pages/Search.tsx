@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, Clock, Trash2, Sparkles, X, TrendingUp, MapPin, Star } from "lucide-react";
+import {
+  Search as SearchIcon,
+  Clock,
+  Trash2,
+  Sparkles,
+  X,
+  TrendingUp,
+  MapPin,
+  Star,
+} from "lucide-react";
 import PageHeader from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,12 +18,7 @@ import { Card } from "@/components/ui/card";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
-import {
-  SearchResult,
-  searchAll,
-  filterCategories,
-  typeLabels,
-} from "@/data/searchData";
+import { SearchResult, searchAll, filterCategories, typeLabels } from "@/data/searchData";
 import { FILTER_CATEGORY_ICONS } from "@/components/icons";
 
 interface SearchSuggestion {
@@ -27,14 +31,14 @@ const SearchPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
-  
+
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const { history, loading, addToHistory, clearHistory } = useSearchHistory();
-  
+
   const debouncedQuery = useDebounce(query, 300);
 
   // Fetch search results when user types
@@ -45,7 +49,7 @@ const SearchPage = () => {
       setResults([]);
       setSuggestions([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- performSearch runs when debouncedQuery/activeFilter change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- performSearch runs when debouncedQuery/activeFilter change
   }, [debouncedQuery, activeFilter]);
 
   const performSearch = async (searchQuery: string) => {
@@ -53,14 +57,14 @@ const SearchPage = () => {
     try {
       // Buscar nos dados mockados
       const mockResults = searchAll(searchQuery);
-      
+
       // Buscar em notícias do Supabase
       const { data: noticias } = await supabase
         .from("noticias")
         .select("*")
         .or(`titulo.ilike.%${searchQuery}%,conteudo.ilike.%${searchQuery}%`)
         .limit(5);
-      
+
       const noticiasResults: SearchResult[] = (noticias || []).map((noticia) => ({
         id: noticia.id,
         type: "noticia" as const,
@@ -74,14 +78,14 @@ const SearchPage = () => {
           author: noticia.autor,
         },
       }));
-      
+
       // Buscar em audiências do Supabase
       const { data: audiencias } = await supabase
         .from("audiencias")
         .select("*")
         .or(`titulo.ilike.%${searchQuery}%,tema.ilike.%${searchQuery}%`)
         .limit(5);
-      
+
       const audienciasResults: SearchResult[] = (audiencias || []).map((audiencia) => ({
         id: audiencia.id,
         type: "audiencia" as const,
@@ -95,18 +99,16 @@ const SearchPage = () => {
           status: audiencia.status,
         },
       }));
-      
+
       // Combinar resultados
       const allResults = [...mockResults, ...noticiasResults, ...audienciasResults];
-      
+
       // Filtrar por tipo se não for 'all'
       const filteredResults =
-        activeFilter === "all"
-          ? allResults
-          : allResults.filter((r) => r.type === activeFilter);
-      
+        activeFilter === "all" ? allResults : allResults.filter((r) => r.type === activeFilter);
+
       setResults(filteredResults);
-      
+
       // Criar sugestões para o autocomplete (primeiros 5 resultados)
       const newSuggestions = filteredResults.slice(0, 5).map((result) => ({
         text: result.title,
@@ -149,18 +151,21 @@ const SearchPage = () => {
   };
 
   // Agrupar resultados por tipo
-  const groupedResults = results.reduce((acc, result) => {
-    if (!acc[result.type]) {
-      acc[result.type] = [];
-    }
-    acc[result.type].push(result);
-    return acc;
-  }, {} as Record<string, SearchResult[]>);
+  const groupedResults = results.reduce(
+    (acc, result) => {
+      if (!acc[result.type]) {
+        acc[result.type] = [];
+      }
+      acc[result.type].push(result);
+      return acc;
+    },
+    {} as Record<string, SearchResult[]>,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <PageHeader title="Buscar" backTo="/" />
-      
+
       <div className="pt-[60px] pb-20">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
           {/* Search Input */}
@@ -188,7 +193,7 @@ const SearchPage = () => {
           </div>
 
           {/* Card do Agente da Câmara de SP */}
-          <div 
+          <div
             onClick={handleAIHelp}
             className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-300"
           >
@@ -255,9 +260,7 @@ const SearchPage = () => {
                       <div className="flex items-start gap-3">
                         <div className="text-2xl flex-shrink-0">{result.icon}</div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 text-base">
-                            {result.title}
-                          </h3>
+                          <h3 className="font-semibold text-gray-900 text-base">{result.title}</h3>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                             {result.description}
                           </p>
@@ -285,9 +288,7 @@ const SearchPage = () => {
                             {result.metadata?.status && (
                               <Badge
                                 variant={
-                                  result.metadata.status === "operando"
-                                    ? "default"
-                                    : "secondary"
+                                  result.metadata.status === "operando" ? "default" : "secondary"
                                 }
                                 className="text-xs"
                               >
@@ -311,9 +312,7 @@ const SearchPage = () => {
                 <SearchIcon className="w-8 h-8 text-gray-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Nenhum resultado encontrado
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-900">Nenhum resultado encontrado</h3>
                 <p className="text-gray-500 mt-1">
                   Tente buscar por outros termos ou explore as categorias
                 </p>
@@ -362,13 +361,11 @@ const SearchPage = () => {
               <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <SearchIcon className="h-10 w-10 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Comece a explorar
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Comece a explorar</h3>
               <p className="text-sm text-gray-500 max-w-sm mx-auto mb-6">
                 Encontre vereadores, audiências públicas, serviços próximos e muito mais
               </p>
-              
+
               {/* Buscas Populares */}
               <div className="flex flex-wrap gap-2 justify-center max-w-md mx-auto">
                 <button

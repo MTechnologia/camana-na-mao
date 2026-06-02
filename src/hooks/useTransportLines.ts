@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   searchTransportLinesOlhoVivo,
   type TransportLineCatalogRow,
-} from '@/lib/transportLinesApi';
+} from "@/lib/transportLinesApi";
 
 interface TransportLine {
   id: string;
@@ -16,7 +16,7 @@ interface TransportLine {
 /** Linha retornada por busca remota (Olho Vivo + transport_lines). */
 export type TransportLineSearchRow = Pick<
   TransportLine,
-  'id' | 'line_code' | 'line_name' | 'line_type'
+  "id" | "line_code" | "line_name" | "line_type"
 > & {
   sptrans_codigo_linha?: number | null;
   direction_label?: string;
@@ -37,14 +37,14 @@ export const useTransportLines = (options: UseTransportLinesOptions = {}) => {
     try {
       setLoading(true);
       const { data, error: fetchErr } = await supabase
-        .from('transport_lines')
-        .select('*')
-        .order('line_code');
+        .from("transport_lines")
+        .select("*")
+        .order("line_code");
 
       if (fetchErr) throw fetchErr;
       setLines(data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar linhas');
+      setError(err instanceof Error ? err.message : "Erro ao buscar linhas");
     } finally {
       setLoading(false);
     }
@@ -58,16 +58,19 @@ export const useTransportLines = (options: UseTransportLinesOptions = {}) => {
     void fetchLines();
   }, [loadCatalog, fetchLines]);
 
-  const searchLines = useCallback((query: string): TransportLine[] => {
-    if (!query) return lines;
+  const searchLines = useCallback(
+    (query: string): TransportLine[] => {
+      if (!query) return lines;
 
-    const lowerQuery = query.toLowerCase();
-    return lines.filter(
-      (line) =>
-        line.line_code.toLowerCase().includes(lowerQuery) ||
-        line.line_name.toLowerCase().includes(lowerQuery)
-    );
-  }, [lines]);
+      const lowerQuery = query.toLowerCase();
+      return lines.filter(
+        (line) =>
+          line.line_code.toLowerCase().includes(lowerQuery) ||
+          line.line_name.toLowerCase().includes(lowerQuery),
+      );
+    },
+    [lines],
+  );
 
   /**
    * Busca no servidor (ilike código/nome), usada pelo InlineLinePicker no chat.
@@ -91,12 +94,12 @@ export const useTransportLines = (options: UseTransportLinesOptions = {}) => {
           }));
         }
       } catch (err) {
-        console.warn('[useTransportLines] Olho Vivo search failed, fallback DB:', err);
+        console.warn("[useTransportLines] Olho Vivo search failed, fallback DB:", err);
       }
 
       const { data, error: qErr } = await supabase
-        .from('transport_lines')
-        .select('id, line_code, line_name, line_type, sptrans_codigo_linha')
+        .from("transport_lines")
+        .select("id, line_code, line_name, line_type, sptrans_codigo_linha")
         .or(`line_code.ilike.%${q}%,line_name.ilike.%${q}%`)
         .limit(remoteLimit);
 

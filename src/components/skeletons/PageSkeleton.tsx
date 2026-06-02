@@ -8,7 +8,7 @@ export const PageSkeleton = () => {
         <Skeleton className="h-6 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
       </div>
-      
+
       {/* Cards skeleton */}
       <div className="space-y-3 mt-6">
         <Skeleton className="h-24 w-full rounded-xl" />
@@ -27,7 +27,7 @@ export const ListPageSkeleton = () => {
         <Skeleton className="h-20 flex-1 rounded-xl" />
         <Skeleton className="h-20 flex-1 rounded-xl" />
       </div>
-      
+
       {/* List items */}
       <div className="space-y-3 mt-4">
         {[...Array(5)].map((_, i) => (
@@ -47,10 +47,10 @@ export const ProfileSkeleton = () => {
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-4 w-32" />
       </div>
-      
+
       {/* Completion card */}
       <Skeleton className="h-24 w-full rounded-xl" />
-      
+
       {/* Profile cards */}
       <div className="space-y-3">
         {[...Array(4)].map((_, i) => (
@@ -69,13 +69,13 @@ export const NotificationsSkeleton = () => {
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-8 w-24 rounded-lg" />
       </div>
-      
+
       {/* Tabs */}
       <div className="flex gap-2">
         <Skeleton className="h-10 w-20 rounded-lg" />
         <Skeleton className="h-10 w-28 rounded-lg" />
       </div>
-      
+
       {/* Notification items */}
       <div className="space-y-3">
         {[...Array(6)].map((_, i) => (
@@ -98,13 +98,13 @@ export const AudienciasSkeleton = () => {
     <div className="min-h-screen bg-background p-4 space-y-4">
       {/* Search */}
       <Skeleton className="h-12 w-full rounded-xl" />
-      
+
       {/* Stats */}
       <div className="flex gap-3">
         <Skeleton className="h-16 flex-1 rounded-xl" />
         <Skeleton className="h-16 flex-1 rounded-xl" />
       </div>
-      
+
       {/* Cards */}
       <div className="space-y-4 mt-4">
         {[...Array(4)].map((_, i) => (
@@ -120,7 +120,7 @@ export const ServicesSkeleton = () => {
     <div className="min-h-screen bg-background">
       {/* Map placeholder */}
       <Skeleton className="h-[40vh] w-full" />
-      
+
       {/* Service cards */}
       <div className="p-4 space-y-3">
         <Skeleton className="h-10 w-full rounded-xl" />
@@ -141,7 +141,7 @@ export const AnalyticsSkeleton = () => {
           <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
       </div>
-      
+
       {/* Charts */}
       <Skeleton className="h-64 w-full rounded-xl" />
       <Skeleton className="h-48 w-full rounded-xl" />

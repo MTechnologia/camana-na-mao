@@ -91,8 +91,9 @@ export function WidgetThemeProvider({ children }: WidgetThemeProviderProps) {
         if (cancelled) return;
         if (selectError) throw selectError;
         const loadedTheme = (data?.theme as WidgetThemeId) ?? DEFAULT_THEME_ID;
-        const loadedConfig: WidgetConfig =
-          (data?.widget_config as WidgetConfig) ?? { version: WIDGET_CONFIG_SCHEMA_VERSION };
+        const loadedConfig: WidgetConfig = (data?.widget_config as WidgetConfig) ?? {
+          version: WIDGET_CONFIG_SCHEMA_VERSION,
+        };
         serverSnapshotRef.current = { theme: loadedTheme, widgetConfig: loadedConfig };
         setThemeState(loadedTheme);
         setWidgetConfigState(loadedConfig);

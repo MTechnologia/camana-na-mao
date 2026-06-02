@@ -12,11 +12,7 @@ interface ChatConversationItemProps {
   onDelete: () => void;
 }
 
-const ChatConversationItem = ({
-  conversation,
-  onClick,
-  onDelete,
-}: ChatConversationItemProps) => {
+const ChatConversationItem = ({ conversation, onClick, onDelete }: ChatConversationItemProps) => {
   const { activeConversationId } = useAIJourney();
   const isActive = activeConversationId === conversation.id;
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -30,15 +26,13 @@ const ChatConversationItem = ({
     <div
       className={cn(
         "group flex items-start gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
-        isActive
-          ? "bg-primary/10 text-primary font-medium"
-          : "hover:bg-muted text-foreground"
+        isActive ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-foreground",
       )}
       onClick={() => onClick()}
     >
       <MessageSquare className="h-4 w-4 shrink-0 opacity-70 mt-0.5" />
       <span className="flex-1 text-sm line-clamp-2 pr-1">{conversation.title}</span>
-      
+
       <Button
         variant="ghost"
         size="icon"

@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -9,20 +9,20 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+} from "recharts";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
 import {
   CHART_COLORS,
   chartTooltipStyle,
   formatChartNumber,
-} from '@/components/admin/analytics/chartTheme';
+} from "@/components/admin/analytics/chartTheme";
 import {
   councilReferralFilterFromFunnelLabel,
   reportsManagementUrlForCouncilReferral,
   type CouncilReferralFilter,
-} from '@/lib/commissionFilterNavigation';
-import type { LabeledValue } from '@/lib/chartTypes';
-import { cn } from '@/lib/utils';
+} from "@/lib/commissionFilterNavigation";
+import type { LabeledValue } from "@/lib/chartTypes";
+import { cn } from "@/lib/utils";
 
 const ROW_HEIGHT_PX = 44;
 const MIN_CHART_HEIGHT_PX = 220;
@@ -56,7 +56,7 @@ export function ReferralFunnelBarChart({
     if (!filter) return;
     navigate(
       reportsManagementUrlForCouncilReferral(filter, {
-        queueTab: 'all',
+        queueTab: "all",
         global: { period, region, category },
       }),
     );
@@ -71,7 +71,7 @@ export function ReferralFunnelBarChart({
   }
 
   return (
-    <div className={cn('w-full', className)} style={{ height: chartHeight }}>
+    <div className={cn("w-full", className)} style={{ height: chartHeight }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={points}
@@ -92,7 +92,7 @@ export function ReferralFunnelBarChart({
           />
           <Tooltip
             contentStyle={chartTooltipStyle}
-            formatter={(v) => [formatChartNumber(Number(v)), 'Quantidade']}
+            formatter={(v) => [formatChartNumber(Number(v)), "Quantidade"]}
           />
           <Bar
             dataKey="value"

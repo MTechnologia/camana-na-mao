@@ -73,9 +73,7 @@ export function AudienciaEngagementDetailSheet({
         ) : detail ? (
           <Tabs defaultValue="inscritos" className="mt-6">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="inscritos">
-                Lembretes ({detail.lembretes.length})
-              </TabsTrigger>
+              <TabsTrigger value="inscritos">Lembretes ({detail.lembretes.length})</TabsTrigger>
               <TabsTrigger value="manifestacoes">
                 Participações ({detail.participacoes.length})
               </TabsTrigger>
@@ -121,9 +119,7 @@ export function AudienciaEngagementDetailSheet({
                     {row.entidade && (
                       <p className="text-xs text-muted-foreground">{row.entidade}</p>
                     )}
-                    {row.sugestao && (
-                      <p className="mt-2 text-xs leading-relaxed">{row.sugestao}</p>
-                    )}
+                    {row.sugestao && <p className="mt-2 text-xs leading-relaxed">{row.sugestao}</p>}
                     <p className="text-xs text-muted-foreground mt-2">
                       {format(new Date(row.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </p>

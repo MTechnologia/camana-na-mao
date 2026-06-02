@@ -1,11 +1,11 @@
-import { useUserRole } from '@/hooks/useUserRole';
-import AnalyticsDashboard from '@/pages/analytics/AnalyticsDashboard';
-import AdvancedAnalytics from '@/pages/analytics/AdvancedAnalytics';
-import CreateDashboard from '@/pages/analytics/CreateDashboard';
-import { PaineisAvancado } from '@/pages/paineis/PaineisAvancado';
-import { PaineisCriar } from '@/pages/paineis/PaineisCriar';
-import { PaineisDashboard } from '@/pages/paineis/PaineisDashboard';
-import { PageSkeleton } from '@/components/skeletons/PageSkeleton';
+import { useUserRole } from "@/hooks/useUserRole";
+import AnalyticsDashboard from "@/pages/analytics/AnalyticsDashboard";
+import AdvancedAnalytics from "@/pages/analytics/AdvancedAnalytics";
+import CreateDashboard from "@/pages/analytics/CreateDashboard";
+import { PaineisAvancado } from "@/pages/paineis/PaineisAvancado";
+import { PaineisCriar } from "@/pages/paineis/PaineisCriar";
+import { PaineisDashboard } from "@/pages/paineis/PaineisDashboard";
+import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
 
 export function PaineisIndexRoute() {
   const { canUseStaffPaineis, loading } = useUserRole();

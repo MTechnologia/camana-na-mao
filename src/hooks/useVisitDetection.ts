@@ -70,10 +70,13 @@ export function useVisitDetection({
 
   const onAcknowledged = useCallback(() => setDetectedVisit(null), []);
 
-  const registerOpenVisit = useCallback((serviceId: string, visitId: string, lat: number, lng: number) => {
-    openPendingVisitsRef.current.set(serviceId, { visitId, lat, lng });
-    createdVisitsRef.current.add(serviceId);
-  }, []);
+  const registerOpenVisit = useCallback(
+    (serviceId: string, visitId: string, lat: number, lng: number) => {
+      openPendingVisitsRef.current.set(serviceId, { visitId, lat, lng });
+      createdVisitsRef.current.add(serviceId);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!visitDetectionEnabled) {
@@ -192,13 +195,16 @@ export function useVisitDetection({
       }
       return visitId;
     },
-    [userId, registerOpenVisit]
+    [userId, registerOpenVisit],
   );
 
   const checkProximity = useCallback(async () => {
     if (!latitude || !longitude || !userId) {
       if (import.meta.env?.DEV && services.length === 0) {
-        console.debug("[useVisitDetection] checkProximity não roda:", { servicesLength: services.length, hasUser: !!userId });
+        console.debug("[useVisitDetection] checkProximity não roda:", {
+          servicesLength: services.length,
+          hasUser: !!userId,
+        });
       }
       return;
     }
@@ -298,7 +304,12 @@ export function useVisitDetection({
     }
 
     if (import.meta.env?.DEV && withinRadius > 0) {
-      console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: SERVICE_VISIT_MIN_DWELL_MINUTES });
+      console.debug("[useVisitDetection] checkProximity:", {
+        withinRadius,
+        maxElapsedMs: maxElapsed,
+        maxElapsedMin: (maxElapsed / 60000).toFixed(1),
+        needMin: SERVICE_VISIT_MIN_DWELL_MINUTES,
+      });
     }
   }, [
     latitude,
@@ -319,7 +330,15 @@ export function useVisitDetection({
     checkProximity();
     const interval = setInterval(checkProximity, CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [latitude, longitude, userId, services, checkProximity, openVisitsHydrated, visitDetectionEnabled]);
+  }, [
+    latitude,
+    longitude,
+    userId,
+    services,
+    checkProximity,
+    openVisitsHydrated,
+    visitDetectionEnabled,
+  ]);
 
   return { detectedVisit, onAcknowledged, isChecking };
 }

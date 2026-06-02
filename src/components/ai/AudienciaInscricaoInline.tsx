@@ -21,17 +21,50 @@ import { parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
 
 const BAIRROS_SP = [
-  "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
-  "Bom Retiro", "Brás", "Butantã", "Cambuci", "Cangaíba", "Carrão", "Consolação",
-  "Cursino", "Ermelino Matarazzo", "Guaianases", "Ipiranga", "Itaim Bibi",
-  "Itaim Paulista", "Itaquera", "Jaguara", "Jaguaré", "Lapa", "Liberdade",
-  "Mooca", "Morumbi", "Pari", "Penha", "Perdizes", "Pinheiros", "Ponte Rasa",
-  "República", "Sacomã", "Santa Cecília", "São Mateus", "Sé", "Tatuapé",
-  "Vila Formosa", "Vila Leopoldina", "Vila Matilde", "Vila Prudente",
+  "Água Rasa",
+  "Aricanduva",
+  "Artur Alvim",
+  "Barra Funda",
+  "Belém",
+  "Bela Vista",
+  "Bom Retiro",
+  "Brás",
+  "Butantã",
+  "Cambuci",
+  "Cangaíba",
+  "Carrão",
+  "Consolação",
+  "Cursino",
+  "Ermelino Matarazzo",
+  "Guaianases",
+  "Ipiranga",
+  "Itaim Bibi",
+  "Itaim Paulista",
+  "Itaquera",
+  "Jaguara",
+  "Jaguaré",
+  "Lapa",
+  "Liberdade",
+  "Mooca",
+  "Morumbi",
+  "Pari",
+  "Penha",
+  "Perdizes",
+  "Pinheiros",
+  "Ponte Rasa",
+  "República",
+  "Sacomã",
+  "Santa Cecília",
+  "São Mateus",
+  "Sé",
+  "Tatuapé",
+  "Vila Formosa",
+  "Vila Leopoldina",
+  "Vila Matilde",
+  "Vila Prudente",
 ].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
-const CMSP_SECRETARIA_COMISSAO =
-  "Viaduto Jacareí, 100, Bela Vista, 2º andar, salas 213-A ou 210";
+const CMSP_SECRETARIA_COMISSAO = "Viaduto Jacareí, 100, Bela Vista, 2º andar, salas 213-A ou 210";
 const CMSP_MAPS_URL =
   "https://www.google.com/maps/search/?api=1&query=Viaduto+Jacareí+100+Bela+Vista+São+Paulo+SP";
 
@@ -59,7 +92,9 @@ export function AudienciaInscricaoInline() {
   const [audiencias, setAudiencias] = useState<AudienciaOption[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [audienciaId, setAudienciaId] = useState<string>("");
-  const [tipoParticipacao, setTipoParticipacao] = useState<"videoconferencia" | "escrito" | "presencial">("videoconferencia");
+  const [tipoParticipacao, setTipoParticipacao] = useState<
+    "videoconferencia" | "escrito" | "presencial"
+  >("videoconferencia");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -80,7 +115,9 @@ export function AudienciaInscricaoInline() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, data, local, comissao, slug, ap_code, convidados, permite_inscricao_videoconferencia")
+        .select(
+          "id, titulo, data, local, comissao, slug, ap_code, convidados, permite_inscricao_videoconferencia",
+        )
         .eq("inscricoes_abertas", true)
         .gte("data", today)
         .order("data", { ascending: true })
@@ -90,10 +127,12 @@ export function AudienciaInscricaoInline() {
           console.error(error);
           setAudiencias([]);
         } else {
-          const list = ((data ?? []) as (AudienciaOption & { convidados?: string | null })[]).map((a) => ({
-            ...a,
-            convidados: a.convidados ?? null,
-          }));
+          const list = ((data ?? []) as (AudienciaOption & { convidados?: string | null })[]).map(
+            (a) => ({
+              ...a,
+              convidados: a.convidados ?? null,
+            }),
+          );
           setAudiencias(list);
           if (list.length > 0) setAudienciaId(list[0].id);
         }
@@ -101,7 +140,9 @@ export function AudienciaInscricaoInline() {
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
@@ -142,7 +183,9 @@ export function AudienciaInscricaoInline() {
         .maybeSingle();
       if (!cancelled) setInscritoVideoconferencia(!!data);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, audienciaId]);
 
   const handleSubmit = async () => {
@@ -153,21 +196,57 @@ export function AudienciaInscricaoInline() {
     }
 
     if (tipoParticipacao === "escrito") {
-      if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
-      if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
+      if (!nome.trim()) {
+        toast.error("Preencha o nome completo.");
+        return;
+      }
+      if (!email.trim() || !email.includes("@")) {
+        toast.error("Preencha um e-mail válido.");
+        return;
+      }
       const phoneDigits = telefone.replace(/\D/g, "");
-      if (phoneDigits.length < 10) { toast.error("Preencha o telefone/WhatsApp com DDD e número."); return; }
-      if (!bairro) { toast.error("Selecione o bairro (subprefeitura)."); return; }
-      if (!sugestao.trim()) { toast.error("Deixe sua sugestão para a audiência."); return; }
-      if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
-      if (!audienciaId) { toast.error("Escolha uma audiência."); return; }
+      if (phoneDigits.length < 10) {
+        toast.error("Preencha o telefone/WhatsApp com DDD e número.");
+        return;
+      }
+      if (!bairro) {
+        toast.error("Selecione o bairro (subprefeitura).");
+        return;
+      }
+      if (!sugestao.trim()) {
+        toast.error("Deixe sua sugestão para a audiência.");
+        return;
+      }
+      if (!consent) {
+        toast.error("É necessário concordar em compartilhar seus dados pessoais.");
+        return;
+      }
+      if (!audienciaId) {
+        toast.error("Escolha uma audiência.");
+        return;
+      }
     } else {
-      if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
-      if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
+      if (!nome.trim()) {
+        toast.error("Preencha o nome completo.");
+        return;
+      }
+      if (!email.trim() || !email.includes("@")) {
+        toast.error("Preencha um e-mail válido.");
+        return;
+      }
       const phoneDigits = telefone.replace(/\D/g, "");
-      if (phoneDigits.length < 10) { toast.error("Preencha o telefone/WhatsApp com DDD e número."); return; }
-      if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
-      if (!audienciaId) { toast.error("Escolha uma audiência."); return; }
+      if (phoneDigits.length < 10) {
+        toast.error("Preencha o telefone/WhatsApp com DDD e número.");
+        return;
+      }
+      if (!consent) {
+        toast.error("É necessário concordar em compartilhar seus dados pessoais.");
+        return;
+      }
+      if (!audienciaId) {
+        toast.error("Escolha uma audiência.");
+        return;
+      }
     }
 
     if (!user?.id) {
@@ -192,7 +271,8 @@ export function AudienciaInscricaoInline() {
       });
       if (error) throw error;
 
-      const protocoloNum = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      const protocoloNum =
+        Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
       setProtocolo(protocoloNum);
 
       if (selectedAudiencia?.slug && selectedAudiencia?.ap_code) {
@@ -211,7 +291,9 @@ export function AudienciaInscricaoInline() {
       if (protocoloNum != null) {
         toast.success(`Inscrição realizada! Protocolo: ${protocoloNum}`);
       } else {
-        toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
+        toast.success(
+          tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!",
+        );
       }
       setSuccess(true);
       if (tipoParticipacao === "videoconferencia") setInscritoVideoconferencia(true);
@@ -233,8 +315,7 @@ export function AudienciaInscricaoInline() {
   if (success) {
     const msgPresencial =
       "Sua inscrição para participação presencial foi registrada. Compareça no local da audiência no dia e horário indicados.";
-    const msgEscrito =
-      "Sua manifestação por escrito foi registrada e será encaminhada à Comissão.";
+    const msgEscrito = "Sua manifestação por escrito foi registrada e será encaminhada à Comissão.";
     const msgVideoconferencia =
       "Sua inscrição foi registrada. No dia da audiência, acesse o app para ver o link da videoconferência (quando disponível).";
     const successMsg =
@@ -290,17 +371,19 @@ export function AudienciaInscricaoInline() {
         <Label className="text-xs">Forma de participação *</Label>
         <Select
           value={tipoParticipacao}
-          onValueChange={(v) => setTipoParticipacao(v as "videoconferencia" | "escrito" | "presencial")}
+          onValueChange={(v) =>
+            setTipoParticipacao(v as "videoconferencia" | "escrito" | "presencial")
+          }
         >
           <SelectTrigger className="h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {permiteVideoNaAudiencia ? (
-            <SelectItem value="videoconferencia" className="text-sm flex items-center gap-2">
-              <Video className="h-3.5 w-3.5" />
-              Videoconferência
-            </SelectItem>
+              <SelectItem value="videoconferencia" className="text-sm flex items-center gap-2">
+                <Video className="h-3.5 w-3.5" />
+                Videoconferência
+              </SelectItem>
             ) : null}
             <SelectItem value="escrito" className="text-sm flex items-center gap-2">
               <FileText className="h-3.5 w-3.5" />
@@ -319,23 +402,23 @@ export function AudienciaInscricaoInline() {
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Escolha a audiência" />
           </SelectTrigger>
-          <SelectContent
-            position="item-aligned"
-            className="max-w-[min(calc(100vw-2rem),28rem)]"
-          >
+          <SelectContent position="item-aligned" className="max-w-[min(calc(100vw-2rem),28rem)]">
             {audiencias.map((a) => {
-              const nomeAudiencia = (a.comissao && a.comissao.trim())
-                ? `Audiência pública: ${a.comissao.trim()}`
-                : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : "Audiência pública";
-              const label = nomeAudiencia.length > 80 ? nomeAudiencia.slice(0, 80) + "…" : nomeAudiencia;
-              const dataPtBr =
-                /^\d{4}-\d{2}-\d{2}$/.test(a.data || "")
-                  ? new Date(a.data + "T12:00:00").toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })
-                  : a.data;
+              const nomeAudiencia =
+                a.comissao && a.comissao.trim()
+                  ? `Audiência pública: ${a.comissao.trim()}`
+                  : a.titulo && a.titulo.trim()
+                    ? a.titulo.trim()
+                    : "Audiência pública";
+              const label =
+                nomeAudiencia.length > 80 ? nomeAudiencia.slice(0, 80) + "…" : nomeAudiencia;
+              const dataPtBr = /^\d{4}-\d{2}-\d{2}$/.test(a.data || "")
+                ? new Date(a.data + "T12:00:00").toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })
+                : a.data;
               return (
                 <SelectItem
                   key={a.id}
@@ -351,29 +434,38 @@ export function AudienciaInscricaoInline() {
       </div>
 
       {/* Convidados da audiência selecionada: nome em uma linha, cargo na seguinte */}
-      {selectedAudiencia?.convidados?.trim() && (() => {
-        const itens = parseConvidadosItens(selectedAudiencia.convidados);
-        if (itens.length === 0) return null;
-        return (
-          <div className="space-y-1 text-xs text-muted-foreground rounded-md border border-border/60 bg-muted/20 p-2">
-            <p className="font-semibold text-foreground">Foram convidados para a Audiência Pública:</p>
-            <ul className="list-none space-y-0.5 pl-0">
-              {itens.map((item, i) => (
-                <li key={i} className="space-y-0.5">
-                  <span className="block">- {item.nome}</span>
-                  {item.cargo ? <span className="block">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })()}
+      {selectedAudiencia?.convidados?.trim() &&
+        (() => {
+          const itens = parseConvidadosItens(selectedAudiencia.convidados);
+          if (itens.length === 0) return null;
+          return (
+            <div className="space-y-1 text-xs text-muted-foreground rounded-md border border-border/60 bg-muted/20 p-2">
+              <p className="font-semibold text-foreground">
+                Foram convidados para a Audiência Pública:
+              </p>
+              <ul className="list-none space-y-0.5 pl-0">
+                {itens.map((item, i) => (
+                  <li key={i} className="space-y-0.5">
+                    <span className="block">- {item.nome}</span>
+                    {item.cargo ? (
+                      <span className="block">
+                        – {item.cargo}
+                        {i < itens.length - 1 ? ";" : ""}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
       {isPresencial ? (
         <>
           <div className="rounded-lg border border-border bg-background/50 p-3 space-y-2 text-sm">
             <p className="text-muted-foreground">
-              Você pode participar da audiência no local ou protocolar sua manifestação pessoalmente:
+              Você pode participar da audiência no local ou protocolar sua manifestação
+              pessoalmente:
             </p>
             <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
               <li>
@@ -381,7 +473,8 @@ export function AudienciaInscricaoInline() {
                 {selectedAudiencia?.local ?? "—"}
               </li>
               <li>
-                <strong className="text-foreground">Protocolar na Câmara:</strong> no Protocolo Legislativo ou na Secretaria da Comissão — {CMSP_SECRETARIA_COMISSAO}.
+                <strong className="text-foreground">Protocolar na Câmara:</strong> no Protocolo
+                Legislativo ou na Secretaria da Comissão — {CMSP_SECRETARIA_COMISSAO}.
               </li>
             </ul>
           </div>
@@ -404,111 +497,115 @@ export function AudienciaInscricaoInline() {
             </div>
           )}
           {tipoParticipacao === "videoconferencia" && inscritoVideoconferencia ? null : (
-          <>
-          <div className="space-y-2">
-            <Label className="text-xs">Nome completo *</Label>
-            <Input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder={isEscrito ? "Seu nome completo" : "Seu nome"}
-              className="h-9 text-sm"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">E-mail para contato nesta inscrição *</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              autoComplete="email"
-              className="h-9 text-sm"
-            />
-            <p className="text-[11px] text-muted-foreground leading-snug">
-              Pode ser diferente do e-mail do seu cadastro no app. Usaremos este endereço para comunicações sobre esta audiência.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Telefone/WhatsApp *</Label>
-            <Input
-              type="tel"
-              value={telefone}
-              onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
-              placeholder="(11) 99999-9999"
-              maxLength={16}
-              className="h-9 text-sm"
-            />
-          </div>
-          {isEscrito && (
             <>
               <div className="space-y-2">
-                <Label className="text-xs">Bairro (Subprefeitura) *</Label>
-                <Select value={bairro} onValueChange={setBairro}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BAIRROS_SP.map((b) => (
-                      <SelectItem key={b} value={b} className="text-sm">{b}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Deixe sua sugestão para a Audiência Pública *</Label>
-                <Textarea
-                  value={sugestao}
-                  onChange={(e) => setSugestao(e.target.value)}
-                  placeholder="Digite sua proposta ou sugestão..."
-                  rows={4}
-                  className="text-sm resize-y min-h-[80px]"
+                <Label className="text-xs">Nome completo *</Label>
+                <Input
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder={isEscrito ? "Seu nome completo" : "Seu nome"}
+                  className="h-9 text-sm"
                 />
               </div>
+              <div className="space-y-2">
+                <Label className="text-xs">E-mail para contato nesta inscrição *</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  autoComplete="email"
+                  className="h-9 text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Pode ser diferente do e-mail do seu cadastro no app. Usaremos este endereço para
+                  comunicações sobre esta audiência.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Telefone/WhatsApp *</Label>
+                <Input
+                  type="tel"
+                  value={telefone}
+                  onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
+                  placeholder="(11) 99999-9999"
+                  maxLength={16}
+                  className="h-9 text-sm"
+                />
+              </div>
+              {isEscrito && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Bairro (Subprefeitura) *</Label>
+                    <Select value={bairro} onValueChange={setBairro}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BAIRROS_SP.map((b) => (
+                          <SelectItem key={b} value={b} className="text-sm">
+                            {b}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Deixe sua sugestão para a Audiência Pública *</Label>
+                    <Textarea
+                      value={sugestao}
+                      onChange={(e) => setSugestao(e.target.value)}
+                      placeholder="Digite sua proposta ou sugestão..."
+                      rows={4}
+                      className="text-sm resize-y min-h-[80px]"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="consent-inline"
+                  checked={consent}
+                  onCheckedChange={(v) => setConsent(!!v)}
+                  className="mt-0.5"
+                />
+                <Label
+                  htmlFor="consent-inline"
+                  className="text-xs cursor-pointer text-muted-foreground leading-tight"
+                >
+                  Concordo em compartilhar meus dados com a Câmara Municipal de São Paulo (LGPD).
+                </Label>
+              </div>
+              {!isEscrito && (
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="receive-push-inline"
+                    checked={receivePush}
+                    onCheckedChange={(v) => setReceivePush(!!v)}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="receive-push-inline"
+                    className="text-xs cursor-pointer text-muted-foreground leading-tight flex items-center gap-1.5"
+                  >
+                    <Bell className="h-3.5 w-3.5 shrink-0" />
+                    Quero receber lembretes e notificações no celular (opcional).
+                  </Label>
+                </div>
+              )}
+              <Button size="sm" onClick={handleSubmit} disabled={isSubmitting} className="w-full">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Enviando...
+                  </>
+                ) : isEscrito ? (
+                  "Enviar Proposta"
+                ) : (
+                  "Inscrever-se"
+                )}
+              </Button>
             </>
-          )}
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="consent-inline"
-              checked={consent}
-              onCheckedChange={(v) => setConsent(!!v)}
-              className="mt-0.5"
-            />
-            <Label htmlFor="consent-inline" className="text-xs cursor-pointer text-muted-foreground leading-tight">
-              Concordo em compartilhar meus dados com a Câmara Municipal de São Paulo (LGPD).
-            </Label>
-          </div>
-          {!isEscrito && (
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="receive-push-inline"
-                checked={receivePush}
-                onCheckedChange={(v) => setReceivePush(!!v)}
-                className="mt-0.5"
-              />
-              <Label htmlFor="receive-push-inline" className="text-xs cursor-pointer text-muted-foreground leading-tight flex items-center gap-1.5">
-                <Bell className="h-3.5 w-3.5 shrink-0" />
-                Quero receber lembretes e notificações no celular (opcional).
-              </Label>
-            </div>
-          )}
-          <Button
-            size="sm"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Enviando...
-              </>
-            ) : isEscrito ? (
-              "Enviar Proposta"
-            ) : (
-              "Inscrever-se"
-            )}
-          </Button>
-          </>
           )}
         </>
       )}

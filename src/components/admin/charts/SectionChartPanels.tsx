@@ -14,36 +14,41 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import { ChartCard, ChartHeight } from '@/components/admin/charts/ChartShell';
+} from "recharts";
+import { ChartCard, ChartHeight } from "@/components/admin/charts/ChartShell";
 import {
   CHART_COLORS,
   chartTooltipStyle,
   formatChartNumber,
-} from '@/components/admin/analytics/chartTheme';
-import { heatmapMetricLabel } from '@/lib/analyticsParameterLegends';
-import { useSectionChartData } from '@/hooks/useSectionChartData';
-import { SECTION_CHART_LEGENDS } from '@/lib/analyticsParameterLegends';
-import type { LabeledValue } from '@/lib/chartTypes';
+} from "@/components/admin/analytics/chartTheme";
+import { heatmapMetricLabel } from "@/lib/analyticsParameterLegends";
+import { useSectionChartData } from "@/hooks/useSectionChartData";
+import { SECTION_CHART_LEGENDS } from "@/lib/analyticsParameterLegends";
+import type { LabeledValue } from "@/lib/chartTypes";
 function BarBlock({
   data,
-  layout = 'horizontal',
+  layout = "horizontal",
   colorIndex = 0,
 }: {
   data: LabeledValue[];
-  layout?: 'horizontal' | 'vertical';
+  layout?: "horizontal" | "vertical";
   colorIndex?: number;
 }) {
-  const vertical = layout === 'vertical';
+  const vertical = layout === "vertical";
   return (
     <ChartHeight>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          layout={vertical ? 'vertical' : 'horizontal'}
+          layout={vertical ? "vertical" : "horizontal"}
           margin={{ top: 8, right: 12, left: vertical ? 72 : 0, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={!vertical} vertical={vertical} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            className="stroke-border"
+            horizontal={!vertical}
+            vertical={vertical}
+          />
           {vertical ? (
             <>
               <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -65,7 +70,7 @@ function BarBlock({
                 axisLine={false}
                 interval={0}
                 angle={data.length > 5 ? -25 : 0}
-                textAnchor={data.length > 5 ? 'end' : 'middle'}
+                textAnchor={data.length > 5 ? "end" : "middle"}
                 height={data.length > 5 ? 52 : 30}
               />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
@@ -100,7 +105,10 @@ export function TrendsChartSection() {
       >
         <ChartHeight tall>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={volumeTimeSeries} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <ComposedChart
+              data={volumeTimeSeries}
+              margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
@@ -133,7 +141,10 @@ export function TrendsChartSection() {
         subtitle="Distribuição no período"
         legend={SECTION_CHART_LEGENDS.volumeByCategory}
       >
-        <BarBlock data={volumeByCategory.map((r) => ({ label: r.label, value: r.value }))} colorIndex={1} />
+        <BarBlock
+          data={volumeByCategory.map((r) => ({ label: r.label, value: r.value }))}
+          colorIndex={1}
+        />
       </ChartCard>
     </div>
   );
@@ -150,7 +161,10 @@ export function ExecutiveDashboardCharts() {
         subtitle="Distribuição no período — respeita filtros globais"
         legend={SECTION_CHART_LEGENDS.volumeByCategory}
       >
-        <BarBlock data={volumeByCategory.map((r) => ({ label: r.label, value: r.value }))} colorIndex={1} />
+        <BarBlock
+          data={volumeByCategory.map((r) => ({ label: r.label, value: r.value }))}
+          colorIndex={1}
+        />
       </ChartCard>
     </div>
   );
@@ -201,12 +215,28 @@ export function ClassificationChartSection() {
       >
         <ChartHeight>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={classificationTrend} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <LineChart
+              data={classificationTrend}
+              margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-              <YAxis domain={[60, 100]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
+              <YAxis
+                domain={[60, 100]}
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={36}
+              />
               <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => `${Number(v)}%`} />
-              <Line type="monotone" dataKey="value" name="Acurácia %" stroke={CHART_COLORS[0]} strokeWidth={2} dot />
+              <Line
+                type="monotone"
+                dataKey="value"
+                name="Acurácia %"
+                stroke={CHART_COLORS[0]}
+                strokeWidth={2}
+                dot
+              />
             </LineChart>
           </ResponsiveContainer>
         </ChartHeight>
@@ -228,7 +258,14 @@ export function PaineisOverviewChartSection() {
         <ChartHeight>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={widgetUsage} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={88}>
+              <Pie
+                data={widgetUsage}
+                dataKey="value"
+                nameKey="label"
+                cx="50%"
+                cy="50%"
+                outerRadius={88}
+              >
                 {widgetUsage.map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
@@ -263,12 +300,39 @@ export function PaineisAdvancedChartSection() {
           <ComposedChart data={metricTrends} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-            <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
             <Tooltip contentStyle={chartTooltipStyle} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar yAxisId="left" dataKey="volume" name="Volume" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="response" name="Resposta (h)" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
+            <Bar
+              yAxisId="left"
+              dataKey="volume"
+              name="Volume"
+              fill={CHART_COLORS[0]}
+              radius={[4, 4, 0, 0]}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="response"
+              name="Resposta (h)"
+              stroke={CHART_COLORS[2]}
+              strokeWidth={2}
+              dot={false}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </ChartHeight>
@@ -313,7 +377,10 @@ export function ReportsManagementChartSection() {
       >
         <ChartHeight>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={volumeTimeSeries} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <ComposedChart
+              data={volumeTimeSeries}
+              margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
@@ -359,8 +426,22 @@ export function ReferralsChartSection() {
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
               <Tooltip contentStyle={chartTooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="criados" name="Criados" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="concluidos" name="Concluídos" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
+              <Line
+                type="monotone"
+                dataKey="criados"
+                name="Criados"
+                stroke={CHART_COLORS[0]}
+                strokeWidth={2}
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="concluidos"
+                name="Concluídos"
+                stroke={CHART_COLORS[2]}
+                strokeWidth={2}
+                dot={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         </ChartHeight>
@@ -414,9 +495,30 @@ export function NotificationsChartSection() {
             <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
             <Tooltip contentStyle={chartTooltipStyle} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="enviadas" name="Enviadas" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="entregues" name="Entregues" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="falhas" name="Falhas" stroke={CHART_COLORS[1]} strokeWidth={2} dot={false} />
+            <Line
+              type="monotone"
+              dataKey="enviadas"
+              name="Enviadas"
+              stroke={CHART_COLORS[0]}
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="entregues"
+              name="Entregues"
+              stroke={CHART_COLORS[2]}
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="falhas"
+              name="Falhas"
+              stroke={CHART_COLORS[1]}
+              strokeWidth={2}
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </ChartHeight>
@@ -441,7 +543,10 @@ export function ExportsChartSection() {
         subtitle="Execuções por semana"
         legend={SECTION_CHART_LEGENDS.exportTimeline}
       >
-        <BarBlock data={exportActivity.timeline.map((r) => ({ label: r.label, value: Number(r.jobs) }))} colorIndex={3} />
+        <BarBlock
+          data={exportActivity.timeline.map((r) => ({ label: r.label, value: Number(r.jobs) }))}
+          colorIndex={3}
+        />
       </ChartCard>
     </div>
   );
@@ -515,7 +620,15 @@ export function UsersChartSection() {
       <ChartHeight>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={usersByRole} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={48} outerRadius={80}>
+            <Pie
+              data={usersByRole}
+              dataKey="value"
+              nameKey="label"
+              cx="50%"
+              cy="50%"
+              innerRadius={48}
+              outerRadius={80}
+            >
               {usersByRole.map((_, i) => (
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
               ))}

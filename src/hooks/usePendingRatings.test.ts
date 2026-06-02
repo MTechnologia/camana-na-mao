@@ -102,7 +102,9 @@ describe("usePendingRatings", () => {
   it("deve lidar com erro ao buscar avaliações", async () => {
     const errorMessage = "Fetch error";
     vi.mocked(supabase.from).mockReturnValue(
-      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<typeof supabase.from>,
+      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<
+        typeof supabase.from
+      >,
     );
 
     const { result } = renderHook(() => usePendingRatings());

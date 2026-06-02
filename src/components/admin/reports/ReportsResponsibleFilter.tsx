@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { LegislativeCommissionOption } from '@/lib/reportCommissionReferrals';
-import { cn } from '@/lib/utils';
+import { useMemo } from "react";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { LegislativeCommissionOption } from "@/lib/reportCommissionReferrals";
+import { cn } from "@/lib/utils";
 
 export type CommissionFilterLabels = {
   triggerAll: string;
@@ -17,23 +17,23 @@ export type CommissionFilterLabels = {
 };
 
 export const RESPONSIBLE_COMMISSION_LABELS: CommissionFilterLabels = {
-  triggerAll: 'Todos os responsáveis',
-  triggerOne: '1 responsável',
+  triggerAll: "Todos os responsáveis",
+  triggerOne: "1 responsável",
   triggerMany: (n) => `${n} responsáveis`,
-  title: 'Responsável',
-  description: 'Comissões temáticas com encaminhamento ao relato. Marque uma ou mais.',
-  ariaLabel: 'Filtrar por responsável (comissão temática)',
-  clearButton: 'Limpar filtro (todos)',
+  title: "Responsável",
+  description: "Comissões temáticas com encaminhamento ao relato. Marque uma ou mais.",
+  ariaLabel: "Filtrar por responsável (comissão temática)",
+  clearButton: "Limpar filtro (todos)",
 };
 
 export const COMMISSION_TAB_FILTER_LABELS: CommissionFilterLabels = {
-  triggerAll: 'Todas as comissões',
-  triggerOne: '1 comissão',
+  triggerAll: "Todas as comissões",
+  triggerOne: "1 comissão",
   triggerMany: (n) => `${n} comissões`,
-  title: 'Comissão temática',
-  description: 'Filtra encaminhamentos temáticos no recorte global. Marque uma ou mais.',
-  ariaLabel: 'Filtrar por comissão temática',
-  clearButton: 'Limpar filtro (todas)',
+  title: "Comissão temática",
+  description: "Filtra encaminhamentos temáticos no recorte global. Marque uma ou mais.",
+  ariaLabel: "Filtrar por comissão temática",
+  clearButton: "Limpar filtro (todas)",
 };
 
 type Props = {
@@ -75,8 +75,8 @@ export function ReportsResponsibleFilter({
           type="button"
           variant="outline"
           className={cn(
-            'h-9 w-full justify-between gap-1 font-normal sm:w-[200px]',
-            selectedIds.length > 0 && 'border-primary/60',
+            "h-9 w-full justify-between gap-1 font-normal sm:w-[200px]",
+            selectedIds.length > 0 && "border-primary/60",
             className,
           )}
           aria-label={labels.ariaLabel}
@@ -106,16 +106,14 @@ export function ReportsResponsibleFilter({
                   <Checkbox
                     checked={checked}
                     onCheckedChange={(v) => {
-                      if (v === 'indeterminate') return;
+                      if (v === "indeterminate") return;
                       if (Boolean(v) !== checked) onToggle(c.commissionId);
                     }}
                     aria-labelledby={`responsible-opt-${c.commissionId}`}
                   />
                   <span id={`responsible-opt-${c.commissionId}`} className="truncate">
                     {c.name}
-                    {c.code ? (
-                      <span className="text-muted-foreground"> ({c.code})</span>
-                    ) : null}
+                    {c.code ? <span className="text-muted-foreground"> ({c.code})</span> : null}
                   </span>
                 </label>
               );

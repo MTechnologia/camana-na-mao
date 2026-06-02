@@ -1,7 +1,7 @@
-import { AlertCircle, Bell } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
+import { AlertCircle, Bell } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 interface PatternAlertProps {
   pattern: {
@@ -25,7 +25,8 @@ export const PatternAlert = ({ pattern, onSubscribe }: PatternAlertProps) => {
           <div>
             <p className="font-semibold text-amber-900">Problema recorrente detectado</p>
             <p className="text-sm text-amber-800">
-              {pattern.occurrence_count} {pattern.occurrence_count === 1 ? 'usuário relatou' : 'usuários relataram'}{' '}
+              {pattern.occurrence_count}{" "}
+              {pattern.occurrence_count === 1 ? "usuário relatou" : "usuários relataram"}{" "}
               {pattern.description.toLowerCase()}
             </p>
           </div>

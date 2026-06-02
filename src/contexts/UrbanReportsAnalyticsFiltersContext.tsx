@@ -1,20 +1,14 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from 'react';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { globalFilterChipLabels } from '@/lib/globalFilterOptions';
-import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { globalFilterChipLabels } from "@/lib/globalFilterOptions";
+import { globalFiltersToReportsAnalytics } from "@/lib/globalFiltersToAnalytics";
 import {
   useReportsAnalytics,
   type ReportsAnalyticsFilters,
   type ReportsAnalyticsStats,
-} from '@/hooks/useReportsAnalytics';
-import { useOptionalGlobalReportsAnalytics } from '@/contexts/GlobalReportsAnalyticsContext';
-import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
+} from "@/hooks/useReportsAnalytics";
+import { useOptionalGlobalReportsAnalytics } from "@/contexts/GlobalReportsAnalyticsContext";
+import { useRegisterAnalyticsLive } from "@/hooks/useRegisterAnalyticsLive";
 
 export type UrbanReportsAnalyticsFiltersState = {
   period: string;
@@ -36,13 +30,7 @@ type Ctx = UrbanReportsAnalyticsFiltersState & {
 const UrbanReportsAnalyticsFiltersContext = createContext<Ctx | null>(null);
 
 export function UrbanReportsAnalyticsFiltersProvider({ children }: { children: ReactNode }) {
-  const {
-    period,
-    region,
-    category,
-    periodCompare,
-    reset: resetGlobal,
-  } = useGlobalFilters();
+  const { period, region, category, periodCompare, reset: resetGlobal } = useGlobalFilters();
 
   /** Mesmo recorte do GlobalReportsAnalytics (urbano + transporte + avaliações no tema). */
   const filters = useMemo(
@@ -61,7 +49,7 @@ export function UrbanReportsAnalyticsFiltersProvider({ children }: { children: R
   const lastUpdate = global?.lastUpdate ?? local.lastUpdate;
   const refresh = global?.refresh ?? local.refresh;
 
-  useRegisterAnalyticsLive('urban-reports-analytics', { lastUpdate, refresh });
+  useRegisterAnalyticsLive("urban-reports-analytics", { lastUpdate, refresh });
 
   const value = useMemo<Ctx>(
     () => ({
@@ -77,18 +65,7 @@ export function UrbanReportsAnalyticsFiltersProvider({ children }: { children: R
       refresh,
       reset: resetGlobal,
     }),
-    [
-      period,
-      region,
-      category,
-      filters,
-      stats,
-      isLoading,
-      error,
-      lastUpdate,
-      refresh,
-      resetGlobal,
-    ],
+    [period, region, category, filters, stats, isLoading, error, lastUpdate, refresh, resetGlobal],
   );
 
   return (
@@ -102,7 +79,7 @@ export function useUrbanReportsAnalyticsFilters(): Ctx {
   const ctx = useContext(UrbanReportsAnalyticsFiltersContext);
   if (!ctx) {
     throw new Error(
-      'useUrbanReportsAnalyticsFilters must be used within UrbanReportsAnalyticsFiltersProvider',
+      "useUrbanReportsAnalyticsFilters must be used within UrbanReportsAnalyticsFiltersProvider",
     );
   }
   return ctx;

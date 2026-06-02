@@ -1,17 +1,17 @@
-import type { AnalyticsMetric } from '@/types/analyticsDrill';
+import type { AnalyticsMetric } from "@/types/analyticsDrill";
 
 /** Tipos de widget disponíveis no construtor (catálogo). */
 export type PanelWidgetType =
-  | 'kpi_quad'
-  | 'kpi_single'
-  | 'chart_bar_drill'
-  | 'chart_line_volume'
-  | 'chart_pie_status'
-  | 'chart_pie_sentiment'
-  | 'list_patterns_top'
-  | 'list_patterns_region'
-  | 'chart_scatter_correlation'
-  | 'chart_territory_intensity';
+  | "kpi_quad"
+  | "kpi_single"
+  | "chart_bar_drill"
+  | "chart_line_volume"
+  | "chart_pie_status"
+  | "chart_pie_sentiment"
+  | "list_patterns_top"
+  | "list_patterns_region"
+  | "chart_scatter_correlation"
+  | "chart_territory_intensity";
 
 export type PanelColSpan = 4 | 6 | 8 | 12;
 export type PanelRowSpan = 1 | 2;
@@ -47,4 +47,4 @@ export type CustomPanel = {
   updatedAt: string;
 };
 
-export type PanelTemplateId = 'blank' | 'executive' | 'sentiment_ops' | 'territory';
+export type PanelTemplateId = "blank" | "executive" | "sentiment_ops" | "territory";

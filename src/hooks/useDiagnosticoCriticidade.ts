@@ -379,10 +379,7 @@ export function aggregate(
     .slice(0, 10);
 
   // Por zona
-  const zoneMap = new Map<
-    ZonaVolumeOuDesconhecida,
-    { total: number; neg: number; crit: number }
-  >();
+  const zoneMap = new Map<ZonaVolumeOuDesconhecida, { total: number; neg: number; crit: number }>();
   records.forEach((r) => {
     const slot = zoneMap.get(r.zone) || { total: 0, neg: 0, crit: 0 };
     slot.total += 1;
@@ -427,7 +424,8 @@ export function aggregate(
     patterns.length,
     100, // visão global "satura" o percentil de volume
   );
-  const globalScore = totalRecords === 0 && patterns.length === 0 ? 0 : computeScore(globalBreakdown);
+  const globalScore =
+    totalRecords === 0 && patterns.length === 0 ? 0 : computeScore(globalBreakdown);
 
   // HU-5.2 — usa listas pré-calculadas (não filtradas) quando disponíveis,
   // fallback para reduzir dos records atuais (compatibilidade com testes legados).
@@ -436,9 +434,7 @@ export function aggregate(
       ? allAvailableCategories
       : Array.from(
           new Set(
-            records
-              .map((r) => r.category)
-              .filter((c): c is string => !!c && c !== "Sem categoria"),
+            records.map((r) => r.category).filter((c): c is string => !!c && c !== "Sem categoria"),
           ),
         ).sort();
   const availableRegions =
@@ -446,9 +442,7 @@ export function aggregate(
       ? allAvailableRegions
       : Array.from(
           new Set(
-            records
-              .map((r) => r.region)
-              .filter((r): r is string => !!r && r !== "Não informada"),
+            records.map((r) => r.region).filter((r): r is string => !!r && r !== "Não informada"),
           ),
         ).sort();
 
@@ -507,9 +501,7 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
       ).sort();
       const allAvailableRegions = Array.from(
         new Set(
-          allRecords
-            .map((r) => r.region)
-            .filter((r): r is string => !!r && r !== "Não informada"),
+          allRecords.map((r) => r.region).filter((r): r is string => !!r && r !== "Não informada"),
         ),
       ).sort();
       const filtered = applyAnalyticsFilters(allRecords, analyticsFilter);
@@ -531,7 +523,14 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
     // TODO: separar fetch (período+base) de re-agregação (facet) para evitar
     // re-fetch quando só o facet mudou.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones, JSON.stringify(filters.facet)]);
+  }, [
+    filters.startDate,
+    filters.endDate,
+    filters.categories,
+    filters.regions,
+    filters.zones,
+    JSON.stringify(filters.facet),
+  ]);
 
   useEffect(() => {
     void fetchData();

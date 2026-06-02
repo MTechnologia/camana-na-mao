@@ -1,14 +1,10 @@
-import { useMemo } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  TRIAGE_PRIORITIES,
-  TRIAGE_PRIORITY_ORDER,
-  type TriagePriority,
-} from '@/lib/triage';
-import { cn } from '@/lib/utils';
+import { useMemo } from "react";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TRIAGE_PRIORITIES, TRIAGE_PRIORITY_ORDER, type TriagePriority } from "@/lib/triage";
+import { cn } from "@/lib/utils";
 
 type Props = {
   selectedPriorities: TriagePriority[];
@@ -30,7 +26,7 @@ export function ReportsPriorityFilter({
   const selectedSet = useMemo(() => new Set(selectedPriorities), [selectedPriorities]);
 
   const triggerLabel = useMemo(() => {
-    if (selectedPriorities.length === 0) return 'Todas as prioridades';
+    if (selectedPriorities.length === 0) return "Todas as prioridades";
     if (selectedPriorities.length === 1) {
       return TRIAGE_PRIORITIES[selectedPriorities[0]].label;
     }
@@ -44,8 +40,8 @@ export function ReportsPriorityFilter({
           type="button"
           variant="outline"
           className={cn(
-            'h-9 w-full justify-between gap-1 font-normal sm:w-[200px]',
-            selectedPriorities.length > 0 && 'border-primary/60',
+            "h-9 w-full justify-between gap-1 font-normal sm:w-[200px]",
+            selectedPriorities.length > 0 && "border-primary/60",
             className,
           )}
           aria-label="Filtrar por prioridade de triagem"
@@ -72,7 +68,7 @@ export function ReportsPriorityFilter({
                 <Checkbox
                   checked={checked}
                   onCheckedChange={(v) => {
-                    if (v === 'indeterminate') return;
+                    if (v === "indeterminate") return;
                     if (Boolean(v) !== checked) onToggle(p);
                   }}
                   aria-labelledby={`priority-opt-${p}`}

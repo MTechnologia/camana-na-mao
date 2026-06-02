@@ -30,7 +30,11 @@ describe("computeDelta", () => {
   });
 });
 
-function cat(category: string, count: number, source: "urbano" | "transporte" | "avaliacao" = "urbano"): VolumeByCategory {
+function cat(
+  category: string,
+  count: number,
+  source: "urbano" | "transporte" | "avaliacao" = "urbano",
+): VolumeByCategory {
   return { category, count, source };
 }
 
@@ -57,10 +61,7 @@ describe("buildCategoryCompare", () => {
   });
 
   it("ordena por soma A+B descendente", () => {
-    const rows = buildCategoryCompare(
-      [cat("A", 5), cat("B", 100)],
-      [cat("A", 5), cat("B", 50)],
-    );
+    const rows = buildCategoryCompare([cat("A", 5), cat("B", 100)], [cat("A", 5), cat("B", 50)]);
     expect(rows[0].category).toBe("B");
     expect(rows[1].category).toBe("A");
   });

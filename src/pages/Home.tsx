@@ -57,10 +57,7 @@ const Home = () => {
   return (
     <>
       {!onboardingLoading && showTutorial && (
-        <AppOnboardingTutorial 
-          onComplete={completeTutorial}
-          onSkip={completeTutorial}
-        />
+        <AppOnboardingTutorial onComplete={completeTutorial} onSkip={completeTutorial} />
       )}
       <AgentChatLayout />
       <DebugOverlay />

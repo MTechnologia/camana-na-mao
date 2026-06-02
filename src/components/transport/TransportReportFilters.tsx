@@ -60,9 +60,7 @@ export function TransportReportFilters({ filters, onFilterChange }: Props) {
 
   const problemChips = [
     ...transportProblems.map((p) => ({ value: p.id, label: p.label })),
-    ...EXTRA_REPORT_TYPES.filter(
-      (e) => !transportProblems.some((p) => p.id === e.value),
-    ),
+    ...EXTRA_REPORT_TYPES.filter((e) => !transportProblems.some((p) => p.id === e.value)),
   ];
 
   return (

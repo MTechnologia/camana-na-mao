@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   parseCommissionIdsFromSearchParams,
   parseCouncilMemberIdsFromSearchParams,
@@ -7,42 +7,39 @@ import {
   parseGlobalFiltersFromSearchParams,
   parseReportsQueueTabFromSearchParams,
   type CouncilReferralFilter,
-} from '@/lib/commissionFilterNavigation';
+} from "@/lib/commissionFilterNavigation";
 import {
   buildUrbanReportRowsFromCouncilReferrals,
   countNonUrbanCouncilReferrals,
   fetchUrbanManifestsForCouncilReferralIds,
-} from '@/lib/councilReferralDrilldown';
+} from "@/lib/councilReferralDrilldown";
 import {
   buildUrbanIdsForCouncilReferralFilter,
   countCouncilReferralsForFilter,
   fetchFilteredCouncilMemberReferrals,
   filterCouncilReferralRows,
   type FilteredCouncilReferralRow,
-} from '@/lib/referralsGlobalFilters';
-import { toast } from 'sonner';
-import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
-import { PERIOD_COMPARE_VALUE } from '@/lib/globalFilterOptions';
-import { globalPeriodKeyToDateRange } from '@/lib/globalPeriodRange';
-import { formatUrbanReportRegionLabel } from '@/lib/urbanReportRegion';
-import { countByStage } from '@/lib/urbanReportLabels';
-import {
-  deriveUrbanWorkflowStage,
-  stageToDbStatus,
-} from '@/lib/urbanReportPersistence';
+} from "@/lib/referralsGlobalFilters";
+import { toast } from "sonner";
+import { useGlobalFilters } from "@/contexts/AnalyticsFiltersContext";
+import { PERIOD_COMPARE_VALUE } from "@/lib/globalFilterOptions";
+import { globalPeriodKeyToDateRange } from "@/lib/globalPeriodRange";
+import { formatUrbanReportRegionLabel } from "@/lib/urbanReportRegion";
+import { countByStage } from "@/lib/urbanReportLabels";
+import { deriveUrbanWorkflowStage, stageToDbStatus } from "@/lib/urbanReportPersistence";
 import {
   filterReportsForQueue,
   queueTabForStageFilter,
   type ReportsStageFilter,
-} from '@/lib/urbanReportQueueFilters';
-import { REPORTS_LIST_PAGE_SIZE } from '@/components/admin/reports/ReportsListPagination';
-import { chunkIds } from '@/lib/chunkIds';
+} from "@/lib/urbanReportQueueFilters";
+import { REPORTS_LIST_PAGE_SIZE } from "@/components/admin/reports/ReportsListPagination";
+import { chunkIds } from "@/lib/chunkIds";
 import {
   fetchActiveLegislativeCommissions,
   loadLatestCommissionByReportKey,
   reportCommissionKey,
   type LegislativeCommissionOption,
-} from '@/lib/reportCommissionReferrals';
+} from "@/lib/reportCommissionReferrals";
 import {
   loadLatestCouncilReferralByUrbanIds,
   loadUrbanTriageResponsibleCommissionByReportIds,
@@ -53,37 +50,34 @@ import {
   resolveCommissionDisplayName,
   resolveUrbanReportResponsible,
   type UrbanCouncilReferralSnapshot,
-} from '@/lib/urbanReportReferralPersistence';
-import { useReportsAdmin, type UnifiedManifest } from '@/hooks/useReportsAdmin';
-import { useRegisterAnalyticsLive } from '@/hooks/useRegisterAnalyticsLive';
+} from "@/lib/urbanReportReferralPersistence";
+import { useReportsAdmin, type UnifiedManifest } from "@/hooks/useReportsAdmin";
+import { useRegisterAnalyticsLive } from "@/hooks/useRegisterAnalyticsLive";
 import {
   effectiveReportTriagePriority,
   loadUrbanTriagePriorityByReportId,
-} from '@/lib/triagePriority';
-import type { TriagePriority } from '@/lib/triage';
-import type {
-  ReportQueueTab,
-  UrbanReportRecord,
-} from '@/types/urbanReportManagement';
-import type { TriageRecord } from '@/hooks/useReportTriage';
+} from "@/lib/triagePriority";
+import type { TriagePriority } from "@/lib/triage";
+import type { ReportQueueTab, UrbanReportRecord } from "@/types/urbanReportManagement";
+import type { TriageRecord } from "@/hooks/useReportTriage";
 
 function sortPriorities(ids: TriagePriority[]): TriagePriority[] {
-  const order: TriagePriority[] = ['P0', 'P1', 'P2', 'P3'];
+  const order: TriagePriority[] = ["P0", "P1", "P2", "P3"];
   const rank = new Map(order.map((p, i) => [p, i]));
   return [...ids].sort((a, b) => (rank.get(a) ?? 99) - (rank.get(b) ?? 99));
 }
 
 function patchReferralMapsForReport(
   reportId: string,
-  referral: NonNullable<UrbanReportRecord['referral']>,
+  referral: NonNullable<UrbanReportRecord["referral"]>,
   catalog: Map<string, string>,
 ): {
   councilPatch: UrbanCouncilReferralSnapshot;
   commissionPatch: { id: string; name: string };
 } {
   const commissionName =
-    resolveCommissionDisplayName(referral.commissionId, referral.commissionName, catalog)
-    ?? referral.commissionName;
+    resolveCommissionDisplayName(referral.commissionId, referral.commissionName, catalog) ??
+    referral.commissionName;
   return {
     councilPatch: {
       referralId: referral.councilReferralId ?? reportId,
@@ -119,15 +113,11 @@ function applyLocalReportFilters(
   }
   if (selectedPriorities.length > 0) {
     const wanted = new Set(selectedPriorities);
-    out = out.filter(
-      (r) => r.triagePriority != null && wanted.has(r.triagePriority),
-    );
+    out = out.filter((r) => r.triagePriority != null && wanted.has(r.triagePriority));
   }
   if (selectedResponsibleIds.length > 0) {
     const wanted = new Set(selectedResponsibleIds);
-    out = out.filter(
-      (r) => r.responsibleId != null && wanted.has(r.responsibleId),
-    );
+    out = out.filter((r) => r.responsibleId != null && wanted.has(r.responsibleId));
   }
   if (councilReferralUrbanIds) {
     out = out.filter((r) => councilReferralUrbanIds.has(r.id));
@@ -139,13 +129,13 @@ function initialQueueTab(params: URLSearchParams): ReportQueueTab {
   const fromUrl = parseReportsQueueTabFromSearchParams(params);
   if (fromUrl) return fromUrl;
   if (
-    parseCommissionIdsFromSearchParams(params).length > 0
-    || parseCouncilReferralFilterFromSearchParams(params)
-    || parseCouncilMemberIdsFromSearchParams(params).length > 0
+    parseCommissionIdsFromSearchParams(params).length > 0 ||
+    parseCouncilReferralFilterFromSearchParams(params) ||
+    parseCouncilMemberIdsFromSearchParams(params).length > 0
   ) {
-    return 'all';
+    return "all";
   }
-  return 'triage';
+  return "triage";
 }
 
 function manifestToUrbanRecord(
@@ -157,16 +147,16 @@ function manifestToUrbanRecord(
     id: m.id,
     protocol: u?.protocol_code ?? m.id.slice(0, 8).toUpperCase(),
     title: m.title,
-    summary: m.description ?? '',
-    category: u?.category ?? '—',
+    summary: m.description ?? "",
+    category: u?.category ?? "—",
     region: formatUrbanReportRegionLabel({
       locationAddress: m.location,
       neighborhood: u?.neighborhood ?? null,
       latitude: u?.latitude ?? null,
       longitude: u?.longitude ?? null,
     }),
-    district: u?.neighborhood ?? '—',
-    stage: 'awaiting_triage',
+    district: u?.neighborhood ?? "—",
+    stage: "awaiting_triage",
     triagePriority,
     createdAt: m.created_at,
     updatedAt: m.updated_at ?? m.created_at,
@@ -193,17 +183,15 @@ export function useUrbanReportsManagement() {
     lastDataUpdate,
   } = useReportsAdmin({ fetchCap: MANAGEMENT_FETCH_CAP });
 
-  useRegisterAnalyticsLive('reports-management', {
+  useRegisterAnalyticsLive("reports-management", {
     lastUpdate: lastDataUpdate,
     refresh: refetch,
   });
   const [overrides, setOverrides] = useState<Record<string, UrbanReportRecord>>({});
-  const [queueTab, setQueueTab] = useState<ReportQueueTab>(() =>
-    initialQueueTab(searchParams),
-  );
+  const [queueTab, setQueueTab] = useState<ReportQueueTab>(() => initialQueueTab(searchParams));
   const [stageFilter, setStageFilter] = useState<ReportsStageFilter | null>(null);
   const [listPage, setListPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [selectedPriorities, setSelectedPriorities] = useState<TriagePriority[]>([]);
   const [priorityPopoverOpen, setPriorityPopoverOpen] = useState(false);
   const [selectedResponsibleIds, setSelectedResponsibleIds] = useState<string[]>(() =>
@@ -216,7 +204,7 @@ export function useUrbanReportsManagement() {
     if (fromUrl.length > 0) {
       setSelectedResponsibleIds(fromUrl);
       const tabFromUrl = parseReportsQueueTabFromSearchParams(searchParams);
-      setQueueTab(tabFromUrl ?? 'all');
+      setQueueTab(tabFromUrl ?? "all");
       setStageFilter(null);
     }
   }, [searchParams]);
@@ -224,8 +212,8 @@ export function useUrbanReportsManagement() {
   useEffect(() => {
     const councillorIds = parseCouncilMemberIdsFromSearchParams(searchParams);
     const councilFilter =
-      parseCouncilReferralFilterFromSearchParams(searchParams)
-      ?? (councillorIds.length > 0 ? 'any' : null);
+      parseCouncilReferralFilterFromSearchParams(searchParams) ??
+      (councillorIds.length > 0 ? "any" : null);
 
     if (!councilFilter) {
       setCouncilReferralUrbanIds(null);
@@ -240,11 +228,11 @@ export function useUrbanReportsManagement() {
     setCouncilReferralFilter(councilFilter);
 
     const labels: Record<CouncilReferralFilter, string> = {
-      any: 'Encaminhamento a vereador',
-      pending: 'Encaminhamento pendente',
-      sent: 'Encaminhamento enviado',
-      acknowledged: 'Encaminhamento reconhecido',
-      resolved: 'Encaminhamento resolvido',
+      any: "Encaminhamento a vereador",
+      pending: "Encaminhamento pendente",
+      sent: "Encaminhamento enviado",
+      acknowledged: "Encaminhamento reconhecido",
+      resolved: "Encaminhamento resolvido",
     };
     const baseLabel = labels[councilFilter];
 
@@ -254,57 +242,47 @@ export function useUrbanReportsManagement() {
         : undefined;
 
     let cancelled = false;
-    void fetchFilteredCouncilMemberReferrals(
-      period,
-      region,
-      category,
-      periodCompareInput,
-    ).then((rows) => {
-      if (cancelled) return;
-      const scopedRows =
-        councillorIds.length > 0
-          ? rows.filter((r) => councillorIds.includes(r.councilMemberId))
-          : rows;
-      setCouncilReferralRows(scopedRows);
-      const urbanIds = buildUrbanIdsForCouncilReferralFilter(scopedRows, councilFilter);
-      setCouncilReferralUrbanIds(urbanIds);
-      const matched = filterCouncilReferralRows(scopedRows, councilFilter);
-      const councillorName =
-        councillorIds.length === 1
-          ? matched.find((r) => r.councilMemberId === councillorIds[0])?.councilMemberName
-          : null;
-      setCouncilReferralFilterLabel(
-        councillorName ? `${baseLabel} · ${councillorName}` : baseLabel,
-      );
-      setCouncilReferralStats({
-        referralTotal: matched.length,
-        urbanLinked: matched.filter((r) => r.urbanReportId).length,
-        nonUrban: countNonUrbanCouncilReferrals(matched),
+    void fetchFilteredCouncilMemberReferrals(period, region, category, periodCompareInput)
+      .then((rows) => {
+        if (cancelled) return;
+        const scopedRows =
+          councillorIds.length > 0
+            ? rows.filter((r) => councillorIds.includes(r.councilMemberId))
+            : rows;
+        setCouncilReferralRows(scopedRows);
+        const urbanIds = buildUrbanIdsForCouncilReferralFilter(scopedRows, councilFilter);
+        setCouncilReferralUrbanIds(urbanIds);
+        const matched = filterCouncilReferralRows(scopedRows, councilFilter);
+        const councillorName =
+          councillorIds.length === 1
+            ? matched.find((r) => r.councilMemberId === councillorIds[0])?.councilMemberName
+            : null;
+        setCouncilReferralFilterLabel(
+          councillorName ? `${baseLabel} · ${councillorName}` : baseLabel,
+        );
+        setCouncilReferralStats({
+          referralTotal: matched.length,
+          urbanLinked: matched.filter((r) => r.urbanReportId).length,
+          nonUrban: countNonUrbanCouncilReferrals(matched),
+        });
+      })
+      .catch((err) => {
+        console.error("[useUrbanReportsManagement] council referral filter", err);
+        if (!cancelled) {
+          setCouncilReferralUrbanIds(new Set());
+          setCouncilReferralRows([]);
+          setCouncilReferralStats(null);
+        }
       });
-    }).catch((err) => {
-      console.error('[useUrbanReportsManagement] council referral filter', err);
-      if (!cancelled) {
-        setCouncilReferralUrbanIds(new Set());
-        setCouncilReferralRows([]);
-        setCouncilReferralStats(null);
-      }
-    });
 
     const tabFromUrl = parseReportsQueueTabFromSearchParams(searchParams);
-    setQueueTab(tabFromUrl ?? 'all');
+    setQueueTab(tabFromUrl ?? "all");
     setStageFilter(null);
 
     return () => {
       cancelled = true;
     };
-  }, [
-    searchParams,
-    period,
-    region,
-    category,
-    compareActive,
-    periodCompare.periodA,
-  ]);
+  }, [searchParams, period, region, category, compareActive, periodCompare.periodA]);
   const [responsibleCatalog, setResponsibleCatalog] = useState<LegislativeCommissionOption[]>([]);
   const commissionNameCatalog = useMemo(
     () => new Map(responsibleCatalog.map((c) => [c.commissionId, c.name])),
@@ -314,10 +292,8 @@ export function useUrbanReportsManagement() {
   commissionNameCatalogRef.current = commissionNameCatalog;
   const referralLoadTokenRef = useRef(0);
   const referralReloadChainRef = useRef(Promise.resolve());
-  const reportIdsKeyRef = useRef('');
-  const councilReferralByReportIdRef = useRef(
-    new Map<string, UrbanCouncilReferralSnapshot>(),
-  );
+  const reportIdsKeyRef = useRef("");
+  const councilReferralByReportIdRef = useRef(new Map<string, UrbanCouncilReferralSnapshot>());
   const [commissionByReportId, setCommissionByReportId] = useState<
     Map<string, { id: string; name: string }>
   >(new Map());
@@ -334,17 +310,12 @@ export function useUrbanReportsManagement() {
   >(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [councilReferralUrbanIds, setCouncilReferralUrbanIds] = useState<Set<string> | null>(
+  const [councilReferralUrbanIds, setCouncilReferralUrbanIds] = useState<Set<string> | null>(null);
+  const [councilReferralFilter, setCouncilReferralFilter] = useState<CouncilReferralFilter | null>(
     null,
   );
-  const [councilReferralFilter, setCouncilReferralFilter] =
-    useState<CouncilReferralFilter | null>(null);
-  const [councilReferralRows, setCouncilReferralRows] = useState<
-    FilteredCouncilReferralRow[]
-  >([]);
-  const [councilReferralFilterLabel, setCouncilReferralFilterLabel] = useState<string | null>(
-    null,
-  );
+  const [councilReferralRows, setCouncilReferralRows] = useState<FilteredCouncilReferralRow[]>([]);
+  const [councilReferralFilterLabel, setCouncilReferralFilterLabel] = useState<string | null>(null);
   const [councilReferralDrilldownManifests, setCouncilReferralDrilldownManifests] = useState<
     UnifiedManifest[]
   >([]);
@@ -355,19 +326,24 @@ export function useUrbanReportsManagement() {
   } | null>(null);
 
   useEffect(() => {
-    setTypeFilter('urban');
+    setTypeFilter("urban");
   }, [setTypeFilter]);
 
   useEffect(() => {
-    setCategoryFilter(category === 'all' ? 'all' : category);
+    setCategoryFilter(category === "all" ? "all" : category);
   }, [category, setCategoryFilter]);
 
   useEffect(() => {
-    setRegionFilter(region === 'all' ? 'all' : region);
+    setRegionFilter(region === "all" ? "all" : region);
   }, [region, setRegionFilter]);
 
   useEffect(() => {
-    if (period === PERIOD_COMPARE_VALUE && compareActive && periodCompare.periodA?.from && periodCompare.periodA?.to) {
+    if (
+      period === PERIOD_COMPARE_VALUE &&
+      compareActive &&
+      periodCompare.periodA?.from &&
+      periodCompare.periodA?.to
+    ) {
       setDateRange({ from: periodCompare.periodA.from, to: periodCompare.periodA.to });
       return;
     }
@@ -385,13 +361,13 @@ export function useUrbanReportsManagement() {
         const list = await fetchActiveLegislativeCommissions();
         setResponsibleCatalog(list);
       } catch (err) {
-        console.error('[useUrbanReportsManagement] commissions catalog', err);
+        console.error("[useUrbanReportsManagement] commissions catalog", err);
       }
     })();
   }, []);
 
   useEffect(() => {
-    const urban = manifests.filter((m) => m.type === 'urban');
+    const urban = manifests.filter((m) => m.type === "urban");
     const merged = new Map(urban.map((m) => [m.id, m]));
     for (const m of councilReferralDrilldownManifests) {
       merged.set(m.id, m);
@@ -413,7 +389,7 @@ export function useUrbanReportsManagement() {
         if (!cancelled) setCouncilReferralDrilldownManifests(rows);
       })
       .catch((err) => {
-        console.error('[useUrbanReportsManagement] referral drilldown fetch', err);
+        console.error("[useUrbanReportsManagement] referral drilldown fetch", err);
         if (!cancelled) setCouncilReferralDrilldownManifests([]);
       });
     return () => {
@@ -424,16 +400,17 @@ export function useUrbanReportsManagement() {
   const baseReports = useMemo(() => {
     return [...manifestById.values()].map((m) => {
       const formal = triagePriorityByReportId.get(m.id) ?? null;
-      const triagePriority = effectiveReportTriagePriority(
-        formal,
-        m.severity ?? null,
-      );
+      const triagePriority = effectiveReportTriagePriority(formal, m.severity ?? null);
       return manifestToUrbanRecord(m, triagePriority);
     });
   }, [manifestById, triagePriorityByReportId]);
 
   const reportIdsKey = useMemo(
-    () => baseReports.map((r) => r.id).sort().join(','),
+    () =>
+      baseReports
+        .map((r) => r.id)
+        .sort()
+        .join(","),
     [baseReports],
   );
   reportIdsKeyRef.current = reportIdsKey;
@@ -472,7 +449,7 @@ export function useUrbanReportsManagement() {
         if (token !== null && token !== referralLoadTokenRef.current) return;
 
         for (const id of chunk) {
-          const ref = byKey.get(reportCommissionKey('urban_reports', id));
+          const ref = byKey.get(reportCommissionKey("urban_reports", id));
           if (ref) byId.set(id, { id: ref.commissionId, name: ref.commissionName });
         }
         for (const [id, pri] of chunkTriage) triageMap.set(id, pri);
@@ -535,9 +512,9 @@ export function useUrbanReportsManagement() {
   );
 
   useEffect(() => {
-    const ids = reportIdsKey ? reportIdsKey.split(',') : [];
+    const ids = reportIdsKey ? reportIdsKey.split(",") : [];
     void reloadReferralMaps(ids, { merge: false }).catch((err) => {
-      console.error('[useUrbanReportsManagement] referrals / triage', err);
+      console.error("[useUrbanReportsManagement] referrals / triage", err);
     });
   }, [reportIdsKey, reloadReferralMaps]);
 
@@ -581,10 +558,7 @@ export function useUrbanReportsManagement() {
     [reportsWithResponsible, overrides],
   );
 
-  const reportsById = useMemo(
-    () => new Map(reports.map((r) => [r.id, r])),
-    [reports],
-  );
+  const reportsById = useMemo(() => new Map(reports.map((r) => [r.id, r])), [reports]);
 
   const councilReferralScoped = useMemo(() => {
     if (!councilReferralFilter || councilReferralRows.length === 0) return null;
@@ -638,7 +612,14 @@ export function useUrbanReportsManagement() {
 
   useEffect(() => {
     setListPage(1);
-  }, [queueTab, stageFilter, search, selectedPriorities, selectedResponsibleIds, councilReferralUrbanIds]);
+  }, [
+    queueTab,
+    stageFilter,
+    search,
+    selectedPriorities,
+    selectedResponsibleIds,
+    councilReferralUrbanIds,
+  ]);
 
   useEffect(() => {
     if (listPage > totalListPages) {
@@ -649,17 +630,17 @@ export function useUrbanReportsManagement() {
   const selectWorkflowKpi = useCallback((tab: ReportQueueTab) => {
     setQueueTab(tab);
     switch (tab) {
-      case 'triage':
-        setStageFilter('awaiting_triage');
+      case "triage":
+        setStageFilter("awaiting_triage");
         break;
-      case 'tracking':
-        setStageFilter('triaged');
+      case "tracking":
+        setStageFilter("triaged");
         break;
-      case 'referrals':
-        setStageFilter('in_referral');
+      case "referrals":
+        setStageFilter("in_referral");
         break;
-      case 'all':
-        setStageFilter('resolved');
+      case "all":
+        setStageFilter("resolved");
         break;
       default:
         setStageFilter(null);
@@ -681,19 +662,20 @@ export function useUrbanReportsManagement() {
     [reports, selectedId],
   );
 
-  const toggleResponsible = useCallback((commissionId: string) => {
-    setSelectedResponsibleIds((prev) => {
-      const exists = prev.includes(commissionId);
-      const next = exists
-        ? prev.filter((id) => id !== commissionId)
-        : [...prev, commissionId];
-      return next.sort((a, b) => {
-        const nameA = responsibleCatalog.find((c) => c.commissionId === a)?.name ?? a;
-        const nameB = responsibleCatalog.find((c) => c.commissionId === b)?.name ?? b;
-        return nameA.localeCompare(nameB, 'pt-BR');
+  const toggleResponsible = useCallback(
+    (commissionId: string) => {
+      setSelectedResponsibleIds((prev) => {
+        const exists = prev.includes(commissionId);
+        const next = exists ? prev.filter((id) => id !== commissionId) : [...prev, commissionId];
+        return next.sort((a, b) => {
+          const nameA = responsibleCatalog.find((c) => c.commissionId === a)?.name ?? a;
+          const nameB = responsibleCatalog.find((c) => c.commissionId === b)?.name ?? b;
+          return nameA.localeCompare(nameB, "pt-BR");
+        });
       });
-    });
-  }, [responsibleCatalog]);
+    },
+    [responsibleCatalog],
+  );
 
   const togglePriority = useCallback((priority: TriagePriority) => {
     setSelectedPriorities((prev) => {
@@ -753,7 +735,7 @@ export function useUrbanReportsManagement() {
             existingCouncilReferralId: patched.referral.councilReferralId,
           });
         }
-        await updateManifestStatus(patched.id, 'urban', dbStatus);
+        await updateManifestStatus(patched.id, "urban", dbStatus);
 
         if (patched.referral) {
           const { councilPatch, commissionPatch } = patchReferralMapsForReport(
@@ -798,8 +780,8 @@ export function useUrbanReportsManagement() {
             return next;
           });
         }
-        toast.error('Não foi possível salvar a alteração no relato.');
-        throw new Error('update_failed');
+        toast.error("Não foi possível salvar a alteração no relato.");
+        throw new Error("update_failed");
       } finally {
         setSavingId(null);
       }
@@ -819,9 +801,9 @@ export function useUrbanReportsManagement() {
 
       if (saved.responsibleCommissionId) {
         const commissionName =
-          resolveCommissionDisplayName(saved.responsibleCommissionId, null, catalog)
-          ?? catalog.get(saved.responsibleCommissionId)
-          ?? 'Comissão';
+          resolveCommissionDisplayName(saved.responsibleCommissionId, null, catalog) ??
+          catalog.get(saved.responsibleCommissionId) ??
+          "Comissão";
         setTriageCommissionByReportId((prev) => {
           const next = new Map(prev);
           next.set(reportId, { id: saved.responsibleCommissionId!, name: commissionName });
@@ -853,8 +835,8 @@ export function useUrbanReportsManagement() {
               commissionName,
             );
           } catch (err) {
-            console.warn('[useUrbanReportsManagement] sync triage → referral', err);
-            toast.error('Triagem salva, mas não foi possível alinhar o encaminhamento.');
+            console.warn("[useUrbanReportsManagement] sync triage → referral", err);
+            toast.error("Triagem salva, mas não foi possível alinhar o encaminhamento.");
           }
         }
       } else {
@@ -865,9 +847,9 @@ export function useUrbanReportsManagement() {
         });
       }
 
-      if (saved.priority && saved.triageStatus !== 'untriaged') {
+      if (saved.priority && saved.triageStatus !== "untriaged") {
         try {
-          await updateManifestStatus(reportId, 'urban', 'in_progress');
+          await updateManifestStatus(reportId, "urban", "in_progress");
         } catch {
           /* toast já exibido por updateManifestStatus */
         }

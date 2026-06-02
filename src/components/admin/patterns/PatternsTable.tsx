@@ -213,7 +213,11 @@ function PatternRow({ pattern, onClick }: PatternRowProps) {
             <span>Última: {formatRelative(pattern.lastOccurrenceAt)}</span>
             {pattern.peakHours && pattern.peakHours.length > 0 && (
               <span>
-                Pico: {pattern.peakHours.slice(0, 3).map((h) => `${h}h`).join(", ")}
+                Pico:{" "}
+                {pattern.peakHours
+                  .slice(0, 3)
+                  .map((h) => `${h}h`)
+                  .join(", ")}
                 {pattern.peakHours.length > 3 ? "..." : ""}
               </span>
             )}

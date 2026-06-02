@@ -96,9 +96,7 @@ describe("buildXlsxWorkbook", () => {
           { key: "tags", label: "Tags" },
           { key: "meta", label: "Meta" },
         ],
-        rows: [
-          { tags: ["a", "b", "c"], meta: { x: 1 } },
-        ],
+        rows: [{ tags: ["a", "b", "c"], meta: { x: 1 } }],
       },
     });
     const wb = readBack(buf);

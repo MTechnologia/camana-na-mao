@@ -1,30 +1,33 @@
-import { useState } from 'react';
-import { useGlobalHeatmapExtendedPeriod } from '@/hooks/useGlobalHeatmapExtendedPeriod';
-import { Activity, Clock, AlertTriangle, RefreshCw, MapPinned } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { useState } from "react";
+import { useGlobalHeatmapExtendedPeriod } from "@/hooks/useGlobalHeatmapExtendedPeriod";
+import { Activity, Clock, AlertTriangle, RefreshCw, MapPinned } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { IntensityDemandMap, type IntensityMapColorBy } from '@/components/admin/IntensityDemandMap';
-import { HeatmapFilterLabel } from '@/components/admin/heatmap/HeatmapFilterLabel';
-import { HeatmapPanelIntro } from '@/components/admin/heatmap/HeatmapPanelIntro';
-import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  IntensityDemandMap,
+  type IntensityMapColorBy,
+} from "@/components/admin/IntensityDemandMap";
+import { HeatmapFilterLabel } from "@/components/admin/heatmap/HeatmapFilterLabel";
+import { HeatmapPanelIntro } from "@/components/admin/heatmap/HeatmapPanelIntro";
+import { HeatmapVisualScale } from "@/components/admin/heatmap/HeatmapVisualScale";
 import {
   useIntensityDemand,
   type IntensityScope,
   type ZoneIntensity,
-} from '@/hooks/useIntensityDemand';
+} from "@/hooks/useIntensityDemand";
 import {
   INTENSITY_HEATMAP_SCOPE_LEGEND,
   intensityDemandPanelLegends,
-} from '@/lib/analyticsParameterLegends';
+} from "@/lib/analyticsParameterLegends";
 
 function formatHours(h: number): string {
   if (h < 1) return `${Math.round(h * 60)} min`;
@@ -36,9 +39,9 @@ type Props = {
   colorBy?: IntensityMapColorBy;
 };
 
-export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
+export function IntensityDemandPanel({ colorBy = "volume" }: Props) {
   const period = useGlobalHeatmapExtendedPeriod();
-  const [scope, setScope] = useState<IntensityScope>('all');
+  const [scope, setScope] = useState<IntensityScope>("all");
   const [selected, setSelected] = useState<ZoneIntensity | null>(null);
 
   const { zones, summary, isLoading, error, refresh } = useIntensityDemand({ period, scope });
@@ -65,9 +68,13 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
           <KpiCard
             label="Tempo médio geral"
             value={formatHours(summary.avgWaitHours)}
-            accentClass={summary.avgWaitHours >= 168 ? 'text-destructive' : 'text-amber-600'}
+            accentClass={summary.avgWaitHours >= 168 ? "text-destructive" : "text-amber-600"}
           />
-          <KpiCard label="Zona mais crítica" value={summary.worstZone?.zone ?? '—'} accentClass="text-destructive" />
+          <KpiCard
+            label="Zona mais crítica"
+            value={summary.worstZone?.zone ?? "—"}
+            accentClass="text-destructive"
+          />
         </div>
       )}
 
@@ -75,7 +82,10 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div className="grid flex-1 gap-4 md:max-w-md">
             <div className="space-y-2">
-              <HeatmapFilterLabel htmlFor="intensity-scope" legend={INTENSITY_HEATMAP_SCOPE_LEGEND} />
+              <HeatmapFilterLabel
+                htmlFor="intensity-scope"
+                legend={INTENSITY_HEATMAP_SCOPE_LEGEND}
+              />
               <Select value={scope} onValueChange={(v) => setScope(v as IntensityScope)}>
                 <SelectTrigger id="intensity-scope">
                   <SelectValue />
@@ -89,7 +99,7 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
@@ -111,13 +121,15 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
           <span className="text-muted-foreground">Referência rápida:</span>
-          <Badge style={{ backgroundColor: 'hsl(120,75%,45%)', color: 'white' }}>Baixa demanda</Badge>
-          <Badge style={{ backgroundColor: 'hsl(0,75%,45%)', color: 'white' }}>Alta demanda</Badge>
+          <Badge style={{ backgroundColor: "hsl(120,75%,45%)", color: "white" }}>
+            Baixa demanda
+          </Badge>
+          <Badge style={{ backgroundColor: "hsl(0,75%,45%)", color: "white" }}>Alta demanda</Badge>
         </div>
         {summary.truncated ? (
           <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-            Amostra limitada para performance (até 5.000 registros por fonte e período).
-            Use filtros mais específicos para maior precisão.
+            Amostra limitada para performance (até 5.000 registros por fonte e período). Use filtros
+            mais específicos para maior precisão.
           </p>
         ) : null}
       </Card>
@@ -137,7 +149,7 @@ export function IntensityDemandPanel({ colorBy = 'volume' }: Props) {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     setSelected(z);
                   }
@@ -203,7 +215,7 @@ function KpiCard({
 }) {
   return (
     <Card className="p-4">
-      <div className={`text-2xl font-bold tabular-nums ${accentClass ?? ''}`}>{value}</div>
+      <div className={`text-2xl font-bold tabular-nums ${accentClass ?? ""}`}>{value}</div>
       <div className="mt-1 text-xs text-muted-foreground">{label}</div>
     </Card>
   );

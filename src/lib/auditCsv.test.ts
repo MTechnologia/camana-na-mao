@@ -90,9 +90,7 @@ describe("rowsToCsv", () => {
   it("inclui o header como primeira linha (após BOM)", () => {
     const csv = rowsToCsv([sampleRow]);
     const firstLine = csv.slice(1).split("\n")[0];
-    expect(firstLine).toBe(
-      AUDIT_CSV_COLUMNS.map((col) => AUDIT_COLUMN_LABELS[col]).join(","),
-    );
+    expect(firstLine).toBe(AUDIT_CSV_COLUMNS.map((col) => AUDIT_COLUMN_LABELS[col]).join(","));
   });
 
   it("uma linha de dados é serializada corretamente", () => {
@@ -113,9 +111,7 @@ describe("rowsToCsv", () => {
   it("lida com array vazio (apenas header)", () => {
     const csv = rowsToCsv([]);
     const body = csv.slice(1);
-    expect(body).toBe(
-      AUDIT_CSV_COLUMNS.map((col) => AUDIT_COLUMN_LABELS[col]).join(",") + "\n",
-    );
+    expect(body).toBe(AUDIT_CSV_COLUMNS.map((col) => AUDIT_COLUMN_LABELS[col]).join(",") + "\n");
   });
 
   it("não quebra com valores vazios/null", () => {

@@ -25,7 +25,7 @@ export const useAccessibility = () => {
 
   const applySettings = useCallback((settings: AccessibilitySettings) => {
     const root = document.documentElement;
-    
+
     // Font size
     const fontSizeMap = {
       small: "14px",
@@ -53,7 +53,7 @@ export const useAccessibility = () => {
   useEffect(() => {
     const loadSettings = async () => {
       setIsLoading(true);
-      
+
       // If user is logged in, load from database
       if (user) {
         try {
@@ -73,7 +73,7 @@ export const useAccessibility = () => {
             setReadingMode(settings.readingMode);
             setTextSpacing(settings.textSpacing);
             applySettings(settings);
-            
+
             // Sync to localStorage as cache
             localStorage.setItem("accessibilitySettings", JSON.stringify(settings));
           } else {
@@ -88,7 +88,7 @@ export const useAccessibility = () => {
         // Not logged in - use localStorage
         loadFromLocalStorage();
       }
-      
+
       setIsLoading(false);
     };
 
@@ -112,38 +112,45 @@ export const useAccessibility = () => {
     loadSettings();
   }, [user, applySettings]);
 
-  const saveSettings = useCallback(async (settings: AccessibilitySettings) => {
-    // Always save to localStorage as cache/fallback
-    localStorage.setItem("accessibilitySettings", JSON.stringify(settings));
-    applySettings(settings);
+  const saveSettings = useCallback(
+    async (settings: AccessibilitySettings) => {
+      // Always save to localStorage as cache/fallback
+      localStorage.setItem("accessibilitySettings", JSON.stringify(settings));
+      applySettings(settings);
 
-    // If user is logged in, persist to database
-    if (user) {
-      try {
-        const { error } = await supabase
-          .from("user_preferences")
-          .upsert({
-            user_id: user.id,
-            font_size: settings.fontSize,
-            reading_mode: settings.readingMode,
-            text_spacing: settings.textSpacing,
-          }, {
-            onConflict: "user_id",
-          });
+      // If user is logged in, persist to database
+      if (user) {
+        try {
+          const { error } = await supabase.from("user_preferences").upsert(
+            {
+              user_id: user.id,
+              font_size: settings.fontSize,
+              reading_mode: settings.readingMode,
+              text_spacing: settings.textSpacing,
+            },
+            {
+              onConflict: "user_id",
+            },
+          );
 
-        if (error) {
-          console.error("Error saving accessibility settings:", error);
+          if (error) {
+            console.error("Error saving accessibility settings:", error);
+          }
+        } catch (err) {
+          console.error("Error persisting accessibility settings:", err);
         }
-      } catch (err) {
-        console.error("Error persisting accessibility settings:", err);
       }
-    }
-  }, [user, applySettings]);
+    },
+    [user, applySettings],
+  );
 
-  const setFontSize = useCallback((size: FontSize) => {
-    setFontSizeState(size);
-    saveSettings({ fontSize: size, readingMode, textSpacing });
-  }, [readingMode, textSpacing, saveSettings]);
+  const setFontSize = useCallback(
+    (size: FontSize) => {
+      setFontSizeState(size);
+      saveSettings({ fontSize: size, readingMode, textSpacing });
+    },
+    [readingMode, textSpacing, saveSettings],
+  );
 
   const toggleReadingMode = useCallback(() => {
     const newValue = !readingMode;

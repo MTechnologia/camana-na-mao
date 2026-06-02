@@ -4,7 +4,9 @@ import { renderTransportSuccessLine } from "@/lib/transportSuccessFormatting";
 
 describe("renderTransportSuccessLine", () => {
   it("coloca negrito no título com ✅", () => {
-    const html = renderToStaticMarkup(<>{renderTransportSuccessLine("Relato de transporte registrado!")}</>);
+    const html = renderToStaticMarkup(
+      <>{renderTransportSuccessLine("Relato de transporte registrado!")}</>,
+    );
     expect(html).toContain("✅");
     expect(html).toContain("<strong>Relato de transporte registrado!</strong>");
   });
@@ -25,16 +27,18 @@ describe("renderTransportSuccessLine", () => {
   });
 
   it("coloca negrito em Gravidade com emoji de alerta", () => {
-    const html = renderToStaticMarkup(
-      <>{renderTransportSuccessLine("⚠️ Gravidade: Crítica")}</>,
-    );
+    const html = renderToStaticMarkup(<>{renderTransportSuccessLine("⚠️ Gravidade: Crítica")}</>);
     expect(html).toContain("<strong>Gravidade:</strong>");
     expect(html).toContain("Crítica");
   });
 
   it("coloca Meus relatos em negrito no link", () => {
     const html = renderToStaticMarkup(
-      <>{renderTransportSuccessLine("🔗 [Meus relatos] para acompanhar.", { onMeusRelatos: () => {} })}</>,
+      <>
+        {renderTransportSuccessLine("🔗 [Meus relatos] para acompanhar.", {
+          onMeusRelatos: () => {},
+        })}
+      </>,
     );
     expect(html).toContain("font-bold");
     expect(html).toContain("Meus relatos");

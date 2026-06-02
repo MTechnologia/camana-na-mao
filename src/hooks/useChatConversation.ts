@@ -76,8 +76,7 @@ export function useChatConversation({
 
         if (withMetadata.error) {
           const missingMetadataColumn =
-            withMetadata.error.code === "42703" ||
-            withMetadata.error.message?.includes("metadata");
+            withMetadata.error.code === "42703" || withMetadata.error.message?.includes("metadata");
           if (missingMetadataColumn) {
             const messagesOnly = await supabase
               .from("ai_conversations")
@@ -166,9 +165,7 @@ export function useChatConversation({
         const arr =
           (currentConv?.messages as Array<{ id?: string; content?: string }> | undefined) ?? [];
         if (arr.length === 0) return;
-        const updated = arr.map((m) =>
-          m.id === messageId ? { ...m, content: newContent } : m,
-        );
+        const updated = arr.map((m) => (m.id === messageId ? { ...m, content: newContent } : m));
         await supabase
           .from("ai_conversations")
           .update({

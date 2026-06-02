@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { 
-  Bus, 
-  Building2, 
-  Star, 
-  Landmark, 
-  MapPin, 
-  Calendar, 
+import {
+  Bus,
+  Building2,
+  Star,
+  Landmark,
+  MapPin,
+  Calendar,
   CalendarClock,
-  Users, 
-  HelpCircle, 
+  Users,
+  HelpCircle,
   Newspaper,
   Search,
   X,
   BookOpen,
-  LayoutList
+  LayoutList,
 } from "lucide-react";
 import {
   Drawer,
@@ -156,23 +156,23 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
   // Filter capabilities based on search
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return categories;
-    
+
     const query = searchQuery.toLowerCase();
     return categories
-      .map(cat => ({
+      .map((cat) => ({
         ...cat,
         capabilities: cat.capabilities.filter(
-          cap => 
+          (cap) =>
             cap.title.toLowerCase().includes(query) ||
-            cap.description.toLowerCase().includes(query)
-        )
+            cap.description.toLowerCase().includes(query),
+        ),
       }))
-      .filter(cat => cat.capabilities.length > 0);
+      .filter((cat) => cat.capabilities.length > 0);
   }, [searchQuery]);
 
-  const filteredCapabilities = useMemo(() => 
-    filteredCategories.flatMap(cat => cat.capabilities),
-    [filteredCategories]
+  const filteredCapabilities = useMemo(
+    () => filteredCategories.flatMap((cat) => cat.capabilities),
+    [filteredCategories],
   );
 
   // Focus search input when opened
@@ -194,15 +194,11 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setFocusedIndex(prev => 
-            prev < filteredCapabilities.length - 1 ? prev + 1 : 0
-          );
+          setFocusedIndex((prev) => (prev < filteredCapabilities.length - 1 ? prev + 1 : 0));
           break;
         case "ArrowUp":
           e.preventDefault();
-          setFocusedIndex(prev => 
-            prev > 0 ? prev - 1 : filteredCapabilities.length - 1
-          );
+          setFocusedIndex((prev) => (prev > 0 ? prev - 1 : filteredCapabilities.length - 1));
           break;
         case "Enter":
           if (focusedIndex >= 0 && focusedIndex < filteredCapabilities.length) {
@@ -237,7 +233,7 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
             </button>
           </DrawerClose>
         </DrawerHeader>
-        
+
         {/* Search */}
         <div className="px-4 pb-3">
           <div className="relative">
@@ -269,34 +265,36 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
                   {category.label}
                 </h3>
-                
+
                 <div className="space-y-1">
                   {category.capabilities.map((capability) => {
                     const IconComponent = capability.icon;
-                    const globalIndex = filteredCapabilities.findIndex(c => c.id === capability.id);
+                    const globalIndex = filteredCapabilities.findIndex(
+                      (c) => c.id === capability.id,
+                    );
                     const isFocused = globalIndex === focusedIndex;
-                    
+
                     return (
                       <button
                         key={capability.id}
                         onClick={() => handleSelect(capability.message)}
                         className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all duration-150 border ${
-                          isFocused 
-                            ? "bg-secondary border-border shadow-sm" 
+                          isFocused
+                            ? "bg-secondary border-border shadow-sm"
                             : "hover:bg-secondary/80 border-transparent"
                         }`}
                       >
-                        <div className={`p-2 rounded-lg shrink-0 transition-colors ${
-                          isFocused 
-                            ? "bg-primary/15 text-primary" 
-                            : "bg-secondary text-muted-foreground"
-                        }`}>
+                        <div
+                          className={`p-2 rounded-lg shrink-0 transition-colors ${
+                            isFocused
+                              ? "bg-primary/15 text-primary"
+                              : "bg-secondary text-muted-foreground"
+                          }`}
+                        >
                           <IconComponent className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm text-foreground">
-                            {capability.title}
-                          </p>
+                          <p className="font-medium text-sm text-foreground">{capability.title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                             {capability.description}
                           </p>
@@ -309,7 +307,6 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
             ))
           )}
         </div>
-
       </DrawerContent>
     </Drawer>
   );

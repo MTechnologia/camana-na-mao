@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
 export const ReadingProgress = () => {
   const [progress, setProgress] = useState(0);
@@ -12,10 +12,10 @@ export const ReadingProgress = () => {
       setProgress(Math.min(100, Math.max(0, scrollPercent)));
     };
 
-    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener("scroll", updateProgress, { passive: true });
     updateProgress();
-    
-    return () => window.removeEventListener('scroll', updateProgress);
+
+    return () => window.removeEventListener("scroll", updateProgress);
   }, []);
 
   return (

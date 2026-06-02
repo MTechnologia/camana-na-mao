@@ -1,19 +1,19 @@
-import { supabase } from '@/integrations/supabase/client';
-import type { UnifiedManifest } from '@/hooks/useReportsAdmin';
-import { resolveGlobalCategoryFilter } from '@/lib/globalCategoryFilter';
-import { urbanReportMatchesGlobalRegion } from '@/lib/urbanReportRegion';
-import type { FilteredCouncilReferralRow } from '@/lib/referralsGlobalFilters';
-import type { UrbanReportRecord } from '@/types/urbanReportManagement';
+import { supabase } from "@/integrations/supabase/client";
+import type { UnifiedManifest } from "@/hooks/useReportsAdmin";
+import { resolveGlobalCategoryFilter } from "@/lib/globalCategoryFilter";
+import { urbanReportMatchesGlobalRegion } from "@/lib/urbanReportRegion";
+import type { FilteredCouncilReferralRow } from "@/lib/referralsGlobalFilters";
+import type { UrbanReportRecord } from "@/types/urbanReportManagement";
 
 const COUNCIL_REFERRAL_STATUS_LABELS: Record<string, string> = {
-  pending: 'Enc. pendente',
-  sent: 'Enc. enviado',
-  acknowledged: 'Enc. reconhecido',
-  resolved: 'Enc. resolvido',
+  pending: "Enc. pendente",
+  sent: "Enc. enviado",
+  acknowledged: "Enc. reconhecido",
+  resolved: "Enc. resolvido",
 };
 
 const URBAN_DRILLDOWN_FIELDS =
-  'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code';
+  "id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,latitude,longitude,user_id,protocol_code";
 
 const CHUNK_SIZE = 80;
 
@@ -28,12 +28,12 @@ function chunkIds(ids: string[]): string[][] {
 function rowToUrbanManifest(r: Record<string, unknown>): UnifiedManifest {
   return {
     id: r.id as string,
-    type: 'urban',
+    type: "urban",
     title: (r.subcategory as string) || (r.category as string),
     description: r.description as string | null,
-    severity: (r.severity as string) || 'medium',
-    status: (r.status as string) || 'pending',
-    created_at: (r.created_at as string) || '',
+    severity: (r.severity as string) || "medium",
+    status: (r.status as string) || "pending",
+    created_at: (r.created_at as string) || "",
     updated_at: r.updated_at as string | null,
     location: r.location_address as string | null,
     author: null,
@@ -80,19 +80,19 @@ export async function fetchUrbanManifestsForCouncilReferralIds(
 
   for (const chunk of chunks) {
     const { data, error } = await supabase
-      .from('urban_reports')
+      .from("urban_reports")
       .select(URBAN_DRILLDOWN_FIELDS)
-      .in('id', chunk)
-      .neq('category', 'feedback_camara');
+      .in("id", chunk)
+      .neq("category", "feedback_camara");
     if (error) throw error;
 
     for (const row of data ?? []) {
       const r = row as Record<string, unknown>;
       if (!trustRecorte) {
         if (
-          !catSlice.isAll
-          && catSlice.urbanCategories.length > 0
-          && (!r.category || !catSlice.urbanCategories.includes(r.category as string))
+          !catSlice.isAll &&
+          catSlice.urbanCategories.length > 0 &&
+          (!r.category || !catSlice.urbanCategories.includes(r.category as string))
         ) {
           continue;
         }
@@ -117,27 +117,24 @@ export async function fetchUrbanManifestsForCouncilReferralIds(
   return all;
 }
 
-function stubUrbanRowFromReferral(
-  ref: FilteredCouncilReferralRow,
-): UrbanReportRecord {
+function stubUrbanRowFromReferral(ref: FilteredCouncilReferralRow): UrbanReportRecord {
   const shortId = ref.urbanReportId!.slice(0, 8).toUpperCase();
   return {
     id: ref.urbanReportId!,
     protocol: shortId,
-    title: 'Relato urbano',
-    summary: '',
-    category: '—',
-    region: '—',
-    district: '—',
-    stage: 'awaiting_triage',
+    title: "Relato urbano",
+    summary: "",
+    category: "—",
+    region: "—",
+    district: "—",
+    stage: "awaiting_triage",
     triagePriority: null,
     createdAt: ref.created_at,
     updatedAt: ref.created_at,
     timeline: [],
     councilReferralId: ref.id,
     councilReferralStatus: ref.status,
-    councilReferralStatusLabel:
-      COUNCIL_REFERRAL_STATUS_LABELS[ref.status] ?? ref.status,
+    councilReferralStatusLabel: COUNCIL_REFERRAL_STATUS_LABELS[ref.status] ?? ref.status,
     councilMemberName: ref.councilMemberName,
     responsibleName: ref.councilMemberName,
   };
@@ -156,8 +153,7 @@ export function buildUrbanReportRowsFromCouncilReferrals(
       ...base,
       councilReferralId: ref.id,
       councilReferralStatus: ref.status,
-      councilReferralStatusLabel:
-        COUNCIL_REFERRAL_STATUS_LABELS[ref.status] ?? ref.status,
+      councilReferralStatusLabel: COUNCIL_REFERRAL_STATUS_LABELS[ref.status] ?? ref.status,
       councilMemberName: ref.councilMemberName,
       responsibleName: ref.councilMemberName,
     });
@@ -165,8 +161,6 @@ export function buildUrbanReportRowsFromCouncilReferrals(
   return out;
 }
 
-export function countNonUrbanCouncilReferrals(
-  rows: FilteredCouncilReferralRow[],
-): number {
+export function countNonUrbanCouncilReferrals(rows: FilteredCouncilReferralRow[]): number {
   return rows.filter((r) => !r.urbanReportId).length;
 }

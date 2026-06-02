@@ -1,5 +1,5 @@
 /** Rota inicial do app cidadão (mesmo SPA que o painel admin). */
-export const CITIZEN_APP_HOME = '/';
+export const CITIZEN_APP_HOME = "/";
 
 /**
  * URL externa opcional — só quando o app cidadão estiver em outro domínio.

@@ -72,8 +72,8 @@ export function SuspendUserDialog({
           <DialogDescription>
             {targetUserName ? (
               <>
-                <strong>{targetUserName}</strong> não conseguirá mais acessar o
-                sistema. A reativação pode ser feita a qualquer momento.
+                <strong>{targetUserName}</strong> não conseguirá mais acessar o sistema. A
+                reativação pode ser feita a qualquer momento.
               </>
             ) : (
               "Usuário ficará impedido de acessar até que seja reativado."
@@ -95,18 +95,10 @@ export function SuspendUserDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => void handleSubmit()}
-            disabled={submitting}
-          >
+          <Button variant="destructive" onClick={() => void handleSubmit()} disabled={submitting}>
             {submitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

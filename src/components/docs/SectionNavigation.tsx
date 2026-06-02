@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Section {
   id: string;
@@ -12,14 +12,14 @@ interface SectionNavigationProps {
 }
 
 export const SectionNavigation = ({ sections, currentSectionId }: SectionNavigationProps) => {
-  const currentIndex = sections.findIndex(s => s.id === currentSectionId);
+  const currentIndex = sections.findIndex((s) => s.id === currentSectionId);
   const prevSection = currentIndex > 0 ? sections[currentIndex - 1] : null;
   const nextSection = currentIndex < sections.length - 1 ? sections[currentIndex + 1] : null;
 
   const navigateTo = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -44,7 +44,7 @@ export const SectionNavigation = ({ sections, currentSectionId }: SectionNavigat
       ) : (
         <div />
       )}
-      
+
       {nextSection ? (
         <Button
           variant="ghost"

@@ -65,18 +65,29 @@ export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps
     setMapReady(false);
 
     const init = async () => {
-      let MapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+      let MapCtor:
+        | (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+        | null =
         typeof window.google?.maps?.Map === "function"
-          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          ? (window.google.maps.Map as new (
+              el: HTMLElement,
+              opts?: google.maps.MapOptions,
+            ) => google.maps.Map)
           : null;
 
       if (
         !MapCtor &&
-        typeof (window.google.maps as { importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }).importLibrary === "function"
+        typeof (
+          window.google.maps as {
+            importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+          }
+        ).importLibrary === "function"
       ) {
         try {
           const mapsLib = await (
-            window.google.maps as { importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }
+            window.google.maps as {
+              importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+            }
           ).importLibrary("maps");
           MapCtor = mapsLib?.Map ?? null;
         } catch (e) {
@@ -139,7 +150,7 @@ export function RatingsBubbleMap({ aggregates, onSelect }: RatingsBubbleMapProps
         const hm = await createGoogleHeatmapLayer(mapInstanceRef.current, heatmapPoints, {
           radius: 24,
           opacity: 0.45,
-          layerIdSuffix: 'ratings',
+          layerIdSuffix: "ratings",
           skipMapIdle: skipMapIdleAfterFirstRef.current,
         });
         if (cancelled || !mapInstanceRef.current) {

@@ -1,6 +1,6 @@
-import { Label } from '@/components/ui/label';
-import { ParameterInfoTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
+import { Label } from "@/components/ui/label";
+import { ParameterInfoTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
 
 type HeatmapFilterLabelProps = {
   htmlFor: string;

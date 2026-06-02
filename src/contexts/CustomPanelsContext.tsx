@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 import {
   createPanelId,
   createWidgetId,
@@ -14,9 +14,9 @@ import {
   loadPanels,
   saveActivePanelId,
   savePanels,
-} from '@/lib/customPanelStorage';
-import { buildPanelFromTemplate } from '@/lib/panelTemplates';
-import type { CustomPanel, PanelTemplateId } from '@/types/customPanel';
+} from "@/lib/customPanelStorage";
+import { buildPanelFromTemplate } from "@/lib/panelTemplates";
+import type { CustomPanel, PanelTemplateId } from "@/types/customPanel";
 
 type CustomPanelsContextValue = {
   panels: CustomPanel[];
@@ -39,14 +39,14 @@ const CustomPanelsContext = createContext<CustomPanelsContextValue | null>(null)
 function seedDefaultPanels(existing: CustomPanel[]): CustomPanel[] {
   if (existing.length > 0) return existing;
   const executive = buildPanelFromTemplate(
-    'executive',
-    'Visão executiva',
-    'KPIs e gráficos com drill para acompanhamento diário.',
+    "executive",
+    "Visão executiva",
+    "KPIs e gráficos com drill para acompanhamento diário.",
   );
   const sentiment = buildPanelFromTemplate(
-    'sentiment_ops',
-    'Sentimento e padrões',
-    'Polaridade e temas recorrentes por região.',
+    "sentiment_ops",
+    "Sentimento e padrões",
+    "Polaridade e temas recorrentes por região.",
   );
   return [executive, sentiment];
 }
@@ -87,7 +87,7 @@ export function CustomPanelsProvider({ children }: { children: ReactNode }) {
   const createPanel = useCallback(
     (input: { name: string; description?: string; templateId?: PanelTemplateId }) => {
       const panel = buildPanelFromTemplate(
-        input.templateId ?? 'blank',
+        input.templateId ?? "blank",
         input.name,
         input.description,
       );
@@ -160,6 +160,6 @@ export function CustomPanelsProvider({ children }: { children: ReactNode }) {
 
 export function useCustomPanels() {
   const ctx = useContext(CustomPanelsContext);
-  if (!ctx) throw new Error('useCustomPanels deve ser usado dentro de CustomPanelsProvider');
+  if (!ctx) throw new Error("useCustomPanels deve ser usado dentro de CustomPanelsProvider");
   return ctx;
 }

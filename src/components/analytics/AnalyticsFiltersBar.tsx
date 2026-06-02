@@ -62,9 +62,7 @@ export function AnalyticsFiltersBar({
   facetActiveCount = 0,
   defaultFacetExpanded,
 }: AnalyticsFiltersBarProps) {
-  const [expanded, setExpanded] = useState(
-    defaultFacetExpanded ?? facetActiveCount > 0,
-  );
+  const [expanded, setExpanded] = useState(defaultFacetExpanded ?? facetActiveCount > 0);
 
   // Mantém o VolumeFilters sem o título próprio: o cabeçalho hierárquico abaixo
   // já marca "Filtros gerais", então passamos showHeader={false}.
@@ -93,10 +91,7 @@ export function AnalyticsFiltersBar({
             variant="ghost"
             size="sm"
             onClick={() => setExpanded((v) => !v)}
-            className={cn(
-              "w-full justify-between text-xs font-medium",
-              expanded && "mb-2",
-            )}
+            className={cn("w-full justify-between text-xs font-medium", expanded && "mb-2")}
           >
             <span className="flex items-center gap-2">
               <SlidersHorizontal className="h-3.5 w-3.5" />

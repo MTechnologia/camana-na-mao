@@ -50,9 +50,7 @@ describe("AnalyticsLiveBadge", () => {
 
   it("desabilita o botão durante refreshing", () => {
     const onRefresh = vi.fn();
-    render(
-      <AnalyticsLiveBadge lastUpdates={[new Date()]} onRefresh={onRefresh} refreshing />,
-    );
+    render(<AnalyticsLiveBadge lastUpdates={[new Date()]} onRefresh={onRefresh} refreshing />);
     const btn = screen.getByRole("button", { name: /recarregar/i });
     expect(btn).toBeDisabled();
   });

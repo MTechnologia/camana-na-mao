@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import mermaid from 'mermaid';
+import { useEffect, useRef, useState } from "react";
+import mermaid from "mermaid";
 
 interface MermaidRendererProps {
   chart: string;
@@ -8,14 +8,14 @@ interface MermaidRendererProps {
 
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'neutral',
-  securityLevel: 'strict',
-  fontFamily: 'inherit',
+  theme: "neutral",
+  securityLevel: "strict",
+  fontFamily: "inherit",
 });
 
-export const MermaidRenderer = ({ chart, className = '' }: MermaidRendererProps) => {
+export const MermaidRenderer = ({ chart, className = "" }: MermaidRendererProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [svg, setSvg] = useState<string>('');
+  const [svg, setSvg] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,8 +28,8 @@ export const MermaidRenderer = ({ chart, className = '' }: MermaidRendererProps)
         setSvg(svg);
         setError(null);
       } catch (err) {
-        console.error('Mermaid render error:', err);
-        setError('Erro ao renderizar diagrama');
+        console.error("Mermaid render error:", err);
+        setError("Erro ao renderizar diagrama");
       }
     };
 

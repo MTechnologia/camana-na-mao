@@ -49,8 +49,7 @@ export function usePerformanceMark(
       try {
         const { data: userData } = await supabase.auth.getUser();
         const userId = userData?.user?.id ?? null;
-        const route =
-          typeof window !== "undefined" ? window.location.pathname : "unknown";
+        const route = typeof window !== "undefined" ? window.location.pathname : "unknown";
 
         await supabase.from("performance_metrics").insert({
           route,
@@ -58,9 +57,10 @@ export function usePerformanceMark(
           duration_ms: duration,
           user_id: userId,
           metadata: {
-            viewport: typeof window !== "undefined"
-              ? { w: window.innerWidth, h: window.innerHeight }
-              : null,
+            viewport:
+              typeof window !== "undefined"
+                ? { w: window.innerWidth, h: window.innerHeight }
+                : null,
             ua: typeof navigator !== "undefined" ? navigator.userAgent : null,
             ...(options.metadata ?? {}),
           },
@@ -68,7 +68,6 @@ export function usePerformanceMark(
 
         // Log local pra dev acompanhar no console.
         if (import.meta.env.DEV) {
-           
           console.debug(
             `[perf] ${marker} (${route}): ${duration}ms`,
             duration > 3000 ? "❌ SLA fail" : "✅",
@@ -77,7 +76,6 @@ export function usePerformanceMark(
       } catch (err) {
         // Silencioso.
         if (import.meta.env.DEV) {
-           
           console.debug("[perf] insert failed:", err);
         }
       }

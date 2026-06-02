@@ -1,1 +1,1 @@
-export { ReferralsAnalysisPage as ReferralsManagementPage } from '@/pages/admin/ReferralsAnalysisPage';
+export { ReferralsAnalysisPage as ReferralsManagementPage } from "@/pages/admin/ReferralsAnalysisPage";

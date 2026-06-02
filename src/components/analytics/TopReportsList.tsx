@@ -1,9 +1,9 @@
-import { motion } from 'framer-motion';
-import { Heart, MessageCircle, MapPin, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { formatRelativeTimeShort } from '@/lib/dateUtils';
+import { motion } from "framer-motion";
+import { Heart, MessageCircle, MapPin, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { formatRelativeTimeShort } from "@/lib/dateUtils";
 
 export interface TopReport {
   id: string;
@@ -24,14 +24,14 @@ interface TopReportsListProps {
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
-    case 'resolvido':
-      return 'bg-green-500/10 text-green-500 border-green-500/20';
-    case 'em análise':
-      return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-    case 'pendente':
-      return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+    case "resolvido":
+      return "bg-green-500/10 text-green-500 border-green-500/20";
+    case "em análise":
+      return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+    case "pendente":
+      return "bg-blue-500/10 text-blue-500 border-blue-500/20";
     default:
-      return 'bg-muted text-muted-foreground';
+      return "bg-muted text-muted-foreground";
   }
 };
 
@@ -56,7 +56,7 @@ export const TopReportsList = ({ reports, onViewReport }: TopReportsListProps) =
                 </Avatar>
               </div>
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <Badge variant="outline" className="text-xs">
@@ -66,11 +66,9 @@ export const TopReportsList = ({ reports, onViewReport }: TopReportsListProps) =
                   {report.status}
                 </Badge>
               </div>
-              
-              <p className="text-sm text-foreground line-clamp-2 mb-2">
-                {report.description}
-              </p>
-              
+
+              <p className="text-sm text-foreground line-clamp-2 mb-2">{report.description}</p>
+
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
@@ -78,12 +76,10 @@ export const TopReportsList = ({ reports, onViewReport }: TopReportsListProps) =
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  <span>
-                    há {formatRelativeTimeShort(report.created_at)}
-                  </span>
+                  <span>há {formatRelativeTimeShort(report.created_at)}</span>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1 text-sm">
@@ -95,12 +91,8 @@ export const TopReportsList = ({ reports, onViewReport }: TopReportsListProps) =
                     <span className="font-semibold text-foreground">{report.comments}</span>
                   </div>
                 </div>
-                
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onViewReport?.(report.id)}
-                >
+
+                <Button size="sm" variant="ghost" onClick={() => onViewReport?.(report.id)}>
                   Ver detalhes
                 </Button>
               </div>

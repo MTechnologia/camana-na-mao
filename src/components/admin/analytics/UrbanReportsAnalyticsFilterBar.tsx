@@ -1,21 +1,21 @@
-import { RotateCcw } from 'lucide-react';
-import { DataExportTrigger } from '@/components/analytics/DataExportTrigger';
-import { AnalyticsLiveBadge } from '@/components/analytics/AnalyticsLiveBadge';
-import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
-import { Button } from '@/components/ui/button';
-import { useUrbanReportsAnalyticsFilters } from '@/contexts/UrbanReportsAnalyticsFiltersContext';
-import { URBAN_ANALYTICS_FILTER_LEGENDS } from '@/lib/analyticsParameterLegends';
+import { RotateCcw } from "lucide-react";
+import { DataExportTrigger } from "@/components/analytics/DataExportTrigger";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
+import { ParameterInfoListTrigger } from "@/components/admin/analytics/ParameterInfoTrigger";
+import { Button } from "@/components/ui/button";
+import { useUrbanReportsAnalyticsFilters } from "@/contexts/UrbanReportsAnalyticsFiltersContext";
+import { URBAN_ANALYTICS_FILTER_LEGENDS } from "@/lib/analyticsParameterLegends";
 import {
   URBAN_ANALYTICS_CATEGORY_OPTIONS,
   URBAN_ANALYTICS_PERIOD_OPTIONS,
   URBAN_ANALYTICS_STATUS_OPTIONS,
-} from '@/lib/urbanReportsAnalyticsFilterOptions';
-import { dataExportFiltersFromUrbanAnalytics } from '@/lib/buildDataExportFilters';
-import { cn } from '@/lib/utils';
+} from "@/lib/urbanReportsAnalyticsFilterOptions";
+import { dataExportFiltersFromUrbanAnalytics } from "@/lib/buildDataExportFilters";
+import { cn } from "@/lib/utils";
 
 const selectClass = cn(
-  'h-9 min-w-0 rounded-md border border-input bg-background px-2 text-sm text-foreground',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+  "h-9 min-w-0 rounded-md border border-input bg-background px-2 text-sm text-foreground",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 );
 
 export function UrbanReportsAnalyticsFilterBar() {
@@ -34,8 +34,8 @@ export function UrbanReportsAnalyticsFilterBar() {
   } = useUrbanReportsAnalyticsFilters();
 
   const periodLabel =
-    URBAN_ANALYTICS_PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'Período';
-  const recorteSummary = chipLabels.join(' · ');
+    URBAN_ANALYTICS_PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? "Período";
+  const recorteSummary = chipLabels.join(" · ");
   const exportFilters = dataExportFiltersFromUrbanAnalytics(period, category, status);
 
   return (
@@ -55,7 +55,7 @@ export function UrbanReportsAnalyticsFilterBar() {
             id="urban-analytics-period"
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
-            className={cn(selectClass, 'min-w-[8.25rem] max-w-[11.5rem]')}
+            className={cn(selectClass, "min-w-[8.25rem] max-w-[11.5rem]")}
             aria-label="Período"
             title={periodLabel}
           >
@@ -69,7 +69,7 @@ export function UrbanReportsAnalyticsFilterBar() {
             id="urban-analytics-category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className={cn(selectClass, 'max-w-[10rem]')}
+            className={cn(selectClass, "max-w-[10rem]")}
             aria-label="Categoria"
           >
             {URBAN_ANALYTICS_CATEGORY_OPTIONS.map((c) => (
@@ -82,7 +82,7 @@ export function UrbanReportsAnalyticsFilterBar() {
             id="urban-analytics-status"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className={cn(selectClass, 'max-w-[10.5rem]')}
+            className={cn(selectClass, "max-w-[10.5rem]")}
             aria-label="Status do relato"
           >
             {URBAN_ANALYTICS_STATUS_OPTIONS.map((s) => (

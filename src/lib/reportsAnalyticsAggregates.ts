@@ -1,24 +1,21 @@
-import type { PatternAlert } from '@/components/analytics/PatternAlerts';
-import type { ReportsAnalyticsStats, TimelineDataPoint } from '@/hooks/useReportsAnalytics';
-import type { PatternRankRow, RegionPatternSummary } from '@/types/analyticsDrill';
-import { formatReportCategoryLabel } from '@/lib/reportCategoryLabels';
-import type { SeriesPoint } from '@/lib/chartTypes';
-import { regionLabel } from '@/lib/analyticsLabels';
+import type { PatternAlert } from "@/components/analytics/PatternAlerts";
+import type { ReportsAnalyticsStats, TimelineDataPoint } from "@/hooks/useReportsAnalytics";
+import type { PatternRankRow, RegionPatternSummary } from "@/types/analyticsDrill";
+import { formatReportCategoryLabel } from "@/lib/reportCategoryLabels";
+import type { SeriesPoint } from "@/lib/chartTypes";
+import { regionLabel } from "@/lib/analyticsLabels";
 import {
   bairroParaZona,
   ZONA_DESCONHECIDA,
   ZONAS_FILTRO,
   type ZonaVolumeOuDesconhecida,
-} from '@/lib/regionMapping';
+} from "@/lib/regionMapping";
 
-export function filterGeoRowsByRegion(
-  rows: GeoReportRow[],
-  region?: string,
-): GeoReportRow[] {
-  if (!region || region === 'all') return rows;
+export function filterGeoRowsByRegion(rows: GeoReportRow[], region?: string): GeoReportRow[] {
+  if (!region || region === "all") return rows;
   const zoneLabel = regionLabel(region);
   return rows.filter((row) => {
-    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
     return bairroParaZona(text, row.latitude, row.longitude) === zoneLabel;
   });
 }
@@ -43,7 +40,7 @@ export type GeoReportRow = {
 };
 
 /** Geo + metadados do relato — mesma linha usada no volume territorial e no tempo médio. */
-export type TerritoryGeoSource = 'urbano' | 'transporte';
+export type TerritoryGeoSource = "urbano" | "transporte";
 
 export type TerritoryGeoRow = GeoReportRow & {
   id?: string;
@@ -66,9 +63,9 @@ export type StreetBreakdownRow = {
   count: number;
 };
 
-export const STREET_LABEL_FALLBACK = 'Sem logradouro definido';
-export const STREET_FALLBACK_ID = '__sem_logradouro__';
-export const DISTRICT_FALLBACK_ID = '__sem_bairro__';
+export const STREET_LABEL_FALLBACK = "Sem logradouro definido";
+export const STREET_FALLBACK_ID = "__sem_logradouro__";
+export const DISTRICT_FALLBACK_ID = "__sem_bairro__";
 
 /** Contagem por zona canônica usando coords (prioridade) + texto de localização. */
 export function buildVolumeByZoneFromGeoRows(
@@ -78,7 +75,7 @@ export function buildVolumeByZoneFromGeoRows(
   for (const zona of ZONAS_FILTRO) counts.set(zona, 0);
 
   for (const row of rows) {
-    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
     const zone = bairroParaZona(text, row.latitude, row.longitude);
     const key = counts.has(zone) ? zone : ZONA_DESCONHECIDA;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -87,15 +84,15 @@ export function buildVolumeByZoneFromGeoRows(
   return ZONAS_FILTRO.map((zone) => ({ zone, count: counts.get(zone) ?? 0 }));
 }
 
-export const DISTRICT_LABEL_FALLBACK = 'Sem bairro definido';
+export const DISTRICT_LABEL_FALLBACK = "Sem bairro definido";
 
 export function normalizeTerritoryLabel(value: string): string {
   return value
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -106,7 +103,9 @@ export function territoryLabelsMatch(a: string, b: string): boolean {
   return left === right || left.includes(right) || right.includes(left);
 }
 
-export function streetLabelFromTerritoryRow(row: GeoReportRow & { street?: string | null; street_number?: string | null }): string {
+export function streetLabelFromTerritoryRow(
+  row: GeoReportRow & { street?: string | null; street_number?: string | null },
+): string {
   const street = row.street?.trim();
   if (street) {
     const num = row.street_number?.trim();
@@ -114,7 +113,7 @@ export function streetLabelFromTerritoryRow(row: GeoReportRow & { street?: strin
   }
   const loc = row.location?.trim();
   if (loc) {
-    const part = loc.split(',')[0]?.trim();
+    const part = loc.split(",")[0]?.trim();
     if (part && part.length > 0 && part.length <= 80) return part;
   }
   return STREET_LABEL_FALLBACK;
@@ -126,7 +125,7 @@ export function districtLabelFromGeoRow(row: GeoReportRow): string {
   if (nb) return nb;
   const loc = row.location?.trim();
   if (loc) {
-    const part = loc.split(',')[0]?.trim();
+    const part = loc.split(",")[0]?.trim();
     if (part && part.length <= 80) return part;
     return loc.slice(0, 80);
   }
@@ -140,7 +139,7 @@ export function buildNeighborhoodBreakdownFromGeoRows(
   const map = new Map<string, { zone: ZonaVolumeOuDesconhecida; count: number }>();
 
   for (const row of rows) {
-    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
     const zone = bairroParaZona(text, row.latitude, row.longitude);
     const label = districtLabelFromGeoRow(row);
     const key = `${zone}\u0000${label}`;
@@ -151,7 +150,7 @@ export function buildNeighborhoodBreakdownFromGeoRows(
 
   return [...map.entries()]
     .map(([key, v]) => ({
-      neighborhood: key.split('\u0000')[1] ?? DISTRICT_LABEL_FALLBACK,
+      neighborhood: key.split("\u0000")[1] ?? DISTRICT_LABEL_FALLBACK,
       zone: v.zone,
       count: v.count,
     }))
@@ -160,11 +159,14 @@ export function buildNeighborhoodBreakdownFromGeoRows(
 
 /** Contagem por logradouro dentro de cada bairro/zona. */
 export function buildStreetBreakdownFromGeoRows(rows: TerritoryGeoRow[]): StreetBreakdownRow[] {
-  const map = new Map<string, { neighborhood: string; zone: ZonaVolumeOuDesconhecida; count: number }>();
+  const map = new Map<
+    string,
+    { neighborhood: string; zone: ZonaVolumeOuDesconhecida; count: number }
+  >();
 
   for (const row of rows) {
-    if (row.source !== 'urbano') continue;
-    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    if (row.source !== "urbano") continue;
+    const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
     const zone = bairroParaZona(text, row.latitude, row.longitude);
     const neighborhood = districtLabelFromGeoRow(row);
     const street = streetLabelFromTerritoryRow(row);
@@ -176,7 +178,7 @@ export function buildStreetBreakdownFromGeoRows(rows: TerritoryGeoRow[]): Street
 
   return [...map.entries()]
     .map(([key, v]) => ({
-      street: key.split('\u0000')[2] ?? STREET_LABEL_FALLBACK,
+      street: key.split("\u0000")[2] ?? STREET_LABEL_FALLBACK,
       neighborhood: v.neighborhood,
       zone: v.zone,
       count: v.count,
@@ -214,9 +216,7 @@ export function buildMetricTrendsFromStats(stats: ReportsAnalyticsStats | null):
   const regionTotal = regionRows.reduce((s, r) => s + r.count, 0);
   const sentiment =
     regionTotal > 0
-      ? Math.round(
-          regionRows.reduce((s, r) => s + (r.sentiment ?? 50) * r.count, 0) / regionTotal,
-        )
+      ? Math.round(regionRows.reduce((s, r) => s + (r.sentiment ?? 50) * r.count, 0) / regionTotal)
       : 50;
   const response = stats.responseTime?.avgHours ?? 0;
 
@@ -233,7 +233,7 @@ export function buildMetricTrendsFromStats(stats: ReportsAnalyticsStats | null):
   if (stats.total > 0) {
     return [
       {
-        label: 'Total no período',
+        label: "Total no período",
         volume: stats.total,
         sentiment,
         patterns,
@@ -247,13 +247,11 @@ export function buildMetricTrendsFromStats(stats: ReportsAnalyticsStats | null):
 
 export function formatTimelineDayLabel(isoDate: string): string {
   const d = new Date(isoDate);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 /** Série diária de volume e resolvidos a partir dos relatos urbanos filtrados. */
-export function buildTimelineFromUrbanReports(
-  reports: UrbanReportRow[],
-): TimelineDataPoint[] {
+export function buildTimelineFromUrbanReports(reports: UrbanReportRow[]): TimelineDataPoint[] {
   const buckets = new Map<string, { total: number; resolved: number }>();
 
   for (const row of reports) {
@@ -261,7 +259,7 @@ export function buildTimelineFromUrbanReports(
     if (!day) continue;
     const cur = buckets.get(day) ?? { total: 0, resolved: 0 };
     cur.total += 1;
-    if (row.status === 'resolved' || row.status === 'closed') {
+    if (row.status === "resolved" || row.status === "closed") {
       cur.resolved += 1;
     }
     buckets.set(day, cur);
@@ -283,11 +281,11 @@ export function filterUrbanReportsByRegion(
   reports: UrbanReportRow[],
   region?: string,
 ): UrbanReportRow[] {
-  if (!region || region === 'all') return reports;
+  if (!region || region === "all") return reports;
   const zoneLabel = regionLabel(region);
   return reports.filter((r) => {
     const zone = bairroParaZona(
-      [r.neighborhood, r.location_address].filter(Boolean).join(' '),
+      [r.neighborhood, r.location_address].filter(Boolean).join(" "),
       r.latitude,
       r.longitude,
     );
@@ -301,7 +299,7 @@ export function buildCategoryDistributionFromTerritoryRows(
 ): { category: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const row of rows) {
-    const cat = (row.category ?? 'outro').trim() || 'outro';
+    const cat = (row.category ?? "outro").trim() || "outro";
     counts.set(cat, (counts.get(cat) ?? 0) + 1);
   }
   return [...counts.entries()]
@@ -328,11 +326,11 @@ export function patternsFromCategories(
       const label = formatReportCategoryLabel(c.category);
       return {
         id: `cat-${c.category}`,
-        type: 'frequency' as const,
-        severity: c.count >= 10 ? ('warning' as const) : ('info' as const),
+        type: "frequency" as const,
+        severity: c.count >= 10 ? ("warning" as const) : ("info" as const),
         title: label,
         description: `${c.count} relato(s) em «${label}» no recorte dos filtros ativos.`,
-        suggestedAction: 'Revisar triagem e encaminhamento temático.',
+        suggestedAction: "Revisar triagem e encaminhamento temático.",
         count: c.count,
       };
     });
@@ -350,12 +348,11 @@ export function mapReportPatternsToAlerts(
 ): PatternAlert[] {
   return rows.map((p) => ({
     id: p.id,
-    type: 'frequency' as const,
-    severity:
-      (p.avg_severity ?? 0) >= 4 ? ('critical' as const) : ('warning' as const),
+    type: "frequency" as const,
+    severity: (p.avg_severity ?? 0) >= 4 ? ("critical" as const) : ("warning" as const),
     title: p.pattern_type,
     description: p.description,
-    suggestedAction: p.suggested_action ?? 'Analisar relatos relacionados no painel.',
+    suggestedAction: p.suggested_action ?? "Analisar relatos relacionados no painel.",
     count: p.occurrence_count ?? 0,
     confidence: p.avg_severity != null ? Math.min(1, p.avg_severity / 5) : undefined,
   }));
@@ -393,9 +390,9 @@ export function buildTerritoryPatternSummaries(
   for (const row of rows) {
     const neighborhood =
       row.neighborhood?.trim() ||
-      [row.location].filter(Boolean).join(' ').trim() ||
-      'Não informado';
-    const categoryKey = (row.category ?? 'outro').trim() || 'outro';
+      [row.location].filter(Boolean).join(" ").trim() ||
+      "Não informado";
+    const categoryKey = (row.category ?? "outro").trim() || "outro";
     if (!byNeighborhood.has(neighborhood)) {
       byNeighborhood.set(neighborhood, new Map());
     }
@@ -406,7 +403,7 @@ export function buildTerritoryPatternSummaries(
   return [...byNeighborhood.entries()]
     .map(([neighborhood, catMap]) => {
       const ranked = [...catMap.entries()].sort((a, b) => b[1] - a[1]);
-      const [primaryKey, primaryCount] = ranked[0] ?? ['outro', 0];
+      const [primaryKey, primaryCount] = ranked[0] ?? ["outro", 0];
       const secondary = ranked.slice(1, 3).map(([cat, count]) => ({
         label: formatReportCategoryLabel(cat),
         count,
@@ -425,7 +422,7 @@ export function buildTerritoryPatternSummaries(
 }
 
 export type AiInsightItem = {
-  kind: 'pattern' | 'anomaly' | 'forecast';
+  kind: "pattern" | "anomaly" | "forecast";
   title: string;
   detail: string;
   source: string;
@@ -441,42 +438,42 @@ export function buildAiInsightsFromStats(stats: ReportsAnalyticsStats | null): A
   if (topCategory) {
     const pct = Math.round((100 * topCategory.count) / stats.total);
     insights.push({
-      kind: 'pattern',
+      kind: "pattern",
       title: `Maior volume em ${topCategory.category}`,
       detail: `${topCategory.count} relatos (${pct}% do recorte).`,
-      source: 'Distribuição por categoria · RPC demografia',
+      source: "Distribuição por categoria · RPC demografia",
     });
   }
 
   const topRegion = [...stats.demographics.byRegion].sort((a, b) => b.count - a.count)[0];
   if (topRegion) {
     insights.push({
-      kind: 'pattern',
+      kind: "pattern",
       title: `Concentração em ${topRegion.region}`,
       detail: `${topRegion.count} relato(s) no bairro/região no período.`,
-      source: 'Distribuição territorial · urban_reports',
+      source: "Distribuição territorial · urban_reports",
     });
   }
 
   const activePattern = stats.criticality.patterns[0];
   if (activePattern) {
     insights.push({
-      kind: 'pattern',
+      kind: "pattern",
       title: activePattern.title,
       detail: activePattern.description,
       source: activePattern.count
         ? `Padrão detectado · ${activePattern.count} ocorrências`
-        : 'report_patterns',
+        : "report_patterns",
     });
   }
 
   if (stats.pending > 0 && stats.resolved > 0) {
     const backlogRatio = Math.round((100 * stats.pending) / stats.total);
     insights.push({
-      kind: 'anomaly',
+      kind: "anomaly",
       title: `${stats.pending} relato(s) pendentes`,
       detail: `Backlog de ${backlogRatio}% sobre o volume do período (${stats.resolved} resolvidos).`,
-      source: 'Status distribution · RPC demografia',
+      source: "Status distribution · RPC demografia",
     });
   }
 
@@ -489,13 +486,13 @@ export function buildAiInsightsFromStats(stats: ReportsAnalyticsStats | null): A
     if (priorSum > 0) {
       const changePct = Math.round(((recentSum - priorSum) / priorSum) * 100);
       insights.push({
-        kind: 'forecast',
+        kind: "forecast",
         title:
           changePct >= 0
             ? `Tendência de alta (${changePct}% vs. semana anterior)`
             : `Tendência de queda (${Math.abs(changePct)}% vs. semana anterior)`,
         detail: `${recentSum} relatos na última semana do gráfico vs. ${priorSum} na semana anterior.`,
-        source: 'Série temporal diária · urban_reports',
+        source: "Série temporal diária · urban_reports",
       });
     }
   }

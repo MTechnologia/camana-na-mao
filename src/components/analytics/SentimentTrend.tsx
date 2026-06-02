@@ -1,7 +1,18 @@
-import { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from 'recharts';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+  Legend,
+} from "recharts";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface TimelineDataPoint {
   date: string;
@@ -18,17 +29,17 @@ interface SentimentTrendProps {
   onPointClick?: (date: string) => void;
 }
 
-type Period = '7d' | '30d' | '90d' | '1y';
+type Period = "7d" | "30d" | "90d" | "1y";
 
 export const SentimentTrend = ({ data, comparisonData, onPointClick }: SentimentTrendProps) => {
-  const [period, setPeriod] = useState<Period>('30d');
+  const [period, setPeriod] = useState<Period>("30d");
   const [showComparison, setShowComparison] = useState(false);
 
   const periods: { value: Period; label: string }[] = [
-    { value: '7d', label: '7 dias' },
-    { value: '30d', label: '30 dias' },
-    { value: '90d', label: '90 dias' },
-    { value: '1y', label: '1 ano' },
+    { value: "7d", label: "7 dias" },
+    { value: "30d", label: "30 dias" },
+    { value: "90d", label: "90 dias" },
+    { value: "1y", label: "1 ano" },
   ];
 
   return (
@@ -39,7 +50,7 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
           {periods.map((p) => (
             <Button
               key={p.value}
-              variant={period === p.value ? 'default' : 'outline'}
+              variant={period === p.value ? "default" : "outline"}
               size="sm"
               onClick={() => setPeriod(p.value)}
             >
@@ -47,10 +58,10 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
             </Button>
           ))}
         </div>
-        
+
         {comparisonData && (
           <Button
-            variant={showComparison ? 'default' : 'outline'}
+            variant={showComparison ? "default" : "outline"}
             size="sm"
             onClick={() => setShowComparison(!showComparison)}
           >
@@ -61,54 +72,48 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart 
-          data={data} 
+        <AreaChart
+          data={data}
           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
           onClick={(e) => {
             if (e?.activePayload?.[0]?.payload?.date) {
               onPointClick?.(e.activePayload[0].payload.date);
             }
           }}
-          className={onPointClick ? 'cursor-pointer' : ''}
+          className={onPointClick ? "cursor-pointer" : ""}
         >
           <defs>
             <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="colorPositive" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
+              <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="colorNegative" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--chart-5))" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="hsl(var(--chart-5))" stopOpacity={0}/>
+              <stop offset="5%" stopColor="hsl(var(--chart-5))" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="hsl(var(--chart-5))" stopOpacity={0} />
             </linearGradient>
           </defs>
-          
+
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          
-          <XAxis 
-            dataKey="date" 
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-          />
-          
-          <YAxis 
-            stroke="hsl(var(--muted-foreground))"
-            fontSize={12}
-          />
-          
+
+          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+
+          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+
           <Tooltip
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
                   <div className="bg-popover border border-border rounded-lg shadow-lg p-3">
-                    <p className="font-medium text-foreground mb-2">
-                      {payload[0].payload.date}
-                    </p>
+                    <p className="font-medium text-foreground mb-2">{payload[0].payload.date}</p>
                     {payload.map((entry: { name?: string; value?: number; color?: string }) => (
-                      <div key={entry.name} className="flex items-center justify-between gap-4 text-sm">
+                      <div
+                        key={entry.name}
+                        className="flex items-center justify-between gap-4 text-sm"
+                      >
                         <span className="text-muted-foreground">{entry.name}:</span>
                         <span className="font-medium" style={{ color: entry.color }}>
                           {entry.value}
@@ -127,7 +132,7 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
               return null;
             }}
           />
-          
+
           <Legend />
 
           <Area
@@ -138,7 +143,7 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
             strokeWidth={2}
             fill="url(#colorScore)"
           />
-          
+
           <Area
             type="monotone"
             dataKey="positive"
@@ -147,7 +152,7 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
             strokeWidth={2}
             fill="url(#colorPositive)"
           />
-          
+
           <Area
             type="monotone"
             dataKey="negative"

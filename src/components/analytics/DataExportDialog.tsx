@@ -13,12 +13,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -41,16 +36,8 @@ import {
 } from "@/lib/exportFields";
 import { useUserRole } from "@/hooks/useUserRole";
 import { effectiveExportRole as resolveStaffExportRole } from "@/lib/exportStaffRole";
-import {
-  useCsvExport,
-  CSV_EXPORT_MAX_ROWS,
-  type CsvExportConfig,
-} from "@/hooks/useCsvExport";
-import {
-  useXlsxExport,
-  XLSX_EXPORT_MAX_ROWS,
-  type XlsxExportConfig,
-} from "@/hooks/useXlsxExport";
+import { useCsvExport, CSV_EXPORT_MAX_ROWS, type CsvExportConfig } from "@/hooks/useCsvExport";
+import { useXlsxExport, XLSX_EXPORT_MAX_ROWS, type XlsxExportConfig } from "@/hooks/useXlsxExport";
 import { ScheduleExportDialog } from "@/components/analytics/ScheduleExportDialog";
 import { CalendarClock } from "lucide-react";
 import type { DataExportDefaultFilters } from "@/lib/buildDataExportFilters";
@@ -212,9 +199,7 @@ export function DataExportDialog({
   const applyPreset = (preset: "basico" | "completo" | "limpar") => {
     if (preset === "basico") {
       // HU-7.3 — intersecta com os campos visíveis para a role.
-      setSelectedFields(
-        getBasicPresetFieldIds(dataset).filter((id) => visibleFieldIds.has(id)),
-      );
+      setSelectedFields(getBasicPresetFieldIds(dataset).filter((id) => visibleFieldIds.has(id)));
     } else if (preset === "completo") {
       setSelectedFields(getAllFieldIds(dataset).filter((id) => visibleFieldIds.has(id)));
     } else setSelectedFields([]);
@@ -226,10 +211,7 @@ export function DataExportDialog({
   }, [dataset, selectedFields]);
 
   useEffect(() => {
-    if (
-      orderableFields.length > 0 &&
-      !orderableFields.find((f) => f.id === orderFieldId)
-    ) {
+    if (orderableFields.length > 0 && !orderableFields.find((f) => f.id === orderFieldId)) {
       setOrderFieldId(orderableFields[0].id);
     }
   }, [orderableFields, orderFieldId]);
@@ -325,8 +307,8 @@ export function DataExportDialog({
         <DialogHeader>
           <DialogTitle>Exportar dados</DialogTitle>
           <DialogDescription>
-            Escolha formato, conjunto de dados, campos e ordenação. Os filtros
-            ativos na página são aplicados automaticamente.
+            Escolha formato, conjunto de dados, campos e ordenação. Os filtros ativos na página são
+            aplicados automaticamente.
           </DialogDescription>
         </DialogHeader>
 
@@ -390,7 +372,8 @@ export function DataExportDialog({
                   <span className="text-sm">
                     Incluir aba "Resumo" com KPIs e breakdowns
                     <span className="block text-xs text-muted-foreground">
-                      Adiciona uma planilha extra com indicadores agregados sobre os dados exportados.
+                      Adiciona uma planilha extra com indicadores agregados sobre os dados
+                      exportados.
                     </span>
                   </span>
                 </Label>
@@ -520,17 +503,11 @@ export function DataExportDialog({
                 onValueChange={(v) => setOrderDir(v as "asc" | "desc")}
                 className="flex gap-4"
               >
-                <Label
-                  htmlFor="order-asc"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
+                <Label htmlFor="order-asc" className="flex items-center gap-2 cursor-pointer">
                   <RadioGroupItem value="asc" id="order-asc" />
                   <span className="text-sm">Crescente (A→Z, 0→9, antigo→novo)</span>
                 </Label>
-                <Label
-                  htmlFor="order-desc"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
+                <Label htmlFor="order-desc" className="flex items-center gap-2 cursor-pointer">
                   <RadioGroupItem value="desc" id="order-desc" />
                   <span className="text-sm">Decrescente (Z→A, 9→0, novo→antigo)</span>
                 </Label>
@@ -539,9 +516,7 @@ export function DataExportDialog({
           </TabsContent>
         </Tabs>
 
-        {error && (
-          <p className="text-xs text-destructive">{error}</p>
-        )}
+        {error && <p className="text-xs text-destructive">{error}</p>}
 
         {exporting && (
           <div className="space-y-1">
@@ -563,11 +538,7 @@ export function DataExportDialog({
         )}
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={exporting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={exporting}>
             Cancelar
           </Button>
           {/* HU-7.4 — Agendar (cria scheduled_export periódico). */}

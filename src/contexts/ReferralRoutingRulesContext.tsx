@@ -6,31 +6,29 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
-import { useConfigEnvironmentOptional } from '@/contexts/ConfigEnvironmentContext';
-import { DEFAULT_REFERRAL_ROUTING_RULES } from '@/lib/referralRoutingRulesDefaults';
+} from "react";
+import { useConfigEnvironmentOptional } from "@/contexts/ConfigEnvironmentContext";
+import { DEFAULT_REFERRAL_ROUTING_RULES } from "@/lib/referralRoutingRulesDefaults";
 import {
   loadReferralRoutingRules,
   saveReferralRoutingRules,
-} from '@/lib/referralRoutingRulesStorage';
-import type { ReferralRoutingRules } from '@/types/referralRoutingRules';
-import type { ConfigEnvironment } from '@/types/systemConfig';
+} from "@/lib/referralRoutingRulesStorage";
+import type { ReferralRoutingRules } from "@/types/referralRoutingRules";
+import type { ConfigEnvironment } from "@/types/systemConfig";
 
 type ReferralRoutingRulesContextValue = {
   rules: ReferralRoutingRules;
-  environmentKey: ConfigEnvironment | 'default';
+  environmentKey: ConfigEnvironment | "default";
   updateRules: (patch: Partial<ReferralRoutingRules>) => void;
   resetRules: () => void;
 };
 
-const ReferralRoutingRulesContext = createContext<ReferralRoutingRulesContextValue | null>(
-  null,
-);
+const ReferralRoutingRulesContext = createContext<ReferralRoutingRulesContextValue | null>(null);
 
 function resolveEnvironmentKey(
   env: ReturnType<typeof useConfigEnvironmentOptional>,
-): ConfigEnvironment | 'default' {
-  return env?.environment ?? 'default';
+): ConfigEnvironment | "default" {
+  return env?.environment ?? "default";
 }
 
 export function ReferralRoutingRulesProvider({ children }: { children: ReactNode }) {
@@ -79,7 +77,7 @@ export function ReferralRoutingRulesProvider({ children }: { children: ReactNode
 export function useReferralRoutingRules(): ReferralRoutingRulesContextValue {
   const ctx = useContext(ReferralRoutingRulesContext);
   if (!ctx) {
-    throw new Error('useReferralRoutingRules must be used within ReferralRoutingRulesProvider');
+    throw new Error("useReferralRoutingRules must be used within ReferralRoutingRulesProvider");
   }
   return ctx;
 }

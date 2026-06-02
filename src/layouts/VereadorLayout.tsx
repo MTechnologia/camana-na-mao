@@ -1,18 +1,18 @@
-import { ReactNode, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { VereadorSidebar } from '@/components/vereador/VereadorSidebar';
+import { ReactNode, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { VereadorSidebar } from "@/components/vereador/VereadorSidebar";
 
 interface VereadorLayoutProps {
   children: ReactNode;
 }
 
 const titlesByPath: Record<string, string> = {
-  '/gabinete': 'Dashboard do Gabinete',
-  '/gabinete/manifestacoes': 'Manifestações em Aberto',
-  '/gabinete/encaminhamentos': 'Encaminhamentos',
+  "/gabinete": "Dashboard do Gabinete",
+  "/gabinete/manifestacoes": "Manifestações em Aberto",
+  "/gabinete/encaminhamentos": "Encaminhamentos",
 };
 
 export const VereadorLayout = ({ children }: VereadorLayoutProps) => {
@@ -21,7 +21,7 @@ export const VereadorLayout = ({ children }: VereadorLayoutProps) => {
   const location = useLocation();
 
   const pageTitle = useMemo(
-    () => titlesByPath[location.pathname] || 'Gabinete',
+    () => titlesByPath[location.pathname] || "Gabinete",
     [location.pathname],
   );
 
@@ -38,7 +38,9 @@ export const VereadorLayout = ({ children }: VereadorLayoutProps) => {
           )}
           <div>
             <h1 className="text-lg font-semibold">{pageTitle}</h1>
-            <p className="text-xs text-muted-foreground">Acompanhe manifestações e encaminhamentos do gabinete.</p>
+            <p className="text-xs text-muted-foreground">
+              Acompanhe manifestações e encaminhamentos do gabinete.
+            </p>
           </div>
         </header>
 

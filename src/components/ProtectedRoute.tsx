@@ -32,7 +32,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/welcome" replace state={{ from: location.pathname }} />;
   }
 
-  const isEmailConfirmed = Boolean(user?.email_confirmed_at) && !isAutoConfirmedEmailPending(user?.email);
+  const isEmailConfirmed =
+    Boolean(user?.email_confirmed_at) && !isAutoConfirmedEmailPending(user?.email);
   if (user && !isEmailConfirmed) {
     return (
       <Navigate

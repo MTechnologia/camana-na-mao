@@ -1,4 +1,4 @@
-import { HeatmapVisualScale } from '@/components/admin/heatmap/HeatmapVisualScale';
+import { HeatmapVisualScale } from "@/components/admin/heatmap/HeatmapVisualScale";
 
 type HeatmapDensityScaleProps = {
   className?: string;

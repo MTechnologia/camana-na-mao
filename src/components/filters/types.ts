@@ -1,8 +1,8 @@
-import { ReactNode } from 'react';
-import { LucideIcon } from 'lucide-react';
+import { ReactNode } from "react";
+import { LucideIcon } from "lucide-react";
 
 // Tipos de campo suportados
-export type FilterFieldType = 'select' | 'multiselect' | 'daterange' | 'search' | 'pills';
+export type FilterFieldType = "select" | "multiselect" | "daterange" | "search" | "pills";
 
 // Opção de filtro
 export interface FilterOption {
@@ -93,11 +93,11 @@ export interface QuickFilterPillsProps {
   options: FilterOption[];
   selected: string | string[];
   onChange: (value: string | string[]) => void;
-  mode?: 'single' | 'multi';
+  mode?: "single" | "multi";
   showAllOption?: boolean;
   allLabel?: string;
   allValue?: string;
-  size?: 'sm' | 'default' | 'lg';
+  size?: "sm" | "default" | "lg";
   className?: string;
 }
 

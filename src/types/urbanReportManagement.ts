@@ -1,15 +1,15 @@
-import type { TriagePriority } from '@/lib/triage';
+import type { TriagePriority } from "@/lib/triage";
 
 export type ReportWorkflowStage =
-  | 'awaiting_triage'
-  | 'triaged'
-  | 'referred'
-  | 'in_analysis'
-  | 'resolved';
+  | "awaiting_triage"
+  | "triaged"
+  | "referred"
+  | "in_analysis"
+  | "resolved";
 
-export type ReportPriority = 'urgent' | 'high' | 'normal' | 'low';
+export type ReportPriority = "urgent" | "high" | "normal" | "low";
 
-export type ReportQueueTab = 'triage' | 'all' | 'referrals' | 'tracking';
+export type ReportQueueTab = "triage" | "all" | "referrals" | "tracking";
 
 export type ReportTimelineEvent = {
   id: string;

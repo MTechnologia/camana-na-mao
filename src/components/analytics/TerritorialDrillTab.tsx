@@ -1,22 +1,11 @@
-import {
-  AlertTriangle,
-  ChevronRight,
-  Compass,
-  Gauge,
-  MapPin,
-  RefreshCw,
-  Tag,
-} from "lucide-react";
+import { AlertTriangle, ChevronRight, Compass, Gauge, MapPin, RefreshCw, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/analytics/KPICard";
 import { cn } from "@/lib/utils";
-import {
-  useTerritorialDrill,
-  type DrillPosition,
-} from "@/hooks/useTerritorialDrill";
+import { useTerritorialDrill, type DrillPosition } from "@/hooks/useTerritorialDrill";
 import type { ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
 import { DrillNavBar } from "@/components/analytics/DrillNavBar";
 import { useUrlSyncedState, optionalStringSerializer } from "@/hooks/useUrlSyncedState";
@@ -38,9 +27,7 @@ interface BreadcrumbStep {
 }
 
 function buildBreadcrumbs(position: DrillPosition): BreadcrumbStep[] {
-  const steps: BreadcrumbStep[] = [
-    { label: "São Paulo", level: "raiz", position: {} },
-  ];
+  const steps: BreadcrumbStep[] = [{ label: "São Paulo", level: "raiz", position: {} }];
   if (position.zona) {
     steps.push({
       label: String(position.zona),
@@ -196,7 +183,8 @@ export function TerritorialDrillTab() {
                 </Badge>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Negativo {stats.scoreBreakdown.negativePct}% • Crítico {stats.scoreBreakdown.criticalPct}%
+                Negativo {stats.scoreBreakdown.negativePct}% • Crítico{" "}
+                {stats.scoreBreakdown.criticalPct}%
               </p>
             </Card>
             <KPICard
@@ -311,7 +299,10 @@ export function TerritorialDrillTab() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium truncate">{item.label}</span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                    <ChevronRight
+                      className="h-4 w-4 text-muted-foreground shrink-0"
+                      aria-hidden="true"
+                    />
                   </div>
                   <div className="flex items-center justify-between mt-1.5 text-xs text-muted-foreground">
                     <span>

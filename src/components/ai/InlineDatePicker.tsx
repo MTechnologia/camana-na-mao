@@ -20,10 +20,10 @@ export const InlineDatePicker = ({ onSelect }: InlineDatePickerProps) => {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const handleQuickSelect = (option: 'hoje' | 'ontem') => {
-    const date = option === 'hoje' ? today : yesterday;
+  const handleQuickSelect = (option: "hoje" | "ontem") => {
+    const date = option === "hoje" ? today : yesterday;
     const isoDate = format(toLocalCalendarDate(date), "yyyy-MM-dd");
-    const displayText = option === 'hoje' ? 'Hoje' : 'Ontem';
+    const displayText = option === "hoje" ? "Hoje" : "Ontem";
     setSelected(true);
     onSelect(isoDate, displayText);
   };
@@ -58,7 +58,7 @@ export const InlineDatePicker = ({ onSelect }: InlineDatePickerProps) => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handleQuickSelect('hoje')}
+          onClick={() => handleQuickSelect("hoje")}
           className="text-sm"
         >
           Hoje
@@ -66,7 +66,7 @@ export const InlineDatePicker = ({ onSelect }: InlineDatePickerProps) => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => handleQuickSelect('ontem')}
+          onClick={() => handleQuickSelect("ontem")}
           className="text-sm"
         >
           Ontem

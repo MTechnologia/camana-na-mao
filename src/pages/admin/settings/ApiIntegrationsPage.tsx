@@ -1,50 +1,43 @@
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { Plus, Zap } from 'lucide-react';
-import { SettingsLayout } from '@/components/admin/settings/SettingsLayout';
-import { useConfigEnvironment } from '@/contexts/ConfigEnvironmentContext';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import type { ApiHealthStatus } from '@/types/systemConfig';
+import { useState } from "react";
+import { toast } from "sonner";
+import { Plus, Zap } from "lucide-react";
+import { SettingsLayout } from "@/components/admin/settings/SettingsLayout";
+import { useConfigEnvironment } from "@/contexts/ConfigEnvironmentContext";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { ApiHealthStatus } from "@/types/systemConfig";
 
 const healthLabel: Record<ApiHealthStatus, string> = {
-  up: 'Operacional',
-  degraded: 'Degradado',
-  down: 'Indisponível',
-  unknown: 'Desconhecido',
+  up: "Operacional",
+  degraded: "Degradado",
+  down: "Indisponível",
+  unknown: "Desconhecido",
 };
 
-const healthVariant: Record<
-  ApiHealthStatus,
-  'default' | 'secondary' | 'destructive' | 'outline'
-> = {
-  up: 'default',
-  degraded: 'secondary',
-  down: 'destructive',
-  unknown: 'outline',
-};
+const healthVariant: Record<ApiHealthStatus, "default" | "secondary" | "destructive" | "outline"> =
+  {
+    up: "default",
+    degraded: "secondary",
+    down: "destructive",
+    unknown: "outline",
+  };
 
 export function ApiIntegrationsPage() {
   const { config, environmentLabel } = useConfigEnvironment();
   const [showForm, setShowForm] = useState(false);
-  const [slug, setSlug] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+  const [slug, setSlug] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
 
   return (
     <SettingsLayout
       title="Integrações e APIs"
       description="Catálogo oficial e cadastro de URLs customizadas. Segredos mascarados; rotação apenas no servidor."
       actions={
-        <Button
-          type="button"
-          size="sm"
-          className="gap-2"
-          onClick={() => setShowForm((v) => !v)}
-        >
+        <Button type="button" size="sm" className="gap-2" onClick={() => setShowForm((v) => !v)}>
           <Plus className="h-4 w-4" aria-hidden />
           Nova integração
         </Button>
@@ -87,13 +80,13 @@ export function ApiIntegrationsPage() {
               <Button
                 type="button"
                 onClick={() => {
-                  toast.success('Integração cadastrada', {
-                    description: `${slug || 'nova-api'} em ${environmentLabel}.`,
+                  toast.success("Integração cadastrada", {
+                    description: `${slug || "nova-api"} em ${environmentLabel}.`,
                   });
                   setShowForm(false);
-                  setSlug('');
-                  setDisplayName('');
-                  setBaseUrl('');
+                  setSlug("");
+                  setDisplayName("");
+                  setBaseUrl("");
                 }}
               >
                 Salvar
@@ -127,8 +120,8 @@ export function ApiIntegrationsPage() {
                   <p className="font-mono text-xs text-muted-foreground">{api.slug}</p>
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant={api.source === 'catalog' ? 'secondary' : 'outline'}>
-                    {api.source === 'catalog' ? 'Catálogo' : 'Custom'}
+                  <Badge variant={api.source === "catalog" ? "secondary" : "outline"}>
+                    {api.source === "catalog" ? "Catálogo" : "Custom"}
                   </Badge>
                 </td>
                 <td className="max-w-[200px] truncate px-4 py-3 text-xs text-muted-foreground">
@@ -141,8 +134,8 @@ export function ApiIntegrationsPage() {
                 </td>
                 <td className="px-4 py-3 tabular-nums">{api.rateLimitPerMinute}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={api.enabled ? 'default' : 'outline'}>
-                    {api.enabled ? 'Sim' : 'Não'}
+                  <Badge variant={api.enabled ? "default" : "outline"}>
+                    {api.enabled ? "Sim" : "Não"}
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
@@ -151,9 +144,7 @@ export function ApiIntegrationsPage() {
                     variant="ghost"
                     size="sm"
                     className="gap-1"
-                    onClick={() =>
-                      toast.message('Health check', { description: api.slug })
-                    }
+                    onClick={() => toast.message("Health check", { description: api.slug })}
                   >
                     <Zap className="h-3.5 w-3.5" aria-hidden />
                     Testar

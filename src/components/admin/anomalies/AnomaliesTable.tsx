@@ -20,11 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  SEVERITY_LABEL_PT,
-  DIRECTION_LABEL_PT,
-  type AnomalySeverity,
-} from "@/lib/detectAnomalies";
+import { SEVERITY_LABEL_PT, DIRECTION_LABEL_PT, type AnomalySeverity } from "@/lib/detectAnomalies";
 import type { AnomalyEntry, AnomalyStatus } from "@/hooks/useReportAnomalies";
 
 /**
@@ -83,15 +79,10 @@ function formatPt(n: number): string {
   return n.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 }
 
-export function AnomaliesTable({
-  anomalies,
-  onSelectAnomaly,
-}: AnomaliesTableProps) {
+export function AnomaliesTable({ anomalies, onSelectAnomaly }: AnomaliesTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AnomalyStatus | "all">("all");
-  const [severityFilter, setSeverityFilter] = useState<AnomalySeverity | "all">(
-    "all",
-  );
+  const [severityFilter, setSeverityFilter] = useState<AnomalySeverity | "all">("all");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -111,8 +102,8 @@ export function AnomaliesTable({
       <Card className="p-8 text-center">
         <CheckCircle2 className="h-10 w-10 text-green-600 mx-auto mb-3" />
         <p className="text-sm text-muted-foreground">
-          Nenhuma anomalia detectada no período monitorado. Os volumes estão
-          dentro do esperado pelo modelo.
+          Nenhuma anomalia detectada no período monitorado. Os volumes estão dentro do esperado pelo
+          modelo.
         </p>
       </Card>
     );
@@ -132,9 +123,7 @@ export function AnomaliesTable({
         <div className="flex gap-2">
           <Select
             value={statusFilter}
-            onValueChange={(v) =>
-              setStatusFilter(v as AnomalyStatus | "all")
-            }
+            onValueChange={(v) => setStatusFilter(v as AnomalyStatus | "all")}
           >
             <SelectTrigger className="w-[170px]">
               <SelectValue />
@@ -149,9 +138,7 @@ export function AnomaliesTable({
           </Select>
           <Select
             value={severityFilter}
-            onValueChange={(v) =>
-              setSeverityFilter(v as AnomalySeverity | "all")
-            }
+            onValueChange={(v) => setSeverityFilter(v as AnomalySeverity | "all")}
           >
             <SelectTrigger className="w-[190px]">
               <SelectValue />
@@ -201,9 +188,7 @@ export function AnomaliesTable({
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">
-                          {formatDateBr(a.signalDate)}
-                        </span>
+                        <span className="font-medium">{formatDateBr(a.signalDate)}</span>
                       </div>
                     </td>
                     <td className="px-4 py-2">
@@ -243,26 +228,15 @@ export function AnomaliesTable({
                     <td className="px-4 py-2">
                       <Badge
                         variant="outline"
-                        className={cn(
-                          "text-[10px] h-5 px-2",
-                          STATUS_STYLES[a.status],
-                        )}
+                        className={cn("text-[10px] h-5 px-2", STATUS_STYLES[a.status])}
                       >
-                        {a.status === "dismissed" && (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        )}
-                        {a.status === "acknowledged" && (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        )}
+                        {a.status === "dismissed" && <XCircle className="h-3 w-3 mr-1" />}
+                        {a.status === "acknowledged" && <CheckCircle2 className="h-3 w-3 mr-1" />}
                         {STATUS_LABELS[a.status]}
                       </Badge>
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onSelectAnomaly(a)}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => onSelectAnomaly(a)}>
                         <Eye className="h-4 w-4 mr-1" />
                         Detalhes
                       </Button>

@@ -90,10 +90,7 @@ function clampPositive(v: number): number {
  * de `history`. `history` precisa estar ORDENADO ascendentemente por data
  * e contínuo (sem lacunas). Use `densifyHistory` para garantir isso.
  */
-export function forecastVolume(
-  history: VolumePoint[],
-  horizonDays: number,
-): ForecastResult {
+export function forecastVolume(history: VolumePoint[], horizonDays: number): ForecastResult {
   // Defesa: histórico vazio não tem o que ajustar.
   // Obs.: horizonDays <= 0 é VÁLIDO — produz forecast vazio (o laço abaixo não
   // executa) mas ainda calcula os diagnostics. detectAnomalies depende disso
@@ -141,8 +138,7 @@ export function forecastVolume(
   });
   const meanRes = residuals.reduce((a, b) => a + b, 0) / Math.max(1, residuals.length);
   const variance =
-    residuals.reduce((a, b) => a + (b - meanRes) ** 2, 0) /
-    Math.max(1, residuals.length - 1);
+    residuals.reduce((a, b) => a + (b - meanRes) ** 2, 0) / Math.max(1, residuals.length - 1);
   const residualStdDev = Math.sqrt(variance);
 
   // Forecast.
@@ -182,11 +178,7 @@ export function forecastVolume(
  * `start` e `end` são "YYYY-MM-DD" inclusivos. Útil quando vem do banco sem
  * registros em dias sem nenhum relato.
  */
-export function densifyHistory(
-  sparse: VolumePoint[],
-  start: string,
-  end: string,
-): VolumePoint[] {
+export function densifyHistory(sparse: VolumePoint[], start: string, end: string): VolumePoint[] {
   const map = new Map(sparse.map((p) => [p.date, p.count]));
   const out: VolumePoint[] = [];
   const cur = parseLocalDate(start);

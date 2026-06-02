@@ -1,10 +1,10 @@
-import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export interface WordData {
   text: string;
   count: number;
-  sentiment: 'positive' | 'neutral' | 'negative';
+  sentiment: "positive" | "neutral" | "negative";
 }
 
 interface WordCloudProps {
@@ -15,12 +15,12 @@ interface WordCloudProps {
 export const WordCloud = ({ words, onWordClick }: WordCloudProps) => {
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
-      case 'positive':
-        return 'text-chart-1'; // Green
-      case 'negative':
-        return 'text-chart-5'; // Red
+      case "positive":
+        return "text-chart-1"; // Green
+      case "negative":
+        return "text-chart-5"; // Red
       default:
-        return 'text-chart-3'; // Yellow
+        return "text-chart-3"; // Yellow
     }
   };
 
@@ -31,7 +31,7 @@ export const WordCloud = ({ words, onWordClick }: WordCloudProps) => {
     return minSize + (maxSize - minSize) * ratio;
   };
 
-  const maxCount = Math.max(...words.map(w => w.count));
+  const maxCount = Math.max(...words.map((w) => w.count));
 
   return (
     <div className="w-full h-full flex flex-wrap items-center justify-center gap-3 p-4">
@@ -44,8 +44,8 @@ export const WordCloud = ({ words, onWordClick }: WordCloudProps) => {
           whileHover={{ scale: 1.1 }}
           onClick={() => onWordClick?.(word.text)}
           className={cn(
-            'font-bold hover:opacity-70 transition-all cursor-pointer',
-            getSentimentColor(word.sentiment)
+            "font-bold hover:opacity-70 transition-all cursor-pointer",
+            getSentimentColor(word.sentiment),
           )}
           style={{
             fontSize: `${getFontSize(word.count, maxCount)}px`,

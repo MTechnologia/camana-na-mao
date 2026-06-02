@@ -12,7 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MapPin, Send, Mic, MicOff, Camera, X, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -44,7 +50,7 @@ function normalizeManualCategory(raw: string): string {
   return raw;
 }
 
-const DRAFT_KEY = 'cmsp_urban_report_draft';
+const DRAFT_KEY = "cmsp_urban_report_draft";
 
 export default function ManualReportPage() {
   const navigate = useNavigate();
@@ -68,8 +74,13 @@ export default function ManualReportPage() {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const isInApp = typeof window !== 'undefined' && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
-  const isSupported = typeof window !== 'undefined' && !isInApp && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  const isInApp =
+    typeof window !== "undefined" &&
+    !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+  const isSupported =
+    typeof window !== "undefined" &&
+    !isInApp &&
+    ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
   const [formData, setFormData] = useState(() => {
     // Carregar draft do sessionStorage na inicialização
     try {
@@ -81,14 +92,16 @@ export default function ManualReportPage() {
         }
         return parsed;
       }
-    } catch { /* ignore parse errors for draft */ }
+    } catch {
+      /* ignore parse errors for draft */
+    }
     return {
       category: "",
       title: "",
       description: "",
       location: "",
       latitude: null as number | null,
-      longitude: null as number | null
+      longitude: null as number | null,
     };
   });
 
@@ -103,18 +116,21 @@ export default function ManualReportPage() {
   // Initialize Web Speech API
   useEffect(() => {
     if (isSupported) {
-      const w = window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition; SpeechRecognition?: new () => SpeechRecognition };
+      const w = window as unknown as {
+        webkitSpeechRecognition?: new () => SpeechRecognition;
+        SpeechRecognition?: new () => SpeechRecognition;
+      };
       const SpeechRecognition = w.webkitSpeechRecognition ?? w.SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.lang = 'pt-BR';
+      recognitionRef.current.lang = "pt-BR";
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          description: prev.description + (prev.description ? ' ' : '') + transcript
+          description: prev.description + (prev.description ? " " : "") + transcript,
         }));
       };
 
@@ -172,7 +188,9 @@ export default function ManualReportPage() {
 
     if (toAdd.length) {
       setPhotoFiles((prev) => [...prev, ...toAdd].slice(0, MAX_PHOTOS));
-      setPhotoPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS));
+      setPhotoPreviews((prev) =>
+        [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS),
+      );
     }
     e.target.value = "";
   };
@@ -196,22 +214,22 @@ export default function ManualReportPage() {
           toast.error(
             accuracy != null
               ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou informe CEP.`
-              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou informe o CEP."
+              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou informe o CEP.",
           );
           return;
         }
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           latitude,
           longitude,
-          location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+          location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
         }));
         toast.success("Localização capturada!");
       },
       () => {
         toast.error("Não foi possível obter sua localização");
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
   };
 
@@ -221,21 +239,19 @@ export default function ManualReportPage() {
     const urls: string[] = [];
     for (let i = 0; i < photoFiles.length; i++) {
       const file = photoFiles[i];
-      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileExt = file.name.split(".").pop() || "jpg";
       const fileName = `${userId}/${Date.now()}-${i}.${fileExt}`;
 
-      const { error } = await supabase.storage
-        .from('urban-reports')
-        .upload(fileName, file);
+      const { error } = await supabase.storage.from("urban-reports").upload(fileName, file);
 
       if (error) {
         console.error("Erro ao fazer upload da foto:", error);
         throw error;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('urban-reports')
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("urban-reports").getPublicUrl(fileName);
       urls.push(publicUrl);
     }
     return urls;
@@ -243,7 +259,7 @@ export default function ManualReportPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) {
       toast.error("Você precisa estar autenticado");
       navigate("/login");
@@ -270,7 +286,7 @@ export default function ManualReportPage() {
         latitude: formData.latitude,
         longitude: formData.longitude,
         photos: photoUrls.length ? photoUrls : null,
-        status: "pending"
+        status: "pending",
       };
 
       const { data: insertedReport, error } = await supabase
@@ -291,7 +307,7 @@ export default function ManualReportPage() {
 
       // Limpar draft após sucesso
       sessionStorage.removeItem(DRAFT_KEY);
-      
+
       toast.success("Relato enviado com sucesso!");
 
       navigate("/relato-urbano/historico");
@@ -310,7 +326,7 @@ export default function ManualReportPage() {
         onBack={hasReturnToChat ? handleReturnToChat : undefined}
         backTo={hasReturnToChat ? undefined : "/relatos"}
       />
-      
+
       <div className="p-4">
         <Card>
           <CardHeader>
@@ -323,7 +339,7 @@ export default function ManualReportPage() {
                 <Label htmlFor="category">Categoria *</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
                 >
                   <SelectTrigger id="category">
                     <SelectValue placeholder="Selecione a categoria" />
@@ -344,7 +360,7 @@ export default function ManualReportPage() {
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                   placeholder="Ex: Buraco na calçada, Poste apagado..."
                   required
                 />
@@ -357,7 +373,9 @@ export default function ManualReportPage() {
                   <Textarea
                     id="description"
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, description: e.target.value }))
+                    }
                     placeholder="Descreva detalhadamente o problema ou use o microfone..."
                     rows={4}
                     required
@@ -388,7 +406,9 @@ export default function ManualReportPage() {
 
               {/* Upload de Fotos (até 3, máx 50MB cada) */}
               <div className="space-y-2">
-                <Label>Fotos (até {MAX_PHOTOS}, máx. {MAX_PHOTO_MB}MB cada)</Label>
+                <Label>
+                  Fotos (até {MAX_PHOTOS}, máx. {MAX_PHOTO_MB}MB cada)
+                </Label>
                 <input
                   type="file"
                   accept="image/*"
@@ -409,7 +429,10 @@ export default function ManualReportPage() {
                 {photoPreviews.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                     {photoPreviews.map((preview, index) => (
-                      <div key={index} className="relative rounded-lg overflow-hidden border aspect-square">
+                      <div
+                        key={index}
+                        className="relative rounded-lg overflow-hidden border aspect-square"
+                      >
                         <img
                           src={preview}
                           alt={`Preview ${index + 1}`}
@@ -433,16 +456,18 @@ export default function ManualReportPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => document.getElementById('photo-camera')?.click()}
+                      onClick={() => document.getElementById("photo-camera")?.click()}
                       className="flex-1"
                     >
                       <Camera className="w-4 h-4 mr-2" />
-                      Tirar Foto {photoPreviews.length > 0 && `(${MAX_PHOTOS - photoPreviews.length} restante${MAX_PHOTOS - photoPreviews.length === 1 ? "" : "s"})`}
+                      Tirar Foto{" "}
+                      {photoPreviews.length > 0 &&
+                        `(${MAX_PHOTOS - photoPreviews.length} restante${MAX_PHOTOS - photoPreviews.length === 1 ? "" : "s"})`}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => document.getElementById('photo-gallery')?.click()}
+                      onClick={() => document.getElementById("photo-gallery")?.click()}
                       className="flex-1"
                     >
                       <ImageIcon className="w-4 h-4 mr-2" />
@@ -465,9 +490,7 @@ export default function ManualReportPage() {
                   {formData.latitude ? "Localização Capturada ✓" : "Capturar Localização"}
                 </Button>
                 {formData.location && (
-                  <p className="text-xs text-muted-foreground">
-                    📍 {formData.location}
-                  </p>
+                  <p className="text-xs text-muted-foreground">📍 {formData.location}</p>
                 )}
               </div>
 
@@ -494,11 +517,7 @@ export default function ManualReportPage() {
                     Cancelar
                   </Button>
                 )}
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={loading}
-                >
+                <Button type="submit" className="flex-1" disabled={loading}>
                   <Send className="w-4 h-4 mr-2" />
                   {loading ? "Enviando..." : "Enviar Relato"}
                 </Button>
@@ -507,7 +526,6 @@ export default function ManualReportPage() {
           </CardContent>
         </Card>
       </div>
-
     </div>
   );
 }

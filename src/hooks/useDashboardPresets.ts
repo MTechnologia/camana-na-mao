@@ -174,8 +174,8 @@ export function useDashboardPresets(): UseDashboardPresetsResult {
                   ...(patch.isDefault !== undefined ? { isDefault: patch.isDefault } : {}),
                 }
               : patch.isDefault === true
-              ? { ...p, isDefault: false }
-              : p,
+                ? { ...p, isDefault: false }
+                : p,
           ),
         ),
       );
@@ -225,10 +225,7 @@ export function useDashboardPresets(): UseDashboardPresetsResult {
     [update],
   );
 
-  const defaultPreset = useMemo(
-    () => presets.find((p) => p.isDefault) ?? null,
-    [presets],
-  );
+  const defaultPreset = useMemo(() => presets.find((p) => p.isDefault) ?? null, [presets]);
 
   return {
     presets,

@@ -1,7 +1,7 @@
-import { TrendingDown, TrendingUp } from 'lucide-react';
-import type { RegionPatternSummary } from '@/types/analyticsDrill';
-import { formatChartNumber } from '@/components/admin/analytics/chartTheme';
-import { cn } from '@/lib/utils';
+import { TrendingDown, TrendingUp } from "lucide-react";
+import type { RegionPatternSummary } from "@/types/analyticsDrill";
+import { formatChartNumber } from "@/components/admin/analytics/chartTheme";
+import { cn } from "@/lib/utils";
 
 type PatternsByRegionListProps = {
   items: RegionPatternSummary[];
@@ -12,8 +12,8 @@ function TrendBadge({ trendPct }: { trendPct: number }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-        trendPct >= 0 ? 'bg-emerald-500/15 text-emerald-800' : 'bg-destructive/15 text-destructive',
+        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+        trendPct >= 0 ? "bg-emerald-500/15 text-emerald-800" : "bg-destructive/15 text-destructive",
       )}
     >
       {trendPct >= 0 ? (
@@ -21,7 +21,7 @@ function TrendBadge({ trendPct }: { trendPct: number }) {
       ) : (
         <TrendingDown className="h-3 w-3" aria-hidden />
       )}
-      {trendPct >= 0 ? '+' : ''}
+      {trendPct >= 0 ? "+" : ""}
       {trendPct}%
     </span>
   );
@@ -32,10 +32,7 @@ export function PatternsByRegionList({ items, className }: PatternsByRegionListP
 
   return (
     <section className={className} aria-labelledby="patterns-by-region-heading">
-      <h3
-        id="patterns-by-region-heading"
-        className="mb-3 text-sm font-medium text-foreground"
-      >
+      <h3 id="patterns-by-region-heading" className="mb-3 text-sm font-medium text-foreground">
         Padrão predominante por região
       </h3>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -57,7 +54,7 @@ export function PatternsByRegionList({ items, className }: PatternsByRegionListP
               <span className="text-xs text-muted-foreground">
                 <span className="font-semibold tabular-nums text-foreground">
                   {formatChartNumber(region.count)}
-                </span>{' '}
+                </span>{" "}
                 relatos com este tema
               </span>
               <TrendBadge trendPct={region.trendPct} />

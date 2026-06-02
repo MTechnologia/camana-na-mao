@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { effectiveExportRole } from '@/lib/exportStaffRole';
+import { describe, expect, it } from "vitest";
+import { effectiveExportRole } from "@/lib/exportStaffRole";
 
-describe('effectiveExportRole', () => {
-  it('retorna admin para administrador', () => {
+describe("effectiveExportRole", () => {
+  it("retorna admin para administrador", () => {
     expect(
       effectiveExportRole({
         isAdmin: true,
@@ -10,10 +10,10 @@ describe('effectiveExportRole', () => {
         isAssessor: false,
         isVereador: false,
       }),
-    ).toBe('admin');
+    ).toBe("admin");
   });
 
-  it('retorna gestor para o próprio flag isGestor', () => {
+  it("retorna gestor para o próprio flag isGestor", () => {
     // Regressão "gestor sem relatório": o flag direto do gestor TEM de mapear
     // para 'gestor' (senão a role efetiva fica null e o cap zera).
     expect(
@@ -23,10 +23,10 @@ describe('effectiveExportRole', () => {
         isAssessor: false,
         isVereador: false,
       }),
-    ).toBe('gestor');
+    ).toBe("gestor");
   });
 
-  it('retorna gestor para assessor e vereador', () => {
+  it("retorna gestor para assessor e vereador", () => {
     expect(
       effectiveExportRole({
         isAdmin: false,
@@ -34,7 +34,7 @@ describe('effectiveExportRole', () => {
         isAssessor: true,
         isVereador: false,
       }),
-    ).toBe('gestor');
+    ).toBe("gestor");
     expect(
       effectiveExportRole({
         isAdmin: false,
@@ -42,10 +42,10 @@ describe('effectiveExportRole', () => {
         isAssessor: false,
         isVereador: true,
       }),
-    ).toBe('gestor');
+    ).toBe("gestor");
   });
 
-  it('admin tem precedência sobre gestor quando ambos os flags estão ativos', () => {
+  it("admin tem precedência sobre gestor quando ambos os flags estão ativos", () => {
     expect(
       effectiveExportRole({
         isAdmin: true,
@@ -53,10 +53,10 @@ describe('effectiveExportRole', () => {
         isAssessor: false,
         isVereador: false,
       }),
-    ).toBe('admin');
+    ).toBe("admin");
   });
 
-  it('retorna null quando não há nenhuma role staff (sem permissão de export)', () => {
+  it("retorna null quando não há nenhuma role staff (sem permissão de export)", () => {
     expect(
       effectiveExportRole({
         isAdmin: false,

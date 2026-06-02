@@ -12,7 +12,9 @@ const WFS_ORIGIN = "https://wfs.geosampa.prefeitura.sp.gov.br";
 const WFS_QUERY =
   "service=WFS&version=1.0.0&request=GetFeature&outputFormat=application%2Fjson&srsName=EPSG:4326";
 
-const supabaseUrl = (import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL) as string | undefined;
+const supabaseUrl = (import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL) as
+  | string
+  | undefined;
 const customProxy = import.meta.env.VITE_GEOSAMPA_WFS_PROXY as string | undefined;
 
 /** Proxy em prod: Edge Function ou custom env */
@@ -23,12 +25,11 @@ const prodProxyBase = customProxy
     : null;
 
 /** Em dev usa proxy Vite; em prod usa Edge Function (ou custom) para evitar CORS */
-const WFS_BASE =
-  import.meta.env.DEV
-    ? `/geosampa-wfs/geoserver/geoportal/wfs?${WFS_QUERY}`
-    : prodProxyBase
-      ? `${prodProxyBase}?${WFS_QUERY}`
-      : `${WFS_ORIGIN}/geoserver/geoportal/wfs?${WFS_QUERY}`;
+const WFS_BASE = import.meta.env.DEV
+  ? `/geosampa-wfs/geoserver/geoportal/wfs?${WFS_QUERY}`
+  : prodProxyBase
+    ? `${prodProxyBase}?${WFS_QUERY}`
+    : `${WFS_ORIGIN}/geoserver/geoportal/wfs?${WFS_QUERY}`;
 
 export interface GeoSampaOverlayLayer {
   id: string;

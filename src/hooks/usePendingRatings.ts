@@ -47,7 +47,8 @@ export const usePendingRatings = (options?: { limit?: number }) => {
     try {
       const { data, error: fetchError } = await supabase
         .from("service_visits")
-        .select(`
+        .select(
+          `
           id,
           service_id,
           visited_at,
@@ -60,7 +61,8 @@ export const usePendingRatings = (options?: { limit?: number }) => {
             address,
             district
           )
-        `)
+        `,
+        )
         .eq("user_id", userId)
         .eq("status", "pending")
         .gt("expires_at", new Date().toISOString())
@@ -71,7 +73,8 @@ export const usePendingRatings = (options?: { limit?: number }) => {
 
       setPendingRatings((data as Array<Record<string, unknown>>) || []);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Erro ao buscar avaliações pendentes";
+      const errorMessage =
+        err instanceof Error ? err.message : "Erro ao buscar avaliações pendentes";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -99,7 +102,7 @@ export const usePendingRatings = (options?: { limit?: number }) => {
 
       if (updateError) throw updateError;
 
-      setPendingRatings(prev => prev.filter(r => r.id !== visitId));
+      setPendingRatings((prev) => prev.filter((r) => r.id !== visitId));
       toast.success("Avaliação dispensada");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao dispensar avaliação";

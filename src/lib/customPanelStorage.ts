@@ -1,7 +1,7 @@
-import type { CustomPanel } from '@/types/customPanel';
+import type { CustomPanel } from "@/types/customPanel";
 
-const PANELS_KEY = 'cmsp-custom-panels-v1';
-const ACTIVE_PANEL_KEY = 'cmsp-active-panel-id';
+const PANELS_KEY = "cmsp-custom-panels-v1";
+const ACTIVE_PANEL_KEY = "cmsp-active-panel-id";
 
 export function loadPanels(): CustomPanel[] {
   try {
