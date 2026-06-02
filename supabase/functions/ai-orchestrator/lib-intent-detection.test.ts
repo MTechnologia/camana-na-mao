@@ -160,6 +160,30 @@ Deno.test("detectCollectionIntent: relato de ônibus em jornada urbana → trans
   assertEquals(result?.type, "transport_report");
 });
 
+Deno.test("messageLooksLikeTransportProblemReport: motorista que não para no ponto é problema de transporte", () => {
+  assertEquals(
+    messageLooksLikeTransportProblemReport("Todo dia o motorista passa e não para no ponto"),
+    true,
+  );
+  assertEquals(messageLooksLikeTransportProblemReport("o ônibus passou direto e não parou"), true);
+  // Sem domínio de transporte (buraco) → não é relato de transporte
+  assertEquals(messageLooksLikeTransportProblemReport("o buraco não para de aumentar na rua"), false);
+});
+
+Deno.test("detectCollectionIntent: 'motorista não para no ponto' em jornada urbana → transport_report", () => {
+  const history = [
+    { role: "user", content: "Quero falar sobre a cidade" },
+    { role: "user", content: "reclamacao" },
+    { role: "assistant", content: "[COLLECTION_PROGRESS:urban_report:3/8] O que está acontecendo?" },
+  ];
+  const result = detectCollectionIntent(
+    "Todo dia o motorista passa e não para no ponto",
+    history,
+    baseDeps,
+  );
+  assertEquals(result?.type, "transport_report");
+});
+
 // Deps com o detector REAL de funcionamento interno da Câmara (em produção é o
 // lib.ts que o injeta; os testes acima usam `=> false`, por isso não pegavam
 // este caso). Regressão do bug: consulta institucional virava relato urbano.

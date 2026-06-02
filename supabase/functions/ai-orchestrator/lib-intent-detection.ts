@@ -62,7 +62,7 @@ function contextIncludes(context: string, fragment: string): boolean {
 const TRANSPORT_PROBLEM_LAST_MSG_DOMAINS =
   /\b(onibus|bus[aã]o|metro|metr[oô]|trem|cptm|linha|motorista|cobrador|transporte\s+publico|parada)\b/i;
 const TRANSPORT_PROBLEM_LAST_MSG_ISSUES =
-  /\b(atras(o|ou|ando|ada)?|demora(r|ndo)?|lotad[oa]|lotacao|lota[cç][aã]o|n[aã]o\s+passou|quebrou|sujo|fedendo|imprudente|perigoso|capotou|freada|superlotad)\b/i;
+  /\b(atras(o|ou|ando|ada)?|demora(r|ndo)?|lotad[oa]|lotacao|lota[cç][aã]o|n[aã]o\s+passou|n[aã]o\s+par(a|ou|aram)|n[aã]o\s+encost(a|ou)|passa(ndo|ram)?\s+(direto|reto|sem\s+parar)|passou\s+(direto|reto)|deixa\s+de\s+parar|quebrou|sujo|fedendo|imprudente|perigoso|capotou|freada|superlotad)\b/i;
 
 /** Relato de problema no transporte na última mensagem (não consulta Olho Vivo). */
 export function messageLooksLikeTransportProblemReport(text: string): boolean {
