@@ -52,25 +52,43 @@ export function useRealtimeRefresh(
   useEffect(() => {
     if (tables.length === 0) return;
     const channelName = `realtime-refresh-${tables.join("-")}`;
-    const channel = supabase.channel(channelName);
 
-    tables.forEach((table) => {
-      channel.on(
-        // Tipos do supabase-js usam string literal; widening seguro aqui.
-        "postgres_changes" as never,
-        { event: "*", schema: "public", table } as never,
-        () => triggerDebounced(),
+    // Realtime é um EXTRA (atualização ao vivo). Se o backend não estiver
+    // disponível (ex.: dev sem Supabase, sem rede, client mal configurado),
+    // a criação/assinatura do canal pode lançar — e isso NÃO pode derrubar a
+    // tela admin "viva", que ainda funciona via fetch normal. Por isso todo o
+    // setup é defensivo: em falha, seguimos sem live updates.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase.channel(channelName);
+      tables.forEach((table) => {
+        channel!.on(
+          // Tipos do supabase-js usam string literal; widening seguro aqui.
+          "postgres_changes" as never,
+          { event: "*", schema: "public", table } as never,
+          () => triggerDebounced(),
+        );
+      });
+      void channel.subscribe();
+    } catch (err) {
+      console.warn(
+        "[useRealtimeRefresh] realtime indisponível; seguindo sem atualização ao vivo",
+        err,
       );
-    });
-
-    void channel.subscribe();
+      channel = null;
+    }
 
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
-      void supabase.removeChannel(channel);
+      if (!channel) return;
+      try {
+        void supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn("[useRealtimeRefresh] falha ao remover canal realtime", err);
+      }
     };
     // tables é estável (passado como string[] literal nas chamadas), então
     // serializamos pra estabilidade da dependency.
