@@ -49,7 +49,7 @@ import {
   handleSubscribeTransportLine,
 } from "./lib-subscription-and-audiencia-handlers.ts";
 import { searchAudiencias as searchAudienciasHelper } from "./lib-audiencias-search.ts";
-import { findNearbyServices } from "./lib-service-discovery.ts";
+import { findNearbyServices, getServiceAddressByName } from "./lib-service-discovery.ts";
 import {
   getCitizenHistory,
   getServiceOccupancyStatusByName,
@@ -143,6 +143,7 @@ export async function executeTool(
           mapUrbanRiskLevelToSeverity,
           geocodeAddressWithGoogle,
           geocodeAddressToCoord,
+          getServiceAddressByName,
           adjustSeverityForProximityToSensitiveEquipment,
           normalizeReportNature,
           insertClassificationPredictionLog,
