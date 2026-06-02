@@ -30,18 +30,22 @@ test.describe("Analytics — Drill-downs", () => {
     const tab = page.getByRole("tab", { name: /território|territorial/i });
     await tab.click();
 
-    // Aguarda lista de zonas aparecer.
-    await expect(page.locator("text=/zona/i").first()).toBeVisible({ timeout: 15_000 });
+    // Aguarda o painel territorial renderizar. Usa conteúdo VISÍVEL do drill
+    // (KPI / heading do nível), não `text=/zona/i` — que casava com um
+    // <option> OCULTO do filtro de zona (select fechado) e falhava o toBeVisible.
+    await expect(
+      page.getByText(/Volume de relatos|Selecione uma zona|Bairros desta zona/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
 
-    // Clica na primeira zona (drill 1: zona → bairros).
+    // Clica na primeira zona da lista do drill (botões visíveis, não <option>).
     const firstZone = page
-      .locator('[role="button"], button, [data-testid*="zona"]')
-      .filter({ hasText: /zona|leste|oeste|norte|sul|centro/i })
+      .getByRole("button")
+      .filter({ hasText: /zona (leste|oeste|norte|sul|centro)|não informad/i })
       .first();
     if (await firstZone.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await firstZone.click();
-      // Após drill, breadcrumb deve mostrar a zona escolhida.
-      await expect(page.locator("text=/zona/i").first()).toBeVisible();
+      // Após o drill, o painel continua renderizado (KPI do recorte visível).
+      await expect(page.getByText(/Volume de relatos/i).first()).toBeVisible();
     }
   });
 
