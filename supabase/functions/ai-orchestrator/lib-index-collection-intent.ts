@@ -135,26 +135,6 @@ function shouldPreserveUrbanContext(
   return !!(hasUrbanContext && assistantAskedForAddress);
 }
 
-/**
- * NREF004 — Perda de contexto: ao trocar para Avaliação de Serviço, se o cidadão
- * já disse o tipo (ex.: "quero avaliar o CEU"), inferimos esse tipo das mensagens
- * recentes para NÃO re-perguntar "qual tipo de serviço?". Varre as últimas
- * mensagens do usuário (mais recente primeiro) e devolve o primeiro tipo reconhecido.
- */
-export function inferSwitchedServiceType(
-  messages: Array<{ role: string; content: string }>,
-  lastUserMsg: string,
-  inferServiceTypeFromText: (text: string) => string | null,
-): string | undefined {
-  const userTexts = messages.filter((m) => m.role === "user").map((m) => m.content);
-  const recent = [lastUserMsg, ...userTexts.reverse()].slice(0, 8);
-  for (const text of recent) {
-    const t = inferServiceTypeFromText(text || "");
-    if (t) return t;
-  }
-  return undefined;
-}
-
 export async function resolveCollectionIntent(
   args: ResolveCollectionIntentArgs,
 ): Promise<ResolveCollectionIntentResult> {
@@ -180,19 +160,9 @@ export async function resolveCollectionIntent(
     console.log("[ai-orchestrator] JOURNEY_SWITCHED detected in message, forcing type:", switchedToType);
 
     if (STRUCTURED_TYPES_SET.has(switchedToType)) {
-      const switchFields: Record<string, unknown> = {};
-      // NREF004: carrega o tipo já mencionado (ex.: "avaliar o CEU") p/ não re-perguntar.
-      if (switchedToType === "service_rating") {
-        const inferredType = inferSwitchedServiceType(
-          chatHistoryTyped,
-          lastUserMsg,
-          lib.inferServiceTypeFromText,
-        );
-        if (inferredType) switchFields.service_type = inferredType;
-      }
       collectionIntent = {
         type: switchedToType as "urban_report" | "transport_report" | "service_rating",
-        fields: switchFields,
+        fields: {},
       };
     } else {
       collectionIntent = {
@@ -239,19 +209,9 @@ export async function resolveCollectionIntent(
       const nameForNew = JOURNEY_NAMES[detectedIntent.type];
       if (nameForNew && lastUserMsg.toLowerCase().includes(nameForNew.toLowerCase())) {
         isJourneyConflict = false;
-        const confirmedFields: Record<string, unknown> = {};
-        // NREF004: idem — preserva o tipo de serviço já dito ao confirmar a troca.
-        if (detectedIntent.type === "service_rating") {
-          const inferredType = inferSwitchedServiceType(
-            chatHistoryTyped,
-            lastUserMsg,
-            lib.inferServiceTypeFromText,
-          );
-          if (inferredType) confirmedFields.service_type = inferredType;
-        }
         collectionIntent = {
           type: detectedIntent.type as "urban_report" | "transport_report" | "service_rating",
-          fields: confirmedFields,
+          fields: {},
         };
         console.log(
           "[ai-orchestrator] User already confirmed switch to",
