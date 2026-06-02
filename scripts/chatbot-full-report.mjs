@@ -277,6 +277,39 @@ async function readScreenshotAttachment(attachment) {
   }
 }
 
+const screenshotsDir = join(root, 'tests', 'chatbot', 'screenshots');
+
+/** Evidências manuais (screenshots de testes do dia) lidas de tests/chatbot/screenshots/manifest.json. */
+async function loadManualEvidence() {
+  const manifestPath = join(screenshotsDir, 'manifest.json');
+  try {
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    const items = [];
+    for (const item of manifest.items ?? []) {
+      try {
+        const bytes = await readFile(join(screenshotsDir, item.file));
+        const ext = (item.file.split('.').pop() ?? 'png').toLowerCase();
+        const ct = ext === 'webp'
+          ? 'image/webp'
+          : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/png';
+        items.push({
+          title: item.title ?? item.file,
+          caption: item.caption ?? '',
+          status: item.status ?? '',
+          date: item.date ?? '',
+          file: item.file,
+          dataUrl: `data:${ct};base64,${bytes.toString('base64')}`,
+        });
+      } catch {
+        // arquivo do manifesto ausente: ignora
+      }
+    }
+    return { title: manifest.title ?? 'Evidências manuais', description: manifest.description ?? '', items };
+  } catch {
+    return { title: 'Evidências manuais', description: '', items: [] };
+  }
+}
+
 async function flattenPlaywrightJson(report) {
   const rows = [];
   async function walk(suite, titles = []) {
@@ -489,6 +522,7 @@ function buildHtml(data) {
     denoRaw,
     vitestRaw,
     overallOk,
+    manualEvidence,
   } = data;
 
   const denoOk = deno.failed === 0;
@@ -570,6 +604,20 @@ function buildHtml(data) {
         </figcaption>
       </figure>`),
     )
+    .join('');
+
+  const manualEvidenceCards = (manualEvidence?.items ?? [])
+    .map((shot) => `
+      <figure class="screenshot-card">
+        <button type="button" class="screenshot-trigger" data-caption="${escapeHtml(shot.title)}">
+          <img src="${escapeHtml(shot.dataUrl)}" alt="${escapeHtml(shot.title)}" loading="lazy" />
+        </button>
+        <figcaption>
+          <strong>${escapeHtml(shot.title)}</strong>
+          <span>${escapeHtml(shot.caption)}</span>
+          <code>${escapeHtml([shot.date, shot.status].filter(Boolean).join(' · ') || shot.file)}</code>
+        </figcaption>
+      </figure>`)
     .join('');
 
   function metricText(metric) {
@@ -1040,6 +1088,15 @@ function buildHtml(data) {
       ${vitest.failed > 0 ? `<div class="log-box">${escapeHtml(vitestRaw.slice(-6000))}</div>` : ''}
     </section>
 
+    ${(manualEvidence?.items?.length ?? 0) > 0 ? `
+    <section>
+      <h2>Evidências manuais — testes do dia</h2>
+      <p class="lead">${escapeHtml(manualEvidence.description || 'Capturas de tela dos testes manuais do dia.')}</p>
+      <div class="screenshot-grid">
+        ${manualEvidenceCards}
+      </div>
+    </section>` : ''}
+
     <section>
       <h2><span class="phase">Fase 3</span> E2E Playwright — ${e2e.passed}/${e2e.total}</h2>
       <p class="lead"><code>npm run test:chatbot:e2e</code> · mock SSE do orchestrator (sem LLM real)</p>
@@ -1502,6 +1559,7 @@ async function main() {
   });
 
   const overallOk = htmlOnly ? true : denoRun.code === 0 && vitestRun.code === 0 && e2eRun.code === 0;
+  const manualEvidence = await loadManualEvidence();
   const html = buildHtml({
     timestamp,
     displayDate,
@@ -1512,6 +1570,7 @@ async function main() {
     denoRaw: stripAnsi(denoRun.stdout + denoRun.stderr),
     vitestRaw: stripAnsi(vitestRun.stdout + vitestRun.stderr),
     overallOk,
+    manualEvidence,
   });
 
   const htmlPath = join(reportsDir, `report-full-${timestamp}.html`);

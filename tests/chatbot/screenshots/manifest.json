@@ -1,0 +1,27 @@
+{
+  "title": "Evidências manuais — testes do dia",
+  "description": "Capturas de tela dos testes manuais que motivaram os ajustes do chat. Embutidas no relatório completo pelo gerador (independem do Playwright).",
+  "items": [
+    {
+      "file": "2026-06-01-onibus-linha-antes.png",
+      "date": "2026-06-01",
+      "title": "Linha de ônibus — comportamento que motivou o fix (PR #336)",
+      "caption": "\"Qual a linha de ônibus que passa na avenida Lineu de Paula Machado?\" era tratada como abertura de relato (\"Qual detalhe descreve melhor esse problema?\"). Corrigido na PR #336: agora é consulta informacional e responde com dados de transporte (Olho Vivo + GeoSampa).",
+      "status": "corrigido"
+    },
+    {
+      "file": "2026-06-01-onibus-jockey-loop.png",
+      "date": "2026-06-01",
+      "title": "Ônibus / Jóquei Clube — loop de coleta de relato (PR #336)",
+      "caption": "Assistente preso em \"Qual detalhe descreve melhor esse problema?\" e ignorando o contexto ao pedir os dados do \"Perto de você\". Resolvido com a reclassificação de intenção (PR #336).",
+      "status": "corrigido"
+    },
+    {
+      "file": "2026-06-01-palavrao.png",
+      "date": "2026-06-01",
+      "title": "Tom diante de palavrão (PR #323)",
+      "caption": "Mensagem com palavrão (\"desgraça da cmsp\") não gerava ressalva. Ajustado na PR #323: o assistente faz uma ressalva curta e educada e segue ajudando.",
+      "status": "corrigido"
+    }
+  ]
+}
