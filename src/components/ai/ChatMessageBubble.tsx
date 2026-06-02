@@ -68,6 +68,7 @@ import { WaitTimePicker } from "./WaitTimePicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
+import InlineVereadorPicker from "./InlineVereadorPicker";
 import InlineSubcategoryPicker from "./InlineSubcategoryPicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import NearbyServicesFiltersInline, {
@@ -263,6 +264,7 @@ const ChatMessageBubble = ({
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
+  const [vereadorSelected, setVereadorSelected] = useState(false);
   const [ratingCommentEditing, setRatingCommentEditing] = useState(false);
   const [ratingCommentDraft, setRatingCommentDraft] = useState("");
   const [ratingCommentSaving, setRatingCommentSaving] = useState(false);
@@ -315,6 +317,7 @@ const ChatMessageBubble = ({
     !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes("[SERVICE_TYPE_PICKER]");
   const hasServicePicker = !isUser && message.content.includes("[SERVICE_PICKER]");
+  const hasVereadorPicker = !isUser && message.content.includes("[VEREADOR_PICKER]");
   const hasServiceAddressConfirm = !isUser && message.content.includes("[SERVICE_ADDRESS_CONFIRM]");
 
   // Dimensão: [DIMENSION_RATING_PICKER:X] OU [FIELD_REQUEST:dim_X] + [RATING_PICKER] / [WAIT_TIME_PICKER] para tempo (HU-4.1)
@@ -678,10 +681,12 @@ const ChatMessageBubble = ({
     );
   }, [isUser, message.content, serviceTypeSelected, hasServiceTypePicker, isLastAssistantMessage]);
 
-  // Detect service name question (incl. "Qual CEU você visitou em X? Selecione na lista")
+  // Detect service name question (incl. "Qual CEU você visitou em X? Selecione na lista").
+  // Guard: quando a mensagem fala de vereador/Câmara, é o picker de vereador (abaixo) — não o de serviço.
   const isAskingForService = useMemo(() => {
     if (isUser || serviceSelected || hasServicePicker) return false;
     const content = message.content.toLowerCase();
+    if (content.includes("vereador") || content.includes("[vereador_picker]")) return false;
     return (
       content.includes("[field_request:service_name]") ||
       (content.includes("qual o nome") && isLastAssistantMessage) ||
@@ -689,6 +694,21 @@ const ChatMessageBubble = ({
       (/qual\s+(ubs|ceu|hospital|escola)\s+você\s+visitou/i.test(content) && isLastAssistantMessage)
     );
   }, [isUser, message.content, serviceSelected, hasServicePicker, isLastAssistantMessage]);
+
+  // Detect vereador name question (fluxo de feedback à Câmara): "Sobre qual vereador...",
+  // "Qual o nome do vereador?", "[FIELD_REQUEST:council_member_name]". Mostra sempre o picker.
+  const isAskingForVereador = useMemo(() => {
+    if (isUser || vereadorSelected || hasVereadorPicker) return false;
+    if (!isLastAssistantMessage) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes("[field_request:council_member_name]") ||
+      content.includes("nome do vereador") ||
+      content.includes("nome da vereadora") ||
+      /\b(sobre|de|qual|o)\s+qual\s+vereador/.test(content) ||
+      /qual\s+vereador(a)?\b/.test(content)
+    );
+  }, [isUser, message.content, vereadorSelected, hasVereadorPicker, isLastAssistantMessage]);
 
   // Detect "como informar localização" so we show the 3 buttons even if backend didn't send the marker
   const isAskingForLocationMethod = useMemo(() => {
@@ -1114,6 +1134,11 @@ const ChatMessageBubble = ({
     if (onServiceSelected) {
       onServiceSelected(name, neighborhood, address, serviceId);
     }
+  };
+
+  const handleVereadorSelected = (name: string, party: string) => {
+    setVereadorSelected(true);
+    void onSendMessage?.(party ? `Vereador(a): ${name} (${party})` : `Vereador(a): ${name}`);
   };
 
   const handleServiceAddressConfirmed = (confirmed: boolean) => {
@@ -1861,6 +1886,11 @@ const ChatMessageBubble = ({
             onSelect={handleServiceSelected}
           />
         )}
+
+        {/* Inline Vereador Picker (fluxo de feedback à Câmara) */}
+        {(hasVereadorPicker || isAskingForVereador) &&
+          !vereadorSelected &&
+          isLastAssistantMessage && <InlineVereadorPicker onSelect={handleVereadorSelected} />}
 
         {/* Inline Service Address Confirm */}
         {hasServiceAddressConfirm &&

@@ -99,6 +99,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, "")
     .replace(/\[SERVICE_TYPE_PICKER\]/g, "")
     .replace(/\[SERVICE_PICKER(?::[^\]]+)?\]/g, "")
+    .replace(/\[VEREADOR_PICKER(?::[^\]]+)?\]/g, "")
     .replace(/\[SERVICE_ADDRESS_CONFIRM:[^\]]+\]/g, "")
     .replace(/\[SERVICE_ID:[a-f0-9-]+\]/g, "")
     .replace(/\[SUBCATEGORY_SELECTED:[a-z0-9_]+\]/gi, "")
