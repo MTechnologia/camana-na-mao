@@ -9,6 +9,9 @@
     { "id": "bus_qual_passa", "input": "qual onibus passa na rua tal", "expect_intent": "general" },
     { "id": "bus_parada", "input": "horario da parada do onibus 875", "expect_intent": "general" },
     { "id": "bus_tempo_real", "input": "onibus 509 tempo real no ponto", "expect_intent": "general" },
-    { "id": "bus_sentido", "input": "linha 875 sentido centro horario", "expect_intent": "general" }
+    { "id": "bus_sentido", "input": "linha 875 sentido centro horario", "expect_intent": "general" },
+    { "id": "bus_qual_a_linha_passa_avenida", "input": "Qual a linha de ônibus que passa na avenida Lineu de Paula Machado?", "expect_intent": "general" },
+    { "id": "bus_quais_onibus_passam_em", "input": "Quais ônibus passam na Lineu de Paula Machado?", "expect_intent": "general" },
+    { "id": "bus_linha_que_passa_pela", "input": "linha de ônibus que passa pela avenida Paulista", "expect_intent": "general" }
   ]
 }
