@@ -3,7 +3,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Building2, Search, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
+import {
+  normalizeServiceTypeToDbEnum,
+  CITIZEN_EQUIPMENT_SERVICE_TYPES,
+} from "@/lib/publicServiceType";
 import { getSaoPauloServiceRatingDayUtcBounds } from "@/lib/serviceRatingDayBounds";
 
 interface PublicService {
@@ -256,7 +259,9 @@ export const InlineServicePicker = ({
           q: ReturnType<typeof baseSelect>,
           strict: boolean,
         ): ReturnType<typeof baseSelect> => {
-          if (!st) return q;
+          // Sem tipo específico (ex.: busca de elogio/feedback): traz só equipamentos
+          // relevantes, excluindo ruído da base (endereços `transit_station`, GIS `other`).
+          if (!st) return q.in("service_type", [...CITIZEN_EQUIPMENT_SERVICE_TYPES] as string[]);
           if (strict) return q.eq("service_type", st);
           // Mesma base que "Perto de você" pode classificar equipamento de saúde como `other` no import
           if (st === "hospital") {
