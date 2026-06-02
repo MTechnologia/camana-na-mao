@@ -131,6 +131,7 @@ const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 // ANALYTICS PAGES - Lazy loaded
 // ============================================
 const AnalyticsDashboard = lazy(() => import("./pages/analytics/AnalyticsDashboard"));
+const MinhaCidade = lazy(() => import("./pages/analytics/MinhaCidade"));
 const AdvancedAnalytics = lazy(() => import("./pages/analytics/AdvancedAnalytics"));
 const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
 const WorstServicesByDimensionPage = lazy(
@@ -414,6 +415,7 @@ const AppContent = () => {
             <Route path="/transporte/historico" element={<MyReportsPage />} />
             {/* Alias usado em deep links (notificações, mensagem pós-registro no chat, docs) */}
             <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
+            <Route path="/minha-cidade" element={<MinhaCidade />} />
             <Route path="/paineis" element={<PaineisLayout />}>
               <Route index element={<PaineisIndexRoute />} />
               <Route path="avancado" element={<PaineisAvancadoRoute />} />
