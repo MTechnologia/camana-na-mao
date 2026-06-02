@@ -8,6 +8,33 @@ import { URBAN_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts"
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
 
+/** Tipos de equipamento público que o cadastro de SP (public_services) cobre. */
+const NAMED_EQUIPMENT_RE =
+  /\b(ubs|ama|upa|posto\s+de\s+sa[uú]de|pronto[-\s]?socorro|hospital|santa\s+casa|caps|emef|emei|emebs|ceu|cei|creche|escola|biblioteca|parque|cras|cdc)\b/i;
+
+/**
+ * NREF002 — Endereços fora de SP. Se o local nomeia um equipamento público
+ * (UBS, escola, hospital, etc.) que NÃO existe no cadastro de São Paulo
+ * (`public_services`, que só contém equipamentos do município), não registramos
+ * como relato da cidade — pedimos correção. Retorna a mensagem de bloqueio, ou
+ * `null` quando é um equipamento de SP OU quando o texto não nomeia um equipamento.
+ */
+export async function validateNamedEquipmentInSaoPaulo(
+  supabase: SupabaseClient,
+  locationText: string,
+  getServiceAddressByName: (supabase: SupabaseClient, serviceName: string) => Promise<string | null>,
+): Promise<string | null> {
+  const text = (locationText || "").trim();
+  if (text.length < 6 || !NAMED_EQUIPMENT_RE.test(text)) return null;
+  const found = await getServiceAddressByName(supabase, text);
+  if (found) return null;
+  return (
+    `Não encontrei **${text}** entre os equipamentos públicos do **município de São Paulo**. ` +
+    `Só consigo registrar locais e equipamentos da cidade de São Paulo — confira o nome e o bairro e tente novamente. ` +
+    `Se o equipamento fica em outra cidade (ex.: Guarulhos, Osasco), procure os canais daquele município.`
+  );
+}
+
 type GeocodeAddressInput = {
   street?: string | null;
   street_number?: string | null;
@@ -30,6 +57,7 @@ type CreateUrbanReportDeps = {
   mapUrbanRiskLevelToSeverity: (riskLevel: string | null | undefined) => string | null;
   geocodeAddressWithGoogle: (supabase: SupabaseClient, addressParts: GeocodeAddressInput) => Promise<GeocodeCoords>;
   geocodeAddressToCoord: (addressParts: GeocodeAddressInput) => Promise<GeocodeCoords>;
+  getServiceAddressByName: (supabase: SupabaseClient, serviceName: string) => Promise<string | null>;
   adjustSeverityForProximityToSensitiveEquipment: (
     supabase: SupabaseClient,
     lat: number,
@@ -335,6 +363,17 @@ export async function handleCreateUrbanReport(
       success: false,
       message: "Preciso saber a rua e o bairro para registrar o relato. Qual o CEP ou endereço do local?",
     };
+  }
+
+  // NREF002 — Endereços fora de SP: equipamento nomeado que não consta no
+  // cadastro do município de São Paulo (ex.: "UBS Rosa de França" / Guarulhos).
+  const outsideSpEquipmentMsg = await validateNamedEquipmentInSaoPaulo(
+    supabase,
+    String(eff.street ?? ""),
+    deps.getServiceAddressByName,
+  );
+  if (outsideSpEquipmentMsg) {
+    return { success: false, message: outsideSpEquipmentMsg };
   }
 
   if (deps.urbanRiskCollectionCategories.includes(String(eff.category || ""))) {
