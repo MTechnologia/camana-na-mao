@@ -69,6 +69,14 @@ function buildUrbanPreview(
     .join(", ");
   const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : "";
 
+  // Feedback à Câmara não tem endereço — no lugar, mostramos o vereador.
+  const isChamberFeedback = cat === "feedback_camara";
+  const councilName = String(accumulatedFields.council_member_name || "").trim();
+  const councilParty = String(accumulatedFields.council_member_party || "").trim();
+  const targetLine = isChamberFeedback
+    ? `• **Vereador(a):** ${councilName || "—"}${councilParty ? ` (${councilParty})` : ""}`
+    : `• **Endereço:** ${addr}${neighborhood}${photoLine}`;
+
   return buildUrbanProgressContent(
     accumulatedFields,
     `**Resumo do relato**
@@ -78,7 +86,7 @@ function buildUrbanPreview(
 • **Descrição:** ${(accumulatedFields.description || "").toString().slice(0, 200)}${
       (accumulatedFields.description || "").toString().length > 200 ? "..." : ""
     }${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
-• **Endereço:** ${addr}${neighborhood}${photoLine}
+${targetLine}
 
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`,
   );
@@ -260,6 +268,12 @@ export async function handleDeterministicUrbanAutoCreate(
   }
 
   if (!askedPhotoChoice && !askedToAttach && !showedPreview && !showedSimilarReports) {
+    // Feedback à Câmara não anexa imagens: pula a pergunta de fotos e vai ao resumo.
+    if (String(accumulatedFields.category || "") === "feedback_camara") {
+      const preview = buildUrbanPreview(accumulatedFields, lib);
+      console.log("[ai-orchestrator] Feedback à Câmara: pulando etapa de fotos → preview direto");
+      return { response: createSseResponse(preview, lib.corsHeaders) };
+    }
     if (askedCorrectionField || userSentCorrectionLikeText) {
       const preview = buildUrbanPreview(accumulatedFields, lib);
       console.log(

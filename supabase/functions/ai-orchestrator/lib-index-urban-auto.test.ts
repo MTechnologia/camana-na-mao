@@ -165,3 +165,40 @@ Deno.test("handleDeterministicUrbanAutoCreate mostra preview quando usuário rec
   assertEquals(text.includes("**Resumo do relato**"), true);
   assertEquals(text.includes("Rua A, 123 - Centro"), true);
 });
+
+Deno.test("handleDeterministicUrbanAutoCreate: feedback_camara vai direto ao resumo (sem etapa de fotos) e mostra o vereador", async () => {
+  const result = await handleDeterministicUrbanAutoCreate({
+    accumulatedFields: {
+      category: "feedback_camara",
+      report_nature: "reclamacao",
+      description: "A vereadora não respondeu meu ofício sobre a creche do bairro.",
+      council_member_name: "Amanda Paschoal",
+      council_member_party: "PSOL",
+    },
+    attachmentUrls: [],
+    conversationId: undefined,
+    lastAssistantLower: "esse seu feedback é uma reclamação, uma sugestão ou um elogio?",
+    lastAssistantMessage: "Esse seu feedback é uma reclamação, uma sugestão ou um elogio?",
+    lastUserMessage: "Reclamação",
+    msgLower: "reclamação",
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      REPORT_NATURE_LABELS: { reclamacao: "Reclamação" },
+      formatUrbanReportPreviewAfterCategory: () => "",
+      formatUrbanReportPreviewAfterDescription: () => "",
+    } as any,
+  });
+
+  assertExists(result.response);
+  const text = await result.response!.text();
+  assertEquals(text.includes("**Resumo do relato**"), true);
+  // Não pergunta sobre fotos
+  assertEquals(text.includes("anexar imagens"), false);
+  // Mostra o vereador no lugar do endereço
+  assertEquals(text.includes("Amanda Paschoal"), true);
+  assertEquals(text.includes("PSOL"), true);
+});
