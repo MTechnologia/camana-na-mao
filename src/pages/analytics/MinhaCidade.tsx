@@ -253,16 +253,17 @@ const MinhaCidade = () => {
             lastUpdated={lastUpdated}
           >
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="w-full sm:w-1/2">
-                <ResponsiveContainer width="100%" height={240}>
+              <div className="w-full sm:w-3/5">
+                <ResponsiveContainer width="100%" height={340}>
                   <PieChart>
                     <Pie
                       data={categoryData.length ? categoryData : [{ name: "Sem dados", value: 1 }]}
                       cx="50%"
                       cy="50%"
-                      innerRadius={48}
-                      outerRadius={88}
+                      innerRadius={78}
+                      outerRadius={140}
                       paddingAngle={1}
+                      minAngle={4}
                       dataKey="value"
                     >
                       {categoryData.map((_, index) => (
@@ -274,7 +275,7 @@ const MinhaCidade = () => {
                 </ResponsiveContainer>
               </div>
               {categoryLegend.length > 0 && (
-                <ul className="w-full sm:w-1/2 space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+                <ul className="w-full sm:w-2/5 space-y-1.5 max-h-[340px] overflow-y-auto pr-1">
                   {categoryLegend.map((c, index) => (
                     <li
                       key={c.name}
