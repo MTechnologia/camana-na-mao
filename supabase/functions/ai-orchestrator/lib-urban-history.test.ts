@@ -74,3 +74,33 @@ Deno.test("accumulateFieldsFromHistory: captura endereço livre quando o cidadã
   assertEquals(fields.street, "Rua das Flores");
   assertEquals(fields.neighborhood, "Centro");
 });
+
+Deno.test("accumulateFieldsFromHistory: service_rating infere service_type já dito (NREF004 — não re-pergunta o tipo)", () => {
+  const fields = accumulateFieldsFromHistory(
+    [
+      { role: "user", content: "E nas atividades do Ceu aqui de casa" },
+      { role: "assistant", content: "Para se inscrever nas atividades de um CEU..." },
+      { role: "user", content: "Quero avaliar o ceu aqui de casa" },
+      {
+        role: "user",
+        content:
+          "[JOURNEY_SWITCHED:service_rating] Sim, quero iniciar Avaliação de Serviço. Estou ciente de que o progresso atual pode não ser salvo.",
+      },
+    ],
+    "service_rating",
+  );
+
+  assertEquals(fields.service_type, "ceu");
+});
+
+Deno.test("accumulateFieldsFromHistory: service_rating sem tipo mencionado não infere service_type", () => {
+  const fields = accumulateFieldsFromHistory(
+    [
+      { role: "user", content: "Quero avaliar um serviço" },
+      { role: "user", content: "[JOURNEY_SWITCHED:service_rating] Sim, quero iniciar Avaliação de Serviço." },
+    ],
+    "service_rating",
+  );
+
+  assertEquals(fields.service_type, undefined);
+});

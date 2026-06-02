@@ -372,6 +372,20 @@ export function accumulateFieldsFromHistory(
       parseRatingDimensionsMarker,
       applyCompleteRatingDimensionsToAccumulated,
     });
+
+    // NREF004 — não perder contexto: se o cidadão já disse o tipo ("quero avaliar
+    // o CEU/UBS/hospital…") antes de trocar para a avaliação, infere o service_type
+    // das mensagens recentes para o fluxo NÃO re-perguntar "qual tipo de serviço?".
+    if (!accumulated.service_type) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role !== 'user') continue;
+        const inferred = inferServiceTypeFromText(getHistoryMessageText(messages[i]));
+        if (inferred) {
+          accumulated.service_type = inferred;
+          break;
+        }
+      }
+    }
   }
   
   // ========== TRANSPORT_REPORT SPECIFIC PARSING ==========
