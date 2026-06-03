@@ -34,7 +34,9 @@ export const InlineVereadorPicker = ({ onSelect }: InlineVereadorPickerProps) =>
 
   const filtered = useMemo(() => {
     const term = normCompare(query);
-    if (!term) return vereadores;
+    // Sem texto digitado não pré-exibimos ninguém: a lista completa poluía a
+    // conversa. A busca só começa quando o munícipe escreve nome/partido.
+    if (!term) return [];
     return vereadores.filter((v) => {
       return (
         normCompare(v.name).includes(term) ||
@@ -79,6 +81,7 @@ export const InlineVereadorPicker = ({ onSelect }: InlineVereadorPickerProps) =>
         )}
       </div>
 
+      {(isLoading || isError || hasQuery) && (
       <div className="mt-2 rounded-md border bg-popover">
         {isLoading ? (
           <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
@@ -136,6 +139,7 @@ export const InlineVereadorPicker = ({ onSelect }: InlineVereadorPickerProps) =>
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

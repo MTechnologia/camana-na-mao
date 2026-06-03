@@ -28,14 +28,28 @@ afterEach(() => {
 });
 
 describe("InlineVereadorPicker", () => {
-  it("lista todos os vereadores e rotula a busca como 'Qual o nome do vereador?'", () => {
+  it("rotula a busca e NÃO pré-exibe vereadores enquanto nada foi digitado", () => {
     mockState({ data: VEREADORES });
     render(<InlineVereadorPicker onSelect={vi.fn()} />);
 
     expect(screen.getByText("Qual o nome do vereador?")).toBeTruthy();
+    // Sem texto digitado a lista não aparece (evita poluição visual).
+    expect(screen.queryByText("Milton Leite")).toBeNull();
+    expect(screen.queryByText("Rubinho Nunes")).toBeNull();
+    expect(screen.queryByText("Tito Bernardes")).toBeNull();
+  });
+
+  it("passa a exibir vereadores assim que o munícipe começa a digitar", () => {
+    mockState({ data: VEREADORES });
+    render(<InlineVereadorPicker onSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Digite o nome ou partido..."), {
+      target: { value: "uni" },
+    });
+
     expect(screen.getByText("Milton Leite")).toBeTruthy();
     expect(screen.getByText("Rubinho Nunes")).toBeTruthy();
-    expect(screen.getByText("Tito Bernardes")).toBeTruthy();
+    expect(screen.queryByText("Tito Bernardes")).toBeNull();
   });
 
   it("filtra por nome (ignorando acentos) e devolve nome + partido ao selecionar", () => {
