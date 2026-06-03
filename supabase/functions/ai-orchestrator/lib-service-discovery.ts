@@ -54,6 +54,8 @@ export function getServiceTypeName(type: string): string {
 
 export function inferServiceTypeFromText(text: string): string | null {
   const t = text.toLowerCase().trim();
+  // "usb" é transposição/typo recorrente de "ubs" (unidade básica de saúde).
+  if (/\busb\b/.test(t)) return "ubs";
   if (/\bubs[\u0027\u2019']?s?\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return "ubs";
   if (/\bceu[s]?\b|centro\s+educacional/.test(t)) return "ceu";
   if (/\bhospital(is)?\b|\bhospitais\b/.test(t)) return "hospital";

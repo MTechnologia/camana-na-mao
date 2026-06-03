@@ -25,6 +25,31 @@ export function detectServiceLocationDuvida(description: string): string | null 
   return inferServiceTypeFromText(text);
 }
 
+const SERVICE_QUERY_STOPWORDS = new Set([
+  "onde", "fica", "ficam", "localizacao", "localiza", "localizada", "localizado", "endereco",
+  "perto", "proximo", "proxima", "proximos", "proximas", "mais", "como", "chego", "chegar",
+  "qual", "quais", "gostaria", "quero", "saber", "favor", "por", "me", "dizer", "tem", "ha", "existe",
+  "uma", "um", "a", "o", "os", "as", "de", "da", "do", "das", "dos", "na", "no", "nas", "nos", "em", "pra", "para",
+]);
+
+/**
+ * Extrai o termo de busca de um pedido de localização ("Onde fica a usb vila
+ * maria" → "ubs vila maria"): corrige o typo usb→ubs e remove palavras de
+ * pergunta/localização, para casar com getServiceAddressByName (full-text).
+ */
+export function extractServiceSearchTerm(description: string): string {
+  const normalized = (description || "")
+    .toLowerCase()
+    .replace(/\busb\b/g, "ubs")
+    .replace(/[?!.,;:]/g, " ");
+  const kept = normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((tok) => !SERVICE_QUERY_STOPWORDS.has(tok.normalize("NFD").replace(/\p{M}/gu, "")));
+  const term = kept.join(" ").trim();
+  return term.length >= 3 ? term : (description || "").trim();
+}
+
 type PromptContextArgs = {
   accumulatedFields: Record<string, unknown>;
   aiChatModel: string;
@@ -140,14 +165,39 @@ export async function buildPromptContextAndTools(
     const duvidaServiceType = detectServiceLocationDuvida(urbanDuvidaDescription);
     if (duvidaServiceType) {
       // Pergunta de localização de serviço público (ex.: "Onde fica a UBS Vila
-      // Maria?"). Orienta o modelo a usar find_nearby_services (que tem endereço)
-      // em vez de buscar na base da Câmara e deflectir para Prefeitura/156.
-      dynamicSystemPrompt = dynamicSystemPrompt +
-        `\n\n[Dúvida sobre localização de serviço público]: O cidadão quer saber onde fica / como chegar a um equipamento público (tipo: ${duvidaServiceType}). Use a ferramenta **find_nearby_services** com service_type="${duvidaServiceType}" e, se ele citar um bairro/região (ex.: "Vila Maria"), passe-o em district, para responder com o **endereço** da unidade. NÃO diga que a base da Câmara não possui o endereço, nem encaminhe para Prefeitura/156/Busca Saúde, antes de tentar a busca de serviços do próprio app.`;
-      console.log(
-        "[ai-orchestrator] Urban duvida é pergunta de localização de serviço → orientando find_nearby_services:",
-        duvidaServiceType,
-      );
+      // Maria?"). Primeiro tenta ATERRISSAR no endereço real do public_services
+      // (ETL GeoSampa) — o modelo estava inventando endereço (alucinou "Tamandaré
+      // de Toledo, 306" sendo que o correto é "R. André da Fonseca, 70").
+      const serviceSearchTerm = extractServiceSearchTerm(urbanDuvidaDescription);
+      const hasNamedTarget = serviceSearchTerm.split(/\s+/).filter(Boolean).length >= 2;
+      let groundedAddress: string | null = null;
+      if (hasNamedTarget && typeof lib.getServiceAddressByName === "function") {
+        try {
+          groundedAddress = await lib.getServiceAddressByName(supabase, serviceSearchTerm);
+        } catch (e) {
+          console.warn(
+            "[ai-orchestrator] getServiceAddressByName (duvida) falhou:",
+            (e as Error).message,
+          );
+        }
+      }
+      if (groundedAddress) {
+        dynamicSystemPrompt = dynamicSystemPrompt +
+          `\n\n[Endereço oficial do serviço público — base do app]:\n${groundedAddress}\n\nInstrução: Responda informando EXATAMENTE este endereço (e o telefone, se houver) como está acima. **Proibido** inventar, alterar ou completar o endereço com qualquer outra fonte. NÃO diga que a base da Câmara não possui o endereço e NÃO encaminhe para 156/Prefeitura/Busca Saúde — o endereço já está acima.`;
+        console.log(
+          "[ai-orchestrator] Urban duvida: endereço de serviço aterrissado do public_services:",
+          serviceSearchTerm,
+        );
+      } else {
+        // Sem correspondência por nome: orienta a ferramenta de busca, mas proíbe
+        // inventar — endereço só pode vir do que a ferramenta retornar.
+        dynamicSystemPrompt = dynamicSystemPrompt +
+          `\n\n[Dúvida sobre localização de serviço público]: O cidadão quer saber onde fica / como chegar a um equipamento público (tipo: ${duvidaServiceType}). Use a ferramenta **find_nearby_services** com service_type="${duvidaServiceType}" e, se ele citar um bairro/região (ex.: "Vila Maria"), passe-o em district, e responda com o **endereço retornado pela ferramenta**. **NUNCA invente um endereço**: se a ferramenta não retornar nada, diga com honestidade que não localizou e ofereça o canal oficial (156). NÃO afirme que a base da Câmara não possui o endereço antes de tentar a busca de serviços do app.`;
+        console.log(
+          "[ai-orchestrator] Urban duvida é pergunta de localização de serviço → orientando find_nearby_services:",
+          duvidaServiceType,
+        );
+      }
     } else {
       try {
         const kb = await lib.searchKnowledgeBaseForUrbanDuvida(supabase, urbanDuvidaDescription);
