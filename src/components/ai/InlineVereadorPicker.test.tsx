@@ -28,14 +28,28 @@ afterEach(() => {
 });
 
 describe("InlineVereadorPicker", () => {
-  it("lista todos os vereadores e rotula a busca como 'Qual o nome do vereador?'", () => {
+  it("rotula a busca e NÃO pré-exibe vereadores enquanto nada foi digitado", () => {
     mockState({ data: VEREADORES });
     render(<InlineVereadorPicker onSelect={vi.fn()} />);
 
     expect(screen.getByText("Qual o nome do vereador?")).toBeTruthy();
+    // Sem texto digitado a lista não aparece (evita poluição visual).
+    expect(screen.queryByText("Milton Leite")).toBeNull();
+    expect(screen.queryByText("Rubinho Nunes")).toBeNull();
+    expect(screen.queryByText("Tito Bernardes")).toBeNull();
+  });
+
+  it("passa a exibir vereadores assim que o munícipe começa a digitar", () => {
+    mockState({ data: VEREADORES });
+    render(<InlineVereadorPicker onSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Digite o nome ou partido..."), {
+      target: { value: "uni" },
+    });
+
     expect(screen.getByText("Milton Leite")).toBeTruthy();
     expect(screen.getByText("Rubinho Nunes")).toBeTruthy();
-    expect(screen.getByText("Tito Bernardes")).toBeTruthy();
+    expect(screen.queryByText("Tito Bernardes")).toBeNull();
   });
 
   it("filtra por nome (ignorando acentos) e devolve nome + partido ao selecionar", () => {
@@ -64,6 +78,28 @@ describe("InlineVereadorPicker", () => {
 
     expect(screen.getByText("Tito Bernardes")).toBeTruthy();
     expect(screen.queryByText("Milton Leite")).toBeNull();
+  });
+
+  it("NREF012: exibe TODOS os vereadores de um partido com mais de 4 representantes", () => {
+    const PT = Array.from({ length: 8 }, (_, i) => ({
+      id: `pt-${i + 1}`,
+      name: `Vereador PT ${i + 1}`,
+      party: "PT",
+    }));
+    mockState({ data: [...PT, { id: "x", name: "Outro", party: "PSDB" }] });
+    render(<InlineVereadorPicker onSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Digite o nome ou partido..."), {
+      target: { value: "pt" },
+    });
+
+    // Nenhum dos 8 pode ficar de fora (bug: só os 4 primeiros apareciam).
+    for (const v of PT) {
+      expect(screen.getByText(v.name)).toBeTruthy();
+    }
+    expect(screen.queryByText("Outro")).toBeNull();
+    // Mostra a contagem para o usuário saber que há mais do que cabe na tela.
+    expect(screen.getByText(/8 vereadores encontrados/i)).toBeTruthy();
   });
 
   it("mostra mensagem amigável quando o nome não existe (ex.: 'Fulano de tal')", () => {
