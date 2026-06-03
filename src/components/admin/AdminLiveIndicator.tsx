@@ -16,6 +16,8 @@ interface AdminLiveIndicatorProps {
   className?: string;
   /** Contraste para barra global escura (Dashboard, Gestão, Encaminhamentos). */
   tone?: AdminLiveIndicatorTone;
+  /** Exibe apenas "Ao vivo" (sem o sufixo "• atualizado …") — usado no mobile. */
+  compact?: boolean;
 }
 
 const toneStyles: Record<AdminLiveIndicatorTone, { root: string; muted: string }> = {
@@ -48,15 +50,17 @@ export function AdminLiveIndicator({
   lastUpdate,
   className,
   tone = "default",
+  compact = false,
 }: AdminLiveIndicatorProps) {
   const styles = toneStyles[tone];
   const [, force] = useState(0);
 
-  // Atualiza o texto relativo a cada 5s
+  // Atualiza o texto relativo a cada 5s (desnecessário no modo compacto).
   useEffect(() => {
+    if (compact) return;
     const id = setInterval(() => force((n) => n + 1), 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [compact]);
 
   return (
     <div
@@ -74,7 +78,7 @@ export function AdminLiveIndicator({
       </span>
       <span>
         Ao vivo
-        {lastUpdate && (
+        {!compact && lastUpdate && (
           <span className={cn("ml-1", styles.muted)}>
             • atualizado {formatRelative(lastUpdate)}
           </span>

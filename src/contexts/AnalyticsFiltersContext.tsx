@@ -22,11 +22,13 @@ export type GlobalFilters = {
   category: string;
 };
 
-const defaultFilters: GlobalFilters = {
+export const DEFAULT_GLOBAL_FILTERS: GlobalFilters = {
   period: "last_30d",
   region: "all",
   category: "all",
 };
+
+const defaultFilters = DEFAULT_GLOBAL_FILTERS;
 
 function buildCompareState(basePeriod: string): PeriodComparePickerValue {
   const { from, to } = globalPeriodKeyToDateRange(basePeriod);
