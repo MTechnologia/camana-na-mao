@@ -5,10 +5,9 @@ import {
   Star,
   MapPin,
   HelpCircle,
-  Landmark,
   LayoutList,
   Calendar,
-  CalendarCheck,
+  Mic2,
   Newspaper,
   ChevronDown,
   FileText,
@@ -76,42 +75,42 @@ const chips: PromptChip[] = [
   },
   {
     id: "services",
-    label: "Serviços próximos",
+    label: "Perto de Você",
     message: "Buscar serviços perto de mim",
     icon: MapPin,
     collectionType: null,
   },
   {
     id: "estrutura",
-    label: "Conhecer a Câmara",
+    label: "Conheça a Câmara",
     message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
-    icon: Landmark,
+    icon: Building2,
     collectionType: null,
   },
   {
     id: "audiencias",
-    label: "Audiências públicas",
+    label: "Audiências Públicas",
     message: "Mostre as audiências públicas agendadas",
-    icon: CalendarCheck,
+    icon: Mic2,
     collectionType: null,
   },
   {
     id: "comissoes",
-    label: "Comissões e atribuições",
+    label: "Comissões",
     message: "Quais são as comissões da Câmara e o que cada uma faz?",
     icon: LayoutList,
     collectionType: null,
   },
   {
     id: "agenda",
-    label: "Ver agenda",
+    label: "Agenda da Câmara",
     message: "Quais são as próximas atividades da Câmara? O que tem na agenda?",
     icon: Calendar,
     collectionType: null,
   },
   {
     id: "noticias",
-    label: "Ver notícias",
+    label: "Notícias",
     message: "Quais as últimas notícias da Câmara?",
     icon: Newspaper,
     collectionType: null,
@@ -125,19 +124,19 @@ const chips: PromptChip[] = [
   },
 ];
 
-/** IDs dos chips principais exibidos sempre; o restante fica no dropdown "Ver todos" */
-const PRIMARY_CHIP_IDS = [
-  "urban",
-  "urban_quick",
-  "manual_report",
-  "evaluate",
-  "services",
-  "audiencias",
-  "estrutura",
-];
+/**
+ * Chips de destaque da Home — espelham as funcionalidades do onboarding (NREF008),
+ * na mesma ordem: Relatos Urbanos → Transporte Público → Audiências Públicas →
+ * Serviços Próximos. (A tela "Assistente IA" do onboarding é o próprio chat.)
+ * O restante fica no dropdown "Ver todos".
+ */
+const PRIMARY_CHIP_IDS = ["urban", "transport", "audiencias", "services"];
 
 const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
-  const primaryChips = chips.filter((c) => PRIMARY_CHIP_IDS.includes(c.id));
+  // Ordena os destaques conforme PRIMARY_CHIP_IDS (ordem do onboarding), não a ordem do array.
+  const primaryChips = PRIMARY_CHIP_IDS.map((id) => chips.find((c) => c.id === id)).filter(
+    (c): c is PromptChip => Boolean(c),
+  );
   const otherChips = chips.filter((c) => !PRIMARY_CHIP_IDS.includes(c.id));
 
   const renderChip = (chip: PromptChip, index: number) => {

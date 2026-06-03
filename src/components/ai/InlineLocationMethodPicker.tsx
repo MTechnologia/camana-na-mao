@@ -122,16 +122,18 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
             size="sm"
             onClick={() => handleSelect(id)}
             disabled={loading}
-            className="flex items-start gap-3 h-auto py-2.5 px-3 text-left justify-start"
+            className="flex w-full items-start gap-3 h-auto py-2.5 px-3 text-left justify-start whitespace-normal"
           >
             {loading && id === "gps" ? (
               <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 mt-0.5" />
             ) : (
               <Icon className="h-4 w-4 flex-shrink-0 mt-0.5" />
             )}
-            <span className="flex flex-col gap-0.5">
-              <span className="font-medium">{label}</span>
-              <span className="text-xs text-muted-foreground font-normal">{description}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-medium break-words">{label}</span>
+              <span className="text-xs text-muted-foreground font-normal break-words">
+                {description}
+              </span>
             </span>
           </Button>
         ))}
