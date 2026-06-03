@@ -93,7 +93,7 @@ export const ChartCard = ({
               {onDrillDown && (
                 <DropdownMenuItem onClick={onDrillDown}>
                   <Search className="h-4 w-4 mr-2" />
-                  Abrir drill-down
+                  Ver o próximo nível
                 </DropdownMenuItem>
               )}
               {canExport && (

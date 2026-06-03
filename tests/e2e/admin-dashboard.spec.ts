@@ -60,9 +60,12 @@ test.describe("Admin Dashboard", () => {
     await expect(sidebar).toContainText(/Análise de relatos urbanos/i);
   });
 
-  test("admin: seção de cruzamento analítico (drill-across) renderiza", async ({ page }) => {
+  test("admin: seção de cruzamento analítico renderiza", async ({ page }) => {
     await login(page, "admin");
     await page.goto("/admin");
+
+    // Cruzamento analítico vive na aba dedicada do dashboard.
+    await page.getByRole("tab", { name: /Cruzamento analítico/i }).click();
 
     await expect(page.getByRole("heading", { name: /Cruzamento analítico/i })).toBeVisible({
       timeout: 15_000,

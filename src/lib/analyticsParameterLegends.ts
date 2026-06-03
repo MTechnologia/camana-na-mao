@@ -806,9 +806,9 @@ export const EXECUTIVE_CROSS_ANALYTICS_LEGENDS: ParameterLegendItem[] = [
       "Cor mais escura = mais relatos naquele cruzamento. Clique para listar os relatos (painel lateral).",
   },
   {
-    term: "Drill-across vs. gráfico territorial",
+    term: "Cruzamento vs. gráfico territorial",
     description:
-      "O heatmap cruza dimensões analíticas. O gráfico de barras acima faz drill-down territorial (região → bairro → rua).",
+      "O heatmap cruza dimensões analíticas. O gráfico de barras acima detalha por nível territorial (região → bairro → rua).",
   },
   {
     term: "Recorte global",

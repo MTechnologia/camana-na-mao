@@ -8,10 +8,10 @@ import { EXECUTIVE_CROSS_ANALYTICS_LEGENDS } from "@/lib/analyticsParameterLegen
  */
 export function ExecutiveCrossAnalyticsSection() {
   return (
-    <section className="mt-8 space-y-4" aria-labelledby="executive-cross-heading">
+    <section className="space-y-4" aria-labelledby="executive-cross-heading">
       <div className="space-y-2">
         <h2 id="executive-cross-heading" className="text-sm font-medium text-foreground">
-          Cruzamento analítico (drill-across)
+          Cruzamento analítico
         </h2>
         <p className="text-xs text-muted-foreground">
           Cruze tipo de problema com perfil demográfico ou outras dimensões. Clique em uma célula

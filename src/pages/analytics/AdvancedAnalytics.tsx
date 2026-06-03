@@ -157,10 +157,10 @@ const AdvancedAnalytics = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="drill-down">Drill Down</SelectItem>
-                  <SelectItem value="drill-up">Drill Up</SelectItem>
-                  <SelectItem value="drill-across">Drill Across</SelectItem>
-                  <SelectItem value="drill-through">Drill Through</SelectItem>
+                  <SelectItem value="drill-down">Detalhar (próximo nível)</SelectItem>
+                  <SelectItem value="drill-up">Voltar (nível acima)</SelectItem>
+                  <SelectItem value="drill-across">Cruzar dimensões</SelectItem>
+                  <SelectItem value="drill-through">Abrir relatos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
