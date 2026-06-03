@@ -758,6 +758,29 @@ export function detectCollectionIntent(
     urbanScore = 0;
   }
 
+  // Feedback à Câmara ("quero elogiar/reclamar/sugerir + vereador") compartilha
+  // as palavras de natureza (elogio/sugestão/reclamação) com o domínio urbano e
+  // dispara as frases explícitas de relato urbano ("quero elogiar", "quero fazer
+  // um elogio"), que recebem boost +15 mais adiante. Sem isto, "Quero elogiar um
+  // vereador" virava relato urbano genérico ("qual é o tipo do seu relato sobre
+  // a cidade?"). Quando o cidadão ancora num vereador/câmara e NÃO cita um
+  // problema urbano concreto, isto é feedback à Câmara — suprimimos o relato
+  // urbano para o intent de câmara prevalecer.
+  const chamberEntityKeywords = ["vereador", "vereadora", "câmara", "camara", "parlamentar", "gabinete", "cmsp"];
+  const urbanFeedbackNatureWords = [
+    "elogio", "elogiar", "sugestão", "sugestao", "parabéns", "parabens",
+    "agradeço", "agradeco", "agradecer", "parabenizar",
+  ];
+  const mentionsChamberEntity = chamberEntityKeywords.some((kw) => contextIncludes(fullUserContext, kw));
+  const hasConcreteUrbanSignal =
+    urbanDomain.some((kw) => !urbanFeedbackNatureWords.includes(kw) && contextIncludes(fullUserContext, kw)) ||
+    urbanProblems.some((kw) => contextIncludes(fullUserContext, kw));
+  const chamberFeedbackOverUrban = mentionsChamberEntity && !hasConcreteUrbanSignal;
+  if (chamberFeedbackOverUrban) {
+    console.log("[detectCollectionIntent] Chamber-anchored feedback (elogio/reclamação/sugestão sobre vereador) — suprimindo relato urbano");
+    urbanScore = 0;
+  }
+
   if (urbanScore > 0 && !isCamaraFuncInterno) {
     scores.push({ type: "urban_report", score: urbanScore, fields: extractUrbanFields(fullUserContext) });
   }
@@ -1051,7 +1074,17 @@ export function detectCollectionIntent(
     );
   }
 
-  if (lastMsgExplicitIntent) {
+  // Não deixar a frase explícita de relato urbano ("quero elogiar"/"quero fazer
+  // um elogio") sobrepor o feedback à Câmara quando o cidadão fala de vereador.
+  const explicitBoostSuppressed =
+    !!lastMsgExplicitIntent &&
+    lastMsgExplicitIntent.type === "urban_report" &&
+    chamberFeedbackOverUrban;
+  if (explicitBoostSuppressed) {
+    console.log("[detectCollectionIntent] Boost explícito de relato urbano suprimido (feedback à Câmara sobre vereador)");
+  }
+
+  if (lastMsgExplicitIntent && !explicitBoostSuppressed) {
     const targetScore = scores.find((s) => s.type === lastMsgExplicitIntent.type);
     if (targetScore) {
       targetScore.score += lastMsgExplicitIntent.boost;
