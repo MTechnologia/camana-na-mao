@@ -7,7 +7,7 @@ import {
 } from "@/lib/reportsAnalyticsAggregates";
 import {
   escapeForIlike,
-  matchesTerritoryBar,
+  isStreetFallbackBar,
   matchesTerritoryBarWithStreet,
   parseStreetBarLabel,
   shouldFetchEvaluationsForCategory,
@@ -211,8 +211,11 @@ async function fetchTransportDrillRows(
   filters: ReportsAnalyticsFilters,
   bar: ChartBarPoint,
   categorySlice: ReturnType<typeof resolveGlobalCategoryFilter>,
+  scope?: DrillThroughScope,
 ): Promise<SortableRow[]> {
-  if (bar.filterKey === "street") {
+  // Logradouros nomeados são exclusivos de relatos urbanos; só o bucket "Sem
+  // logradouro definido" pode conter transporte (que não tem logradouro).
+  if (bar.filterKey === "street" && !isStreetFallbackBar(bar)) {
     return [];
   }
 
@@ -236,10 +239,10 @@ async function fetchTransportDrillRows(
   let query = supabase
     .from("transport_reports")
     .select(
-      "id, description, status, created_at, report_type, sub_category, location, stop_location",
+      "id, description, status, created_at, report_type, sub_category, stop_name, location, stop_location",
     )
     .order("created_at", { ascending: false })
-    .limit(120);
+    .limit(territorialFetchLimit(bar));
 
   query = applyDateFilters(query, filters);
 
@@ -260,33 +263,57 @@ async function fetchTransportDrillRows(
   }
 
   return (data ?? [])
-    .filter((r) =>
-      bar.filterKey === "category"
-        ? true
-        : matchesTerritoryBar(bar, filters.region, null, r.location ?? r.stop_location),
-    )
+    .filter((r) => {
+      if (bar.filterKey === "category") return true;
+      const neighborhood = (r.stop_name as string | null) ?? null;
+      const location = r.location ?? r.stop_location ?? null;
+      return matchesTerritoryBarWithStreet(
+        bar,
+        filters.region,
+        neighborhood,
+        location,
+        null,
+        null,
+        null,
+        null,
+        scope?.activeDistrict,
+        scope?.activeRegion,
+      );
+    })
     .map(toTransportRow);
 }
 
 async function fetchEvaluationDrillRows(
   filters: ReportsAnalyticsFilters,
   bar: ChartBarPoint,
+  categorySlice: ReturnType<typeof resolveGlobalCategoryFilter>,
+  scope?: DrillThroughScope,
 ): Promise<SortableRow[]> {
-  if (bar.filterKey !== "category" || !shouldFetchEvaluationsForCategory(bar.filterValue)) {
-    return [];
-  }
+  const isCategory = bar.filterKey === "category";
+  const isTerritory =
+    bar.filterKey === "region" || bar.filterKey === "district" || bar.filterKey === "street";
+
+  if (isCategory && !shouldFetchEvaluationsForCategory(bar.filterValue)) return [];
+  if (!isCategory && !isTerritory) return [];
+  // Avaliações não têm logradouro próprio; no nível rua só entram no fallback.
+  if (bar.filterKey === "street" && !isStreetFallbackBar(bar)) return [];
 
   let query = supabase
     .from("service_ratings")
     .select(
-      "id, rating_text, created_at, public_services!inner(name, service_type, district, latitude, longitude)",
+      "id, rating_text, created_at, public_services!inner(name, service_type, district, address, latitude, longitude)",
     )
     .eq("publication_status", "published")
-    .eq("public_services.service_type", bar.filterValue)
     .order("created_at", { ascending: false })
-    .limit(120);
+    .limit(territorialFetchLimit(bar));
 
   query = applyDateFilters(query, filters);
+
+  if (isCategory) {
+    query = query.eq("public_services.service_type", bar.filterValue);
+  } else if (!categorySlice.isAll && categorySlice.publicServiceTypes.length > 0) {
+    query = query.in("public_services.service_type", categorySlice.publicServiceTypes);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -294,16 +321,38 @@ async function fetchEvaluationDrillRows(
     return [];
   }
 
-  return (data ?? []).map((r) =>
-    toEvaluationRow(
-      r as {
-        id: string;
-        rating_text: string | null;
-        created_at: string | null;
-        public_services: { name?: string; service_type?: string } | null;
-      },
-    ),
-  );
+  const rows = (data ?? []) as {
+    id: string;
+    rating_text: string | null;
+    created_at: string | null;
+    public_services: {
+      name?: string;
+      service_type?: string;
+      district?: string | null;
+      address?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+    } | null;
+  }[];
+
+  return rows
+    .filter((r) => {
+      if (isCategory) return true;
+      const ps = r.public_services;
+      return matchesTerritoryBarWithStreet(
+        bar,
+        filters.region,
+        ps?.district ?? null,
+        ps?.address ?? null,
+        ps?.latitude ?? null,
+        ps?.longitude ?? null,
+        null,
+        null,
+        scope?.activeDistrict,
+        scope?.activeRegion,
+      );
+    })
+    .map((r) => toEvaluationRow(r));
 }
 
 export type DrillThroughFetchResult = {
@@ -320,8 +369,8 @@ export async function fetchDrillThroughReports(
 
   const [urban, transport, evaluations] = await Promise.all([
     fetchUrbanDrillRows(filters, bar, categorySlice, scope),
-    fetchTransportDrillRows(filters, bar, categorySlice),
-    fetchEvaluationDrillRows(filters, bar),
+    fetchTransportDrillRows(filters, bar, categorySlice, scope),
+    fetchEvaluationDrillRows(filters, bar, categorySlice, scope),
   ]);
 
   const merged = [...urban, ...transport, ...evaluations].sort((a, b) =>

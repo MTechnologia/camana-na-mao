@@ -21,6 +21,7 @@ import type {
   RegionPatternSummary,
   RegionSentimentBreakdown,
   SentimentSlice,
+  SentimentTreemapCell,
 } from "@/types/analyticsDrill";
 
 const EMPTY_KPIS: DrillKpis = {
@@ -67,29 +68,56 @@ function zoneVolumeFromStats(stats: ReportsAnalyticsStats, zoneLabel: string): n
     .reduce((s, r) => s + r.count, 0);
 }
 
-function districtRowsForZone(stats: ReportsAnalyticsStats, zoneLabel: string) {
+function districtRowsForZone(
+  stats: ReportsAnalyticsStats,
+  zoneLabel: string,
+): { neighborhood: string; zone: string; count: number; sentiment: number | null }[] {
   if (stats.neighborhoodBreakdown?.length) {
     return stats.neighborhoodBreakdown.filter((r) => r.zone === zoneLabel);
   }
   return stats.demographics.byRegion
     .filter((r) => bairroParaZona(r.region) === zoneLabel)
-    .map((r) => ({ neighborhood: r.region, zone: zoneLabel, count: r.count }));
+    .map((r) => ({
+      neighborhood: r.region,
+      zone: zoneLabel,
+      count: r.count,
+      sentiment: r.sentiment ?? null,
+    }));
 }
 
-function districtRowsFromStreetBreakdown(
+/**
+ * Logradouros do distrito reconciliados ao volume total do bairro. O
+ * streetBreakdown só cobre relatos urbanos (únicos com logradouro); o restante
+ * — relatos de outras fontes ou urbanos sem logradouro — é somado em "Sem
+ * logradouro definido", para que o nível de rua some o mesmo total do bairro
+ * (evita o caso "bairro = 6, ruas = 2"). Relatos sem logradouro entram como
+ * neutro (50), mesmo critério dos demais níveis.
+ */
+function reconciledStreetRows(
   stats: ReportsAnalyticsStats,
   zoneLabel: string,
-): { neighborhood: string; zone: string; count: number }[] {
-  const byDistrict = new Map<string, number>();
-  for (const row of stats.streetBreakdown ?? []) {
-    if (row.zone !== zoneLabel) continue;
-    byDistrict.set(row.neighborhood, (byDistrict.get(row.neighborhood) ?? 0) + row.count);
+  activeDistrict: string,
+): { street: string; count: number; sentiment: number | null }[] {
+  const rows = streetRowsForDistrict(stats.streetBreakdown ?? [], zoneLabel, activeDistrict)
+    .filter((r) => r.count > 0)
+    .map((r) => ({ street: r.street, count: r.count, sentiment: r.sentiment }));
+  const districtTotal = districtVolumeFromBreakdown(
+    stats.neighborhoodBreakdown,
+    zoneLabel,
+    activeDistrict,
+  );
+  const gap = districtTotal - rows.reduce((s, r) => s + r.count, 0);
+  if (gap <= 0) return rows;
+
+  const idx = rows.findIndex((r) => r.street === STREET_LABEL_FALLBACK);
+  if (idx >= 0) {
+    const f = rows[idx];
+    const total = f.count + gap;
+    const base = f.sentiment ?? 50;
+    rows[idx] = { ...f, count: total, sentiment: Math.round((base * f.count + 50 * gap) / total) };
+    return rows;
   }
-  return Array.from(byDistrict.entries()).map(([neighborhood, count]) => ({
-    neighborhood,
-    zone: zoneLabel,
-    count,
-  }));
+  return [...rows, { street: STREET_LABEL_FALLBACK, count: gap, sentiment: 50 }];
 }
 
 function volumeKpiFromStats(
@@ -106,12 +134,24 @@ function volumeKpiFromStats(
 
   if (grain === "street" && activeRegion && activeDistrict) {
     const zoneLabel = regionLabel(activeRegion);
-    const rows = streetRowsForDistrict(stats.streetBreakdown ?? [], zoneLabel, activeDistrict);
+    const rows = reconciledStreetRows(stats, zoneLabel, activeDistrict);
     if (rows.length > 0) return rows.reduce((s, r) => s + r.count, 0);
     return districtVolumeFromBreakdown(stats.neighborhoodBreakdown, zoneLabel, activeDistrict);
   }
 
   return stats.total;
+}
+
+/** Média de sentimento ponderada por volume; null quando nenhuma linha tem amostra. */
+function weightedSentiment(
+  rows: { count: number; sentiment: number | null }[],
+): number | null {
+  const scored = rows.filter((r) => r.sentiment != null && r.count > 0);
+  if (scored.length === 0) return null;
+  const totalCount = scored.reduce((s, r) => s + r.count, 0);
+  if (totalCount <= 0) return null;
+  const weighted = scored.reduce((s, r) => s + (r.sentiment as number) * r.count, 0);
+  return Math.min(99, Math.round(weighted / totalCount));
 }
 
 function sentimentKpiFromStats(
@@ -120,23 +160,19 @@ function sentimentKpiFromStats(
   activeRegion?: string,
   activeDistrict?: string,
 ): number | null {
+  // Distrito e logradouro usam o sentimento real agregado nos breakdowns; o KPI
+  // some (null) só quando aquele recorte não tem amostra de sentimento.
+  if (grain === "street" && activeRegion && activeDistrict) {
+    return weightedSentiment(
+      reconciledStreetRows(stats, regionLabel(activeRegion), activeDistrict),
+    );
+  }
+  if (grain === "region" && activeRegion) {
+    return weightedSentiment(districtRowsForZone(stats, regionLabel(activeRegion)));
+  }
+
   if (sentimentDataIsPlaceholder(stats)) return null;
-
-  const rows =
-    grain === "street" && activeRegion && activeDistrict
-      ? streetRowsForDistrict(
-          stats.streetBreakdown ?? [],
-          regionLabel(activeRegion),
-          activeDistrict,
-        ).map((r) => ({ region: r.street, count: r.count, sentiment: 50 }))
-      : grain === "region" && activeRegion
-        ? districtRowsForZone(stats, regionLabel(activeRegion)).map((r) => ({
-            region: r.neighborhood,
-            count: r.count,
-            sentiment: 50,
-          }))
-        : stats.demographics.byRegion;
-
+  const rows = stats.demographics.byRegion;
   if (rows.length === 0) return 0;
   const totalCount = rows.reduce((s, r) => s + r.count, 0);
   if (totalCount <= 0) return 0;
@@ -237,6 +273,16 @@ function groupByZone(
     if (gap > 0) {
       const cur = zones.get(ZONA_DESCONHECIDA)!;
       cur.count += gap;
+    }
+    // O volume vem da geolocalização (volumeByZone), mas o sentimento médio (cor
+    // do treemap/polaridade) precisa ser agregado das regiões — senão `n` fica 0
+    // e toda a zona é pintada como "sem amostra".
+    for (const row of stats.demographics.byRegion) {
+      const mapped = bairroParaZona(row.region);
+      const zone = mapped !== ZONA_DESCONHECIDA && zones.has(mapped) ? mapped : ZONA_DESCONHECIDA;
+      const cur = zones.get(zone)!;
+      cur.sentiment += row.sentiment ?? 50;
+      cur.n += 1;
     }
     return zones;
   }
@@ -346,9 +392,9 @@ export function buildChartSeriesFromStats(
         .slice(0, 12);
     }
 
-    const streetDerivedRows = districtRowsFromStreetBreakdown(stats, zoneLabel);
-    const rows =
-      streetDerivedRows.length > 0 ? streetDerivedRows : districtRowsForZone(stats, zoneLabel);
+    // Distrito usa todas as fontes (mesma base do treemap e da zona), para que
+    // zona = soma dos distritos = soma das ruas (estas reconciliadas no nível rua).
+    const rows = districtRowsForZone(stats, zoneLabel);
     if (rows.length === 0 && zoneVolumeFromStats(stats, zoneLabel) > 0) {
       return [
         {
@@ -405,27 +451,9 @@ export function buildChartSeriesFromStats(
         .slice(0, 12);
     }
 
-    if (rows.length === 0) {
-      const fallbackVol = districtVolumeFromBreakdown(
-        stats.neighborhoodBreakdown,
-        zoneLabel,
-        activeDistrict,
-      );
-      if (fallbackVol > 0) {
-        return [
-          {
-            id: STREET_FALLBACK_ID,
-            label: STREET_LABEL_FALLBACK,
-            filterKey: "street" as const,
-            filterValue: STREET_FALLBACK_ID,
-            value: fallbackVol,
-          },
-        ];
-      }
-      return [];
-    }
-
-    return rows
+    const volumeRows = reconciledStreetRows(stats, zoneLabel, activeDistrict);
+    if (volumeRows.length === 0) return [];
+    return volumeRows
       .map((r) => ({
         id: streetIdFromLabel(r.street),
         label: r.street,
@@ -529,6 +557,88 @@ export function buildSentimentPolarityFromStats(
           slices: sentimentSlicesFromCounts(pos, neu, neg),
         };
       })
+      .slice(0, 12);
+  }
+
+  return [];
+}
+
+/**
+ * Treemap de sentimento: tamanho = volume real, cor = sentimento médio real.
+ * Diferente da polaridade (percentual), aqui o tamanho reflete o volume e o
+ * score só vem quando há amostra real (caso contrário `sentimentScore: null`,
+ * pintado como "sem amostra"). O drill usa o volume real (com fallback), então
+ * nunca zera.
+ */
+export function buildSentimentTreemapFromStats(
+  stats: ReportsAnalyticsStats | null,
+  grain: DrillGrain,
+  activeRegion?: string,
+  activeDistrict?: string,
+): SentimentTreemapCell[] {
+  if (!stats) return [];
+  const placeholder = sentimentDataIsPlaceholder(stats);
+
+  if (grain === "overview") {
+    const zones = groupByZone(stats);
+    return ZONAS_FILTRO.map((zone) => {
+      const data = zones.get(zone) ?? emptyZoneBucket();
+      return {
+        id: zoneToFilterId(zone),
+        label: zone,
+        volume: data.count,
+        sentimentScore: !placeholder && data.n > 0 ? Math.round(data.sentiment / data.n) : null,
+        filterKey: "region" as const,
+        filterValue: zoneToFilterId(zone),
+      };
+    }).filter((c) => c.volume > 0);
+  }
+
+  if (grain === "region" && activeRegion) {
+    const zoneLabel = regionLabel(activeRegion);
+    const rows = districtRowsForZone(stats, zoneLabel).filter((r) => r.count > 0);
+    if (rows.length === 0) {
+      const vol = zoneVolumeFromStats(stats, zoneLabel);
+      return vol > 0
+        ? [
+            {
+              id: DISTRICT_FALLBACK_ID,
+              label: DISTRICT_LABEL_FALLBACK,
+              volume: vol,
+              sentimentScore: null,
+              filterKey: "district",
+              filterValue: DISTRICT_FALLBACK_ID,
+            },
+          ]
+        : [];
+    }
+    return rows
+      .map((r) => ({
+        id: r.neighborhood,
+        label: r.neighborhood,
+        volume: r.count,
+        sentimentScore: r.sentiment != null ? Math.round(r.sentiment) : null,
+        filterKey: "district" as const,
+        filterValue: r.neighborhood,
+      }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 12);
+  }
+
+  if (grain === "street" && activeRegion && activeDistrict) {
+    const zoneLabel = regionLabel(activeRegion);
+    const rows = reconciledStreetRows(stats, zoneLabel, activeDistrict);
+    if (rows.length === 0) return [];
+    return rows
+      .map((r) => ({
+        id: streetIdFromLabel(r.street),
+        label: r.street,
+        volume: r.count,
+        sentimentScore: r.sentiment != null ? Math.round(r.sentiment) : null,
+        filterKey: "street" as const,
+        filterValue: streetIdFromLabel(r.street),
+      }))
+      .sort((a, b) => b.volume - a.volume)
       .slice(0, 12);
   }
 

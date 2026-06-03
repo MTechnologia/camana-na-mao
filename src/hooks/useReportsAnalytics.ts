@@ -6,6 +6,8 @@ import type { DemographicData } from "@/components/analytics/DemographicsPieChar
 import type { FunnelStep } from "@/components/analytics/EngagementFunnel";
 import type { TopReport } from "@/components/analytics/TopReportsList";
 import type { PatternAlert } from "@/components/analytics/PatternAlerts";
+import type { WordData } from "@/components/analytics/WordCloud";
+import { extractKeywords } from "@/lib/keywordExtraction";
 import {
   AGE_GROUP_LABELS,
   GENDER_LABELS,
@@ -41,6 +43,7 @@ import {
   buildTerritoryPatternSummaries,
   filterUrbanReportsByRegion,
   patternsFromCategories,
+  sentimentToScore,
   type GeoReportRow,
   type TerritoryGeoRow,
   type UrbanReportRow,
@@ -57,19 +60,6 @@ function normalizeSeverityBucket(value: unknown): "critical" | "high" | "medium"
   if (raw === "high" || raw === "alto" || raw === "alta") return "high";
   if (raw === "medium" || raw === "medio" || raw === "media") return "medium";
   if (raw === "low" || raw === "baixo" || raw === "baixa") return "low";
-  return null;
-}
-
-function sentimentToScore(value: unknown): number | null {
-  const raw = String(value ?? "")
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  if (!raw) return null;
-  if (raw === "positive" || raw === "positivo") return 100;
-  if (raw === "negative" || raw === "negativo") return 0;
-  if (raw === "neutral" || raw === "neutro") return 50;
   return null;
 }
 
@@ -124,6 +114,9 @@ export interface ReportsAnalyticsStats {
   // Categorias
   categories: { category: string; count: number }[];
 
+  // Termos em destaque (extraídos das descrições dos relatos urbanos no recorte)
+  keywords: WordData[];
+
   // Demografia
   demographics: {
     byGender: DemographicData[];
@@ -148,11 +141,22 @@ export interface ReportsAnalyticsStats {
   /** Volume por zona (coords + bairro dos relatos no recorte). */
   volumeByZone: { zone: string; count: number }[];
 
-  /** Bairros/locais por zona — base do drill-down por distrito (volume). */
-  neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[];
+  /** Bairros/locais por zona — base do drill-down por distrito (volume + sentimento). */
+  neighborhoodBreakdown: {
+    neighborhood: string;
+    zone: string;
+    count: number;
+    sentiment: number | null;
+  }[];
 
   /** Logradouros por bairro/zona — drill cidade → região → bairro → rua (HU-3.1). */
-  streetBreakdown: { street: string; neighborhood: string; zone: string; count: number }[];
+  streetBreakdown: {
+    street: string;
+    neighborhood: string;
+    zone: string;
+    count: number;
+    sentiment: number | null;
+  }[];
 
   /** HU-2.2 — tempo médio até resposta/resolução (relatos resolvidos no recorte). */
   responseTime: ResponseTimeDrillStats;
@@ -184,6 +188,7 @@ const emptyStats: ReportsAnalyticsStats = {
   timeline: [],
   byStatus: [],
   categories: [],
+  keywords: [],
   volumeByZone: [],
   neighborhoodBreakdown: [],
   streetBreakdown: [],
@@ -428,15 +433,22 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         let urbanReports: Record<string, unknown>[] = [];
         let urbanForTimeline: UrbanReportRow[] = [];
         let timeline: TimelineDataPoint[] = [];
+        let keywords: WordData[] = [];
         let patternAlerts: PatternAlert[] = patternsFromCategories(categories);
         let territoryPatterns: RegionPatternSummary[] = [];
         let volumeByZone: { zone: string; count: number }[] = [];
-        let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
+        let neighborhoodBreakdown: {
+          neighborhood: string;
+          zone: string;
+          count: number;
+          sentiment: number | null;
+        }[] = [];
         let streetBreakdown: {
           street: string;
           neighborhood: string;
           zone: string;
           count: number;
+          sentiment: number | null;
         }[] = [];
 
         let responseTime: ResponseTimeDrillStats = EMPTY_RESPONSE_TIME_DRILL;
@@ -456,7 +468,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
               .select(
                 `
             id, description, category, location_address, status, created_at, updated_at, severity, neighborhood,
-            street, street_number, latitude, longitude,
+            street, street_number, latitude, longitude, ai_classification,
             urban_report_likes(count),
             urban_report_comments(count)
           `,
@@ -487,6 +499,20 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           );
           timeline = buildTimelineFromUrbanReports(urbanForTimeline);
 
+          // Termos em destaque: descrições dos relatos urbanos já filtrados pelo recorte.
+          keywords = extractKeywords(
+            urbanForTimeline.map((r) => {
+              const row = r as {
+                description?: string | null;
+                ai_classification?: { sentiment?: string } | null;
+              };
+              return {
+                description: row.description ?? null,
+                sentiment: row.ai_classification?.sentiment ?? null,
+              };
+            }),
+          );
+
           urbanForTimeline.forEach((r) => {
             const geo = {
               neighborhood: r.neighborhood,
@@ -505,6 +531,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
               updated_at: r.updated_at ?? null,
               street: (r.street as string | null) ?? null,
               street_number: (r.street_number as string | null) ?? null,
+              ai_sentiment:
+                (r as { ai_classification?: { sentiment?: string } | null }).ai_classification
+                  ?.sentiment ?? null,
             });
           });
 
@@ -594,24 +623,29 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           }
 
           const geoForTerritory = filterGeoRowsByRegion(geoRows, filters.region);
+          const territoryForBreakdown = filterGeoRowsByRegion(
+            territoryGeoRows,
+            filters.region,
+          ) as TerritoryGeoRow[];
           volumeByZone = buildVolumeByZoneFromGeoRows(geoForTerritory).map((z) => ({
             zone: z.zone,
             count: z.count,
           }));
-          neighborhoodBreakdown = buildNeighborhoodBreakdownFromGeoRows(geoForTerritory).map(
-            (r) => ({
-              neighborhood: r.neighborhood,
-              zone: r.zone,
-              count: r.count,
-            }),
-          );
-          streetBreakdown = buildStreetBreakdownFromGeoRows(
-            filterGeoRowsByRegion(territoryGeoRows, filters.region) as TerritoryGeoRow[],
+          neighborhoodBreakdown = buildNeighborhoodBreakdownFromGeoRows(
+            geoForTerritory,
+            territoryForBreakdown,
           ).map((r) => ({
+            neighborhood: r.neighborhood,
+            zone: r.zone,
+            count: r.count,
+            sentiment: r.sentiment,
+          }));
+          streetBreakdown = buildStreetBreakdownFromGeoRows(territoryForBreakdown).map((r) => ({
             street: r.street,
             neighborhood: r.neighborhood,
             zone: r.zone,
             count: r.count,
+            sentiment: r.sentiment,
           }));
 
           const territoryForTime = filterGeoRowsByRegion(
@@ -648,34 +682,35 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           patternAlerts = patternsFromCategories(categories);
           territoryPatterns = buildTerritoryPatternSummaries(territoryFiltered);
 
-          // Usa `ai_sentiment` de transporte quando disponível para reduzir placeholder 50%.
-          const transportSentimentByRegion = new Map<string, { sum: number; n: number }>();
-          const transportSentimentByZone = new Map<string, { sum: number; n: number }>();
+          // Usa `ai_sentiment` real (urbano via ai_classification + transporte) por
+          // região/zona para reduzir o placeholder fixo de 50%.
+          const sentimentByRegion = new Map<string, { sum: number; n: number }>();
+          const sentimentByZone = new Map<string, { sum: number; n: number }>();
           for (const row of territoryFiltered) {
-            if (row.source !== "transporte") continue;
             const score = sentimentToScore((row as { ai_sentiment?: unknown }).ai_sentiment);
             if (score == null) continue;
             const region = String(row.neighborhood ?? "").trim();
-            if (!region) continue;
-            const cur = transportSentimentByRegion.get(region) ?? { sum: 0, n: 0 };
-            cur.sum += score;
-            cur.n += 1;
-            transportSentimentByRegion.set(region, cur);
 
             const zone = bairroParaZona(
               [row.neighborhood, row.location].filter(Boolean).join(" "),
               row.latitude,
               row.longitude,
             );
-            const zoneCur = transportSentimentByZone.get(zone) ?? { sum: 0, n: 0 };
+            const zoneCur = sentimentByZone.get(zone) ?? { sum: 0, n: 0 };
             zoneCur.sum += score;
             zoneCur.n += 1;
-            transportSentimentByZone.set(zone, zoneCur);
+            sentimentByZone.set(zone, zoneCur);
+
+            if (!region) continue;
+            const cur = sentimentByRegion.get(region) ?? { sum: 0, n: 0 };
+            cur.sum += score;
+            cur.n += 1;
+            sentimentByRegion.set(region, cur);
           }
-          if (transportSentimentByRegion.size > 0) {
+          if (sentimentByRegion.size > 0 || sentimentByZone.size > 0) {
             let matchedByRegion = 0;
             byRegion.forEach((regionRow) => {
-              const scored = transportSentimentByRegion.get(regionRow.region);
+              const scored = sentimentByRegion.get(regionRow.region);
               if (scored && scored.n > 0) {
                 regionRow.sentiment = Math.round(scored.sum / scored.n);
                 matchedByRegion += 1;
@@ -684,10 +719,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
             // Fallback: quando nomes territoriais não casam (ex.: stop_name),
             // aplica média por zona para destravar o KPI de sentimento real.
-            if (matchedByRegion === 0 && transportSentimentByZone.size > 0) {
+            if (matchedByRegion === 0 && sentimentByZone.size > 0) {
               byRegion.forEach((regionRow) => {
                 const zone = bairroParaZona(regionRow.region);
-                const scored = transportSentimentByZone.get(zone);
+                const scored = sentimentByZone.get(zone);
                 if (scored && scored.n > 0) {
                   regionRow.sentiment = Math.round(scored.sum / scored.n);
                 }
@@ -695,15 +730,15 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             }
 
             // Último fallback: se ainda não houver match e existirem linhas de região,
-            // aplica média global de transporte para evitar placeholder fixo.
+            // aplica média global para evitar placeholder fixo.
             if (
               byRegion.length > 0 &&
               byRegion.every((row) => row.sentiment === 50) &&
-              transportSentimentByZone.size > 0
+              sentimentByZone.size > 0
             ) {
               let totalSum = 0;
               let totalN = 0;
-              transportSentimentByZone.forEach((entry) => {
+              sentimentByZone.forEach((entry) => {
                 totalSum += entry.sum;
                 totalN += entry.n;
               });
@@ -870,6 +905,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             timeline,
             byStatus,
             categories,
+            keywords,
             volumeByZone,
             neighborhoodBreakdown,
             streetBreakdown,

@@ -11,6 +11,46 @@ import {
   type ZonaVolumeOuDesconhecida,
 } from "@/lib/regionMapping";
 
+/** Converte o rótulo de sentimento da IA em score 0–100; null quando ausente/indefinido. */
+export function sentimentToScore(value: unknown): number | null {
+  const raw = String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+  if (!raw) return null;
+  // Substring (igual à wordcloud) para tolerar variações: "positive", "positivo",
+  // "POSITIVE", "positive_high" etc. Ausente/não reconhecido → null (sem amostra).
+  if (raw.includes("positiv")) return 100;
+  if (raw.includes("negativ")) return 0;
+  if (raw.includes("neutr")) return 50;
+  return null;
+}
+
+/**
+ * Média de sentimento (0–100) por chave arbitrária. Todo relato conta: quando a
+ * IA não classificou o sentimento, ele entra como Neutro (50) — mesmo critério
+ * da nuvem de termos —, de modo que territórios com volume nunca fiquem "sem
+ * amostra" (cinza). Uma chave só fica de fora quando não tem nenhum relato.
+ */
+function sentimentMeanByKey(
+  rows: TerritoryGeoRow[],
+  keyOf: (row: TerritoryGeoRow) => string,
+): Map<string, number> {
+  const agg = new Map<string, { sum: number; n: number }>();
+  for (const row of rows) {
+    const score = sentimentToScore(row.ai_sentiment) ?? 50;
+    const key = keyOf(row);
+    const cur = agg.get(key) ?? { sum: 0, n: 0 };
+    cur.sum += score;
+    cur.n += 1;
+    agg.set(key, cur);
+  }
+  const out = new Map<string, number>();
+  for (const [key, v] of agg) out.set(key, v.sum / v.n);
+  return out;
+}
+
 export function filterGeoRowsByRegion(rows: GeoReportRow[], region?: string): GeoReportRow[] {
   if (!region || region === "all") return rows;
   const zoneLabel = regionLabel(region);
@@ -61,6 +101,16 @@ export type StreetBreakdownRow = {
   neighborhood: string;
   zone: ZonaVolumeOuDesconhecida;
   count: number;
+  /** Sentimento médio real (0–100) do logradouro; null quando não há amostra. */
+  sentiment: number | null;
+};
+
+export type NeighborhoodBreakdownRow = {
+  neighborhood: string;
+  zone: ZonaVolumeOuDesconhecida;
+  count: number;
+  /** Sentimento médio real (0–100) do bairro; null quando não há amostra. */
+  sentiment: number | null;
 };
 
 export const STREET_LABEL_FALLBACK = "Sem logradouro definido";
@@ -132,10 +182,16 @@ export function districtLabelFromGeoRow(row: GeoReportRow): string {
   return DISTRICT_LABEL_FALLBACK;
 }
 
-/** Contagem por bairro dentro de cada zona (mesma base do gráfico por região). */
+/**
+ * Contagem por bairro dentro de cada zona (mesma base do gráfico por região).
+ * `sentimentRows` (relatos com `ai_sentiment`) é opcional: o volume vem de `rows`
+ * — que inclui avaliações sem sentimento — e a média de sentimento é calculada à
+ * parte, com a MESMA chave zona/bairro, para colorir o treemap por distrito.
+ */
 export function buildNeighborhoodBreakdownFromGeoRows(
   rows: GeoReportRow[],
-): { neighborhood: string; zone: ZonaVolumeOuDesconhecida; count: number }[] {
+  sentimentRows: TerritoryGeoRow[] = [],
+): NeighborhoodBreakdownRow[] {
   const map = new Map<string, { zone: ZonaVolumeOuDesconhecida; count: number }>();
 
   for (const row of rows) {
@@ -148,11 +204,18 @@ export function buildNeighborhoodBreakdownFromGeoRows(
     map.set(key, cur);
   }
 
+  const sentiment = sentimentMeanByKey(sentimentRows, (row) => {
+    const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
+    const zone = bairroParaZona(text, row.latitude, row.longitude);
+    return `${zone}\u0000${districtLabelFromGeoRow(row)}`;
+  });
+
   return [...map.entries()]
     .map(([key, v]) => ({
       neighborhood: key.split("\u0000")[1] ?? DISTRICT_LABEL_FALLBACK,
       zone: v.zone,
       count: v.count,
+      sentiment: sentiment.has(key) ? Math.round(sentiment.get(key)!) : null,
     }))
     .sort((a, b) => b.count - a.count);
 }
@@ -176,12 +239,24 @@ export function buildStreetBreakdownFromGeoRows(rows: TerritoryGeoRow[]): Street
     map.set(key, cur);
   }
 
+  const sentiment = sentimentMeanByKey(
+    rows.filter((row) => row.source === "urbano"),
+    (row) => {
+      const text = [row.neighborhood, row.location].filter(Boolean).join(" ");
+      const zone = bairroParaZona(text, row.latitude, row.longitude);
+      const neighborhood = districtLabelFromGeoRow(row);
+      const street = streetLabelFromTerritoryRow(row);
+      return `${zone}\u0000${neighborhood}\u0000${street}`;
+    },
+  );
+
   return [...map.entries()]
     .map(([key, v]) => ({
       street: key.split("\u0000")[2] ?? STREET_LABEL_FALLBACK,
       neighborhood: v.neighborhood,
       zone: v.zone,
       count: v.count,
+      sentiment: sentiment.has(key) ? Math.round(sentiment.get(key)!) : null,
     }))
     .sort((a, b) => b.count - a.count);
 }

@@ -65,7 +65,7 @@ function isDistrictFallbackBar(bar: ChartBarPoint): boolean {
   );
 }
 
-function isStreetFallbackBar(bar: ChartBarPoint): boolean {
+export function isStreetFallbackBar(bar: ChartBarPoint): boolean {
   return (
     bar.filterValue === STREET_FALLBACK_ID ||
     bar.label === STREET_LABEL_FALLBACK ||
