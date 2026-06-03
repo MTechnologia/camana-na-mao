@@ -54,6 +54,18 @@ export type RegionSentimentBreakdown = {
   slices: SentimentSlice[];
 };
 
+/** Célula do treemap de sentimento: volume real (tamanho) + score de sentimento (cor). */
+export type SentimentTreemapCell = {
+  id: string;
+  label: string;
+  /** Volume real de relatos no território (define o tamanho da caixa). */
+  volume: number;
+  /** Score 0–100 do sentimento médio; null quando não há amostra real (caixa cinza). */
+  sentimentScore: number | null;
+  filterKey: ChartBarPoint["filterKey"];
+  filterValue: string;
+};
+
 export type PatternRankRow = {
   id: string;
   label: string;

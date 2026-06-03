@@ -12,13 +12,14 @@ import {
 import { ExternalLink } from "lucide-react";
 import { useAnalyticsDrill } from "@/contexts/AnalyticsDrillContext";
 import { useGlobalReportsAnalytics } from "@/contexts/GlobalReportsAnalyticsContext";
-import { buildSentimentPolarityFromStats } from "@/lib/analyticsDrillFromStats";
+import { buildSentimentTreemapFromStats } from "@/lib/analyticsDrillFromStats";
 import { metricLabel } from "@/lib/analyticsLabels";
-import type { ChartBarPoint, RegionSentimentBreakdown } from "@/types/analyticsDrill";
+import type { ChartBarPoint, SentimentTreemapCell } from "@/types/analyticsDrill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ParameterLegend } from "@/components/admin/analytics/ParameterLegend";
-import { SentimentPolarityPiesGrid } from "@/components/admin/analytics/SentimentPolarityPiesGrid";
+import { SentimentTreemap } from "@/components/admin/analytics/SentimentTreemap";
+import { WordCloud } from "@/components/analytics/WordCloud";
 import {
   CHART_PARAMETER_LEGENDS,
   SENTIMENT_POLARITY_PREPEND_SECTION,
@@ -32,22 +33,9 @@ const CHART_COLORS = [
   "hsl(var(--chart-5))",
 ];
 
-function toDrillPoint(
-  item: RegionSentimentBreakdown,
-  filterKey: ChartBarPoint["filterKey"],
-): ChartBarPoint {
-  const positive = item.slices.find((s) => s.id === "positive")?.value ?? 0;
-  return {
-    id: item.id,
-    label: item.label,
-    value: positive,
-    filterKey,
-    filterValue: item.id,
-  };
-}
-
 export function VolumeByRegionChart() {
   const { stats } = useGlobalReportsAnalytics();
+  const keywords = stats?.keywords ?? [];
 
   const {
     chartData,
@@ -62,9 +50,9 @@ export function VolumeByRegionChart() {
 
   const isSentiment = metric === "sentiment";
 
-  const sentimentPies = useMemo(() => {
+  const sentimentTreemap = useMemo(() => {
     if (!isSentiment) return [];
-    return buildSentimentPolarityFromStats(stats, grain, activeRegion, activeDistrict);
+    return buildSentimentTreemapFromStats(stats, grain, activeRegion, activeDistrict);
   }, [isSentiment, stats, grain, activeRegion, activeDistrict]);
 
   const title = isSentiment
@@ -80,12 +68,17 @@ export function VolumeByRegionChart() {
         : "Detalhe por logradouro";
 
   const subtitle = isSentiment
-    ? "Positivo, neutro e negativo (%) · Clique em uma zona para ver o próximo nível"
+    ? "Tamanho = volume · cor = sentimento médio · clique para ver o próximo nível"
     : "Clique em uma barra para ver o próximo nível · Selecione para abrir os relatos";
 
-  const handleSentimentClick = (item: RegionSentimentBreakdown) => {
-    if (grain === "overview") drillDown(toDrillPoint(item, "region"));
-    else if (grain === "region") drillDown(toDrillPoint(item, "district"));
+  const handleSentimentSelect = (cell: SentimentTreemapCell) => {
+    drillDown({
+      id: cell.id,
+      label: cell.label,
+      value: cell.volume,
+      filterKey: cell.filterKey,
+      filterValue: cell.filterValue,
+    });
   };
 
   return (
@@ -111,17 +104,34 @@ export function VolumeByRegionChart() {
         </div>
 
         {isSentiment ? (
-          sentimentPies.length === 0 ? (
+          sentimentTreemap.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
-              Sentimento agregado indisponível neste recorte. Os gráficos de polaridade exigem
-              classificação real por relato (ex.: IA em transporte); o painel não exibe estimativas.
+              Sem volume de relatos neste recorte.
             </p>
           ) : (
-            <SentimentPolarityPiesGrid
-              items={sentimentPies}
-              selectedId={selectedBar?.id}
-              onItemClick={handleSentimentClick}
-            />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <SentimentTreemap
+                cells={sentimentTreemap}
+                selectedId={selectedBar?.id}
+                onSelect={handleSentimentSelect}
+              />
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <p className="text-sm font-medium text-foreground">Termos em destaque</p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Palavras mais frequentes nas descrições do recorte, coloridas pelo sentimento.
+                </p>
+                {keywords.length > 0 ? (
+                  <div className="h-[232px] overflow-y-auto">
+                    <WordCloud words={keywords} />
+                  </div>
+                ) : (
+                  <p className="flex h-[232px] items-center justify-center rounded-md border border-dashed border-border bg-background/50 px-4 text-center text-xs text-muted-foreground">
+                    Sem termos suficientes neste recorte (depende de descrições e classificação dos
+                    relatos).
+                  </p>
+                )}
+              </div>
+            </div>
           )
         ) : (
           <div className="h-[280px] w-full">

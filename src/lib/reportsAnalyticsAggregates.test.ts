@@ -3,6 +3,8 @@ import type { ReportsAnalyticsStats } from "@/hooks/useReportsAnalytics";
 import {
   buildCategoryDistributionFromTerritoryRows,
   buildMetricTrendsFromStats,
+  buildNeighborhoodBreakdownFromGeoRows,
+  buildStreetBreakdownFromGeoRows,
   buildTerritoryPatternSummaries,
   countRecurringThemesFromCategories,
   patternRankFromAlerts,
@@ -152,5 +154,52 @@ describe("patterns analytics helpers", () => {
     expect(summaries.find((s) => s.regionLabel === "Pinheiros")?.primaryPattern).toBe(
       "Lixo e limpeza",
     );
+  });
+});
+
+describe("sentimento real por bairro/logradouro", () => {
+  const territoryRows: TerritoryGeoRow[] = [
+    {
+      neighborhood: "Jardim Everest",
+      source: "urbano",
+      ai_sentiment: "positive",
+      street: "Av. A",
+      street_number: "1",
+    },
+    {
+      neighborhood: "Jardim Everest",
+      source: "urbano",
+      ai_sentiment: "neutral",
+      street: "Av. A",
+      street_number: "1",
+    },
+    {
+      neighborhood: "Jardim Everest",
+      source: "urbano",
+      ai_sentiment: null,
+      street: "Av. B",
+    },
+  ];
+
+  it("buildNeighborhoodBreakdownFromGeoRows agrega o sentimento médio por bairro", () => {
+    const rows = buildNeighborhoodBreakdownFromGeoRows(territoryRows, territoryRows);
+    const everest = rows.find((r) => r.neighborhood === "Jardim Everest");
+    expect(everest?.count).toBe(3);
+    // (100 + 50 + 50) / 3 = 67 — relato sem classificação entra como neutro (50).
+    expect(everest?.sentiment).toBe(67);
+  });
+
+  it("buildNeighborhoodBreakdownFromGeoRows mantém sentiment null sem relato com sentimento", () => {
+    const rows = buildNeighborhoodBreakdownFromGeoRows(territoryRows, []);
+    expect(rows.every((r) => r.sentiment === null)).toBe(true);
+  });
+
+  it("buildStreetBreakdownFromGeoRows agrega o sentimento por logradouro (não classificado = neutro)", () => {
+    const rows = buildStreetBreakdownFromGeoRows(territoryRows);
+    const avA = rows.find((r) => r.street === "Av. A, 1");
+    const avB = rows.find((r) => r.street === "Av. B");
+    expect(avA?.sentiment).toBe(75);
+    // Logradouro só com relato sem classificação → neutro (50), não mais cinza.
+    expect(avB?.sentiment).toBe(50);
   });
 });

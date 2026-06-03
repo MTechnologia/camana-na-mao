@@ -263,10 +263,10 @@ describe("analyticsDrillFromStats volume parity", () => {
     expect(kpis.volume).toBe(4);
   });
 
-  it("drill de distrito usa a mesma base urbana do nível de logradouro", () => {
+  it("drill reconcilia o nível de logradouro ao volume total do distrito", () => {
     const stats = mockStats({
       neighborhoodBreakdown: [
-        { neighborhood: "Sem bairro definido", zone: "Não informada", count: 83 },
+        { neighborhood: "Sem bairro definido", zone: "Não informada", count: 83, sentiment: null },
       ],
       streetBreakdown: [
         {
@@ -274,9 +274,16 @@ describe("analyticsDrillFromStats volume parity", () => {
           neighborhood: "Sem bairro definido",
           zone: "Não informada",
           count: 3,
+          sentiment: 50,
         },
       ],
     });
+
+    // Distrito = todas as fontes (83); rua reconcilia o que não tem logradouro
+    // (80 não-urbanos) no bucket "Sem logradouro definido" → soma volta a 83.
+    const districtChart = buildChartSeriesFromStats(stats, "region", "volume", "unknown");
+    expect(districtChart.find((b) => b.label === "Sem bairro definido")?.value).toBe(83);
+
     const chart = buildChartSeriesFromStats(
       stats,
       "street",
@@ -284,13 +291,11 @@ describe("analyticsDrillFromStats volume parity", () => {
       "unknown",
       "Sem bairro definido",
     );
-    expect(chart.find((b) => b.label === "Sem logradouro definido")?.value).toBe(3);
-    const kpis = buildDrillKpisFromStats(stats, "street", "unknown", "Sem bairro definido");
-    expect(kpis.volume).toBe(3);
-    expect(sumChartBarValues(chart)).toBe(3);
+    expect(chart.find((b) => b.label === "Sem logradouro definido")?.value).toBe(83);
+    expect(sumChartBarValues(chart)).toBe(83);
 
-    const districtChart = buildChartSeriesFromStats(stats, "region", "volume", "unknown");
-    expect(districtChart.find((b) => b.label === "Sem bairro definido")?.value).toBe(3);
+    const kpis = buildDrillKpisFromStats(stats, "street", "unknown", "Sem bairro definido");
+    expect(kpis.volume).toBe(83);
   });
 });
 
