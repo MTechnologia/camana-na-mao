@@ -215,3 +215,43 @@ Deno.test("detectCollectionIntent: relato urbano legítimo continua urban_report
     "urban_report",
   );
 });
+
+// Regressão (NREF012/feedback): "Quero elogiar/reclamar/sugerir + vereador"
+// caía no fluxo genérico de relato urbano ("qual é o tipo do seu relato sobre a
+// cidade?") porque as palavras de natureza e a frase "quero elogiar" pontuavam e
+// recebiam boost no domínio urbano. Deve virar feedback à Câmara (no detector,
+// chamber_feedback é devolvido como urban_report com category=feedback_camara).
+const fieldCategory = (r: ReturnType<typeof detectCollectionIntent>) =>
+  (r?.fields as { category?: string } | undefined)?.category;
+
+Deno.test("detectCollectionIntent: 'Quero elogiar um vereador' → feedback à Câmara, não relato urbano genérico", () => {
+  const result = detectCollectionIntent(
+    "Quero elogiar um vereador",
+    [{ role: "user", content: "Quero elogiar um vereador" }],
+    camaraDeps,
+  );
+  assertEquals(result?.type, "urban_report");
+  assertEquals(fieldCategory(result), "feedback_camara");
+});
+
+Deno.test("detectCollectionIntent: 'Quero reclamar de um vereador' → feedback à Câmara", () => {
+  const result = detectCollectionIntent(
+    "Quero reclamar de um vereador",
+    [{ role: "user", content: "Quero reclamar de um vereador" }],
+    camaraDeps,
+  );
+  assertEquals(result?.type, "urban_report");
+  assertEquals(fieldCategory(result), "feedback_camara");
+});
+
+Deno.test("detectCollectionIntent: relato urbano que cita o vereador continua urban_report (buraco perto do gabinete)", () => {
+  const result = detectCollectionIntent(
+    "Tem um buraco enorme na rua perto do gabinete do vereador",
+    [{ role: "user", content: "Tem um buraco enorme na rua perto do gabinete do vereador" }],
+    camaraDeps,
+  );
+  assertEquals(result?.type, "urban_report");
+  // category=lixo é o mock de extractUrbanFields → provou que pegou o caminho
+  // urbano (há problema concreto), não o de feedback à Câmara.
+  assertEquals(fieldCategory(result), "lixo");
+});
