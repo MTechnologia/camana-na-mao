@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Landmark, Search, Loader2, AlertCircle } from "lucide-react";
 import { useVereadores, type Vereador } from "@/hooks/useVereadores";
 
@@ -30,6 +29,8 @@ export const InlineVereadorPicker = ({ onSelect }: InlineVereadorPickerProps) =>
   const { data: vereadores = [], isLoading, isError } = useVereadores();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(false);
+
+  const hasQuery = normCompare(query).length > 0;
 
   const filtered = useMemo(() => {
     const term = normCompare(query);
@@ -93,8 +94,23 @@ export const InlineVereadorPicker = ({ onSelect }: InlineVereadorPickerProps) =>
             </span>
           </div>
         ) : filtered.length > 0 ? (
-          <ScrollArea className="max-h-[220px]">
-            <div className="p-1">
+          <>
+            {/* NREF012: deixa explícito quantos vereadores casaram com a busca
+                (ex.: partido com mais de 4 representantes) e que a lista rola
+                para revelar todos — antes o usuário achava que só existiam 4. */}
+            {hasQuery && (
+              <div className="px-3 pt-2 pb-1 text-xs text-muted-foreground">
+                {filtered.length === 1
+                  ? "1 vereador encontrado"
+                  : `${filtered.length} vereadores encontrados`}
+                {filtered.length > 4 ? " · role para ver todos" : ""}
+              </div>
+            )}
+            {/* Rolagem nativa (overflow-y-auto + overscroll-contain) em vez do
+                Radix ScrollArea: dentro do chat (que também rola) o scroll
+                aninhado por toque no mobile era pouco confiável e escondia os
+                vereadores além dos ~4 primeiros. */}
+            <div className="max-h-72 overflow-y-auto overscroll-contain p-1">
               {filtered.map((vereador) => (
                 <button
                   key={vereador.id}
@@ -110,7 +126,7 @@ export const InlineVereadorPicker = ({ onSelect }: InlineVereadorPickerProps) =>
                 </button>
               ))}
             </div>
-          </ScrollArea>
+          </>
         ) : (
           <div className="p-3">
             <p className="text-sm text-muted-foreground">

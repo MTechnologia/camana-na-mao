@@ -66,6 +66,28 @@ describe("InlineVereadorPicker", () => {
     expect(screen.queryByText("Milton Leite")).toBeNull();
   });
 
+  it("NREF012: exibe TODOS os vereadores de um partido com mais de 4 representantes", () => {
+    const PT = Array.from({ length: 8 }, (_, i) => ({
+      id: `pt-${i + 1}`,
+      name: `Vereador PT ${i + 1}`,
+      party: "PT",
+    }));
+    mockState({ data: [...PT, { id: "x", name: "Outro", party: "PSDB" }] });
+    render(<InlineVereadorPicker onSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Digite o nome ou partido..."), {
+      target: { value: "pt" },
+    });
+
+    // Nenhum dos 8 pode ficar de fora (bug: só os 4 primeiros apareciam).
+    for (const v of PT) {
+      expect(screen.getByText(v.name)).toBeTruthy();
+    }
+    expect(screen.queryByText("Outro")).toBeNull();
+    // Mostra a contagem para o usuário saber que há mais do que cabe na tela.
+    expect(screen.getByText(/8 vereadores encontrados/i)).toBeTruthy();
+  });
+
   it("mostra mensagem amigável quando o nome não existe (ex.: 'Fulano de tal')", () => {
     mockState({ data: VEREADORES });
     render(<InlineVereadorPicker onSelect={vi.fn()} />);
