@@ -23,6 +23,8 @@ interface AnalyticsLiveBadgeProps {
   refreshing?: boolean;
   className?: string;
   indicatorTone?: "default" | "analyticsBar";
+  /** Mostra apenas "Ao vivo" e oculta o botão de refresh manual (mobile). */
+  compact?: boolean;
 }
 
 export function AnalyticsLiveBadge({
@@ -31,6 +33,7 @@ export function AnalyticsLiveBadge({
   refreshing,
   className,
   indicatorTone = "default",
+  compact = false,
 }: AnalyticsLiveBadgeProps) {
   const mostRecent = useMemo(() => {
     let latest: Date | null = null;
@@ -42,8 +45,8 @@ export function AnalyticsLiveBadge({
 
   return (
     <div className={cn("inline-flex items-center gap-2", className)}>
-      <AdminLiveIndicator lastUpdate={mostRecent} tone={indicatorTone} />
-      {onRefresh && (
+      <AdminLiveIndicator lastUpdate={mostRecent} tone={indicatorTone} compact={compact} />
+      {!compact && onRefresh && (
         <Button
           variant="ghost"
           size="sm"
