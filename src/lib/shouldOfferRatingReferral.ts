@@ -9,10 +9,7 @@ import {
  * Alinhado a `shouldOfferServiceRatingReferral` no orchestrator — não confundir com
  * `shouldOfferRatingCommentReview` (revisão de comentário no fluxo conversacional).
  */
-export function shouldOfferRatingReferral(
-  ratingStars: number,
-  ratingDimensions: unknown,
-): boolean {
+export function shouldOfferRatingReferral(ratingStars: number, ratingDimensions: unknown): boolean {
   if (Number.isInteger(ratingStars) && ratingStars >= 1 && ratingStars <= 2) return true;
   if (!ratingDimensions || typeof ratingDimensions !== "object") return false;
   if (!isCompleteServiceRatingDimensions(ratingDimensions)) return false;

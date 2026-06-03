@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { rpc: vi.fn() },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { __test__ } from "./useDemographicCrossAnalytics";
 
@@ -44,11 +44,7 @@ describe("labelFor — tradução pt-BR", () => {
 describe("REPORT_TYPES", () => {
   it("define os 3 tipos macro corretamente", () => {
     expect(REPORT_TYPES).toHaveLength(3);
-    expect(REPORT_TYPES.map((r) => r.category)).toEqual([
-      "Urbano",
-      "Transporte",
-      "Avaliação",
-    ]);
+    expect(REPORT_TYPES.map((r) => r.category)).toEqual(["Urbano", "Transporte", "Avaliação"]);
     expect(REPORT_TYPES.map((r) => r.rpcType)).toEqual(["urban", "transport", "evaluation"]);
   });
 });

@@ -51,9 +51,7 @@ describe("detectAnomalies — detecção", () => {
     const hist = buildSeries("2026-04-01", counts);
     const anomalies = detectAnomalies(hist);
     expect(anomalies.length).toBeGreaterThanOrEqual(1);
-    const last = anomalies.find(
-      (a) => a.signalDate === hist[hist.length - 1].date,
-    );
+    const last = anomalies.find((a) => a.signalDate === hist[hist.length - 1].date);
     expect(last).toBeDefined();
     expect(last?.direction).toBe("spike");
     expect(last?.zScore).toBeGreaterThan(2.5);
@@ -68,9 +66,7 @@ describe("detectAnomalies — detecção", () => {
     counts.push(0);
     const hist = buildSeries("2026-04-01", counts);
     const anomalies = detectAnomalies(hist);
-    const last = anomalies.find(
-      (a) => a.signalDate === hist[hist.length - 1].date,
-    );
+    const last = anomalies.find((a) => a.signalDate === hist[hist.length - 1].date);
     expect(last?.direction).toBe("drop");
     expect(last?.zScore).toBeLessThan(0);
   });
@@ -130,9 +126,7 @@ describe("detectAnomalies — janela e threshold", () => {
     counts[10] = 500;
     const hist = buildSeries("2026-04-01", counts);
     const anomalies = detectAnomalies(hist, { windowDays: 7 });
-    expect(
-      anomalies.some((a) => a.signalDate === hist[10].date),
-    ).toBe(false);
+    expect(anomalies.some((a) => a.signalDate === hist[10].date)).toBe(false);
   });
 
   it("aumentar zThreshold reduz número de detecções", () => {
@@ -156,6 +150,47 @@ describe("detectAnomalies — campos do output", () => {
     expect(a.expectedLower).toBeLessThanOrEqual(a.expectedValue + 1e-6);
     expect(a.expectedValue).toBeLessThanOrEqual(a.expectedUpper + 1e-6);
     expect(a.expectedLower).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("detectAnomalies — HU-9.3: alinhamento com a spec OS-07", () => {
+  it("janela default = 7 dias (spec): pico anterior à janela NÃO é sinalizado", () => {
+    // Sem options → windowDays default. A spec HU-9.3 fixa 7. Um pico no dia
+    // -8 (fora da janela) não pode ser avaliado/sinalizado.
+    const counts: number[] = [];
+    for (let i = 0; i < 40; i += 1) counts.push(100 + (i % 2 === 0 ? 1 : -1));
+    counts[32] = 600; // índice 32 = 8º dia antes do fim → fora da janela (33..39)
+    const hist = buildSeries("2026-04-01", counts);
+
+    const anomalies = detectAnomalies(hist);
+    expect(anomalies.some((a) => a.signalDate === hist[32].date)).toBe(false);
+  });
+
+  it("vê crises reais: pico extremo no último dia → critical + spike (regressão da A1.2)", () => {
+    // Antes da A1.2, detectAnomalies retornava SEMPRE [] (guard do forecastVolume),
+    // então o gestor nunca via crise alguma ("não vê crises reais"). Garante que vê.
+    const counts: number[] = [];
+    for (let i = 0; i < 39; i += 1) counts.push(100 + (i % 2 === 0 ? 1 : -1));
+    counts.push(800);
+    const hist = buildSeries("2026-04-01", counts);
+
+    const [a] = detectAnomalies(hist);
+    expect(a).toBeDefined();
+    expect(a.signalDate).toBe(hist[hist.length - 1].date);
+    expect(a.direction).toBe("spike");
+    expect(a.severity).toBe("critical"); // |z| >> 5 → faixa critical da spec
+  });
+
+  it("severidade segue as faixas |z| da spec (limiar mínimo 2.5)", () => {
+    // Série com ruído controlado (~1) e último dia ligeiramente alto: |z| fica
+    // ABAIXO de 2.5 → nenhum alerta (não infla falso positivo de baixa monta).
+    const counts: number[] = [];
+    for (let i = 0; i < 39; i += 1) counts.push(100 + (i % 2 === 0 ? 1 : -1));
+    counts.push(102); // ~2 acima da média; |z| < 2.5
+    const hist = buildSeries("2026-04-01", counts);
+
+    const anomalies = detectAnomalies(hist);
+    expect(anomalies.some((x) => x.signalDate === hist[hist.length - 1].date)).toBe(false);
   });
 });
 

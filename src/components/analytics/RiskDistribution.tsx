@@ -1,4 +1,4 @@
-import { CompactBarChart } from './CompactBarChart';
+import { CompactBarChart } from "./CompactBarChart";
 
 interface RiskLevelData {
   level: string;
@@ -15,7 +15,7 @@ interface RiskDistributionProps {
 export const RiskDistribution = ({ data, onSegmentClick }: RiskDistributionProps) => {
   const total = data.reduce((sum, d) => sum + d.count, 0);
 
-  const chartData = data.map(item => ({
+  const chartData = data.map((item) => ({
     label: item.level,
     value: item.count,
     color: item.color,
@@ -23,11 +23,7 @@ export const RiskDistribution = ({ data, onSegmentClick }: RiskDistributionProps
 
   return (
     <div className="w-full h-full">
-      <CompactBarChart
-        data={chartData}
-        total={total}
-        onItemClick={onSegmentClick}
-      />
+      <CompactBarChart data={chartData} total={total} onItemClick={onSegmentClick} />
     </div>
   );
 };

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { parseEdgeFunctionError } from "@/lib/edgeFunctionError";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { UserRole } from "@/hooks/useUserRole";
 
@@ -45,19 +46,9 @@ interface CouncilMemberOption {
   party: string;
 }
 
-const INVITE_ROLES: UserRole[] = [
-  "admin",
-  "gestor",
-  "vereador",
-  "assessor",
-  "cidadao_engajado",
-];
+const INVITE_ROLES: UserRole[] = ["admin", "gestor", "vereador", "assessor", "cidadao_engajado"];
 
-export function InviteUserDialog({
-  open,
-  onOpenChange,
-  onInvited,
-}: InviteUserDialogProps) {
+export function InviteUserDialog({ open, onOpenChange, onInvited }: InviteUserDialogProps) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<UserRole>("gestor");
@@ -117,19 +108,35 @@ export function InviteUserDialog({
           councilMemberId: needsGabinete ? councilMemberId : undefined,
         },
       });
-      if (error) throw error;
-      const message =
-        (data as { error?: string })?.error
-          ? `Aviso: ${(data as { error: string }).error}`
-          : `Convite enviado para ${email.trim()}.`;
-      toast.success(message);
+
+      const payload = (data ?? {}) as {
+        error?: string;
+        warning?: string;
+        status?: string;
+      };
+
+      if (error) {
+        const friendly = await parseEdgeFunctionError(error, data);
+        throw new Error(friendly);
+      }
+
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+
+      if (payload.warning) {
+        toast.warning(payload.warning);
+      } else if (payload.status === "resent") {
+        toast.success(`Convite reenviado para ${email.trim()}.`);
+      } else {
+        toast.success(`Convite enviado para ${email.trim()}.`);
+      }
       onInvited?.();
       onOpenChange(false);
     } catch (err) {
       console.error("[InviteUserDialog] error", err);
-      const msg =
-        err instanceof Error ? err.message : "Erro desconhecido.";
-      toast.error(`Não foi possível convidar: ${msg}`);
+      const msg = err instanceof Error ? err.message : "Erro desconhecido.";
+      toast.error(msg.startsWith("Não foi possível") ? msg : `Não foi possível convidar: ${msg}`);
     } finally {
       setSubmitting(false);
     }
@@ -144,8 +151,8 @@ export function InviteUserDialog({
             Convidar novo usuário
           </DialogTitle>
           <DialogDescription>
-            Um email de convite será enviado para o endereço informado. O
-            usuário cria a senha ao acessar o link e já recebe o papel definido.
+            Um email de convite será enviado para o endereço informado. O usuário cria a senha ao
+            acessar o link e já recebe o papel definido.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,9 +173,7 @@ export function InviteUserDialog({
               />
             </div>
             {email && !emailValid && (
-              <p className="text-[11px] text-destructive mt-1">
-                Email inválido.
-              </p>
+              <p className="text-[11px] text-destructive mt-1">Email inválido.</p>
             )}
           </div>
 
@@ -214,9 +219,7 @@ export function InviteUserDialog({
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue
-                    placeholder={
-                      loadingCouncil ? "Carregando..." : "Selecione o vereador"
-                    }
+                    placeholder={loadingCouncil ? "Carregando..." : "Selecione o vereador"}
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -237,17 +240,10 @@ export function InviteUserDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={!formValid || submitting}
-          >
+          <Button onClick={() => void handleSubmit()} disabled={!formValid || submitting}>
             {submitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (

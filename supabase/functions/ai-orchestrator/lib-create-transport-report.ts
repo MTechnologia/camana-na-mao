@@ -1,5 +1,6 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
-import { TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts";
+import { CHANNEL_RATING_FIELD } from "./lib-conversation-closing.ts";
+import { transportImpactSummaryLine } from "./lib-index-transport-preview.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
 
@@ -123,42 +124,44 @@ function buildTransportSuccessMessage(
     TRANSPORT_RECURRENCE_LABELS[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
   const descPreview = String(args.description ?? "");
   const accessibilitySummary = deps.formatTransportAccessibilitySummary(accessibilityInsert);
+  const directionLabel = args.direction
+    ? `${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}`
+    : "";
+  const impactLine =
+    args.personal_impact != null && args.personal_impact !== ""
+      ? transportImpactSummaryLine(args.personal_impact)
+      : "";
+  const tramiteInline =
+    "O relato segue triagem na Câmara (tipo, linha, data, gravidade) e pode ser encaminhado às áreas competentes (ex.: mobilidade e órgãos parceiros). Prazos variam conforme o caso — acompanhe em Meus relatos.";
 
-  return [
+  const body = [
     `[TRANSPORT_CREATED:${data.id}]`,
-    "",
-    "✅ **Relato de transporte registrado!**",
-    "",
-    data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : "",
-    "**Resumo do seu relato:**",
-    "",
-    `📋 **Tipo:** ${typeLabel}${subDetailLabel ? ` - ${subDetailLabel}` : ""}`,
-    `🚌 **Linha:** ${args.line_code || "Não informada"}`,
-    `📅 **Data:** ${args.occurrence_date}`,
-    args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : "",
-    args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : "",
-    recurrenceLabel ? `🔁 **Frequência:** ${recurrenceLabel}` : "",
-    args.location ? `📍 **Local:** ${args.location}` : "",
-    stopNameInsert ? `🚏 **Parada / estação:** ${stopNameInsert}` : "",
-    stopLocationInsert ? `📌 **Ponto / referência:** ${stopLocationInsert}` : "",
-    accessibilitySummary ? `♿ **Acessibilidade:** ${accessibilitySummary}` : "",
-    photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : "",
-    `⚠️ **Gravidade:** ${severityLabel}`,
-    "",
-    `📝 **Descrição:** ${descPreview.substring(0, 100)}${descPreview.length > 100 ? "..." : ""}`,
-    "",
-    "---",
-    "",
-    TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
-    "",
-    "---",
-    "",
-    "🔗 [Ver Meus Relatos](/transporte/meus-relatos) para acompanhar.",
-    "",
-    "**Quer que eu encaminhe esse relato para algum vereador?**",
-    "",
-    "Posso ajudar com mais alguma coisa?",
+    "Relato de transporte registrado!",
+    data.protocol_code ? `🔖 Protocolo: ${data.protocol_code}` : "",
+    "Resumo do seu relato:",
+    `📋 Tipo: ${typeLabel}${subDetailLabel ? ` - ${subDetailLabel}` : ""}`,
+    `🚌 Linha: ${args.line_code || "Não informada"}`,
+    `📅 Data: ${args.occurrence_date}`,
+    args.occurrence_time ? `🕐 Horário: ${args.occurrence_time}` : "",
+    directionLabel ? `🧭 Sentido: ${directionLabel}` : "",
+    recurrenceLabel ? `🔁 Frequência: ${recurrenceLabel}` : "",
+    impactLine ? `🎯 Impacto na rotina: ${impactLine}` : "",
+    `🚏 Parada / estação: ${stopNameInsert || "não informado"}`,
+    `📌 Ponto / referência: ${stopLocationInsert || "não informado"}`,
+    photosArray?.length ? `📷 Fotos anexadas: ${photosArray.length} imagem(ns)` : "",
+    `⚠️ Gravidade: ${severityLabel}`,
+    `📝 Descrição: ${descPreview.substring(0, 500)}${descPreview.length > 500 ? "..." : ""}`,
+    ...(accessibilitySummary ? [`♿ Acessibilidade: ${accessibilitySummary}`] : []),
+    ...(args.location ? [`📍 Local: ${args.location}`] : []),
+    `📚 Próximos passos: ${tramiteInline}`,
+    "🔗 Ver Meus Relatos para acompanhar.",
+    "Quer que eu encaminhe esse relato para algum vereador?",
+    "Como foi seu atendimento aqui no Câmara na Mão? Toque nas estrelas abaixo para avaliar de 1 a 5 — sua opinião nos ajuda a melhorar o canal.",
+    `[FIELD_REQUEST:${CHANNEL_RATING_FIELD}]`,
+    "[RATING_PICKER]",
   ].filter((line) => line !== "").join("\n");
+
+  return body;
 }
 
 export async function handleCreateTransportReport(
@@ -379,11 +382,6 @@ export async function handleCreateTransportReport(
   }
   const protocolCode = protocolData || null;
 
-  const isTransportSafety = validReportType === "seguranca";
-  const isTransportCritical = inferredSeverity === "critica";
-  const isTransportHigh = inferredSeverity === "alta";
-  const initialTransportPriority = isTransportSafety || isTransportCritical ? "critica" : isTransportHigh ? "alta" : null;
-
   console.log("[create_transport_report] Attempting to insert report:", {
     userId,
     report_type: validReportType,
@@ -435,7 +433,6 @@ export async function handleCreateTransportReport(
       impact_description: argsState.impact_description || null,
       status: "pending",
       photos: photosArray,
-      n8n_priority: initialTransportPriority,
     })
     .select("id, protocol_code")
     .single();
@@ -484,19 +481,6 @@ export async function handleCreateTransportReport(
       personal_impact: personalImpactScore,
     },
   });
-
-  try {
-    await supabase.functions.invoke("notify-n8n", {
-      body: {
-        event_type: "transport_report.created",
-        entity_type: "transport_report",
-        entity_id: data.id,
-        payload: { ...argsState, user_id: userId },
-      },
-    });
-  } catch (n8nError) {
-    console.error("[executeTool] N8N notification failed:", n8nError);
-  }
 
   const successMessage = buildTransportSuccessMessage(
     data,

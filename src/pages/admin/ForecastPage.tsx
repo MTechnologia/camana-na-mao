@@ -10,10 +10,7 @@ import {
   ForecastSummaryCards,
   ForecastTable,
 } from "@/components/admin/forecast/ForecastVisualizations";
-import {
-  useVolumeForecast,
-  type ForecastHorizon,
-} from "@/hooks/useVolumeForecast";
+import { useVolumeForecast, type ForecastHorizon } from "@/hooks/useVolumeForecast";
 
 /**
  * HU-9.2 — Página /admin/previsoes.
@@ -59,9 +56,8 @@ export default function ForecastPage() {
               Previsões de volume
             </h1>
             <p className="text-muted-foreground">
-              Estimativa de relatos para os próximos dias baseada no histórico
-              recente. Use os intervalos de confiança para planejar capacidade
-              e equipes.
+              Estimativa de relatos para os próximos dias baseada no histórico recente. Use os
+              intervalos de confiança para planejar capacidade e equipes.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -98,8 +94,8 @@ export default function ForecastPage() {
           <div className="ml-auto text-[11px] text-muted-foreground hidden md:block">
             <span className="inline-flex items-center gap-1">
               <LineChartIcon className="h-3 w-3" />
-              Modelo: tendência linear × sazonalidade semanal · IC 95% baseado
-              em desvio dos resíduos
+              Modelo: tendência linear × sazonalidade semanal · IC 95% baseado em desvio dos
+              resíduos
             </span>
           </div>
         </Card>
@@ -127,11 +123,11 @@ export default function ForecastPage() {
 
             {/* Diagnóstico (rodapé pequeno) */}
             <Card className="p-3 text-[11px] text-muted-foreground">
-              <span className="font-medium">Diagnóstico do modelo:</span>{" "}
-              tendência {diagnostics.trendSlope >= 0 ? "+" : ""}
-              {diagnostics.trendSlope.toFixed(2)} relato/dia · desvio dos
-              resíduos {diagnostics.residualStdDev.toFixed(1)} · {history.length}{" "}
-              dias de histórico considerados.
+              <span className="font-medium">Diagnóstico do modelo:</span> tendência{" "}
+              {diagnostics.trendSlope >= 0 ? "+" : ""}
+              {diagnostics.trendSlope.toFixed(2)} relato/dia · desvio dos resíduos{" "}
+              {diagnostics.residualStdDev.toFixed(1)} · {history.length} dias de histórico
+              considerados.
             </Card>
           </>
         )}

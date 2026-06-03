@@ -217,6 +217,7 @@ Deno.test("create_urban_report: persiste relato e mantém resumo final", async (
       neighborhood: "Centro",
       street_number: "123",
       risk_level: "low",
+      affected_scope: "street",
       urgency_reason: "Mau cheiro e acúmulo recorrente",
     },
     userId,
@@ -332,6 +333,26 @@ Deno.test("parseFieldResponse: mantém parsing urbano de escopo e consequências
   assertEquals(parseFieldResponse("active_consequences", "está alagando, não passa carro e está sem água"), {
     active_consequences: ["water_outage", "traffic_blocked", "flooding"],
   });
+});
+
+Deno.test("parseFieldResponse: affected_scope reconhece variantes naturais (a mim / somente eu / só eu / para mim)", () => {
+  assertEquals(parseFieldResponse("affected_scope", "A mim"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "Somente eu"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "Só eu"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "Apenas eu"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "para mim"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "pra mim"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "comigo"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "minha casa"), { affected_scope: "individual" });
+  assertEquals(parseFieldResponse("affected_scope", "no meu apartamento"), { affected_scope: "individual" });
+
+  assertEquals(parseFieldResponse("affected_scope", "Toda a rua"), { affected_scope: "street" });
+  assertEquals(parseFieldResponse("affected_scope", "Rua inteira"), { affected_scope: "street" });
+  assertEquals(parseFieldResponse("affected_scope", "Os vizinhos também"), { affected_scope: "street" });
+
+  assertEquals(parseFieldResponse("affected_scope", "O bairro todo"), { affected_scope: "neighborhood" });
+  assertEquals(parseFieldResponse("affected_scope", "Bairro inteiro"), { affected_scope: "neighborhood" });
+  assertEquals(parseFieldResponse("affected_scope", "Toda a região"), { affected_scope: "neighborhood" });
 });
 
 Deno.test("parseFieldResponse: mantém parsing urbano de localização", () => {

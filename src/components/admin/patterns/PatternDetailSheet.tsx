@@ -1,11 +1,5 @@
 import { useMemo } from "react";
-import {
-  Activity,
-  CalendarRange,
-  Clock,
-  ExternalLink,
-  Sparkles,
-} from "lucide-react";
+import { Activity, CalendarRange, Clock, ExternalLink, Sparkles } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -104,9 +98,7 @@ export function PatternDetailSheet({ pattern, onOpenChange }: PatternDetailSheet
                   </Badge>
                 )}
               </div>
-              <SheetTitle className="text-base leading-snug">
-                {pattern.description}
-              </SheetTitle>
+              <SheetTitle className="text-base leading-snug">{pattern.description}</SheetTitle>
               {pattern.suggestedAction && (
                 <SheetDescription className="flex items-start gap-2">
                   <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
@@ -232,9 +224,7 @@ function ReportRow({ report, onClick }: ReportRowProps) {
             {report.source === "urban" ? "Urbano" : "Transporte"}
           </Badge>
           {report.protocol && (
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {report.protocol}
-            </span>
+            <span className="text-[10px] font-mono text-muted-foreground">{report.protocol}</span>
           )}
           {report.severity && (
             <Badge variant="secondary" className="text-[10px] h-4 px-1">
@@ -244,9 +234,7 @@ function ReportRow({ report, onClick }: ReportRowProps) {
         </div>
         <p className="text-sm font-medium mt-0.5 truncate">{report.title}</p>
         {report.description && (
-          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-            {report.description}
-          </p>
+          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{report.description}</p>
         )}
         <div className="text-[11px] text-muted-foreground mt-1">
           {report.neighborhood && <span>📍 {report.neighborhood} · </span>}

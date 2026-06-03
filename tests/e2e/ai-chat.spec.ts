@@ -18,10 +18,15 @@ test.describe('Chat com IA', () => {
   test('deve selecionar jornada específica', async ({ page }) => {
     await page.goto('/');
     
-    // Aguardar hub carregar (chips ou área de mensagem)
+    // "Transporte" fica em "Ver todos" (dropdown), não nos chips principais.
     await page.getByText(/Sobre o que deseja falar|O que deseja falar|Transporte/i).first().waitFor({ state: 'visible', timeout: 10000 });
-    // Selecionar jornada de transporte (chip na home)
-    await page.getByRole('button', { name: /Transporte/ }).click();
+    const transportAsButton = page.getByRole('button', { name: /Transporte/i });
+    if (await transportAsButton.isVisible().catch(() => false)) {
+      await transportAsButton.click();
+    } else {
+      await page.getByRole('button', { name: /Ver todos/i }).click();
+      await page.getByRole('menuitem', { name: /Transporte/i }).click();
+    }
     
     const chatArea = page.locator('[data-testid="chat-messages"]');
     const fallback = page.getByText(/linha|transporte|ônibus/i).first();

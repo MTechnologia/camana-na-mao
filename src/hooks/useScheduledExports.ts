@@ -13,6 +13,13 @@ import type { RelativePeriodKind } from "@/lib/relativePeriod";
  */
 
 const TABLE = "scheduled_exports" as const;
+const APP_ORIGIN_FILTER_KEY = "__app_origin";
+
+function withAppOrigin(filters: Record<string, unknown>): Record<string, unknown> {
+  if (typeof window === "undefined" || !window.location?.origin) return filters;
+  if (typeof filters[APP_ORIGIN_FILTER_KEY] === "string") return filters;
+  return { ...filters, [APP_ORIGIN_FILTER_KEY]: window.location.origin };
+}
 
 export type Recurrence = "daily" | "weekly" | "monthly";
 
@@ -125,11 +132,10 @@ function toModel(row: RawRow): ScheduledExport {
     dataset: row.dataset as ExportDataset,
     format: row.format as "csv" | "xlsx",
     fields: (row.fields as string[]) ?? [],
-    orderBy:
-      (row.order_by as { fieldId: string; direction: "asc" | "desc" }) ?? {
-        fieldId: "created_at",
-        direction: "desc",
-      },
+    orderBy: (row.order_by as { fieldId: string; direction: "asc" | "desc" }) ?? {
+      fieldId: "created_at",
+      direction: "desc",
+    },
     filters: (row.filters as Record<string, unknown>) ?? {},
     includeSummary: row.include_summary,
     recurrence: row.recurrence as Recurrence,
@@ -137,7 +143,7 @@ function toModel(row: RawRow): ScheduledExport {
     runMinute: row.run_minute,
     weekday: row.weekday,
     monthday: row.monthday,
-    periodKind: ((row.period_kind ?? "relative") as PeriodKind),
+    periodKind: (row.period_kind ?? "relative") as PeriodKind,
     periodRelative: (row.period_relative as RelativePeriodKind | null) ?? null,
     notifyInApp: row.notify_in_app ?? true,
     enabled: row.enabled,
@@ -197,7 +203,7 @@ export function useScheduledExports(): UseScheduledExportsResult {
             format: input.format,
             fields: input.fieldIds,
             order_by: input.orderBy,
-            filters: input.filters ?? {},
+            filters: withAppOrigin((input.filters ?? {}) as Record<string, unknown>),
             include_summary: input.includeSummary ?? false,
             recurrence: input.recurrence,
             run_hour: input.runHour,
@@ -243,7 +249,9 @@ export function useScheduledExports(): UseScheduledExportsResult {
       if (patch.enabled !== undefined) dbPatch.enabled = patch.enabled;
       if (patch.fields !== undefined) dbPatch.fields = patch.fields;
       if (patch.orderBy !== undefined) dbPatch.order_by = patch.orderBy;
-      if (patch.filters !== undefined) dbPatch.filters = patch.filters;
+      if (patch.filters !== undefined) {
+        dbPatch.filters = withAppOrigin(patch.filters as Record<string, unknown>);
+      }
       if (patch.includeSummary !== undefined) dbPatch.include_summary = patch.includeSummary;
       if (patch.periodKind !== undefined) dbPatch.period_kind = patch.periodKind;
       if (patch.periodRelative !== undefined) dbPatch.period_relative = patch.periodRelative;

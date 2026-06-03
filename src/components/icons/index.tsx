@@ -119,18 +119,6 @@ export function ServiceTypeIcon({
 }
 
 /** Ícone de confirmação (substitui "✓" em texto). */
-export function IconCheck({
-  className,
-  size = 18,
-}: {
-  className?: string;
-  size?: number;
-}) {
-  return (
-    <Check
-      className={cn("shrink-0 text-green-600", className)}
-      size={size}
-      aria-hidden
-    />
-  );
+export function IconCheck({ className, size = 18 }: { className?: string; size?: number }) {
+  return <Check className={cn("shrink-0 text-green-600", className)} size={size} aria-hidden />;
 }

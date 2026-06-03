@@ -1,0 +1,15 @@
+{
+  "journey": "noticias",
+  "description": "Notícias e agenda",
+  "cases": [
+    { "id": "noticias_explicit", "input": "mostrar notícias da câmara" },
+    { "id": "noticias_typo", "input": "noticias recentes da camara" },
+    { "id": "noticias_agenda", "input": "noticias recentes da camara" },
+    { "id": "noticias_ultimas", "input": "ultimas noticias da camara" },
+    { "id": "noticias_chip", "input": "últimas notícias da câmara" },
+    { "id": "noticias_hoje", "input": "noticias da camara hoje" },
+    { "id": "noticias_plenario", "input": "noticia do plenario da camara" },
+    { "id": "noticias_busca", "input": "buscar noticia sobre transporte na camara" },
+    { "id": "noticias_feed", "input": "feed de noticias da camara municipal" }
+  ]
+}

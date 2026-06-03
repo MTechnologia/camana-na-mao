@@ -1,7 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Mesmo valor usado em métricas; formulários manuais (web) não passam pelo ai-orchestrator. */
-export const MANUAL_FORM_CLASSIFICATION_SOURCE = 'manual_form';
+export const MANUAL_FORM_CLASSIFICATION_SOURCE = "manual_form";
 
 /**
  * Registra predição no momento do envio pelo formulário manual (RLS: user_id = auth.uid()).
@@ -12,12 +12,12 @@ export async function logManualClassificationPrediction(
   params: {
     userId: string;
     reportId: string;
-    reportType: 'urban' | 'transport';
+    reportType: "urban" | "transport";
     predictedCategory: string;
     predictedSubcategory: string | null;
-  }
+  },
 ): Promise<void> {
-  const { error } = await supabase.from('report_classification_prediction_log').insert({
+  const { error } = await supabase.from("report_classification_prediction_log").insert({
     report_id: params.reportId,
     report_type: params.reportType,
     predicted_category: params.predictedCategory,
@@ -26,10 +26,10 @@ export async function logManualClassificationPrediction(
     user_id: params.userId,
   });
 
-  if (error && (error as { code?: string }).code === '23505') {
+  if (error && (error as { code?: string }).code === "23505") {
     return;
   }
   if (error) {
-    console.warn('[logManualClassificationPrediction]', error.message);
+    console.warn("[logManualClassificationPrediction]", error.message);
   }
 }

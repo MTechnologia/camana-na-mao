@@ -1,33 +1,28 @@
-import { useState } from 'react';
-import { subDays, subMonths, startOfYear } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { FilterDatePickerProps, DateRangeValue } from './types';
-import { formatShortDate, formatCompactDate } from '@/lib/dateUtils';
+import { useState } from "react";
+import { subDays, subMonths, startOfYear } from "date-fns";
+import { Calendar as CalendarIcon, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { StandardCalendarPanel } from "@/components/ui/standard-calendar-panel";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FilterDatePickerProps, DateRangeValue } from "./types";
+import { formatShortDate, formatCompactDate } from "@/lib/dateUtils";
 
 const defaultPresets: { label: string; getValue: () => DateRangeValue }[] = [
   {
-    label: 'Últimos 7 dias',
+    label: "Últimos 7 dias",
     getValue: () => ({ from: subDays(new Date(), 7), to: new Date() }),
   },
   {
-    label: 'Últimos 30 dias',
+    label: "Últimos 30 dias",
     getValue: () => ({ from: subDays(new Date(), 30), to: new Date() }),
   },
   {
-    label: 'Últimos 3 meses',
+    label: "Últimos 3 meses",
     getValue: () => ({ from: subMonths(new Date(), 3), to: new Date() }),
   },
   {
-    label: 'Este ano',
+    label: "Este ano",
     getValue: () => ({ from: startOfYear(new Date()), to: new Date() }),
   },
 ];
@@ -35,11 +30,12 @@ const defaultPresets: { label: string; getValue: () => DateRangeValue }[] = [
 export function FilterDatePicker({
   value,
   onChange,
-  placeholder = 'Selecionar período',
+  placeholder = "Selecionar período",
   showPresets = true,
   className,
 }: FilterDatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [displayMonth, setDisplayMonth] = useState<Date>(value?.from ?? new Date());
 
   const hasValue = value?.from || value?.to;
 
@@ -61,9 +57,9 @@ export function FilterDatePicker({
           variant="outline"
           size="sm"
           className={cn(
-            'justify-start text-left font-normal gap-2 h-9',
-            !hasValue && 'text-muted-foreground',
-            className
+            "justify-start text-left font-normal gap-2 h-9",
+            !hasValue && "text-muted-foreground",
+            className,
           )}
         >
           <CalendarIcon className="h-4 w-4 shrink-0" />
@@ -80,9 +76,7 @@ export function FilterDatePicker({
         <div className="flex">
           {showPresets && (
             <div className="border-r border-border p-2 space-y-1">
-              <p className="text-xs font-medium text-muted-foreground px-2 py-1">
-                Atalhos
-              </p>
+              <p className="text-xs font-medium text-muted-foreground px-2 py-1">Atalhos</p>
               {defaultPresets.map((preset) => (
                 <Button
                   key={preset.label}
@@ -90,7 +84,9 @@ export function FilterDatePicker({
                   size="sm"
                   className="w-full justify-start text-xs h-7"
                   onClick={() => {
-                    onChange(preset.getValue());
+                    const next = preset.getValue();
+                    onChange(next);
+                    if (next.from) setDisplayMonth(next.from);
                     setOpen(false);
                   }}
                 >
@@ -99,18 +95,21 @@ export function FilterDatePicker({
               ))}
             </div>
           )}
-          <Calendar
+          <StandardCalendarPanel
+            displayMonth={displayMonth}
+            onDisplayMonthChange={setDisplayMonth}
+            minYear={2000}
+            maxYear={new Date().getFullYear() + 1}
             mode="range"
             selected={value ? { from: value.from, to: value.to } : undefined}
             onSelect={(range) => {
               onChange(range ? { from: range.from, to: range.to } : undefined);
+              if (range?.from) setDisplayMonth(range.from);
               if (range?.from && range?.to) {
                 setOpen(false);
               }
             }}
-            locale={ptBR}
             numberOfMonths={1}
-            className="p-3 pointer-events-auto"
           />
         </div>
       </PopoverContent>

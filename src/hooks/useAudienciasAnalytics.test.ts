@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { __test__, useAudienciasAnalytics } from "./useAudienciasAnalytics";
 import { supabase } from "@/integrations/supabase/client";
 
-const { aggregate, ocupacao, isProximaDentroDe, rank } = __test__;
+const { aggregate, ocupacao, isAudienciaAberta, isProximaDentroDe, rank } = __test__;
 
 interface AudienciaRow {
   id: string;
@@ -21,6 +19,7 @@ interface AudienciaRow {
   local: string;
   ap_code: string | null;
   status: string;
+  inscricoes_abertas: boolean | null;
   vagas_disponiveis: number | null;
 }
 
@@ -45,6 +44,7 @@ function aud(overrides: Partial<AudienciaRow> = {}): AudienciaRow {
     local: "Pinheiros",
     ap_code: null,
     status: "agendada",
+    inscricoes_abertas: true,
     vagas_disponiveis: 100,
     ...overrides,
   };
@@ -95,6 +95,55 @@ describe("rank", () => {
   });
 });
 
+describe("isAudienciaAberta", () => {
+  const today = "2026-05-19";
+
+  it("é aberta quando agendada, inscrições abertas e data futura", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "agendada", inscricoes_abertas: true },
+        today,
+      ),
+    ).toBe(true);
+  });
+
+  it("não é aberta quando a data já passou", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-10", status: "agendada", inscricoes_abertas: true },
+        today,
+      ),
+    ).toBe(false);
+  });
+
+  it("não é aberta quando inscrições estão fechadas", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "agendada", inscricoes_abertas: false },
+        today,
+      ),
+    ).toBe(false);
+  });
+
+  it("é aberta quando inscricoes_abertas é null (default do banco)", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "agendada", inscricoes_abertas: null },
+        today,
+      ),
+    ).toBe(true);
+  });
+
+  it("não é aberta quando status é realizada", () => {
+    expect(
+      isAudienciaAberta(
+        { data: "2026-05-25", status: "realizada", inscricoes_abertas: true },
+        today,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("isProximaDentroDe", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -122,6 +171,22 @@ describe("isProximaDentroDe", () => {
 });
 
 describe("aggregate", () => {
+  it("conta audienciasAbertas no recorte filtrado", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-19T12:00:00"));
+    const r = aggregate(
+      [
+        aud({ id: "open", data: "2026-05-25", inscricoes_abertas: true, status: "agendada" }),
+        aud({ id: "past", data: "2026-05-10", inscricoes_abertas: true, status: "agendada" }),
+        aud({ id: "closed", data: "2026-05-25", inscricoes_abertas: false, status: "agendada" }),
+      ],
+      [],
+      [],
+    );
+    expect(r.audienciasAbertas).toBe(1);
+    vi.useRealTimers();
+  });
+
   it("retorna stats vazias com inputs vazios", () => {
     const r = aggregate([], [], []);
     expect(r.totalAudiencias).toBe(0);
@@ -336,11 +401,11 @@ describe("useAudienciasAnalytics (hook)", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    // Sem participações, ainda assim retorna dados de inscrições
+    // Engajamento total = 1 lembrete (inscrição) + 1 videoconferência + 1 escrito = 3.
     expect(result.current.error).toBeNull();
-    expect(result.current.stats.totalInscricoes).toBe(1);
+    expect(result.current.stats.totalInscricoes).toBe(3);
     expect(result.current.stats.totalLembretes).toBe(1);
-    expect(result.current.stats.totalVideoconferencias).toBe(0);
+    expect(result.current.stats.totalVideoconferencias).toBe(1);
   });
 
   it("propaga erro de Supabase em audiencias", async () => {
@@ -353,5 +418,48 @@ describe("useAudienciasAnalytics (hook)", () => {
 
     expect(result.current.error).toMatch(/Não foi possível carregar/i);
     expect(result.current.stats.totalAudiencias).toBe(0);
+  });
+
+  it("erro no refetch MANTÉM o último resultado bom (painel não esvazia) [A1.12]", async () => {
+    // 1ª carga OK → stats populado.
+    const okFrom = vi.fn((table: string) => {
+      if (table === "audiencias") {
+        return chain({
+          data: [
+            {
+              id: "a1",
+              titulo: "Audiência",
+              comissao: "Saúde",
+              tema: "Atendimento",
+              data: "2026-05-10",
+              local: "Pinheiros",
+              ap_code: null,
+              status: "agendada",
+              vagas_disponiveis: 100,
+            },
+          ],
+          error: null,
+        });
+      }
+      if (table === "audiencia_inscricoes") {
+        return chain({ data: [{ audiencia_id: "a1", user_id: "u1" }], error: null });
+      }
+      return chain({ data: [], error: null });
+    });
+    vi.spyOn(supabase, "from").mockImplementation(okFrom as unknown as SupabaseFrom);
+
+    const { result } = renderHook(() => useAudienciasAnalytics({}));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.stats.totalAudiencias).toBe(1);
+
+    // 2ª carga falha → erro setado, mas o painel preserva o último resultado bom.
+    const errFrom = (_table: string) => chain({ data: null, error: { message: "boom" } });
+    vi.spyOn(supabase, "from").mockImplementation(errFrom as unknown as SupabaseFrom);
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(result.current.error).toMatch(/Não foi possível carregar/i);
+    expect(result.current.stats.totalAudiencias).toBe(1); // NÃO zerou
   });
 });

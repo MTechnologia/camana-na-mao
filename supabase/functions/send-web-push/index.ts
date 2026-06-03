@@ -9,6 +9,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as webpush from "jsr:@negrel/webpush@0.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveAppUrl } from "../_shared/resolve-app-url.ts";
 import {
   effectiveDailyLimit,
   shouldDiscardForDailyLimit,
@@ -21,10 +22,7 @@ import {
   isInQuietHours,
 } from "../_shared/quiet-hours.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 interface WebhookPayload {
   type: "INSERT" | "UPDATE" | "DELETE";
@@ -38,6 +36,7 @@ interface WebhookPayload {
     type?: string;
     action_url?: string | null;
     priority?: string;
+    metadata?: { appUrl?: string | null } | null;
     scheduled_for?: string | null;
     push_delivered_at?: string | null;
   };
@@ -55,6 +54,7 @@ function toE164(phone: string | null | undefined): string | null {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -359,12 +359,18 @@ serve(async (req) => {
         // Confirmação completa vai para o e-mail do formulário (send-audiencia-inscricao-email).
         // Aqui o destino seria auth.users.email — incorreto quando o contato é outro endereço.
         console.log("[notification-delivery] E-mail genérico omitido (audiencia_inscricao); confirmação via send-audiencia-inscricao-email");
+      } else if (record.type === "export_completed") {
+        // E-mail rico com signed URL é enviado por send-export-email (process-export-job).
+        console.log("[notification-delivery] E-mail genérico omitido (export_completed); envio via send-export-email");
       } else {
-      const appUrl = Deno.env.get("APP_URL") || "";
+      const metadataAppUrl =
+        typeof record.metadata?.appUrl === "string" ? record.metadata.appUrl.trim() : "";
+      const appUrl = resolveAppUrl({ explicitOrigin: metadataAppUrl || null });
       const actionUrl = record.action_url
         ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
         : appUrl || "#";
-      const htmlBody = `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">Abrir no app</a></p>`;
+      const linkLabel = "Abrir no app";
+      const htmlBody = `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">${linkLabel}</a></p>`;
 
       // SendGrid (prioridade se configurado)
       const sendgridKey = Deno.env.get("SENDGRID_API_KEY");

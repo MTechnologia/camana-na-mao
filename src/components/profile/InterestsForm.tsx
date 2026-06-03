@@ -6,9 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Heart } from "lucide-react";
 import { INTEREST_ICONS } from "@/components/icons";
+import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 
 const INTEREST_CATEGORIES = [
-  { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
+  {
+    id: "legislativo",
+    label: "Legislativo",
+    icon: "📜",
+    description: "Projetos de lei e votações",
+  },
   { id: "mobilidade", label: "Mobilidade", icon: "🚌", description: "Transporte e trânsito" },
   { id: "cultura", label: "Cultura", icon: "🎭", description: "Eventos culturais" },
   { id: "saude", label: "Saúde", icon: "🏥", description: "Políticas de saúde" },
@@ -31,14 +37,14 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
   const loadInterests = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('user_interests')
-        .select('interest_category')
-        .eq('user_id', userId);
+        .from("user_interests")
+        .select("interest_category")
+        .eq("user_id", userId);
 
       if (error) throw error;
 
       if (data) {
-        setSelectedInterests(data.map(item => item.interest_category));
+        setSelectedInterests(data.map((item) => item.interest_category));
       }
     } catch (error: unknown) {
       console.error("Error loading interests:", error);
@@ -53,10 +59,8 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
   }, [loadInterests]);
 
   const toggleInterest = (interestId: string) => {
-    setSelectedInterests(prev =>
-      prev.includes(interestId)
-        ? prev.filter(id => id !== interestId)
-        : [...prev, interestId]
+    setSelectedInterests((prev) =>
+      prev.includes(interestId) ? prev.filter((id) => id !== interestId) : [...prev, interestId],
     );
   };
 
@@ -69,24 +73,34 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
     setLoading(true);
     try {
       const { error: deleteError } = await supabase
-        .from('user_interests')
+        .from("user_interests")
         .delete()
-        .eq('user_id', userId);
+        .eq("user_id", userId);
 
       if (deleteError) throw deleteError;
 
-      const interests = selectedInterests.map(category => ({
+      const interests = selectedInterests.map((category) => ({
         user_id: userId,
         interest_category: category,
       }));
 
-      const { error: insertError } = await supabase
-        .from('user_interests')
-        .insert(interests);
+      const { error: insertError } = await supabase.from("user_interests").insert(interests);
 
       if (insertError) throw insertError;
 
-      toast.success("Interesses salvos com sucesso!");
+      const { synced, error: syncError } = await syncInterestAudienciaAlerts(
+        userId,
+        selectedInterests,
+      );
+      if (syncError) {
+        console.warn("[InterestsForm] sync audiencia alerts:", syncError);
+      } else if (synced.length > 0) {
+        toast.success(
+          `Interesses salvos! Alertas de audiência ativados para: ${synced.join(", ")}.`,
+        );
+      } else {
+        toast.success("Interesses salvos com sucesso!");
+      }
       onSuccess?.();
     } catch (error: unknown) {
       console.error("Error saving interests:", error);
@@ -126,7 +140,9 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
               <span className="text-muted-foreground">
                 {selectedInterests.length} de {INTEREST_CATEGORIES.length} selecionados
               </span>
-              <span className={isMinimumMet ? "text-green-600 font-medium" : "text-muted-foreground"}>
+              <span
+                className={isMinimumMet ? "text-green-600 font-medium" : "text-muted-foreground"}
+              >
                 {isMinimumMet ? "✓ Mínimo atingido" : "Mínimo: 3"}
               </span>
             </div>
@@ -148,10 +164,11 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
                   }`}
                 >
                   <div className="flex items-center justify-center w-9 h-9 mb-1.5 text-primary transition-transform group-hover:scale-110">
-                    {INTEREST_ICONS[category.id] && (() => {
-                      const Icon = INTEREST_ICONS[category.id];
-                      return <Icon size={28} aria-hidden />;
-                    })()}
+                    {INTEREST_ICONS[category.id] &&
+                      (() => {
+                        const Icon = INTEREST_ICONS[category.id];
+                        return <Icon size={28} aria-hidden />;
+                      })()}
                   </div>
                   <h3 className="font-semibold text-foreground text-sm leading-tight">
                     {category.label}

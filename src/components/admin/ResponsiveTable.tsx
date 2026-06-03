@@ -1,7 +1,14 @@
-import { ReactNode } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { ReactNode } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Column<T> {
   header: string;
@@ -18,7 +25,12 @@ interface ResponsiveTableProps<T> {
   keyExtractor: (row: T, index: number) => string;
 }
 
-export function ResponsiveTable<T>({ data, columns, renderMobileCard, keyExtractor }: ResponsiveTableProps<T>) {
+export function ResponsiveTable<T>({
+  data,
+  columns,
+  renderMobileCard,
+  keyExtractor,
+}: ResponsiveTableProps<T>) {
   const isMobile = useIsMobile();
 
   if (isMobile && renderMobileCard) {
@@ -26,9 +38,7 @@ export function ResponsiveTable<T>({ data, columns, renderMobileCard, keyExtract
       <div className="space-y-4">
         {data.map((row, index) => (
           <Card key={keyExtractor(row, index)} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-6">
-              {renderMobileCard(row, index)}
-            </CardContent>
+            <CardContent className="pt-6">{renderMobileCard(row, index)}</CardContent>
           </Card>
         ))}
       </div>
@@ -36,7 +46,7 @@ export function ResponsiveTable<T>({ data, columns, renderMobileCard, keyExtract
   }
 
   const getCellValue = (row: T, column: Column<T>) => {
-    if (typeof column.accessor === 'function') {
+    if (typeof column.accessor === "function") {
       return column.accessor(row);
     }
     return row[column.accessor] as ReactNode;
@@ -48,7 +58,7 @@ export function ResponsiveTable<T>({ data, columns, renderMobileCard, keyExtract
         <TableHeader>
           <TableRow>
             {columns.map((column, index) => {
-              const hideClass = isMobile && column.hideOnMobile ? 'hidden' : '';
+              const hideClass = isMobile && column.hideOnMobile ? "hidden" : "";
               return (
                 <TableHead key={index} className={hideClass}>
                   {column.header}
@@ -60,7 +70,10 @@ export function ResponsiveTable<T>({ data, columns, renderMobileCard, keyExtract
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="text-center text-muted-foreground py-8">
+              <TableCell
+                colSpan={columns.length}
+                className="text-center text-muted-foreground py-8"
+              >
                 Nenhum registro encontrado
               </TableCell>
             </TableRow>
@@ -68,7 +81,7 @@ export function ResponsiveTable<T>({ data, columns, renderMobileCard, keyExtract
             data.map((row, rowIndex) => (
               <TableRow key={keyExtractor(row, rowIndex)} className="hover:bg-muted/50">
                 {columns.map((column, colIndex) => {
-                  const hideClass = isMobile && column.hideOnMobile ? 'hidden' : '';
+                  const hideClass = isMobile && column.hideOnMobile ? "hidden" : "";
                   return (
                     <TableCell key={colIndex} className={hideClass}>
                       {getCellValue(row, column)}

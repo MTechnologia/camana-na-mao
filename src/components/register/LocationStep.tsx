@@ -26,7 +26,9 @@ interface LocationStepProps {
 const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
   const [loading, setLoading] = useState(false);
   const [addressFound, setAddressFound] = useState(false);
-  const [cepLookupError, setCepLookupError] = useState<"not_found" | "service_unavailable" | null>(null);
+  const [cepLookupError, setCepLookupError] = useState<"not_found" | "service_unavailable" | null>(
+    null,
+  );
 
   const formatCEP = (value: string) => {
     const numbers = value.replace(/\D/g, "");
@@ -68,12 +70,16 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
             toast.error("CEP não encontrado. Você pode continuar sem endereço e completar depois.");
           } else {
             setCepLookupError("service_unavailable");
-            toast.info("Não foi possível consultar o CEP agora. Continue e complete em Perfil > Endereço.");
+            toast.info(
+              "Não foi possível consultar o CEP agora. Continue e complete em Perfil > Endereço.",
+            );
           }
         }
       } catch {
         setCepLookupError("service_unavailable");
-        toast.info("Não foi possível consultar o CEP agora. Continue e complete em Perfil > Endereço.");
+        toast.info(
+          "Não foi possível consultar o CEP agora. Continue e complete em Perfil > Endereço.",
+        );
       } finally {
         setLoading(false);
       }
@@ -98,9 +104,7 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
 
       {/* CEP Input */}
       <div>
-        <Label className="text-sm font-medium text-foreground mb-2 block">
-          CEP
-        </Label>
+        <Label className="text-sm font-medium text-foreground mb-2 block">CEP</Label>
         <div className="relative">
           <Input
             type="text"
@@ -119,23 +123,24 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
         </div>
         {!addressFound && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Se não conseguir validar o CEP agora, você pode continuar e cadastrar o endereço depois em Perfil &gt;
-            Endereço.
+            Se não conseguir validar o CEP agora, você pode continuar e cadastrar o endereço depois
+            em Perfil &gt; Endereço.
           </p>
         )}
         {cepLookupError === "service_unavailable" && (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
             <p className="text-xs flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              Os serviços de CEP estão indisponíveis no momento. Continue sem endereço e finalize depois no seu
-              perfil.
+              Os serviços de CEP estão indisponíveis no momento. Continue sem endereço e finalize
+              depois no seu perfil.
             </p>
           </div>
         )}
         {cepLookupError === "not_found" && (
           <div className="mt-3 rounded-xl border border-border bg-muted/50 px-3 py-2 text-muted-foreground">
             <p className="text-xs">
-              CEP não encontrado. Você pode continuar sem endereço agora e completar depois em Perfil &gt; Endereço.
+              CEP não encontrado. Você pode continuar sem endereço agora e completar depois em
+              Perfil &gt; Endereço.
             </p>
           </div>
         )}
@@ -145,9 +150,7 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
       {addressFound && (
         <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
           <div>
-            <Label className="text-sm font-medium text-foreground mb-2 block">
-              Rua
-            </Label>
+            <Label className="text-sm font-medium text-foreground mb-2 block">Rua</Label>
             <Input
               type="text"
               value={data.street}
@@ -185,9 +188,7 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-sm font-medium text-foreground mb-2 block">
-                Bairro
-              </Label>
+              <Label className="text-sm font-medium text-foreground mb-2 block">Bairro</Label>
               <Input
                 type="text"
                 value={data.neighborhood}
@@ -197,9 +198,7 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
               />
             </div>
             <div>
-              <Label className="text-sm font-medium text-foreground mb-2 block">
-                Cidade
-              </Label>
+              <Label className="text-sm font-medium text-foreground mb-2 block">Cidade</Label>
               <Input
                 type="text"
                 value={data.city}

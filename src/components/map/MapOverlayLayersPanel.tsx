@@ -49,11 +49,7 @@ export function MapOverlayLayersPanel({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="shadow-sm gap-2"
-        >
+        <Button variant="secondary" size="sm" className="shadow-sm gap-2">
           <Layers className="w-4 h-4" />
           Camadas GeoSampa
           {enabledLayerIds.length > 0 && (
@@ -68,9 +64,7 @@ export function MapOverlayLayersPanel({
         align="start"
         className="w-[min(320px,90vw)] overflow-hidden p-0 sm:w-[min(360px,90vw)]"
       >
-        <div
-          className="max-h-[min(70vh,85dvh)] overflow-y-auto overscroll-contain py-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/35"
-        >
+        <div className="max-h-[min(70vh,85dvh)] overflow-y-auto overscroll-contain py-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/35">
           <DropdownMenuLabel>Ativar camadas</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {onWmsImageamentoChange != null && (
@@ -85,10 +79,7 @@ export function MapOverlayLayersPanel({
                   checked={wmsImageamentoEnabled}
                   onCheckedChange={(checked) => onWmsImageamentoChange(checked === true)}
                 />
-                <label
-                  htmlFor="wms-imageamento"
-                  className="flex-1 cursor-pointer truncate"
-                >
+                <label htmlFor="wms-imageamento" className="flex-1 cursor-pointer truncate">
                   Imageamento (fotos aéreas)
                 </label>
               </div>
@@ -143,7 +134,9 @@ export function MapOverlayLayersPanel({
           )}
           <DropdownMenuSeparator />
           <div className="space-y-1.5 p-2">
-            <p className="px-2 text-xs font-medium text-muted-foreground">Legislação Urbana e Zoneamento</p>
+            <p className="px-2 text-xs font-medium text-muted-foreground">
+              Legislação Urbana e Zoneamento
+            </p>
             <a
               href="https://www.prefeitura.sp.gov.br/web/licenciamento/w/legislacao/288079"
               target="_blank"

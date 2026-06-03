@@ -47,6 +47,32 @@ export interface DetectCollectionIntentDeps {
 
 export const STRUCTURED_JOURNEY_TYPES = ["urban_report", "transport_report", "service_rating"] as const;
 
+/** Compara texto do munícipe sem depender de acentos (typos comuns). */
+export function foldAccents(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
+}
+
+function contextIncludes(context: string, fragment: string): boolean {
+  return foldAccents(context).includes(foldAccents(fragment));
+}
+
+const TRANSPORT_PROBLEM_LAST_MSG_DOMAINS =
+  /\b(onibus|bus[aã]o|metro|metr[oô]|trem|cptm|linha|motorista|cobrador|transporte\s+publico|parada)\b/i;
+const TRANSPORT_PROBLEM_LAST_MSG_ISSUES =
+  /\b(atras(o|ou|ando|ada)?|demora(r|ndo)?|lotad[oa]|lotacao|lota[cç][aã]o|n[aã]o\s+passou|n[aã]o\s+par(a|ou|aram)|n[aã]o\s+encost(a|ou)|passa(ndo|ram)?\s+(direto|reto|sem\s+parar)|passou\s+(direto|reto)|deixa\s+de\s+parar|quebrou|sujo|fedendo|imprudente|perigoso|capotou|freada|superlotad)\b/i;
+
+/** Relato de problema no transporte na última mensagem (não consulta Olho Vivo). */
+export function messageLooksLikeTransportProblemReport(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 10) return false;
+  if (isBusInformationalQuery(t)) return false;
+  const folded = foldAccents(t);
+  return TRANSPORT_PROBLEM_LAST_MSG_DOMAINS.test(folded) && TRANSPORT_PROBLEM_LAST_MSG_ISSUES.test(folded);
+}
+
 export function detectExistingJourney(
   conversationHistory: ConversationMessage[],
 ): "urban_report" | "transport_report" | "service_rating" | null {
@@ -234,12 +260,22 @@ export function isInformationalQuestionAboutVereadorOrCamara(userMessage: string
     /quais\s+vereadores\s+faltaram\s+(na\s+)?(última|ultima)\s+sess[aã]o/i.test(m) ||
     /quanto\s+a\s+(c[aâ]mara|camara)\s+gasta\s*(por\s+m[eê]s)?/i.test(m) ||
     /(como\s+posso\s+)?falar\s+com\s+(meu\s+)?vereador/i.test(m) ||
+    /qual\s+vereador\s+(atende|representa|cuida\s+do|fala\s+por).*(meu\s+bairro|minha\s+regi[aã]o|minha\s+zona|bairro)/i.test(m) ||
+    /(meu\s+bairro|minha\s+regi[aã]o|minha\s+zona).*(qual\s+vereador|vereador\s+(atende|representa))/i.test(m) ||
     /onde\s+(ta|est[aá])\s+os\s+gastos\s+(dos\s+)?vereadores/i.test(m)
   );
 }
 
+/** Relato de transporte (não consulta Olho Vivo). */
+function hasTransportComplaintSignals(message: string): boolean {
+  return /(atras|demora|demorou|reclam|problema|n[aã]o\s+passou|nao\s+passou|lotad|superlotad|motorista\s+(rude|grosso)|perig|ass[eé]dio|freada|freou|sujo|fedor|cancelou|quebrou)/i
+    .test(message);
+}
+
 export function isBusInformationalQuery(userMessage: string): boolean {
   const m = userMessage.trim().toLowerCase();
+  if (hasTransportComplaintSignals(m)) return false;
+
   const patterns = [
     /linhas?\s+(de\s+)?(ônibus|onibus)\s+passam/i,
     /quais\s+linhas\s+passam/i,
@@ -247,10 +283,25 @@ export function isBusInformationalQuery(userMessage: string): boolean {
     /qual\s+(linha|ônibus|onibus)\s+passa/i,
     /quando\s+passa\s+(o\s+)?(ônibus|onibus)/i,
     /itinerário|itinerario\s+(da\s+)?linha/i,
-    /previsão\s+de\s+chegada|previsao\s+de\s+chegada/i,
+    /previs[aã]o\s+de\s+chegada|previsao\s+de\s+chegada/i,
+    /previs[aã]o\s+(do|da)\s+(ônibus|onibus|linha)/i,
+    /quais\s+linhas?\s+(de\s+)?(ônibus|onibus)\s+passam/i,
     /(paradas?|pontos?)\s+(de\s+)?(ônibus|onibus)\s+perto|(ônibus|onibus)\s+(que\s+)?passam\s+perto/i,
     /próximo\s+a\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*próximo\s+a\s+mim/i,
     /perto\s+de\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*perto\s+de\s+mim/i,
+    /hor[aá]rio\s+(da\s+)?parada/i,
+    /chegada\s+(do|da)\s+(ônibus|onibus|linha)/i,
+    /tempo\s+real/i,
+    /sentido\s+.+\s+hor[aá]rio|hor[aá]rio.*\bsentido\b/i,
+    /\b(linha|ônibus|onibus)\s+[\d]+[a-z0-9-]*\b.*\b(hor[aá]rio|previs[aã]o|chegada|passa)\b/i,
+    /\b(hor[aá]rio|previs[aã]o|chegada)\b.*\b(linha|ônibus|onibus)\s+[\d]+/i,
+    // "qual a linha de ônibus que passa na avenida X", "quais ônibus passam em Y", "que linha passa em Z"
+    // (sem \b ao redor de ônibus: o acento ô não é \w em JS regex e quebraria o boundary)
+    /\b(qual|quais|que)\b.*(linhas?|ônibus|onibus).*\bpassa[m]?\b/i,
+    // "linha de ônibus que passa em X", "ônibus que passam pela Y"
+    /(linhas?|ônibus|onibus).*\bque\s+passa[m]?\b/i,
+    // "ônibus/linha que passa(m) na/em/pela <local>"
+    /(linhas?|ônibus|onibus)[^.?!]*\bpassa[m]?\s+(na|no|em|pela|pelo|pelas|pelos|por|perto|pr[oó]ximo)\b/i,
   ];
   return patterns.some((p) => p.test(m));
 }
@@ -286,6 +337,14 @@ export const INTENT_KEYWORDS = [
   "desabamento",
   "desmoron",
   "atropelamento",
+  "bueiro",
+  "fio caido",
+  "fio caído",
+  "risco de choque",
+  "busao",
+  "busão",
+  "qro falar",
+  "qro fala",
   "quero reclamar", "preciso relatar", "quero reportar", "aconteceu",
   "tem um problema", "está com problema", "não está funcionando",
   "quero avaliar", "quero elogiar", "quero denunciar", "preciso informar",
@@ -337,6 +396,17 @@ export const INTENT_KEYWORDS = [
   "transporte público", "transporte publico", "rede de transporte", "linhas de ônibus", "linhas de onibus", "metrô", "metro", "cptm", "bilhete único", "bilhete unico",
   "geosampa", "geo sampa", "dados da cidade", "dados de são paulo", "mapa da cidade", "melhor ubs", "qual ubs", "unidades de saúde",
   "quem é o", "quem e o", "qual é o melhor", "qual e o melhor", "que horas",
+  "lixo", "onibus", "ônibus", "arvore", "árvore", "relatar", "atraso", "atrasou", "demora", "motorista",
+  "avaliacao", "avaliação", "itinerario", "itinerário", "previsao", "previsão", "ocupacao", "ocupação",
+  "lotacao", "lotação", "sugestao", "sugestão", "noticias", "notícias", "quero relatar", "nao passou",
+  "não passou", "terminal", "linha ", "ponto", "fedendo", "lotado", "perigoso", "condução", "conducao",
+  "quero conhecer", "meus relatos", "status do meu", "agenda de", "calendario", "calendário",
+  "inscrever", "tramitacao", "tramitação", "competencias", "competências", "quanto ganha",
+  "servicos perto", "serviços perto", "hospital perto", "escola perto", "cade a", "cadê",
+  "apagada", "apagado", "iluminacao", "iluminação",
+  "pichacao", "pichação", "barulho", "cachorro", "semaforo", "semáforo", "obra irregular", "tapume",
+  "caps", "ama", "cras perto", "ama 24h", "pronto socorro", "pronto-socorro",
+  "lotacao da", "ocupacao do", "tempo real", "horario da parada",
 ];
 
 export function detectCollectionIntent(
@@ -364,6 +434,8 @@ export function detectCollectionIntent(
   const fullUserContext = `${userOnlyContext} ${msgLower}`;
   const normalizedForIntent = fullUserContext
     .replace(/\bqero\b/g, "quero")
+    .replace(/\bqro\b/g, "quero")
+    .replace(/\bbusao\b/g, "onibus")
     .replace(/\bvereadore(s)?\b/g, "vereador$1")
     .replace(/\bvereadoe(s)?\b/g, "vereador$1")
     .replace(/\bveread(o|or)\b/g, "vereador")
@@ -379,7 +451,8 @@ export function detectCollectionIntent(
     .replace(/\bfala\s+com\b/g, "falar com")
     .replace(/\breuniao\b/g, "reunião");
 
-  const hasIntent = INTENT_KEYWORDS.some((kw) => normalizedForIntent.includes(kw));
+  const foldedContext = foldAccents(normalizedForIntent);
+  const hasIntent = INTENT_KEYWORDS.some((kw) => foldedContext.includes(foldAccents(kw)));
   if (!hasIntent) {
     const excerpt = (userMessage || "").trim().slice(0, 120);
     console.log("[detectCollectionIntent] No intent keywords found, skipping tracker activation");
@@ -458,6 +531,8 @@ export function detectCollectionIntent(
     "qual delegacia mais perto de mim", "quais delegacias mais perto de mim",
     "quero falar sobre serviços", "quero falar sobre servicos", "quero falar de serviços",
     "serviços próximos", "servicos próximos", "serviços proximos", "quero serviços próximos",
+    "caps perto de mim", "ama 24h perto", "cras perto de mim",
+    "caps mais perto", "ama 24h perto de casa",
   ];
 
   const explicitAudienciasPhrases = [
@@ -513,7 +588,7 @@ export function detectCollectionIntent(
     "quero falar de", "quero falar do", "falar de", "falar sobre",
     "mudar para", "trocar para",
   ];
-  const hasIntentChange = intentChangeIndicators.some((ind) => fullUserContext.includes(ind));
+  const hasIntentChange = intentChangeIndicators.some((ind) => contextIncludes(fullUserContext,ind));
 
   type ExplicitIntentType = CollectionIntent["type"];
   const queroFalarMatch = msgLower.match(
@@ -619,7 +694,7 @@ export function detectCollectionIntent(
 
   const isEquipmentOccupancyQuery = (() => {
     const m = msgLower;
-    const hasServiceEntity = /\b(ubs|hospital|escola|ceu|biblioteca|posto de sa[úu]de|centro esportivo|equipamento)\b/i.test(m);
+    const hasServiceEntity = /\b(ubs|hospital|escola|ceu|biblioteca|posto de sa[úu]de|pronto[- ]?socorro|centro esportivo|equipamento)\b/i.test(m);
     const hasOccupancySignal =
       /(ocup[aã]?[cç][aã]o|lota[cç][aã]o|movimenta[cç][aã]o|est[aá]\s+chei[oa]|t[aá]\s+chei[oa]|lotad[oa]|superlotad[oa])/.test(
         m,
@@ -633,17 +708,20 @@ export function detectCollectionIntent(
     scores.push({ type: "occupancy", score: 28, fields: {} });
   }
 
-  const transportDomain = ["ônibus", "onibus", "metrô", "metro", "trem", "cptm", "estação", "estacao", "terminal", "ponto de ônibus", "transporte", "transporte público", "transporte publico"];
-  const transportProblems = ["lotado", "lotação", "lotacao", "atraso", "atrasou", "demora", "não passou", "nao passou", "quebrou"];
+  const transportDomain = ["ônibus", "onibus", "busao", "busão", "metrô", "metro", "trem", "cptm", "estação", "estacao", "terminal", "ponto de ônibus", "transporte", "transporte público", "transporte publico", "motorista", "cobrador", "linha"];
+  const transportProblems = [
+    "lotado", "lotação", "lotacao", "atraso", "atrasou", "atrasando", "atrasada",
+    "demora", "demorando", "demorou", "não passou", "nao passou", "quebrou", "freada", "freou", "sujo", "fedendo",
+  ];
   let transportScore = 0;
   if (!busInfoQuery) {
     transportDomain.forEach((kw) => {
-      if (fullUserContext.includes(kw)) transportScore += 4;
+      if (contextIncludes(fullUserContext,kw)) transportScore += 4;
     });
     transportProblems.forEach((kw) => {
-      if (fullUserContext.includes(kw)) transportScore += 3;
+      if (contextIncludes(fullUserContext,kw)) transportScore += 3;
     });
-    const hasExplicitTransportIntent = explicitTransportPhrases.some((phrase) => fullUserContext.includes(phrase));
+    const hasExplicitTransportIntent = explicitTransportPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
     if (hasExplicitTransportIntent) {
       transportScore += 5;
       console.log("[detectCollectionIntent] Explicit transport intent detected");
@@ -653,29 +731,34 @@ export function detectCollectionIntent(
     scores.push({ type: "transport_report", score: transportScore, fields: extractTransportFields(fullUserContext) });
   }
 
-  const urbanDomain = ["buraco", "poste", "iluminação", "iluminacao", "lixo", "entulho", "calçada", "calcada", "esgoto", "pavimentação", "pavimentacao", "recape", "asfaltamento", "sinalização", "sinalizacao", "semáforo", "semaforo", "placa", "faixa de pedestre", "drenagem", "sarjeta", "pluvial", "água pluvial", "agua pluvial", "árvore", "arvore", "poda", "fedor", "fedido", "bicho morto", "animal morto", "rato", "bueiro", "vazamento", "sujeira", "fedendo", "cheiro", "elogio", "elogiar", "sugestão", "sugestao", "parabéns", "parabens", "agradeço", "agradeco", "melhorar a cidade", "funcionou bem", "incêndio", "incendio", "fogo", "chamas", "queimando", "alagamento", "alagando", "enchente", "inundando", "chovendo", "chuva forte", "fios expostos", "explosão", "explosao", "transformador", "desabamento", "atropelamento", "prédio abandonado", "predio abandonado"];
-  const urbanProblems = ["quebrado", "apagado", "acumulado", "vazando", "caindo", "fedendo", "fedido", "entupido", "entupida", "entupidas", "entupidos", "alagado", "alagando"];
+  // Consulta institucional/estrutural sobre a Câmara (ex.: "conhecer a estrutura
+  // e o funcionamento da Câmara Municipal") é INFORMACIONAL — não pode iniciar
+  // coleta de relato urbano nem de feedback à Câmara. Gateia esses scores.
+  const isCamaraFuncInterno = isCamaraFuncionamentoInternoQuery(fullUserContext);
+
+  const urbanDomain = ["buraco", "poste", "iluminação", "iluminacao", "lixo", "entulho", "calçada", "calcada", "esgoto", "pavimentação", "pavimentacao", "recape", "asfaltamento", "sinalização", "sinalizacao", "semáforo", "semaforo", "placa", "faixa de pedestre", "drenagem", "sarjeta", "pluvial", "água pluvial", "agua pluvial", "árvore", "arvore", "poda", "fedor", "fedido", "bicho morto", "animal morto", "rato", "bueiro", "vazamento", "sujeira", "fedendo", "cheiro", "elogio", "elogiar", "sugestão", "sugestao", "parabéns", "parabens", "agradeço", "agradeco", "melhorar a cidade", "funcionou bem", "incêndio", "incendio", "fogo", "chamas", "queimando", "alagamento", "alagando", "enchente", "inundando", "chovendo", "chuva forte", "fio caido", "fio caído", "fios expostos", "risco de choque", "choque", "explosão", "explosao", "transformador", "desabamento", "atropelamento", "prédio abandonado", "predio abandonado", "pichação", "pichacao", "barulho", "cachorro", "obra irregular", "tapume", "vandalismo"];
+  const urbanProblems = ["quebrado", "apagado", "acumulado", "vazando", "caindo", "fedendo", "fedido", "entupido", "entupida", "entupidas", "entupidos", "intupido", "intupida", "alagado", "alagada", "alagando"];
   let urbanScore = 0;
   urbanDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) urbanScore += 4;
+    if (contextIncludes(fullUserContext,kw)) urbanScore += 4;
   });
   urbanProblems.forEach((kw) => {
-    if (fullUserContext.includes(kw)) urbanScore += 2;
+    if (contextIncludes(fullUserContext,kw)) urbanScore += 2;
   });
-  const hasExplicitUrbanIntent = explicitUrbanPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitUrbanIntent = explicitUrbanPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitUrbanIntent) {
     urbanScore += 5;
     console.log("[detectCollectionIntent] Explicit urban intent detected");
   }
 
-  const hasTransportContext = transportDomain.some((kw) => fullUserContext.includes(kw));
-  const hasUrbanContext = urbanDomain.some((kw) => fullUserContext.includes(kw));
+  const hasTransportContext = transportDomain.some((kw) => contextIncludes(fullUserContext,kw));
+  const hasUrbanContext = urbanDomain.some((kw) => contextIncludes(fullUserContext,kw));
   if (hasTransportContext && hasExplicitUrbanIntent && !hasUrbanContext) {
     console.log("[detectCollectionIntent] Suppressing urban score - transport context detected without urban keywords");
     urbanScore = 0;
   }
 
-  if (urbanScore > 0) {
+  if (urbanScore > 0 && !isCamaraFuncInterno) {
     scores.push({ type: "urban_report", score: urbanScore, fields: extractUrbanFields(fullUserContext) });
   }
 
@@ -683,17 +766,17 @@ export function detectCollectionIntent(
   const ratingTerms = ["avaliar", "avaliação", "avaliacao", "nota", "estrela", "atendimento"];
   let serviceScore = 0;
   serviceDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) serviceScore += 4;
+    if (contextIncludes(fullUserContext,kw)) serviceScore += 4;
   });
   ratingTerms.forEach((kw) => {
-    if (fullUserContext.includes(kw)) serviceScore += 3;
+    if (contextIncludes(fullUserContext,kw)) serviceScore += 3;
   });
-  const hasExplicitRatingIntent = explicitRatingPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitRatingIntent = explicitRatingPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitRatingIntent) {
     serviceScore += 5;
     console.log("[detectCollectionIntent] Explicit rating intent detected");
   }
-  const hasRatingSignal = ratingTerms.some((term) => fullUserContext.includes(term));
+  const hasRatingSignal = ratingTerms.some((term) => contextIncludes(fullUserContext,term));
   if (isEquipmentOccupancyQuery) {
     serviceScore = 0;
   }
@@ -715,37 +798,51 @@ export function detectCollectionIntent(
     "o que é uma", "o que e uma", "para que serve a", "como participar da", "como participar das",
   ];
   const isFactualQuestionAboutChamber =
-    factualQuestionTerms.some((t) => fullUserContext.includes(t)) &&
+    factualQuestionTerms.some((t) => contextIncludes(fullUserContext,t)) &&
     fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) chamberScore += 5;
+    if (contextIncludes(fullUserContext,kw)) chamberScore += 5;
   });
-  const chamberAnchored = chamberDomain.some((kw) => fullUserContext.includes(kw));
+  const chamberAnchored = chamberDomain.some((kw) => contextIncludes(fullUserContext,kw));
   if (chamberAnchored) {
     feedbackTermsWhenChamberAnchored.forEach((kw) => {
-      if (fullUserContext.includes(kw)) chamberScore += 4;
+      if (contextIncludes(fullUserContext,kw)) chamberScore += 4;
     });
   }
-  if (chamberAnchored && chamberScore >= 5 && !isFactualQuestionAboutChamber) {
+  const isContactQuestionAboutChamberEarly = isInformationalQuestionAboutContact(userMessage);
+  if (
+    chamberAnchored &&
+    chamberScore >= 5 &&
+    !isFactualQuestionAboutChamber &&
+    !isContactQuestionAboutChamberEarly &&
+    !isCamaraFuncInterno
+  ) {
     scores.push({ type: "chamber_feedback", score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
 
-  const servicesDomain = ["onde fica", "onde tem", "perto de mim", "mais perto", "próximo de mim", "próximo de", "como chego", "endereço", "telefone", "horário", "perto daqui", "qual é o mais perto"];
-  const servicesTypes = ["ubs", "hospital", "escola", "ceu", "biblioteca", "centro esportivo", "posto de saúde"];
+  const servicesDomain = [
+    "onde fica", "onde tem", "perto de mim", "mais perto", "próximo de mim", "proximo de mim",
+    "próximo de", "proximo de", "como chego", "endereço", "telefone", "horário",
+    "perto daqui", "proximo daqui", "mais proximo", "qual é o mais perto",
+  ];
+  const servicesTypes = [
+    "ubs", "hospital", "escola", "ceu", "biblioteca", "centro esportivo",
+    "posto de saúde", "posto de saude", "caps", "cras", "ama",
+  ];
   let servicesScore = 0;
   servicesDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) servicesScore += 4;
+    if (contextIncludes(fullUserContext,kw)) servicesScore += 4;
   });
   servicesTypes.forEach((kw) => {
-    if (fullUserContext.includes(kw)) servicesScore += 2;
+    if (contextIncludes(fullUserContext,kw)) servicesScore += 2;
   });
-  const hasExplicitServicesIntent = explicitServicesPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitServicesIntent = explicitServicesPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitServicesIntent) {
     servicesScore += 5;
     console.log("[detectCollectionIntent] Explicit services intent detected");
   }
-  const isEvaluating = ratingTerms.some((term) => fullUserContext.includes(term));
+  const isEvaluating = ratingTerms.some((term) => contextIncludes(fullUserContext,term));
   if (servicesScore > 0 && !isEvaluating) {
     scores.push({ type: "services", score: servicesScore, fields: {} });
   }
@@ -754,12 +851,12 @@ export function detectCollectionIntent(
   const audienciasTerms = ["quando", "próxima", "proxima", "tema", "assunto", "sobre"];
   let audienciasScore = 0;
   audienciasDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) audienciasScore += 5;
+    if (contextIncludes(fullUserContext,kw)) audienciasScore += 5;
   });
   audienciasTerms.forEach((kw) => {
-    if (fullUserContext.includes(kw)) audienciasScore += 2;
+    if (contextIncludes(fullUserContext,kw)) audienciasScore += 2;
   });
-  const hasExplicitAudienciasIntent = explicitAudienciasPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitAudienciasIntent = explicitAudienciasPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitAudienciasIntent) {
     audienciasScore += 5;
     console.log("[detectCollectionIntent] Explicit audiencias intent detected");
@@ -785,7 +882,7 @@ export function detectCollectionIntent(
   ];
   let knowledgeScore = 0;
   knowledgeDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) knowledgeScore += 4;
+    if (contextIncludes(fullUserContext,kw)) knowledgeScore += 4;
   });
   const normalizedUserMessage = userMessage
     .trim()
@@ -808,14 +905,14 @@ export function detectCollectionIntent(
     );
   const cityDataTerms = ["equipamentos", "equipamento público", "população", "habitantes", "densidade", "sistema viário", "sistema viario", "geosampa", "ubs", "transporte público", "rede de transporte", "malha viária", "dados da cidade", "são paulo", "sao paulo", "zoneamento", "lpuos", "construir", "imóvel", "imovel", "siszon", "legislação urbana", "legislacao urbana"];
   const isCityDataQuestion =
-    cityDataTerms.some((t) => fullUserContext.includes(t)) &&
+    cityDataTerms.some((t) => contextIncludes(fullUserContext,t)) &&
     (isInformationalQuestion || /^(qual a |qual o |quantos |quais |como funciona|o que é )/i.test(userMessage.trim()));
   if (isCityDataQuestion) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log("[detectCollectionIntent] City data question (equipamentos/transportes/população/viário/zoneamento) → boosting general for RAG");
   }
   const zoneamentoTerms = ["zoneamento", "lpuos", "construir", "reformar", "imóvel", "imovel", "siszon", "legislação urbana", "legislacao urbana", "smul"];
-  const isZoneamentoQuestion = zoneamentoTerms.some((t) => fullUserContext.includes(t));
+  const isZoneamentoQuestion = zoneamentoTerms.some((t) => contextIncludes(fullUserContext,t));
   if (isZoneamentoQuestion) {
     knowledgeScore = Math.max(knowledgeScore, 9);
     console.log("[detectCollectionIntent] Zoneamento/LPUOS/construir question → boosting general for RAG/KB");
@@ -836,7 +933,7 @@ export function detectCollectionIntent(
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log("[detectCollectionIntent] Informational question about audiência (o que é / como funciona) → boosting general for RAG");
   }
-  if ((fullUserContext.includes("atribuições") || fullUserContext.includes("atribuicoes")) && mentionsChamber) {
+  if ((contextIncludes(fullUserContext,"atribuições") || contextIncludes(fullUserContext,"atribuicoes")) && mentionsChamber) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log("[detectCollectionIntent] Question about atribuições/vereadores → boosting general for RAG");
   }
@@ -844,7 +941,7 @@ export function detectCollectionIntent(
     knowledgeScore = Math.max(knowledgeScore, 7);
     console.log("[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG");
   }
-  if (isCamaraFuncionamentoInternoQuery(fullUserContext)) {
+  if (isCamaraFuncInterno) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log("[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG");
   }
@@ -878,9 +975,9 @@ export function detectCollectionIntent(
   const historyDomain = ["meu relato", "meus relatos", "minhas avaliações", "minhas avaliacoes", "minha reclamação", "minha reclamacao", "status do meu", "o que eu fiz", "minha denúncia", "minha denuncia", "meu histórico", "meu historico"];
   let historyScore = 0;
   historyDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) historyScore += 5;
+    if (contextIncludes(fullUserContext,kw)) historyScore += 5;
   });
-  const hasExplicitHistoryIntent = explicitHistoryPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitHistoryIntent = explicitHistoryPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitHistoryIntent) {
     historyScore += 5;
     console.log("[detectCollectionIntent] Explicit history intent detected");
@@ -893,15 +990,19 @@ export function detectCollectionIntent(
   const vereadoresTerms = ["minha região", "minha regiao", "meu bairro", "quem representa", "zona"];
   let vereadoresScore = 0;
   vereadoresDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) vereadoresScore += 4;
+    if (contextIncludes(fullUserContext,kw)) vereadoresScore += 4;
   });
   vereadoresTerms.forEach((kw) => {
-    if (fullUserContext.includes(kw)) vereadoresScore += 3;
+    if (contextIncludes(fullUserContext,kw)) vereadoresScore += 3;
   });
-  const hasExplicitVereadoresIntent = explicitVereadoresPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitVereadoresIntent = explicitVereadoresPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitVereadoresIntent) {
     vereadoresScore += 5;
     console.log("[detectCollectionIntent] Explicit vereadores intent detected");
+  }
+  if (isInformationalQuestionAboutVereadorOrCamara(userMessage)) {
+    vereadoresScore = Math.max(vereadoresScore, 12);
+    console.log("[detectCollectionIntent] Informational vereador/Câmara query → vereadores");
   }
   if (vereadoresScore > 0 && !isEvaluating) {
     scores.push({ type: "vereadores", score: vereadoresScore, fields: {} });
@@ -911,12 +1012,12 @@ export function detectCollectionIntent(
   const noticiasTerms = ["câmara", "camara", "legislativo", "vereador"];
   let noticiasScore = 0;
   noticiasDomain.forEach((kw) => {
-    if (fullUserContext.includes(kw)) noticiasScore += 4;
+    if (contextIncludes(fullUserContext,kw)) noticiasScore += 4;
   });
   noticiasTerms.forEach((kw) => {
-    if (fullUserContext.includes(kw)) noticiasScore += 2;
+    if (contextIncludes(fullUserContext,kw)) noticiasScore += 2;
   });
-  const hasExplicitNoticiasIntent = explicitNoticiasPhrases.some((phrase) => fullUserContext.includes(phrase));
+  const hasExplicitNoticiasIntent = explicitNoticiasPhrases.some((phrase) => contextIncludes(fullUserContext,phrase));
   if (hasExplicitNoticiasIntent) {
     noticiasScore += 5;
     console.log("[detectCollectionIntent] Explicit noticias intent detected");
@@ -928,6 +1029,26 @@ export function detectCollectionIntent(
   if (scores.length === 0) {
     console.log("[detectCollectionIntent] Intent found but no domain keywords matched");
     return null;
+  }
+
+  if (
+    existingJourney === "urban_report" &&
+    messageLooksLikeTransportProblemReport(userMessage)
+  ) {
+    const transportEntry = scores.find((s) => s.type === "transport_report");
+    const boost = 14;
+    if (transportEntry) {
+      transportEntry.score += boost;
+    } else {
+      scores.push({
+        type: "transport_report",
+        score: boost,
+        fields: extractTransportFields(msgLower),
+      });
+    }
+    console.log(
+      "[detectCollectionIntent] Transport problem in last message during urban_report → boosted transport_report",
+    );
   }
 
   if (lastMsgExplicitIntent) {
@@ -1000,6 +1121,21 @@ export function detectCollectionIntent(
   const isExistingInAllTypes = existingJourney && allJourneyTypes.includes(existingJourney as (typeof allJourneyTypes)[number]);
   const isWinnerStructured = structuredTypes.includes(winner.type as (typeof structuredTypes)[number]);
   const isExistingStructured = existingJourney && structuredTypes.includes(existingJourney as (typeof structuredTypes)[number]);
+
+  if (
+    isExistingStructured &&
+    existingJourney &&
+    winner.type !== existingJourney &&
+    !lastMsgExplicitIntent &&
+    msgLower.trim().length <= 56 &&
+    !messageLooksLikeTransportProblemReport(userMessage)
+  ) {
+    console.log(
+      `[detectCollectionIntent] Preserving structured journey ${existingJourney} on short in-collection reply (winner: ${winner.type}=${winner.score})`,
+    );
+    const accumulatedFields = accumulateFieldsFromHistory(conversationHistory, existingJourney);
+    return { type: existingJourney, fields: accumulatedFields };
+  }
 
   if (isExistingInAllTypes && isWinnerInAllTypes && winner.type !== existingJourney && winner.score >= 3) {
     console.log(`[detectCollectionIntent] Universal journey switch detected: ${existingJourney} → ${winner.type} (score: ${winner.score})`);

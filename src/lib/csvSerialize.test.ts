@@ -77,10 +77,14 @@ describe("serializeCsv", () => {
   });
 
   it("escapa células e preserva alinhamento de colunas", () => {
-    const csv = serializeCsv(headers, [
-      { id: 1, nome: "Maria, José", nota: 8.5 },
-      { id: 2, nome: 'Diz "oi"', nota: null },
-    ], { includeBom: false });
+    const csv = serializeCsv(
+      headers,
+      [
+        { id: 1, nome: "Maria, José", nota: 8.5 },
+        { id: 2, nome: 'Diz "oi"', nota: null },
+      ],
+      { includeBom: false },
+    );
     expect(csv).toBe(
       `ID,Nome,Nota${LINE_SEPARATOR}1,"Maria, José",8.5${LINE_SEPARATOR}2,"Diz ""oi""",`,
     );
@@ -96,11 +100,9 @@ describe("serializeCsv", () => {
   });
 
   it("cabeçalho com vírgula é aspeado", () => {
-    const csv = serializeCsv(
-      [{ key: "x", label: "Nome, completo" }],
-      [{ x: "a" }],
-      { includeBom: false },
-    );
+    const csv = serializeCsv([{ key: "x", label: "Nome, completo" }], [{ x: "a" }], {
+      includeBom: false,
+    });
     expect(csv).toBe(`"Nome, completo"${LINE_SEPARATOR}a`);
   });
 });

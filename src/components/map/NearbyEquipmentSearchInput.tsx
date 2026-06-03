@@ -2,7 +2,10 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, MapPin, Loader2, Building2, History, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBoundingBoxForRadiusMeters, mapPublicServiceRowToNearbyService } from "@/lib/nearbyServiceRow";
+import {
+  getBoundingBoxForRadiusMeters,
+  mapPublicServiceRowToNearbyService,
+} from "@/lib/nearbyServiceRow";
 import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
@@ -67,7 +70,9 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-primary/20 text-inherit rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
+      <mark className="bg-primary/20 text-inherit rounded px-0.5">
+        {text.slice(idx, idx + q.length)}
+      </mark>
       {text.slice(idx + q.length)}
     </>
   );
@@ -163,79 +168,82 @@ export function NearbyEquipmentSearchInput({
 
   const equipmentMatches = mergedEquipmentMatches;
 
-  const placeRows = useMemo(() => placePredictions.slice(0, MAX_PLACE_SUGGESTIONS), [placePredictions]);
+  const placeRows = useMemo(
+    () => placePredictions.slice(0, MAX_PLACE_SUGGESTIONS),
+    [placePredictions],
+  );
 
   const flatRecentCount = filteredRecentRows.length;
   const flatPlaceCount = placeRows.length;
   const flatEquipmentCount = equipmentMatches.length;
   const flatTotal = flatRecentCount + flatPlaceCount + flatEquipmentCount;
 
-  const fetchPlaces = useCallback(
-    async (raw: string) => {
-      const q = raw.trim();
-      if (q.length < 3 && !isCepDigits(raw)) {
-        setPlacePredictions([]);
-        setPlacesLoading(false);
-        return;
-      }
+  const fetchPlaces = useCallback(async (raw: string) => {
+    const q = raw.trim();
+    if (q.length < 3 && !isCepDigits(raw)) {
+      setPlacePredictions([]);
+      setPlacesLoading(false);
+      return;
+    }
 
-      if (isCepDigits(raw)) {
-        setPlacesLoading(true);
-        try {
-          const cleaned = raw.replace(/\D/g, "");
-          const result = await lookupCepAddress(cleaned);
-          if (!result.ok) {
-            setPlacePredictions([]);
-            return;
-          }
-          const label = [
-            result.address.street,
-            result.address.neighborhood,
-            [result.address.city, result.address.state].filter(Boolean).join(" - "),
-          ]
-            .filter(Boolean)
-            .join(", ");
-          setPlacePredictions([
-            {
-              placeId: `cep-region-${cleaned}`,
-              description: label || `CEP ${cleaned}`,
-              mainText: "Buscar neste CEP",
-              secondaryText: label || `CEP ${cleaned.slice(0, 5)}-${cleaned.slice(5)}`,
-            },
-          ]);
-        } finally {
-          setPlacesLoading(false);
-        }
-        return;
-      }
-
+    if (isCepDigits(raw)) {
       setPlacesLoading(true);
       try {
-        const { data, error: fnError } = await supabase.functions.invoke("google-places-autocomplete", {
+        const cleaned = raw.replace(/\D/g, "");
+        const result = await lookupCepAddress(cleaned);
+        if (!result.ok) {
+          setPlacePredictions([]);
+          return;
+        }
+        const label = [
+          result.address.street,
+          result.address.neighborhood,
+          [result.address.city, result.address.state].filter(Boolean).join(" - "),
+        ]
+          .filter(Boolean)
+          .join(", ");
+        setPlacePredictions([
+          {
+            placeId: `cep-region-${cleaned}`,
+            description: label || `CEP ${cleaned}`,
+            mainText: "Buscar neste CEP",
+            secondaryText: label || `CEP ${cleaned.slice(0, 5)}-${cleaned.slice(5)}`,
+          },
+        ]);
+      } finally {
+        setPlacesLoading(false);
+      }
+      return;
+    }
+
+    setPlacesLoading(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "google-places-autocomplete",
+        {
           body: {
             query: q,
             sessionToken: sessionTokenRef.current,
           },
-        });
-        if (fnError) {
-          console.warn("[NearbySearch] places autocomplete:", fnError);
-          setPlacePredictions([]);
-          return;
-        }
-        if (data?.predictions?.length) {
-          setPlacePredictions(data.predictions as PlacePrediction[]);
-        } else {
-          setPlacePredictions([]);
-        }
-      } catch (e) {
-        console.warn("[NearbySearch] places fetch:", e);
+        },
+      );
+      if (fnError) {
+        console.warn("[NearbySearch] places autocomplete:", fnError);
         setPlacePredictions([]);
-      } finally {
-        setPlacesLoading(false);
+        return;
       }
-    },
-    [],
-  );
+      if (data?.predictions?.length) {
+        setPlacePredictions(data.predictions as PlacePrediction[]);
+      } else {
+        setPlacePredictions([]);
+      }
+    } catch (e) {
+      console.warn("[NearbySearch] places fetch:", e);
+      setPlacePredictions([]);
+    } finally {
+      setPlacesLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -313,7 +321,13 @@ export function NearbyEquipmentSearchInput({
       equipmentRequestIdRef.current += 1;
       setRemoteEquipmentLoading(false);
     };
-  }, [value, searchCenterLat, searchCenterLng, equipmentSuggestionRadiusMeters, serviceTypesFilter]);
+  }, [
+    value,
+    searchCenterLat,
+    searchCenterLng,
+    equipmentSuggestionRadiusMeters,
+    serviceTypesFilter,
+  ]);
 
   const resolveCepToCenter = useCallback(
     async (cleanedCep: string): Promise<CepCenter | null> => {
@@ -473,10 +487,7 @@ export function NearbyEquipmentSearchInput({
     showDropdown &&
     (flatRecentCount > 0 ||
       (hasTypedQuery &&
-        (placesLoading ||
-          flatPlaceCount > 0 ||
-          flatEquipmentCount > 0 ||
-          remoteEquipmentLoading)));
+        (placesLoading || flatPlaceCount > 0 || flatEquipmentCount > 0 || remoteEquipmentLoading)));
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
@@ -485,7 +496,11 @@ export function NearbyEquipmentSearchInput({
       return;
     }
 
-    if (e.key === "Enter" && selectedFlatIndex < 0 && value.trim().length >= MIN_TEXT_QUERY_TO_SAVE) {
+    if (
+      e.key === "Enter" &&
+      selectedFlatIndex < 0 &&
+      value.trim().length >= MIN_TEXT_QUERY_TO_SAVE
+    ) {
       e.preventDefault();
       addTextQuery(value.trim());
       setShowDropdown(false);
@@ -687,7 +702,9 @@ export function NearbyEquipmentSearchInput({
                         <HighlightMatch text={p.mainText} query={value} />
                       </p>
                       {p.secondaryText ? (
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.secondaryText}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                          {p.secondaryText}
+                        </p>
                       ) : null}
                     </div>
                   </button>
@@ -727,7 +744,9 @@ export function NearbyEquipmentSearchInput({
                       <p className="text-sm font-medium leading-tight line-clamp-2">
                         <HighlightMatch text={display} query={value} />
                       </p>
-                      {sub ? <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{sub}</p> : null}
+                      {sub ? (
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{sub}</p>
+                      ) : null}
                     </div>
                   </button>
                 );

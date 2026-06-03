@@ -1,38 +1,68 @@
-import { useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { useReportsAdmin, ManifestType, UnifiedManifest } from '@/hooks/useReportsAdmin';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Search, Download, AlertTriangle, LayoutList, Columns,
-  Building2, Bus, Star, MessageSquare
-} from 'lucide-react';
-import { UnifiedReportDrawer } from '@/components/admin/UnifiedReportDrawer';
-import { ManifestCard } from '@/components/admin/ManifestCard';
-import { KanbanBoard } from '@/components/admin/KanbanBoard';
-import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
-import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
-import { ReferralDialog } from '@/components/referral/ReferralDialog';
-import { FilterDatePicker } from '@/components/filters/FilterDatePicker';
+import { useState } from "react";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { useReportsAdmin, ManifestType, UnifiedManifest } from "@/hooks/useReportsAdmin";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Search,
+  AlertTriangle,
+  LayoutList,
+  Columns,
+  Building2,
+  Bus,
+  Star,
+  MessageSquare,
+} from "lucide-react";
+import { DataExportTrigger } from "@/components/analytics/DataExportTrigger";
+import { dataExportFiltersFromReportsManagement } from "@/lib/buildDataExportFilters";
+import { UnifiedReportDrawer } from "@/components/admin/UnifiedReportDrawer";
+import { ManifestCard } from "@/components/admin/ManifestCard";
+import { KanbanBoard } from "@/components/admin/KanbanBoard";
+import { BulkActionsBar } from "@/components/admin/BulkActionsBar";
+import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
+import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 
 // Config objects
 const typeConfig: Record<ManifestType, { label: string; icon: typeof Building2; color: string }> = {
-  urban: { label: 'Urbana', icon: Building2, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
-  transport: { label: 'Transporte', icon: Bus, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
-  evaluation: { label: 'Avaliação', icon: Star, color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-  feedback: { label: 'Feedback', icon: MessageSquare, color: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20' },
+  urban: {
+    label: "Urbana",
+    icon: Building2,
+    color: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  },
+  transport: {
+    label: "Transporte",
+    icon: Bus,
+    color: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  },
+  evaluation: {
+    label: "Avaliação",
+    icon: Star,
+    color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  },
+  feedback: {
+    label: "Feedback",
+    icon: MessageSquare,
+    color: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  },
 };
 
 const severityConfig: Record<string, { label: string; color: string }> = {
-  critical: { label: 'Crítica', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  high: { label: 'Alta', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
-  medium: { label: 'Média', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-  low: { label: 'Baixa', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  critical: { label: "Crítica", color: "bg-red-500/10 text-red-600 border-red-500/20" },
+  high: { label: "Alta", color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
+  medium: { label: "Média", color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" },
+  low: { label: "Baixa", color: "bg-green-500/10 text-green-600 border-green-500/20" },
 };
 
 export default function ReportsManagement() {
@@ -65,11 +95,22 @@ export default function ReportsManagement() {
     updateManifestCategory,
     deleteManifest,
     deleteBulkManifests,
-    exportToCSV,
     refetch,
   } = useReportsAdmin();
 
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const { filters: exportFilters, defaultDataset: exportDataset } = useMemo(
+    () =>
+      dataExportFiltersFromReportsManagement({
+        dateRange,
+        categoryFilter,
+        regionFilter,
+        statusFilter,
+        typeFilter,
+      }),
+    [dateRange, categoryFilter, regionFilter, statusFilter, typeFilter],
+  );
+
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [selectedIds, setSelectedIds] = useState<{ id: string; type: ManifestType }[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedManifest, setSelectedManifest] = useState<UnifiedManifest | null>(null);
@@ -81,7 +122,7 @@ export default function ReportsManagement() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(manifests.map(m => ({ id: m.id, type: m.type })));
+      setSelectedIds(manifests.map((m) => ({ id: m.id, type: m.type })));
     } else {
       setSelectedIds([]);
     }
@@ -89,9 +130,9 @@ export default function ReportsManagement() {
 
   const handleSelectOne = (manifest: UnifiedManifest, checked: boolean) => {
     if (checked) {
-      setSelectedIds(prev => [...prev, { id: manifest.id, type: manifest.type }]);
+      setSelectedIds((prev) => [...prev, { id: manifest.id, type: manifest.type }]);
     } else {
-      setSelectedIds(prev => prev.filter(i => i.id !== manifest.id));
+      setSelectedIds((prev) => prev.filter((i) => i.id !== manifest.id));
     }
   };
 
@@ -115,7 +156,7 @@ export default function ReportsManagement() {
   };
 
   const handleBulkAction = async (action: string) => {
-    if (action === 'delete') {
+    if (action === "delete") {
       await deleteBulkManifests(selectedIds);
       setSelectedIds([]);
     } else {
@@ -138,18 +179,18 @@ export default function ReportsManagement() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
+              variant={viewMode === "list" ? "default" : "outline"}
               size="sm"
-              onClick={() => setViewMode('list')}
+              onClick={() => setViewMode("list")}
               className="flex-1 sm:flex-none"
             >
               <LayoutList className="h-4 w-4 mr-1" />
               Lista
             </Button>
             <Button
-              variant={viewMode === 'kanban' ? 'default' : 'outline'}
+              variant={viewMode === "kanban" ? "default" : "outline"}
               size="sm"
-              onClick={() => setViewMode('kanban')}
+              onClick={() => setViewMode("kanban")}
               className="flex-1 sm:flex-none"
             >
               <Columns className="h-4 w-4 mr-1" />
@@ -191,19 +232,25 @@ export default function ReportsManagement() {
               </Card>
               <Card>
                 <CardContent className="p-3 sm:p-4">
-                  <p className="text-xl sm:text-2xl font-bold text-purple-600">{kpis.transport_count}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600">
+                    {kpis.transport_count}
+                  </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Transporte</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-3 sm:p-4">
-                  <p className="text-xl sm:text-2xl font-bold text-amber-600">{kpis.evaluation_count}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-amber-600">
+                    {kpis.evaluation_count}
+                  </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Avaliações</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-3 sm:p-4">
-                  <p className="text-xl sm:text-2xl font-bold text-red-600">{kpis.critical_count}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-600">
+                    {kpis.critical_count}
+                  </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Urgentes</p>
                 </CardContent>
               </Card>
@@ -230,8 +277,13 @@ export default function ReportsManagement() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                 {/* Tipo */}
                 <div className="space-y-1">
-                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Tipo</span>
-                  <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ManifestType | 'all')}>
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Tipo
+                  </span>
+                  <Select
+                    value={typeFilter}
+                    onValueChange={(v) => setTypeFilter(v as ManifestType | "all")}
+                  >
                     <SelectTrigger className="w-full h-9">
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
@@ -247,7 +299,9 @@ export default function ReportsManagement() {
 
                 {/* Categoria */}
                 <div className="space-y-1">
-                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Categoria</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Categoria
+                  </span>
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-full h-9">
                       <SelectValue placeholder="Todas" />
@@ -265,7 +319,9 @@ export default function ReportsManagement() {
 
                 {/* Status */}
                 <div className="space-y-1">
-                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Status</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Status
+                  </span>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full h-9">
                       <SelectValue placeholder="Todos" />
@@ -282,7 +338,9 @@ export default function ReportsManagement() {
 
                 {/* Região */}
                 <div className="space-y-1">
-                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Região</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Região
+                  </span>
                   <Select value={regionFilter} onValueChange={setRegionFilter}>
                     <SelectTrigger className="w-full h-9">
                       <SelectValue placeholder="Todas" />
@@ -300,7 +358,9 @@ export default function ReportsManagement() {
 
                 {/* Período - spans 2 cols on mobile */}
                 <div className="space-y-1 col-span-2 sm:col-span-1">
-                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Período</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+                    Período
+                  </span>
                   <FilterDatePicker
                     value={dateRange}
                     onChange={(range) => setDateRange(range || { from: undefined, to: undefined })}
@@ -311,10 +371,12 @@ export default function ReportsManagement() {
 
                 {/* Export - full row on mobile */}
                 <div className="flex items-end col-span-2 sm:col-span-1">
-                  <Button variant="outline" onClick={exportToCSV} className="w-full h-9">
-                    <Download className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Exportar</span>
-                  </Button>
+                  <DataExportTrigger
+                    className="h-9 w-full"
+                    defaultFilters={exportFilters}
+                    defaultDataset={exportDataset ?? "urban_reports"}
+                    label="Exportar"
+                  />
                 </div>
               </div>
             </div>
@@ -326,15 +388,15 @@ export default function ReportsManagement() {
           <BulkActionsBar
             selectedCount={selectedIds.length}
             onClear={() => setSelectedIds([])}
-            onMarkInProgress={() => handleBulkAction('in_progress')}
-            onMarkResolved={() => handleBulkAction('resolved')}
-            onMarkRejected={() => handleBulkAction('rejected')}
-            onDelete={() => handleBulkAction('delete')}
+            onMarkInProgress={() => handleBulkAction("in_progress")}
+            onMarkResolved={() => handleBulkAction("resolved")}
+            onMarkRejected={() => handleBulkAction("rejected")}
+            onDelete={() => handleBulkAction("delete")}
           />
         )}
 
         {/* List View */}
-        {viewMode === 'list' && (
+        {viewMode === "list" && (
           <Card className="flex flex-col overflow-hidden">
             <CardHeader className="pb-2 px-3 sm:px-6">
               <div className="flex items-center gap-3 sm:gap-4">
@@ -352,7 +414,10 @@ export default function ReportsManagement() {
                 {loading ? (
                   <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg"
+                      >
                         <Skeleton className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0" />
                         <div className="flex-1 space-y-2 min-w-0">
                           <Skeleton className="h-4 w-1/3" />
@@ -372,9 +437,11 @@ export default function ReportsManagement() {
                       <ManifestCard
                         key={manifest.id}
                         manifest={manifest}
-                        isSelected={selectedIds.some(i => i.id === manifest.id)}
+                        isSelected={selectedIds.some((i) => i.id === manifest.id)}
                         onSelect={(checked) => handleSelectOne(manifest, checked)}
-                        onStatusChange={(status) => updateManifestStatus(manifest.id, manifest.type, status)}
+                        onStatusChange={(status) =>
+                          updateManifestStatus(manifest.id, manifest.type, status)
+                        }
                         onViewDetails={() => handleViewDetails(manifest)}
                         onReferral={() => {
                           setSelectedManifest(manifest);
@@ -420,7 +487,7 @@ export default function ReportsManagement() {
         )}
 
         {/* Kanban View */}
-        {viewMode === 'kanban' && (
+        {viewMode === "kanban" && (
           <KanbanBoard
             manifests={manifests}
             loading={loading}
@@ -443,12 +510,16 @@ export default function ReportsManagement() {
         onStatusChange={updateManifestStatus}
         onCategoryCorrected={async (manifest, newCategory, newSubcategory) => {
           await updateManifestCategory(manifest, newCategory, newSubcategory);
-          setSelectedManifest(prev => {
+          setSelectedManifest((prev) => {
             if (!prev || prev.id !== manifest.id) return prev;
             if (prev.urban_data) {
               return {
                 ...prev,
-                urban_data: { ...prev.urban_data, category: newCategory, subcategory: newSubcategory },
+                urban_data: {
+                  ...prev.urban_data,
+                  category: newCategory,
+                  subcategory: newSubcategory,
+                },
               };
             }
             if (prev.transport_data) {
@@ -481,11 +552,16 @@ export default function ReportsManagement() {
           onOpenChange={setReferralDialogOpen}
           report={{
             id: selectedManifest.id,
-            type: selectedManifest.type === 'urban' ? 'urban' : 
-                  selectedManifest.type === 'transport' ? 'transport' : 'service',
+            type:
+              selectedManifest.type === "urban"
+                ? "urban"
+                : selectedManifest.type === "transport"
+                  ? "transport"
+                  : "service",
             title: selectedManifest.title,
             description: selectedManifest.description,
-            category: selectedManifest.urban_data?.category || selectedManifest.transport_data?.report_type,
+            category:
+              selectedManifest.urban_data?.category || selectedManifest.transport_data?.report_type,
             region: selectedManifest.urban_data?.neighborhood,
             severity: selectedManifest.severity,
           }}

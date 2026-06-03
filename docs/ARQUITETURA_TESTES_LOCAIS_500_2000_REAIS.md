@@ -8,7 +8,7 @@
 
 ## 🎯 Resposta Direta
 
-### **Recomendação: T4 16GB + Llama 3.1 8B + n8n Cloud Run** ⭐⭐⭐⭐⭐
+### **Recomendação: T4 16GB + Llama 3.1 8B + automacao Cloud Run** ⭐⭐⭐⭐⭐
 
 **Custo Total:** R$ 1.200-1.800/mês  
 **Capacidade:** 200+ requests simultâneos  
@@ -24,7 +24,7 @@
 |------------|---------------|--------------|
 | **VM Chat (T4)** | n1-standard-4 + T4 (preemptible) | R$ 1.200 |
 | **Modelo** | Qwen 2.5 3B-Instruct (quantizado) | R$ 0 |
-| **n8n Cloud Run** | 2-10 instâncias (teste) | R$ 300-500 |
+| **automacao Cloud Run** | 2-10 instâncias (teste) | R$ 300-500 |
 | **Storage/Network** | 100GB SSD | R$ 100 |
 | **TOTAL** | | **R$ 1.600-1.800/mês** |
 
@@ -33,7 +33,7 @@
 **Alternativa sem GPU (CPU only):**
 - VM CPU: e2-standard-4 (R$ 200/mês)
 - Modelo: Phi-3 Mini (3.8B, roda em CPU)
-- n8n Cloud Run: R$ 300-500/mês
+- automacao Cloud Run: R$ 300-500/mês
 - **TOTAL: R$ 500-700/mês** ⚠️ Performance limitada
 
 ---
@@ -44,12 +44,12 @@
 |------------|---------------|--------------|
 | **VM Chat (T4)** | n1-standard-4 + T4 (preemptible) | R$ 1.200 |
 | **Modelo** | Llama 3.1 8B-Instruct (quantizado AWQ) | R$ 0 |
-| **n8n Cloud Run** | 5-20 instâncias (teste robusto) | R$ 500-800 |
+| **automacao Cloud Run** | 5-20 instâncias (teste robusto) | R$ 500-800 |
 | **Storage/Network** | 200GB SSD + tráfego | R$ 200 |
 | **TOTAL** | | **R$ 1.900-2.200/mês** |
 
 **Ajuste para R$ 1.800:**
-- Reduzir instâncias n8n: 3-10 instâncias (R$ 300-600)
+- Reduzir instâncias automacao: 3-10 instâncias (R$ 300-600)
 - **TOTAL: R$ 1.700-2.000/mês** ✅
 
 **Capacidade:**
@@ -66,12 +66,12 @@
 |------------|---------------|--------------|
 | **VM Chat (T4)** | n1-standard-8 + T4 (preemptible) | R$ 1.400 |
 | **Modelo** | Qwen 2.5 7B-Instruct (quantizado) | R$ 0 |
-| **n8n Cloud Run** | 10-30 instâncias | R$ 600-800 |
+| **automacao Cloud Run** | 10-30 instâncias | R$ 600-800 |
 | **Storage/Network** | 200GB SSD + tráfego | R$ 200 |
 | **TOTAL** | | **R$ 2.200-2.400/mês** |
 
 **Ajuste para R$ 2.000:**
-- Reduzir instâncias n8n: 5-15 instâncias (R$ 400-600)
+- Reduzir instâncias automacao: 5-15 instâncias (R$ 400-600)
 - **TOTAL: R$ 2.000-2.200/mês** ✅
 
 ---
@@ -182,7 +182,7 @@ docker run -d \
                    │
                    ▼
 ┌─────────────────────────────────────────────────┐
-│         n8n Cloud Run (Self-hosted)             │
+│         automacao Cloud Run (Self-hosted)             │
 │  5-20 instâncias | Auto-scaling | R$ 500-800/mês│
 └──────────────────┬──────────────────────────────┘
                    │
@@ -196,23 +196,23 @@ docker run -d \
 
 **Componentes:**
 1. **VM Chat (T4):** R$ 1.200/mês
-2. **n8n Cloud Run:** R$ 500-800/mês (5-20 instâncias)
+2. **automacao Cloud Run:** R$ 500-800/mês (5-20 instâncias)
 3. **Storage/Network:** R$ 200/mês
 4. **TOTAL:** R$ 1.900-2.200/mês
 
 **Ajuste para R$ 1.800:**
-- Reduzir n8n: 3-10 instâncias (R$ 300-600)
+- Reduzir automacao: 3-10 instâncias (R$ 300-600)
 - **TOTAL: R$ 1.700-2.000/mês** ✅
 
 ---
 
 ## 🧪 Configuração para Testes de Carga
 
-### 1. Configuração n8n Cloud Run (Testes)
+### 1. Configuração automacao Cloud Run (Testes)
 
 ```yaml
 # Configuração para testes robustos
-service: n8n-worker-test
+service: automacao-worker-test
 region: southamerica-east1
 min-instances: 3
 max-instances: 20
@@ -301,7 +301,7 @@ docker run -d \
 | Componente | Custo Mensal | Uso |
 |------------|--------------|-----|
 | **VM T4 (preemptible)** | R$ 1.200 | 24/7 para testes |
-| **n8n Cloud Run (3-5 inst)** | R$ 300 | Testes básicos |
+| **automacao Cloud Run (3-5 inst)** | R$ 300 | Testes básicos |
 | **Storage/Network** | R$ 200 | 200GB SSD |
 | **TOTAL** | **R$ 1.700/mês** | |
 
@@ -317,7 +317,7 @@ docker run -d \
 | Componente | Custo Mensal | Uso |
 |------------|--------------|-----|
 | **VM T4 (preemptible)** | R$ 1.200 | 24/7 para testes |
-| **n8n Cloud Run (5-10 inst)** | R$ 500 | Testes robustos |
+| **automacao Cloud Run (5-10 inst)** | R$ 500 | Testes robustos |
 | **Storage/Network** | R$ 200 | 200GB SSD |
 | **TOTAL** | **R$ 1.900/mês** | |
 
@@ -334,7 +334,7 @@ docker run -d \
 | Componente | Custo Mensal | Uso |
 |------------|--------------|-----|
 | **VM T4 (preemptible)** | R$ 1.200 | 24/7 para testes |
-| **n8n Cloud Run (10-20 inst)** | R$ 800 | Testes intensivos |
+| **automacao Cloud Run (10-20 inst)** | R$ 800 | Testes intensivos |
 | **Storage/Network** | R$ 200 | 200GB SSD |
 | **TOTAL** | **R$ 2.200/mês** | |
 
@@ -348,7 +348,7 @@ docker run -d \
 
 ## 🎯 Recomendação Final para Testes
 
-### **Arquitetura: T4 + Llama 3.1 8B + n8n Cloud Run** ⭐⭐⭐⭐⭐
+### **Arquitetura: T4 + Llama 3.1 8B + automacao Cloud Run** ⭐⭐⭐⭐⭐
 
 **Custo:** R$ 1.700-2.000/mês  
 **Capacidade:** 200+ requests simultâneos
@@ -356,7 +356,7 @@ docker run -d \
 **Componentes:**
 1. ✅ **VM T4:** n1-standard-4 + T4 (preemptible) - R$ 1.200/mês
 2. ✅ **Modelo:** Llama 3.1 8B-Instruct-AWQ - R$ 0
-3. ✅ **n8n Cloud Run:** 5-10 instâncias - R$ 500/mês
+3. ✅ **automacao Cloud Run:** 5-10 instâncias - R$ 500/mês
 4. ✅ **Storage/Network:** 200GB SSD - R$ 200/mês
 
 **Vantagens:**
@@ -458,12 +458,12 @@ gcloud compute firewall-rules create allow-vllm-test-8000 \
   --description "Allow vLLM on port 8000 (testes)"
 ```
 
-### Passo 5: Configurar n8n Cloud Run (Testes)
+### Passo 5: Configurar automacao Cloud Run (Testes)
 
 ```bash
-# Deploy n8n com configuração para testes
-gcloud run deploy n8n-worker-test \
-  --image n8nio/n8n:latest \
+# Deploy automacao com configuração para testes
+gcloud run deploy automacao-worker-test \
+  --image automacaoio/automacao:latest \
   --region southamerica-east1 \
   --platform managed \
   --memory 4Gi \
@@ -472,7 +472,7 @@ gcloud run deploy n8n-worker-test \
   --max-instances 20 \
   --concurrency 40 \
   --timeout 300 \
-  --set-env-vars "N8N_BASIC_AUTH_ACTIVE=true,N8N_BASIC_AUTH_USER=admin,N8N_BASIC_AUTH_PASSWORD=$(openssl rand -hex 16)"
+  --set-env-vars "automacao_BASIC_AUTH_ACTIVE=true,automacao_BASIC_AUTH_USER=admin,automacao_BASIC_AUTH_PASSWORD=$(openssl rand -hex 16)"
 ```
 
 **Custo estimado:** R$ 500-800/mês (depende do uso)
@@ -578,7 +578,7 @@ asyncio.run(stress_test("http://SEU_IP:8000/v1/chat/completions", 200, 50))
 - [ ] Instalar Docker e NVIDIA drivers
 - [ ] Deploy Llama 3.1 8B (AWQ) com `--max-num-seqs 256`
 - [ ] Configurar firewall (porta 8000)
-- [ ] Deploy n8n Cloud Run (5-10 instâncias) - R$ 500/mês
+- [ ] Deploy automacao Cloud Run (5-10 instâncias) - R$ 500/mês
 - [ ] Configurar Supabase secrets
 - [ ] Criar scripts de teste de carga
 - [ ] Executar testes básicos (100 req simultâneas)
@@ -596,7 +596,7 @@ asyncio.run(stress_test("http://SEU_IP:8000/v1/chat/completions", 200, 50))
 **Componentes:**
 - **VM T4:** n1-standard-4 + T4 (preemptible) - R$ 1.200/mês
 - **Modelo:** Llama 3.1 8B-Instruct-AWQ - R$ 0
-- **n8n Cloud Run:** 5-10 instâncias - R$ 500/mês
+- **automacao Cloud Run:** 5-10 instâncias - R$ 500/mês
 - **Storage/Network:** 200GB SSD - R$ 200/mês
 
 **Custo Total:** R$ 1.900/mês ✅  

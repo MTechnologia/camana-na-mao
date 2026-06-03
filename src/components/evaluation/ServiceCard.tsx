@@ -4,7 +4,13 @@ import { MapPin, Phone, ExternalLink, Clock, Info, Heart } from "lucide-react";
 import { ServiceTypeIcon } from "@/components/icons";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
-import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay, getOpeningHoursText } from "@/lib/mapUtils";
+import {
+  formatDistance,
+  formatDistanceStraightLine,
+  buildGoogleMapsUrl,
+  getAddressDisplay,
+  getOpeningHoursText,
+} from "@/lib/mapUtils";
 import { Badge } from "@/components/ui/badge";
 import { LowRatingVerificationBadge } from "@/components/services/LowRatingVerificationBadge";
 
@@ -54,14 +60,20 @@ const operationalStatusStyles: Record<"open" | "closed" | "maintenance", string>
   maintenance: "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
 };
 
-const equipmentNatureLabels: Record<"publico" | "privado" | "misto_indefinido" | "nao_aplicavel", string> = {
+const equipmentNatureLabels: Record<
+  "publico" | "privado" | "misto_indefinido" | "nao_aplicavel",
+  string
+> = {
   publico: "Público",
   privado: "Privado",
   misto_indefinido: "Misto/indefinido",
   nao_aplicavel: "Não aplicável",
 };
 
-const equipmentNatureStyles: Record<"publico" | "privado" | "misto_indefinido" | "nao_aplicavel", string> = {
+const equipmentNatureStyles: Record<
+  "publico" | "privado" | "misto_indefinido" | "nao_aplicavel",
+  string
+> = {
   publico: "border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300",
   privado: "border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-300",
   misto_indefinido: "border-muted-foreground/30 bg-muted/60 text-muted-foreground",
@@ -90,7 +102,7 @@ const serviceLabels: Record<string, string> = {
   accessibility: "Acessibilidade",
   recycling_point: "Reciclagem/Limpeza",
   fire_station: "Bombeiros",
-  other: "Outro"
+  other: "Outro",
 };
 
 export const ServiceCard = ({
@@ -117,8 +129,16 @@ export const ServiceCard = ({
   favoriteDisabled = false,
 }: ServiceCardProps) => {
   const openingHoursText = getOpeningHoursText(openingHours);
-  const hasCoords = typeof latitude === "number" && typeof longitude === "number" && !Number.isNaN(latitude) && !Number.isNaN(longitude);
-  const hasUserCoords = typeof userLatitude === "number" && typeof userLongitude === "number" && !Number.isNaN(userLatitude) && !Number.isNaN(userLongitude);
+  const hasCoords =
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    !Number.isNaN(latitude) &&
+    !Number.isNaN(longitude);
+  const hasUserCoords =
+    typeof userLatitude === "number" &&
+    typeof userLongitude === "number" &&
+    !Number.isNaN(userLatitude) &&
+    !Number.isNaN(userLongitude);
   const mapsUrl = hasCoords
     ? hasUserCoords
       ? buildGoogleMapsUrl(userLatitude!, userLongitude!, latitude!, longitude!)
@@ -126,11 +146,8 @@ export const ServiceCard = ({
     : null;
 
   return (
-    <Card 
-      className={cn(
-        "transition-all hover:shadow-md",
-        onClick && "cursor-pointer"
-      )}
+    <Card
+      className={cn("transition-all hover:shadow-md", onClick && "cursor-pointer")}
       onClick={onClick}
       data-testid="service-card"
     >
@@ -139,12 +156,10 @@ export const ServiceCard = ({
           <div className="shrink-0" aria-hidden="true">
             <ServiceTypeIcon serviceType={serviceType} size={40} />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
-              <h3 className="font-semibold text-foreground line-clamp-2 min-w-0 pr-1">
-                {name}
-              </h3>
+              <h3 className="font-semibold text-foreground line-clamp-2 min-w-0 pr-1">{name}</h3>
               <div className="flex items-center gap-1 shrink-0">
                 {onFavoriteClick && (
                   <Button
@@ -169,14 +184,22 @@ export const ServiceCard = ({
                 {distance !== undefined && (
                   <span
                     className="text-xs font-medium text-primary whitespace-nowrap"
-                    title={distanceLabel === "walking" ? "Distância a pé (rota real)" : distanceLabel === "driving" ? "Distância de carro (rota real)" : "Distância aproximada"}
+                    title={
+                      distanceLabel === "walking"
+                        ? "Distância a pé (rota real)"
+                        : distanceLabel === "driving"
+                          ? "Distância de carro (rota real)"
+                          : "Distância aproximada"
+                    }
                   >
-                    {distanceLabel === "straight" ? formatDistanceStraightLine(distance) : formatDistance(distance)}
+                    {distanceLabel === "straight"
+                      ? formatDistanceStraightLine(distance)
+                      : formatDistance(distance)}
                   </span>
                 )}
               </div>
             </div>
-            
+
             <p className="text-xs text-muted-foreground mb-1">
               {serviceLabels[serviceType] || "Serviço Público"}
             </p>
@@ -201,7 +224,7 @@ export const ServiceCard = ({
                 )}
               </div>
             )}
-            
+
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
               <MapPin className="w-3 h-3 shrink-0" />
               <span className="line-clamp-1">{getAddressDisplay(address, district)}</span>
@@ -232,20 +255,18 @@ export const ServiceCard = ({
                 {hasUserCoords ? "Como chegar" : "Abrir no Google Maps"}
               </a>
             )}
-            
+
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <RatingStars rating={averageRating} readonly size="sm" />
-                <span className="text-xs text-muted-foreground">
-                  ({totalRatings})
-                </span>
+                <span className="text-xs text-muted-foreground">({totalRatings})</span>
                 <LowRatingVerificationBadge
                   averageRating={averageRating}
                   totalRatings={totalRatings}
                   compact
                 />
               </div>
-              
+
               {phone && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Phone className="w-3 h-3" />

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export function isCamaraFuncionamentoInternoQuery(contextText: string): boolean {
   const ctx = contextText.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
   const estruturaOuApresentacao =
-    /(estrutura|funcionamento|apresentacao)\s+(da\s+)?camara|conhecer\s+(a\s+)?camara|como\s+(a\s+)?camara\s+e\s+organizada|como\s+funciona\s+(a\s+)?camara|o\s+que\s+e\s+(a\s+)?camara\s+municipal/.test(ctx);
+    /(estrutura|funcionamento|apresentacao)\s+(da\s+)?camara|conhec(er|a)\s+(a\s+)?camara|como\s+(a\s+)?camara\s+e\s+organizada|como\s+funciona\s+(a\s+)?camara|o\s+que\s+e\s+(a\s+)?camara\s+municipal/.test(ctx);
   const orgaosOuProcesso =
     /mesa\s+diretora|secretaria\s+da\s+mesa|procuradoria|regimento\s+interno|regimento|tramitacao|tramitar|sessao\s+plenaria|sessoes\s+plenarias|processo\s+legislativo|poder\s+legislativo|legislativo\s+municipal|comissoes?\s+(da\s+)?camara|comissoes?\s+permanentes|comissoes?\s+tecnicas|atribuicoes\s+das\s+comissoes/.test(ctx);
   const mentionsChamber = /camara\s+municipal|\bcamara\b|vereador|vereadores|plen|comiss/.test(ctx);
@@ -13,6 +13,109 @@ export function isCamaraFuncionamentoInternoQuery(contextText: string): boolean 
 
 function sanitizeKbIlikeTerm(term: string): string {
   return term.replace(/%/g, "").replace(/_/g, "").trim();
+}
+
+const URBAN_DUVIDA_KB_STOPWORDS = new Set([
+  "gostaria", "saber", "como", "feito", "feita", "para", "cidade", "paulo", "sao", "uma", "uns",
+  "umas", "dos", "das", "que", "ser", "esta", "este", "sobre", "minha", "quero", "onde", "quando",
+  "qual", "quais", "isso", "essa", "esse", "com", "sem", "nos", "nas", "mais", "muito", "bem",
+  "pode", "sendo", "tenho", "teria", "fazer", "feito", "tipo", "meu", "minha", "seu", "sua",
+  "deve", "seria", "foram", "foram", "isso", "aqui", "ali", "la", "lá", "voce", "você",
+]);
+
+function normalizeKbMatchText(text: string): string {
+  return text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+}
+
+/** Termos substantivos da pergunta (sem boost genérico da Câmara). */
+export function extractUrbanDuvidaSearchTerms(query: string): string[] {
+  const normalized = normalizeKbMatchText(query);
+  const words = normalized
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
+  return [...new Set(
+    words
+      .map(sanitizeKbIlikeTerm)
+      .filter((w) => w.length > 3 && !URBAN_DUVIDA_KB_STOPWORDS.has(w)),
+  )].slice(0, 6);
+}
+
+export function isUrbanDuvidaKbResultRelevant(
+  query: string,
+  docs: Array<{ title?: unknown; content?: unknown }>,
+): boolean {
+  const terms = extractUrbanDuvidaSearchTerms(query)
+    .sort((a, b) => b.length - a.length);
+  const primaryTerms = terms.filter((t) => t.length >= 5).slice(0, 5);
+  if (primaryTerms.length === 0) return false;
+
+  const requiredMatches = primaryTerms.length >= 2 ? 2 : 1;
+
+  for (const doc of docs) {
+    const text = normalizeKbMatchText(`${doc.title ?? ""} ${doc.content ?? ""}`);
+    const hits = primaryTerms.filter((t) => text.includes(t));
+    if (hits.length >= requiredMatches) return true;
+  }
+  return false;
+}
+
+export type UrbanDuvidaKbSearchResult = {
+  text: string;
+  hasRelevantHits: boolean;
+};
+
+/** Busca KB focada na pergunta do cidadão (fluxo dúvida urbana), sem boost institucional. */
+export async function searchKnowledgeBaseForUrbanDuvida(
+  supabase: SupabaseClient,
+  query: string,
+): Promise<UrbanDuvidaKbSearchResult> {
+  const searchTerms = extractUrbanDuvidaSearchTerms(query);
+  if (searchTerms.length === 0) {
+    return { text: "", hasRelevantHits: false };
+  }
+
+  const orClause = searchTerms
+    .flatMap((term) => [`content.ilike.%${term}%`, `title.ilike.%${term}%`])
+    .join(",");
+
+  const { data, error } = await supabase
+    .from("knowledge_base")
+    .select("content, content_type, title")
+    .or(orClause)
+    .limit(6);
+
+  const hitCount = data?.length ?? 0;
+  console.log("[searchKnowledgeBaseForUrbanDuvida]", JSON.stringify({
+    querySnippet: query.slice(0, 120),
+    termCount: searchTerms.length,
+    hits: hitCount,
+    dbError: !!error,
+  }));
+
+  if (error || !data?.length) {
+    return { text: "", hasRelevantHits: false };
+  }
+
+  if (!isUrbanDuvidaKbResultRelevant(query, data)) {
+    console.log("[searchKnowledgeBaseForUrbanDuvida] hits_not_relevant", JSON.stringify({
+      querySnippet: query.slice(0, 120),
+    }));
+    return { text: "", hasRelevantHits: false };
+  }
+
+  const SNIPPET_LEN = 600;
+  const text = data.map((doc: Record<string, unknown>, i: number) => {
+    const source = doc.content_type === "noticia" ? "Notícia"
+      : doc.content_type === "audiencia" ? "Audiência"
+      : "Info";
+    const body = `${doc.content ?? ""}`.trim();
+    const showMore = body.length > SNIPPET_LEN;
+    const snippet = showMore ? `${body.slice(0, SNIPPET_LEN)}...` : body;
+    return `[${i + 1}] ${String(doc.title ?? "") || source}: ${snippet}`;
+  }).join("\n\n");
+
+  return { text, hasRelevantHits: true };
 }
 
 export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {

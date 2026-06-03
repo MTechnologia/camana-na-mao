@@ -9,11 +9,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-cron-secret',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+// corsHeaders resolvido por request (reatribuído no início do handler).
+let corsHeaders: Record<string, string> = buildCorsHeaders();
 
 async function authorize(
   req: Request,
@@ -54,6 +52,7 @@ async function authorize(
 }
 
 serve(async (req: Request) => {
+  corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

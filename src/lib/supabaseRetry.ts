@@ -6,7 +6,12 @@ type MaybeSupabaseError = {
 export function isPoolTimeoutError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const e = error as MaybeSupabaseError;
-  return e.code === "PGRST003" || String(e.message || "").toLowerCase().includes("connection pool");
+  return (
+    e.code === "PGRST003" ||
+    String(e.message || "")
+      .toLowerCase()
+      .includes("connection pool")
+  );
 }
 
 export async function sleep(ms: number): Promise<void> {
@@ -37,4 +42,3 @@ export async function withPoolRetry<T>(
   }
   throw lastError;
 }
-

@@ -1,10 +1,10 @@
-import { WidgetRenderer } from './WidgetRenderer';
+import { WidgetRenderer } from "./WidgetRenderer";
 
 export interface WidgetConfig {
   id: string;
-  type: 'bar-chart' | 'pie-chart' | 'line-chart' | 'kpi-card' | 'table' | 'heatmap';
+  type: "bar-chart" | "pie-chart" | "line-chart" | "kpi-card" | "table" | "heatmap";
   title: string;
-  dataSource: 'urban_reports' | 'transport_reports' | 'service_ratings' | 'audiencias';
+  dataSource: "urban_reports" | "transport_reports" | "service_ratings" | "audiencias";
   dimension?: string;
   metric?: string;
   position: {
@@ -27,9 +27,7 @@ export const DashboardPreview = ({ config }: DashboardPreviewProps) => {
   if (!config || !config.widgets || config.widgets.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 bg-muted/50 rounded-lg border-2 border-dashed border-border">
-        <p className="text-muted-foreground text-sm">
-          Nenhum widget adicionado ao painel
-        </p>
+        <p className="text-muted-foreground text-sm">Nenhum widget adicionado ao painel</p>
       </div>
     );
   }

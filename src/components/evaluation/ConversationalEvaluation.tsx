@@ -11,6 +11,7 @@ import {
   SERVICE_RATING_DIMENSION_LABELS,
 } from "@/lib/serviceRatingDimensions";
 import { shouldOfferRatingCommentReview } from "@/lib/shouldOfferRatingCommentReview";
+import { conversationUsesDimensionOnlyRating } from "@/lib/serviceRatingFlow";
 import ChatMessageBubble from "@/components/ai/ChatMessageBubble";
 import ChatInput from "@/components/ai/ChatInput";
 import TypingIndicator from "@/components/ai/TypingIndicator";
@@ -21,11 +22,7 @@ interface ConversationalEvaluationProps {
   /** Contexto da visita para pular coleta de serviço. Se null, modo livre (pede tipo/nome do serviço). */
   evaluationContext: EvaluationContext | null;
   /** Chamado quando a avaliação for registrada (RATING_CREATED) */
-  onComplete: (data: {
-    rating: number;
-    comments: string;
-    sentiment?: string;
-  }) => void;
+  onComplete: (data: { rating: number; comments: string; sentiment?: string }) => void;
   /** Após sucesso: esconde envio e evita redirecionamento automático (controlado pelo pai). */
   completed?: boolean;
 }
@@ -59,17 +56,15 @@ export function ConversationalEvaluation({
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
     patchMessageContent,
-  } = useUnifiedAIChat(
-    null,
-    "service_rating",
-    evaluationContext
-  );
+  } = useUnifiedAIChat(null, "service_rating", evaluationContext);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const isInApp = typeof window !== "undefined" && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+  const isInApp =
+    typeof window !== "undefined" &&
+    !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
 
   // No app: blur em sequência para garantir que o campo de avaliação não fique focado
   useEffect(() => {
@@ -79,13 +74,17 @@ export function ConversationalEvaluation({
       setTimeout(() => {
         try {
           const el = document.activeElement;
-          if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && typeof (el as HTMLTextAreaElement).blur === "function") {
+          if (
+            el &&
+            (el.tagName === "INPUT" || el.tagName === "TEXTAREA") &&
+            typeof (el as HTMLTextAreaElement).blur === "function"
+          ) {
             (el as HTMLTextAreaElement).blur();
           }
         } catch {
           // ignore
         }
-      }, ms)
+      }, ms),
     );
     return () => timers.forEach((t) => clearTimeout(t));
   }, [isInApp]);
@@ -128,9 +127,14 @@ export function ConversationalEvaluation({
     (content: string): void | boolean => {
       const trimmed = content.trim();
       if (!trimmed || isLoading || completed) return;
-      const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant")?.content || "";
+      const lastAssistant =
+        [...messages].reverse().find((m) => m.role === "assistant")?.content || "";
       if (
-        shouldOfferRatingCommentReview(collectedFields as Record<string, unknown>, lastAssistant, trimmed)
+        shouldOfferRatingCommentReview(
+          collectedFields as Record<string, unknown>,
+          lastAssistant,
+          trimmed,
+        )
       ) {
         setPendingCommentReview(trimmed);
         setReviewText(trimmed);
@@ -156,14 +160,18 @@ export function ConversationalEvaluation({
 
   const userAvatarUrl = profile?.avatar_url;
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
+  const suppressLegacyStarRating = conversationUsesDimensionOnlyRating(messages);
 
   return (
     <Card className="flex-1 flex flex-col min-h-0">
       <CardContent className="flex-1 flex flex-col p-4 gap-4 overflow-hidden min-h-0">
         <div className="flex-1 overflow-y-auto space-y-3 min-h-0">
           {messages.map((msg, idx) => {
-            const lastAssistantIdx = messages.reduce((acc, m, i) => (m.role === 'assistant' ? i : acc), -1);
-            const isLastAssistant = msg.role === 'assistant' && idx === lastAssistantIdx;
+            const lastAssistantIdx = messages.reduce(
+              (acc, m, i) => (m.role === "assistant" ? i : acc),
+              -1,
+            );
+            const isLastAssistant = msg.role === "assistant" && idx === lastAssistantIdx;
             return (
               <ChatMessageBubble
                 key={msg.id}
@@ -183,6 +191,7 @@ export function ConversationalEvaluation({
                 onSendMessage={(text) => {
                   void sendMessage(text);
                 }}
+                suppressLegacyStarRating={suppressLegacyStarRating}
               />
             );
           })}
@@ -198,11 +207,17 @@ export function ConversationalEvaluation({
             <Card className="border-amber-500/40 bg-amber-500/5">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden />
+                  <CheckCircle2
+                    className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+                    aria-hidden
+                  />
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Revise antes de publicar</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      Revise antes de publicar
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Confira as notas e o comentário. Depois de enviar, a avaliação será registrada.
+                      Confira as notas e o comentário. Depois de enviar, a avaliação será
+                      registrada.
                     </p>
                   </div>
                 </div>
@@ -217,17 +232,25 @@ export function ConversationalEvaluation({
                   <ul className="text-sm space-y-1 rounded-md bg-background/80 border px-3 py-2">
                     {SERVICE_RATING_DIMENSION_KEYS.map((k) => (
                       <li key={k}>
-                        <span className="text-muted-foreground">{SERVICE_RATING_DIMENSION_LABELS[k]}:</span>{" "}
-                        <span className="font-medium">{collectedFields.rating_dimensions![k]}/5</span>
+                        <span className="text-muted-foreground">
+                          {SERVICE_RATING_DIMENSION_LABELS[k]}:
+                        </span>{" "}
+                        <span className="font-medium">
+                          {collectedFields.rating_dimensions![k]}/5
+                        </span>
                       </li>
                     ))}
                     <li className="pt-1 text-muted-foreground text-xs">
-                      Média: {aggregateServiceRatingStars(collectedFields.rating_dimensions)} estrelas
+                      Média: {aggregateServiceRatingStars(collectedFields.rating_dimensions)}{" "}
+                      estrelas
                     </li>
                   </ul>
                 ) : null}
                 <div className="space-y-1.5">
-                  <label htmlFor="evaluation-review-comment" className="text-xs font-medium text-foreground">
+                  <label
+                    htmlFor="evaluation-review-comment"
+                    className="text-xs font-medium text-foreground"
+                  >
                     Comentário
                   </label>
                   <Textarea
@@ -240,7 +263,13 @@ export function ConversationalEvaluation({
                   />
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" size="sm" onClick={cancelCommentReview} disabled={isLoading}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={cancelCommentReview}
+                    disabled={isLoading}
+                  >
                     <Pencil className="h-3.5 w-3.5 mr-1.5" aria-hidden />
                     Voltar e editar no chat
                   </Button>

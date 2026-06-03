@@ -1,22 +1,34 @@
-import { useMemo, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
-import { KPICard } from '@/components/analytics/KPICard';
-import { CheckCircle2, Clock, Eye, RefreshCw, Send, Users } from 'lucide-react';
-import { VereadorLayout } from '@/layouts/VereadorLayout';
-import { ReferralsVereadorItem, useReferralsVereador } from '@/hooks/useReferralsVereador';
+import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { KPICard } from "@/components/analytics/KPICard";
+import { CheckCircle2, Clock, Eye, RefreshCw, Send, Users } from "lucide-react";
+import { VereadorLayout } from "@/layouts/VereadorLayout";
+import { ReferralsVereadorItem, useReferralsVereador } from "@/hooks/useReferralsVereador";
 
 const statusLabels: Record<string, string> = {
-  pending: 'Pendente',
-  sent: 'Enviado',
-  acknowledged: 'Recebido',
-  resolved: 'Resolvido',
+  pending: "Pendente",
+  sent: "Enviado",
+  acknowledged: "Recebido",
+  resolved: "Resolvido",
 };
 
 export default function GabineteEncaminhamentos() {
@@ -33,22 +45,22 @@ export default function GabineteEncaminhamentos() {
     refetch,
   } = useReferralsVereador();
   const [selectedReferral, setSelectedReferral] = useState<ReferralsVereadorItem | null>(null);
-  const [responseText, setResponseText] = useState('');
+  const [responseText, setResponseText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const statusColor = useMemo(
     () => ({
-      pending: 'bg-yellow-500/10 text-yellow-700 border-yellow-500/20',
-      sent: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
-      acknowledged: 'bg-purple-500/10 text-purple-700 border-purple-500/20',
-      resolved: 'bg-green-500/10 text-green-700 border-green-500/20',
+      pending: "bg-yellow-500/10 text-yellow-700 border-yellow-500/20",
+      sent: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+      acknowledged: "bg-purple-500/10 text-purple-700 border-purple-500/20",
+      resolved: "bg-green-500/10 text-green-700 border-green-500/20",
     }),
     [],
   );
 
   const openDetails = (referral: ReferralsVereadorItem) => {
     setSelectedReferral(referral);
-    setResponseText(referral.response_text || '');
+    setResponseText(referral.response_text || "");
   };
 
   const submitResponse = async () => {
@@ -66,7 +78,8 @@ export default function GabineteEncaminhamentos() {
           <div>
             <h2 className="text-2xl font-semibold">Encaminhamentos do gabinete</h2>
             <p className="text-sm text-muted-foreground">
-              Consulte os itens recebidos, responda o cidadão quando necessário e acompanhe o status do atendimento.
+              Consulte os itens recebidos, responda o cidadão quando necessário e acompanhe o status
+              do atendimento.
             </p>
           </div>
           <Button variant="outline" onClick={refetch}>
@@ -77,7 +90,9 @@ export default function GabineteEncaminhamentos() {
 
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[...Array(5)].map((_, index) => <Skeleton key={index} className="h-28" />)}
+            {[...Array(5)].map((_, index) => (
+              <Skeleton key={index} className="h-28" />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -99,7 +114,10 @@ export default function GabineteEncaminhamentos() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Filtrar por status" />
               </SelectTrigger>
@@ -120,7 +138,9 @@ export default function GabineteEncaminhamentos() {
           ) : referrals.length === 0 ? (
             <Card className="p-10 text-center">
               <p className="font-medium">Nenhum encaminhamento encontrado</p>
-              <p className="text-sm text-muted-foreground">Ajuste os filtros ou aguarde novos itens para o gabinete.</p>
+              <p className="text-sm text-muted-foreground">
+                Ajuste os filtros ou aguarde novos itens para o gabinete.
+              </p>
             </Card>
           ) : (
             referrals.map((referral) => (
@@ -129,21 +149,26 @@ export default function GabineteEncaminhamentos() {
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={statusColor[referral.status as keyof typeof statusColor] || ''}>
+                        <Badge
+                          className={statusColor[referral.status as keyof typeof statusColor] || ""}
+                        >
                           Encaminhamento: {statusLabels[referral.status] || referral.status}
                         </Badge>
                         <Badge variant="secondary">{referral.manifestType}</Badge>
-                        {referral.manifestProtocol ? <Badge variant="outline">Protocolo {referral.manifestProtocol}</Badge> : null}
+                        {referral.manifestProtocol ? (
+                          <Badge variant="outline">Protocolo {referral.manifestProtocol}</Badge>
+                        ) : null}
                         {referral.manifestStatus ? (
                           <Badge variant="outline">
-                            Manifestação: {statusLabels[referral.manifestStatus] || referral.manifestStatus}
+                            Manifestação:{" "}
+                            {statusLabels[referral.manifestStatus] || referral.manifestStatus}
                           </Badge>
                         ) : null}
                       </div>
                       <div>
                         <p className="font-medium">{referral.manifestTitle}</p>
                         <p className="text-sm text-muted-foreground">
-                          {referral.manifestDescription || 'Sem descrição complementar.'}
+                          {referral.manifestDescription || "Sem descrição complementar."}
                         </p>
                       </div>
                       {referral.citizen_message ? (
@@ -158,7 +183,14 @@ export default function GabineteEncaminhamentos() {
                         <Eye className="h-4 w-4 mr-2" />
                         Ver detalhes
                       </Button>
-                      <Select onValueChange={(value) => updateStatus(referral.id, value as 'pending' | 'sent' | 'acknowledged' | 'resolved')}>
+                      <Select
+                        onValueChange={(value) =>
+                          updateStatus(
+                            referral.id,
+                            value as "pending" | "sent" | "acknowledged" | "resolved",
+                          )
+                        }
+                      >
                         <SelectTrigger className="w-full lg:w-40">
                           <SelectValue placeholder="Alterar status" />
                         </SelectTrigger>
@@ -177,7 +209,10 @@ export default function GabineteEncaminhamentos() {
           )}
         </div>
 
-        <Dialog open={Boolean(selectedReferral)} onOpenChange={(open) => !open && setSelectedReferral(null)}>
+        <Dialog
+          open={Boolean(selectedReferral)}
+          onOpenChange={(open) => !open && setSelectedReferral(null)}
+        >
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Detalhes do encaminhamento</DialogTitle>
@@ -186,12 +221,19 @@ export default function GabineteEncaminhamentos() {
             {selectedReferral ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge>Encaminhamento: {statusLabels[selectedReferral.status] || selectedReferral.status}</Badge>
+                  <Badge>
+                    Encaminhamento:{" "}
+                    {statusLabels[selectedReferral.status] || selectedReferral.status}
+                  </Badge>
                   <Badge variant="secondary">{selectedReferral.manifestType}</Badge>
-                  {selectedReferral.manifestProtocol ? <Badge variant="outline">Protocolo {selectedReferral.manifestProtocol}</Badge> : null}
+                  {selectedReferral.manifestProtocol ? (
+                    <Badge variant="outline">Protocolo {selectedReferral.manifestProtocol}</Badge>
+                  ) : null}
                   {selectedReferral.manifestStatus ? (
                     <Badge variant="outline">
-                      Manifestação: {statusLabels[selectedReferral.manifestStatus] || selectedReferral.manifestStatus}
+                      Manifestação:{" "}
+                      {statusLabels[selectedReferral.manifestStatus] ||
+                        selectedReferral.manifestStatus}
                     </Badge>
                   ) : null}
                 </div>
@@ -199,7 +241,7 @@ export default function GabineteEncaminhamentos() {
                 <div className="space-y-1">
                   <p className="font-medium">{selectedReferral.manifestTitle}</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedReferral.manifestDescription || 'Sem descrição complementar.'}
+                    {selectedReferral.manifestDescription || "Sem descrição complementar."}
                   </p>
                 </div>
 
@@ -223,11 +265,15 @@ export default function GabineteEncaminhamentos() {
             ) : null}
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedReferral(null)} disabled={submitting}>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedReferral(null)}
+                disabled={submitting}
+              >
                 Fechar
               </Button>
               <Button onClick={submitResponse} disabled={submitting || !responseText.trim()}>
-                {submitting ? 'Salvando...' : 'Salvar resposta'}
+                {submitting ? "Salvando..." : "Salvar resposta"}
               </Button>
             </DialogFooter>
           </DialogContent>

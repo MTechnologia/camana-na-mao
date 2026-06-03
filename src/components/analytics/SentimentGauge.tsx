@@ -1,38 +1,38 @@
-import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { motion } from "framer-motion";
+import { TrendingUp, TrendingDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SentimentGaugeProps {
   score: number; // 0-100
   trend?: number; // % change
   label?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   onClick?: () => void;
 }
 
-export const SentimentGauge = ({ 
-  score, 
-  trend, 
-  label = 'Índice de Satisfação',
-  size = 'md',
-  onClick
+export const SentimentGauge = ({
+  score,
+  trend,
+  label = "Índice de Satisfação",
+  size = "md",
+  onClick,
 }: SentimentGaugeProps) => {
   const getColor = (value: number) => {
-    if (value >= 70) return 'hsl(var(--chart-1))'; // green
-    if (value >= 40) return 'hsl(var(--chart-3))'; // yellow
-    return 'hsl(var(--chart-5))'; // red
+    if (value >= 70) return "hsl(var(--chart-1))"; // green
+    if (value >= 40) return "hsl(var(--chart-3))"; // yellow
+    return "hsl(var(--chart-5))"; // red
   };
 
   const getSentimentLabel = (value: number) => {
-    if (value >= 70) return 'Positivo';
-    if (value >= 40) return 'Neutro';
-    return 'Negativo';
+    if (value >= 70) return "Positivo";
+    if (value >= 40) return "Neutro";
+    return "Negativo";
   };
 
   const sizes = {
-    sm: { gauge: 120, stroke: 12, text: 'text-2xl' },
-    md: { gauge: 160, stroke: 16, text: 'text-4xl' },
-    lg: { gauge: 200, stroke: 20, text: 'text-5xl' }
+    sm: { gauge: 120, stroke: 12, text: "text-2xl" },
+    md: { gauge: 160, stroke: 16, text: "text-4xl" },
+    lg: { gauge: 200, stroke: 20, text: "text-5xl" },
   };
 
   const config = sizes[size];
@@ -41,10 +41,10 @@ export const SentimentGauge = ({
   const offset = circumference - (score / 100) * circumference;
 
   return (
-    <button 
+    <button
       className={cn(
         "flex flex-col items-center gap-4 transition-transform",
-        onClick && "hover:scale-105 cursor-pointer"
+        onClick && "hover:scale-105 cursor-pointer",
       )}
       onClick={onClick}
       disabled={!onClick}
@@ -71,7 +71,7 @@ export const SentimentGauge = ({
             strokeLinecap="round"
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 1.5, ease: 'easeOut' }}
+            transition={{ duration: 1.5, ease: "easeOut" }}
             style={{
               strokeDasharray: circumference,
             }}
@@ -80,8 +80,8 @@ export const SentimentGauge = ({
 
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <motion.span 
-            className={cn('font-bold text-foreground', config.text)}
+          <motion.span
+            className={cn("font-bold text-foreground", config.text)}
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
@@ -98,16 +98,21 @@ export const SentimentGauge = ({
       <div className="text-center">
         <p className="text-sm font-medium text-foreground">{label}</p>
         {trend !== undefined && (
-          <div className={cn(
-            'flex items-center justify-center gap-1 text-xs font-medium mt-1',
-            trend > 0 ? 'text-chart-1' : trend < 0 ? 'text-chart-5' : 'text-muted-foreground'
-          )}>
+          <div
+            className={cn(
+              "flex items-center justify-center gap-1 text-xs font-medium mt-1",
+              trend > 0 ? "text-chart-1" : trend < 0 ? "text-chart-5" : "text-muted-foreground",
+            )}
+          >
             {trend > 0 ? (
               <TrendingUp className="w-3 h-3" />
             ) : trend < 0 ? (
               <TrendingDown className="w-3 h-3" />
             ) : null}
-            <span>{trend > 0 ? '+' : ''}{trend}% vs período anterior</span>
+            <span>
+              {trend > 0 ? "+" : ""}
+              {trend}% vs período anterior
+            </span>
           </div>
         )}
       </div>

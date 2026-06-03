@@ -2,35 +2,58 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { buildAccumulatedContext } from "./lib-index-accumulated-context.ts";
+import { persistJourneySnapshotMetadata } from "./lib-index-journey-snapshot.ts";
 import { runAiPipeline } from "./lib-index-ai-pipeline.ts";
 import { initializeRequestBootstrap } from "./lib-index-bootstrap.ts";
 import { orchestrateCollectionTurn } from "./lib-index-collection-orchestration.ts";
+import { handleChannelRatingShortcut } from "./lib-index-channel-rating-shortcut.ts";
 import { handleCouncilShortcuts } from "./lib-index-council-shortcuts.ts";
+import { handleGeneralJourneyClosingShortcut } from "./lib-index-general-closing.ts";
+import { handleServicesJourneyClosingShortcut } from "./lib-index-services-closing.ts";
+import { handleUrbanNonComplaintClosingShortcut } from "./lib-index-urban-non-complaint-closing.ts";
 import { resolveCollectionIntent } from "./lib-index-collection-intent.ts";
 import {
   handleAiFatalError,
 } from "./lib-index-ai-fallback.ts";
 import { handleDeterministicServicesFlow } from "./lib-index-services-flow.ts";
 import { getMessageText, handlePreAiShortcuts } from "./lib-index-pre-ai-shortcuts.ts";
+import {
+  analyzeConversationTone,
+  buildConversationToneInstruction,
+} from "./lib-conversation-tone.ts";
+import {
+  buildVersionedSystemPrompt,
+  loadActiveAiConfigVersion,
+  resolveEffectiveAiChatModel,
+} from "./lib-ai-config-version.ts";
+import { buildChatCompletionsModel, isVertexAiProvider } from "../_shared/ai-provider.ts";
+import { buildCorsHeaders } from "./lib-cors.ts";
+import { ORCHESTRATOR_SHORTCUT_PIPELINE } from "./lib-index-shortcut-order.ts";
 
-// CORS para preflight: entrypoint NÃO importa lib para OPTIONS passar mesmo se lib falhar no cold start
-const PREFLIGHT_CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-};
+function logTurnEvent(event: string, payload: Record<string, unknown>) {
+  console.log(
+    "[ai-orchestrator][event]",
+    JSON.stringify({
+      event,
+      ts: new Date().toISOString(),
+      ...payload,
+    }),
+  );
+}
 
 serve(async (req) => {
+  const requestCors = buildCorsHeaders(req.headers.get("Origin"));
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: PREFLIGHT_CORS });
+    return new Response('ok', { status: 200, headers: requestCors });
   }
 
   try {
   const requestStartTime = Date.now();
   const lib = await import("./lib.ts");
+  Object.assign(lib.corsHeaders, requestCors);
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
-  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-03-24-v1 (kb camara funcionamento + skip vertex)');
+  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-05-29-v2 (CHB shortcut pipeline + journey snapshot)');
+  console.log('[ai-orchestrator] Shortcut pipeline:', ORCHESTRATOR_SHORTCUT_PIPELINE.join(" → "));
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);
@@ -43,8 +66,9 @@ serve(async (req) => {
     if (bootstrap.response) {
       return bootstrap.response;
     }
+    const bootstrapCtx = bootstrap.context!;
     const {
-      aiChatModel,
+      aiChatModel: secretAiChatModel,
       attachmentUrls,
       chatHistoryTyped,
       chatMessages,
@@ -65,7 +89,33 @@ serve(async (req) => {
       vertexRagDatastore,
       vertexTokenObtained,
       vertexTokenUrl,
-    } = bootstrap.context!;
+    } = bootstrapCtx;
+
+    logTurnEvent("turn.bootstrap.ready", {
+      conversation_id: typeof conversationId === "string" ? conversationId : null,
+      user_id: user.id,
+      frontend_collection_type: frontendCollectionType ?? null,
+      has_attachments: attachmentUrls.length > 0,
+      messages_count: chatMessages.length,
+    });
+
+    const activeAiConfig = await loadActiveAiConfigVersion({
+      supabaseAdmin: supabaseClassificationFeedbackRead,
+    });
+    const baseSystemPrompt = activeAiConfig
+      ? buildVersionedSystemPrompt(lib.systemPrompt, activeAiConfig)
+      : lib.systemPrompt;
+    const aiChatModel = resolveEffectiveAiChatModel(secretAiChatModel, activeAiConfig?.modelId);
+    const isVertex = isVertexAiProvider(finalAiBaseUrl, vertexTokenUrl);
+    const chatCompletionsModel = buildChatCompletionsModel(aiChatModel, isVertex);
+    if (activeAiConfig && aiChatModel !== secretAiChatModel) {
+      console.log("[ai-orchestrator] Modelo da versão ativa:", {
+        secret: secretAiChatModel,
+        effective: aiChatModel,
+        apiModel: chatCompletionsModel,
+        version: activeAiConfig.versionLabel,
+      });
+    }
 
     const councilShortcutResult = await handleCouncilShortcuts({
       chatMessages,
@@ -80,6 +130,19 @@ serve(async (req) => {
     });
     if (councilShortcutResult.response) {
       return councilShortcutResult.response;
+    }
+
+    const channelRatingResult = await handleChannelRatingShortcut({
+      chatMessages,
+      conversationId: typeof conversationId === "string" ? conversationId : undefined,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+      supabase,
+      userId: user.id,
+    });
+    if (channelRatingResult.response) {
+      return channelRatingResult.response;
     }
 
     const resolvedIntent = await resolveCollectionIntent({
@@ -97,6 +160,13 @@ serve(async (req) => {
     let collectionIntent: CollectionIntent | null = resolvedIntent.collectionIntent;
     const journeySwitched = resolvedIntent.journeySwitched;
     const journeyDeclined = resolvedIntent.journeyDeclined;
+    logTurnEvent("turn.intent.resolved", {
+      conversation_id: typeof conversationId === "string" ? conversationId : null,
+      user_id: user.id,
+      intent_type: collectionIntent?.type ?? null,
+      journey_switched: journeySwitched,
+      journey_declined: journeyDeclined,
+    });
     
     const accumulatedContext = await buildAccumulatedContext({
       chatHistoryTyped,
@@ -109,9 +179,64 @@ serve(async (req) => {
       lib,
     });
     let accumulatedFields: Record<string, unknown> = accumulatedContext.accumulatedFields;
+    if (accumulatedContext.journeySnapshot) {
+      console.log(
+        "[ai-orchestrator] Journey snapshot prepared:",
+        accumulatedContext.journeySnapshot.schema_version,
+        accumulatedContext.journeySnapshot.journey_type,
+        Object.keys(accumulatedContext.journeySnapshot.fields).length,
+        "fields",
+      );
+      const snapshotPersistResult = await persistJourneySnapshotMetadata({
+        supabase,
+        conversationId: typeof conversationId === "string" ? conversationId : undefined,
+        userId: user.id,
+        snapshot: accumulatedContext.journeySnapshot,
+      });
+      if (snapshotPersistResult.persisted) {
+        console.log("[ai-orchestrator] Journey snapshot persisted in ai_conversations.metadata");
+      } else if (snapshotPersistResult.reason && snapshotPersistResult.reason !== "feature_disabled") {
+        console.log("[ai-orchestrator] Journey snapshot not persisted:", snapshotPersistResult.reason);
+      }
+    }
+
+    const urbanNonComplaintClosingResult = await handleUrbanNonComplaintClosingShortcut({
+      accumulatedFields,
+      chatMessages,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+      lib,
+    });
+    if (urbanNonComplaintClosingResult.response) {
+      return urbanNonComplaintClosingResult.response;
+    }
+
+    const servicesClosingResult = await handleServicesJourneyClosingShortcut({
+      accumulatedFields,
+      chatMessages,
+      collectionIntent,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+    });
+    if (servicesClosingResult.response) {
+      return servicesClosingResult.response;
+    }
+
+    const generalClosingResult = await handleGeneralJourneyClosingShortcut({
+      chatMessages,
+      collectionIntent,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+    });
+    if (generalClosingResult.response) {
+      return generalClosingResult.response;
+    }
     
-    // Build dynamic system prompt with collected fields context
-    let dynamicSystemPrompt = lib.systemPrompt;
+    // Build dynamic system prompt with collected fields context (base = versão ativa + prompt operacional)
+    let dynamicSystemPrompt = baseSystemPrompt;
     
     // === LIGHT JOURNEY MARKER ===
     const lightJourneyMarker = accumulatedContext.lightJourneyMarker;
@@ -120,6 +245,10 @@ serve(async (req) => {
     const msgLower = lastUserMessage.toLowerCase().trim();
     const lastAssistantMessage = getMessageText(chatMessages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
+    const toneInstruction = buildConversationToneInstruction(analyzeConversationTone(lastUserMessage));
+    if (toneInstruction) {
+      dynamicSystemPrompt = `${dynamicSystemPrompt}\n\n${toneInstruction}`;
+    }
     const preAiShortcutResult = await handlePreAiShortcuts({
       accumulatedFields,
       chatMessages,
@@ -139,6 +268,7 @@ serve(async (req) => {
     const collectionTurn = await orchestrateCollectionTurn({
       accumulatedFields,
       attachmentUrls,
+      baseSystemPrompt,
       chatMessages,
       collectionIntent,
       conversationId,
@@ -160,11 +290,22 @@ serve(async (req) => {
     }
     dynamicSystemPrompt = collectionTurn.dynamicSystemPrompt;
     let nextFieldInfo = collectionTurn.nextFieldInfo;
+    logTurnEvent("turn.collection.ready", {
+      conversation_id: typeof conversationId === "string" ? conversationId : null,
+      user_id: user.id,
+      intent_type: collectionIntent?.type ?? null,
+      next_field: nextFieldInfo.field ?? null,
+      next_picker: nextFieldInfo.picker ?? null,
+      elapsed_ms: Date.now() - requestStartTime,
+    });
     
     // === LIGHT JOURNEY: services — resposta determinística (perguntar tipo → CEP) ou chamar find_nearby_services
     if (collectionIntent?.type === 'services') {
       const servicesFlowResult = await handleDeterministicServicesFlow({
         accumulatedFields,
+        chatMessages,
+        lastAssistantText,
+        lastUserMessage,
         lightJourneyMarker,
         nextFieldInfo,
         supabase,

@@ -1,0 +1,25 @@
+{
+  "journey": "transport_report",
+  "description": "Relato de transporte — variações de digitação",
+  "cases": [
+    { "id": "transport_explicit", "input": "Quero relatar atraso na linha 875A-10" },
+    { "id": "transport_typo_onibus", "input": "onibus atrasou mt no pico" },
+    { "id": "transport_nao_passou", "input": "o onibus nao passou no ponto hj" },
+    { "id": "transport_lotado", "input": "metrô lotado demais na volta" },
+    { "id": "transport_motorista", "input": "motorista freou brusco e quase cai" },
+    { "id": "transport_linha_numero", "input": "linha 509 demora todo dia" },
+    { "id": "transport_seguranca", "input": "mto perigoso dentro do onibus lotado" },
+    { "id": "transport_sujo", "input": "onibus do transporte sujo e fedendo" },
+    { "id": "transport_acessibilidade", "input": "elevador do metro quebrado" },
+    { "id": "transport_chip", "input": "problema no transporte público" },
+    { "id": "transport_trem", "input": "trem atrasou na estacao" },
+    { "id": "transport_abrev", "input": "onibus 875 n passou no ponto" },
+    { "id": "transport_demora", "input": "demora excessiva no terminal sacoma" },
+    { "id": "transport_conducao_giria", "input": "motorista dirigindo feito doido" },
+    { "id": "transport_integracao", "input": "integracao do bilhete nao funcionou no onibus" },
+    { "id": "transport_bilhete", "input": "bilhete unico recusou na catraca do metro" },
+    { "id": "transport_corredor", "input": "corredor de onibus bloqueado na avenida" },
+    { "id": "transport_ponto_errado", "input": "onibus parou no ponto errado e ninguem avisou" },
+    { "id": "transport_ar_condicionado", "input": "ar condicionado quebrado no onibus lotado" }
+  ]
+}

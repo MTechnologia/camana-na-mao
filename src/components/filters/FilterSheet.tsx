@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react';
-import { X, RotateCcw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState, useEffect } from "react";
+import { X, RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet';
-import { FilterSheetProps, FilterFieldConfig } from './types';
+} from "@/components/ui/sheet";
+import { FilterSheetProps, FilterFieldConfig } from "./types";
 
 export function FilterSheet<T extends Record<string, unknown>>({
   config,
@@ -22,8 +22,8 @@ export function FilterSheet<T extends Record<string, unknown>>({
   onApply,
   open,
   onOpenChange,
-  title = 'Filtros',
-  description = 'Refine sua busca',
+  title = "Filtros",
+  description = "Refine sua busca",
   activeCount = 0,
 }: FilterSheetProps<T>) {
   // Local state for pending changes
@@ -49,10 +49,10 @@ export function FilterSheet<T extends Record<string, unknown>>({
   const handleClear = () => {
     const clearedFilters: Partial<T> = {};
     config.fields.forEach((field) => {
-      if (field.type === 'multiselect') {
+      if (field.type === "multiselect") {
         clearedFilters[field.key] = [] as T[keyof T];
       } else {
-        clearedFilters[field.key] = (field.defaultValue ?? 'all') as T[keyof T];
+        clearedFilters[field.key] = (field.defaultValue ?? "all") as T[keyof T];
       }
     });
     setLocalFilters(clearedFilters);
@@ -64,12 +64,12 @@ export function FilterSheet<T extends Record<string, unknown>>({
     const value = localFilters[field.key];
 
     switch (field.type) {
-      case 'select':
+      case "select":
         return (
           <div key={String(field.key)} className="space-y-3">
             <Label className="text-sm font-medium">{field.label}</Label>
             <RadioGroup
-              value={(value as string) || 'all'}
+              value={(value as string) || "all"}
               onValueChange={(v) => handleLocalChange(field.key, v as T[keyof T])}
               className="space-y-2"
             >
@@ -92,9 +92,7 @@ export function FilterSheet<T extends Record<string, unknown>>({
                     htmlFor={`${String(field.key)}-${option.value}`}
                     className="text-sm font-normal cursor-pointer flex items-center gap-2"
                   >
-                    {typeof option.icon === 'string' && (
-                      <span>{option.icon}</span>
-                    )}
+                    {typeof option.icon === "string" && <span>{option.icon}</span>}
                     {option.label}
                     {option.count !== undefined && (
                       <span className="text-muted-foreground">({option.count})</span>
@@ -106,7 +104,7 @@ export function FilterSheet<T extends Record<string, unknown>>({
           </div>
         );
 
-      case 'multiselect': {
+      case "multiselect": {
         const selectedValues: string[] = Array.isArray(value) ? value : [];
         return (
           <div key={String(field.key)} className="space-y-3">
@@ -130,9 +128,7 @@ export function FilterSheet<T extends Record<string, unknown>>({
                       htmlFor={`${String(field.key)}-${option.value}`}
                       className="text-sm font-normal cursor-pointer flex items-center gap-2"
                     >
-                      {typeof option.icon === 'string' && (
-                        <span>{option.icon}</span>
-                      )}
+                      {typeof option.icon === "string" && <span>{option.icon}</span>}
                       {option.label}
                       {option.count !== undefined && (
                         <span className="text-muted-foreground">({option.count})</span>
@@ -146,7 +142,7 @@ export function FilterSheet<T extends Record<string, unknown>>({
         );
       }
 
-      case 'pills':
+      case "pills":
         // Pills are typically handled by QuickFilterPills, skip in sheet
         return null;
 
@@ -155,7 +151,7 @@ export function FilterSheet<T extends Record<string, unknown>>({
     }
   };
 
-  const mobileFields = config.fields.filter((f) => !f.hideOnMobile && f.type !== 'search');
+  const mobileFields = config.fields.filter((f) => !f.hideOnMobile && f.type !== "search");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -176,10 +172,8 @@ export function FilterSheet<T extends Record<string, unknown>>({
           </Button>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 py-6 -mx-6 px-6" style={{ height: 'calc(85vh - 160px)' }}>
-          <div className="space-y-6">
-            {mobileFields.map((field) => renderField(field))}
-          </div>
+        <ScrollArea className="flex-1 py-6 -mx-6 px-6" style={{ height: "calc(85vh - 160px)" }}>
+          <div className="space-y-6">{mobileFields.map((field) => renderField(field))}</div>
         </ScrollArea>
 
         <div className="pt-4 border-t border-border -mx-6 px-6">

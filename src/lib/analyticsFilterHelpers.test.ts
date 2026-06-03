@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  applyAnalyticsFilters,
-  recordMatchesFilters,
-  __test__,
-} from "./analyticsFilterHelpers";
+import { applyAnalyticsFilters, recordMatchesFilters, __test__ } from "./analyticsFilterHelpers";
 
 const { normalize } = __test__;
 

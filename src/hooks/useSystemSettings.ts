@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface SystemSetting {
   id: string;
@@ -19,9 +19,7 @@ export const useSystemSettings = () => {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('*');
+      const { data, error } = await supabase.from("system_settings").select("*");
 
       if (error) throw error;
 
@@ -32,7 +30,7 @@ export const useSystemSettings = () => {
 
       setSettings(settingsMap);
     } catch (error) {
-      console.error('Error fetching system settings:', error);
+      console.error("Error fetching system settings:", error);
     } finally {
       setLoading(false);
     }
@@ -45,47 +43,45 @@ export const useSystemSettings = () => {
   const updateSetting = async (key: string, value: unknown) => {
     try {
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
 
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
+      const { error } = await supabase.from("system_settings").upsert(
+        {
           setting_key: key,
           setting_value: value,
           updated_by: user.id,
-        }, {
-          onConflict: 'setting_key',
-        });
+        },
+        {
+          onConflict: "setting_key",
+        },
+      );
 
       if (error) throw error;
 
       setSettings(new Map(settings.set(key, value)));
-      toast.success('Configuração atualizada');
+      toast.success("Configuração atualizada");
     } catch (error) {
-      console.error('Error updating setting:', error);
-      toast.error('Erro ao atualizar configuração');
+      console.error("Error updating setting:", error);
+      toast.error("Erro ao atualizar configuração");
       throw error;
     }
   };
 
   const deleteSetting = async (key: string) => {
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .delete()
-        .eq('setting_key', key);
+      const { error } = await supabase.from("system_settings").delete().eq("setting_key", key);
 
       if (error) throw error;
 
       const newSettings = new Map(settings);
       newSettings.delete(key);
       setSettings(newSettings);
-      
-      toast.success('Configuração removida');
+
+      toast.success("Configuração removida");
     } catch (error) {
-      console.error('Error deleting setting:', error);
-      toast.error('Erro ao remover configuração');
+      console.error("Error deleting setting:", error);
+      toast.error("Erro ao remover configuração");
       throw error;
     }
   };
@@ -95,11 +91,11 @@ export const useSystemSettings = () => {
 
     // Subscribe para atualizações em tempo real
     const channel = supabase
-      .channel('system_settings_changes')
+      .channel("system_settings_changes")
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'system_settings' },
-        fetchSettings
+        "postgres_changes",
+        { event: "*", schema: "public", table: "system_settings" },
+        fetchSettings,
       )
       .subscribe();
 

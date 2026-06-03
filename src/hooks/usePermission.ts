@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
-import {
-  rolesGrantPermission,
-  type PermissionKey,
-} from "@/lib/permissions";
+import { rolesGrantPermission, type PermissionKey } from "@/lib/permissions";
 
 /**
  * HU-11.3 — Hook canônico de checagem de permissão.
@@ -28,12 +25,12 @@ export interface UsePermissionResult {
 }
 
 export function usePermission(key: PermissionKey | string): UsePermissionResult {
-  const { roles, loading } = useUserRole();
+  const { roles, permissionKeys, loading } = useUserRole();
 
   const allowed = useMemo(() => {
     if (loading) return false;
-    return rolesGrantPermission(roles, key);
-  }, [roles, key, loading]);
+    return rolesGrantPermission(roles, key, permissionKeys);
+  }, [roles, permissionKeys, key, loading]);
 
   return { allowed, loading };
 }
@@ -42,19 +39,20 @@ export function usePermission(key: PermissionKey | string): UsePermissionResult 
  * Variante para checar múltiplas permissões de uma vez.
  * Retorna mapa { key: allowed }.
  */
-export function usePermissions(
-  keys: readonly (PermissionKey | string)[],
-): { results: Record<string, boolean>; loading: boolean } {
-  const { roles, loading } = useUserRole();
+export function usePermissions(keys: readonly (PermissionKey | string)[]): {
+  results: Record<string, boolean>;
+  loading: boolean;
+} {
+  const { roles, permissionKeys, loading } = useUserRole();
 
   const results = useMemo(() => {
     const acc: Record<string, boolean> = {};
     for (const k of keys) {
-      acc[k] = loading ? false : rolesGrantPermission(roles, k);
+      acc[k] = loading ? false : rolesGrantPermission(roles, k, permissionKeys);
     }
     return acc;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roles, loading, keys.join("|")]);
+  }, [roles, permissionKeys, loading, keys.join("|")]);
 
   return { results, loading };
 }

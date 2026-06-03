@@ -42,6 +42,8 @@ export interface CsvExportConfig {
     regions?: string[];
     /** Filtro de zona (derivado em memória do bairro/localização). */
     zones?: ZonaVolumeOuDesconhecida[];
+    /** Status do relato (apenas `urban_reports`). */
+    status?: string;
   };
 }
 
@@ -92,9 +94,7 @@ function buildFilename(dataset: DatasetMeta): string {
 
 function resolveFields(dataset: DatasetMeta, fieldIds: string[]): ExportField[] {
   const byId = new Map(dataset.fields.map((f) => [f.id, f]));
-  return fieldIds
-    .map((id) => byId.get(id))
-    .filter((f): f is ExportField => !!f);
+  return fieldIds.map((id) => byId.get(id)).filter((f): f is ExportField => !!f);
 }
 
 export function useCsvExport(): UseCsvExportResult {
@@ -103,166 +103,163 @@ export function useCsvExport(): UseCsvExportResult {
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef(false);
 
-  const exportCsv = useCallback(
-    async (config: CsvExportConfig): Promise<CsvExportResult> => {
-      cancelRef.current = false;
-      setExporting(true);
-      setProgressLoaded(0);
-      setError(null);
+  const exportCsv = useCallback(async (config: CsvExportConfig): Promise<CsvExportResult> => {
+    cancelRef.current = false;
+    setExporting(true);
+    setProgressLoaded(0);
+    setError(null);
 
-      const dataset = getDataset(config.dataset);
-      const fields = resolveFields(dataset, config.fieldIds);
-      if (fields.length === 0) {
-        const err = "Nenhum campo selecionado para exportação.";
-        setError(err);
-        setExporting(false);
-        throw new Error(err);
+    const dataset = getDataset(config.dataset);
+    const fields = resolveFields(dataset, config.fieldIds);
+    if (fields.length === 0) {
+      const err = "Nenhum campo selecionado para exportação.";
+      setError(err);
+      setExporting(false);
+      throw new Error(err);
+    }
+
+    // Garante que o campo de ordenação está nos selecionados (caso contrário
+    // usa o defaultOrderColumn, sempre presente).
+    const orderField = fields.find((f) => f.id === config.orderBy.fieldId);
+    const orderColumn = orderField?.dbColumn ?? dataset.defaultOrderColumn;
+    const orderAsc = config.orderBy.direction === "asc";
+
+    // Coluna alvo dos filtros de categoria (varia por dataset).
+    const categoryColumn = dataset.id === "urban_reports" ? "category" : "report_type";
+    // Bairro (urban) ou "location" (transport, é um texto livre, não fizemos
+    // filtro server-side). Pra transport_reports, regions/zones não fazem
+    // sentido no schema atual — apenas urban_reports usa.
+    const useRegionsServerSide = dataset.id === "urban_reports";
+
+    // Colunas SELECT (sempre inclui as colunas filtráveis + defaultOrderColumn
+    // mesmo se não estiverem selecionadas, para a query funcionar — e os
+    // filtros server-side só funcionam em colunas que vêm no result set).
+    const requiredSelectCols = new Set<string>([
+      ...fields.map((f) => f.dbColumn),
+      dataset.defaultOrderColumn,
+      orderColumn,
+      dataset.defaultDateColumn,
+      categoryColumn,
+    ]);
+    if (useRegionsServerSide) requiredSelectCols.add("neighborhood");
+    const selectCols = Array.from(requiredSelectCols).join(",");
+
+    // Paginação acumulando rows.
+    const allRows: Array<Record<string, unknown>> = [];
+    let offset = 0;
+    try {
+      while (true) {
+        if (cancelRef.current) throw new Error("CANCELLED");
+        if (offset >= CSV_EXPORT_MAX_ROWS) break;
+
+        // Constrói query
+        let q = supabase.from(dataset.table).select(selectCols);
+
+        // Filtros server-side
+        const startIso = toIsoStart(config.filters?.startDate);
+        const endIso = toIsoEnd(config.filters?.endDate);
+        if (startIso) q = q.gte(dataset.defaultDateColumn, startIso);
+        if (endIso) q = q.lte(dataset.defaultDateColumn, endIso);
+
+        const cats = config.filters?.categories ?? [];
+        if (cats.length > 0) q = q.in(categoryColumn, cats);
+
+        const regions = config.filters?.regions ?? [];
+        if (useRegionsServerSide && regions.length > 0) {
+          q = q.in("neighborhood", regions);
+        }
+
+        const status = config.filters?.status;
+        if (useRegionsServerSide && status) {
+          q = q.eq("status", status);
+        }
+
+        q = q.order(orderColumn, { ascending: orderAsc });
+        const to = Math.min(offset + CSV_EXPORT_PAGE_SIZE - 1, CSV_EXPORT_MAX_ROWS - 1);
+        q = q.range(offset, to);
+
+        const { data, error: queryError } = await q;
+        if (queryError) throw queryError;
+        const batch = (data ?? []) as Array<Record<string, unknown>>;
+        if (batch.length === 0) break;
+        allRows.push(...batch);
+        setProgressLoaded(allRows.length);
+
+        if (batch.length < CSV_EXPORT_PAGE_SIZE) break;
+        offset += CSV_EXPORT_PAGE_SIZE;
       }
 
-      // Garante que o campo de ordenação está nos selecionados (caso contrário
-      // usa o defaultOrderColumn, sempre presente).
-      const orderField = fields.find((f) => f.id === config.orderBy.fieldId);
-      const orderColumn = orderField?.dbColumn ?? dataset.defaultOrderColumn;
-      const orderAsc = config.orderBy.direction === "asc";
+      // Filtro client-side de zonas (necessita derivar do neighborhood/location).
+      let filtered = allRows;
+      const zones = config.filters?.zones ?? [];
+      if (zones.length > 0 && useRegionsServerSide) {
+        const { bairroParaZona } = await import("@/lib/regionMapping");
+        filtered = allRows.filter((r) => {
+          const bairro = (r.neighborhood as string | null) ?? "";
+          const lat = r.latitude as number | null | undefined;
+          const lng = r.longitude as number | null | undefined;
+          const z = bairroParaZona(bairro, lat ?? null, lng ?? null);
+          return zones.includes(z as ZonaVolumeOuDesconhecida);
+        });
+      }
 
-      // Coluna alvo dos filtros de categoria (varia por dataset).
-      const categoryColumn =
-        dataset.id === "urban_reports" ? "category" : "report_type";
-      // Bairro (urban) ou "location" (transport, é um texto livre, não fizemos
-      // filtro server-side). Pra transport_reports, regions/zones não fazem
-      // sentido no schema atual — apenas urban_reports usa.
-      const useRegionsServerSide = dataset.id === "urban_reports";
+      // Monta CSV
+      const headers: CsvHeader[] = fields.map((f) => ({
+        key: f.dbColumn,
+        label: f.label,
+      }));
+      // Para campos do tipo `datetime`/`date`, mantém ISO; deixar o usuário
+      // formatar no Excel (Data → texto longo geralmente lê ok).
+      const csv = serializeCsv(headers, filtered);
+      const filename = buildFilename(dataset);
+      downloadCsv(csv, filename);
 
-      // Colunas SELECT (sempre inclui as colunas filtráveis + defaultOrderColumn
-      // mesmo se não estiverem selecionadas, para a query funcionar — e os
-      // filtros server-side só funcionam em colunas que vêm no result set).
-      const requiredSelectCols = new Set<string>([
-        ...fields.map((f) => f.dbColumn),
-        dataset.defaultOrderColumn,
-        orderColumn,
-        dataset.defaultDateColumn,
-        categoryColumn,
-      ]);
-      if (useRegionsServerSide) requiredSelectCols.add("neighborhood");
-      const selectCols = Array.from(requiredSelectCols).join(",");
-
-      // Paginação acumulando rows.
-      const allRows: Array<Record<string, unknown>> = [];
-      let offset = 0;
+      // Log do export. Falha aqui não interrompe o download (best-effort).
       try {
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          if (cancelRef.current) throw new Error("CANCELLED");
-          if (offset >= CSV_EXPORT_MAX_ROWS) break;
-
-          // Constrói query
-          let q = supabase.from(dataset.table).select(selectCols);
-
-          // Filtros server-side
-          const startIso = toIsoStart(config.filters?.startDate);
-          const endIso = toIsoEnd(config.filters?.endDate);
-          if (startIso) q = q.gte(dataset.defaultDateColumn, startIso);
-          if (endIso) q = q.lte(dataset.defaultDateColumn, endIso);
-
-          const cats = config.filters?.categories ?? [];
-          if (cats.length > 0) q = q.in(categoryColumn, cats);
-
-          const regions = config.filters?.regions ?? [];
-          if (useRegionsServerSide && regions.length > 0) {
-            q = q.in("neighborhood", regions);
-          }
-
-          q = q.order(orderColumn, { ascending: orderAsc });
-          const to = Math.min(
-            offset + CSV_EXPORT_PAGE_SIZE - 1,
-            CSV_EXPORT_MAX_ROWS - 1,
-          );
-          q = q.range(offset, to);
-
-          const { data, error: queryError } = await q;
-          if (queryError) throw queryError;
-          const batch = (data ?? []) as Array<Record<string, unknown>>;
-          if (batch.length === 0) break;
-          allRows.push(...batch);
-          setProgressLoaded(allRows.length);
-
-          if (batch.length < CSV_EXPORT_PAGE_SIZE) break;
-          offset += CSV_EXPORT_PAGE_SIZE;
-        }
-
-        // Filtro client-side de zonas (necessita derivar do neighborhood/location).
-        let filtered = allRows;
-        const zones = config.filters?.zones ?? [];
-        if (zones.length > 0 && useRegionsServerSide) {
-          const { bairroParaZona } = await import("@/lib/regionMapping");
-          filtered = allRows.filter((r) => {
-            const bairro = (r.neighborhood as string | null) ?? "";
-            const lat = r.latitude as number | null | undefined;
-            const lng = r.longitude as number | null | undefined;
-            const z = bairroParaZona(bairro, lat ?? null, lng ?? null);
-            return zones.includes(z as ZonaVolumeOuDesconhecida);
-          });
-        }
-
-        // Monta CSV
-        const headers: CsvHeader[] = fields.map((f) => ({
-          key: f.dbColumn,
-          label: f.label,
-        }));
-        // Para campos do tipo `datetime`/`date`, mantém ISO; deixar o usuário
-        // formatar no Excel (Data → texto longo geralmente lê ok).
-        const csv = serializeCsv(headers, filtered);
-        const filename = buildFilename(dataset);
-        downloadCsv(csv, filename);
-
-        // Log do export. Falha aqui não interrompe o download (best-effort).
-        try {
-          const { data: userResp } = await supabase.auth.getUser();
-          const userId = userResp.user?.id;
-          if (userId) {
-            await supabase.from("export_logs").insert([
-              {
-                user_id: userId,
-                export_type: dataset.id,
-                format: "csv",
-                row_count: filtered.length,
-                status: "completed",
-                completed_at: new Date().toISOString(),
-                filters: {
-                  startDate: startIso,
-                  endDate: endIso,
-                  categories: cats,
-                  regions,
-                  zones,
-                  fields: fields.map((f) => f.id),
-                  orderBy: {
-                    fieldId: orderField?.id ?? dataset.defaultOrderColumn,
-                    direction: orderAsc ? "asc" : "desc",
-                  },
+        const { data: userResp } = await supabase.auth.getUser();
+        const userId = userResp.user?.id;
+        if (userId) {
+          await supabase.from("export_logs").insert([
+            {
+              user_id: userId,
+              export_type: dataset.id,
+              format: "csv",
+              row_count: filtered.length,
+              status: "completed",
+              completed_at: new Date().toISOString(),
+              filters: {
+                startDate: startIso,
+                endDate: endIso,
+                categories: cats,
+                regions,
+                zones,
+                fields: fields.map((f) => f.id),
+                orderBy: {
+                  fieldId: orderField?.id ?? dataset.defaultOrderColumn,
+                  direction: orderAsc ? "asc" : "desc",
                 },
-              } as never,
-            ]);
-          }
-        } catch (logErr) {
-          console.warn("[useCsvExport] falha ao gravar export_logs", logErr);
+              },
+            } as never,
+          ]);
         }
-
-        setExporting(false);
-        return { rowCount: filtered.length, filename };
-      } catch (err) {
-        const message =
-          err instanceof Error && err.message === "CANCELLED"
-            ? "Exportação cancelada."
-            : err instanceof Error
-              ? err.message
-              : "Erro desconhecido ao exportar.";
-        setError(message);
-        setExporting(false);
-        throw err;
+      } catch (logErr) {
+        console.warn("[useCsvExport] falha ao gravar export_logs", logErr);
       }
-    },
-    [],
-  );
+
+      setExporting(false);
+      return { rowCount: filtered.length, filename };
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message === "CANCELLED"
+          ? "Exportação cancelada."
+          : err instanceof Error
+            ? err.message
+            : "Erro desconhecido ao exportar.";
+      setError(message);
+      setExporting(false);
+      throw err;
+    }
+  }, []);
 
   const cancel = useCallback(() => {
     cancelRef.current = true;

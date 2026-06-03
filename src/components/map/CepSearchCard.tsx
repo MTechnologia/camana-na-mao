@@ -92,9 +92,7 @@ export function CepSearchCard({ cepCenter, onCepCenterChange, disabled }: CepSea
       <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <MapPin className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">
-            Buscar por CEP
-          </span>
+          <span className="text-sm font-medium text-foreground">Buscar por CEP</span>
         </div>
         {cepCenter ? (
           <div className="space-y-2">

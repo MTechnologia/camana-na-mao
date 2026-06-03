@@ -55,7 +55,7 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
           setError(
             accuracy != null
               ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou use CEP.`
-              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço."
+              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço.",
           );
           return;
         }
@@ -74,12 +74,14 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
       (err) => {
         setLoading(false);
         if (err.code === err.PERMISSION_DENIED) {
-          setError("Permissão negada. Ative a localização no navegador e no celular (configurações) e tente novamente.");
+          setError(
+            "Permissão negada. Ative a localização no navegador e no celular (configurações) e tente novamente.",
+          );
         } else {
           setError("Não foi possível obter sua localização. Tente digitar o CEP ou endereço.");
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
   };
 
@@ -120,23 +122,23 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
             size="sm"
             onClick={() => handleSelect(id)}
             disabled={loading}
-            className="flex items-start gap-3 h-auto py-2.5 px-3 text-left justify-start"
+            className="flex w-full items-start gap-3 h-auto py-2.5 px-3 text-left justify-start whitespace-normal"
           >
             {loading && id === "gps" ? (
               <Loader2 className="h-4 w-4 animate-spin flex-shrink-0 mt-0.5" />
             ) : (
               <Icon className="h-4 w-4 flex-shrink-0 mt-0.5" />
             )}
-            <span className="flex flex-col gap-0.5">
-              <span className="font-medium">{label}</span>
-              <span className="text-xs text-muted-foreground font-normal">{description}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-medium break-words">{label}</span>
+              <span className="text-xs text-muted-foreground font-normal break-words">
+                {description}
+              </span>
             </span>
           </Button>
         ))}
       </div>
-      {error && (
-        <p className="mt-2 text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 };

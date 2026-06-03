@@ -1,10 +1,10 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Check, Star, MapPin } from 'lucide-react';
-import { Vereador } from '@/hooks/useVereadores';
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Check, Star, MapPin } from "lucide-react";
+import { Vereador } from "@/hooks/useVereadores";
 
 interface CouncilMemberCardProps {
   vereador: Vereador;
@@ -19,26 +19,24 @@ export const CouncilMemberCard = ({
   matchScore,
   matchReasons,
   selected,
-  onSelect
+  onSelect,
 }: CouncilMemberCardProps) => {
   const getScoreColor = (score: number) => {
-    if (score >= 70) return 'text-green-600';
-    if (score >= 40) return 'text-yellow-600';
-    return 'text-muted-foreground';
+    if (score >= 70) return "text-green-600";
+    if (score >= 40) return "text-yellow-600";
+    return "text-muted-foreground";
   };
 
   const getScoreLabel = (score: number) => {
-    if (score >= 70) return 'Alta relevância';
-    if (score >= 40) return 'Média relevância';
-    return 'Disponível';
+    if (score >= 70) return "Alta relevância";
+    if (score >= 40) return "Média relevância";
+    return "Disponível";
   };
 
   return (
-    <Card 
+    <Card
       className={`cursor-pointer transition-all ${
-        selected 
-          ? 'ring-2 ring-primary border-primary bg-primary/5' 
-          : 'hover:border-primary/50'
+        selected ? "ring-2 ring-primary border-primary bg-primary/5" : "hover:border-primary/50"
       }`}
       onClick={onSelect}
     >
@@ -63,7 +61,9 @@ export const CouncilMemberCard = ({
               <div>
                 <h3 className="font-semibold text-base truncate">{vereador.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="secondary" className="text-xs">{vereador.party}</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {vereador.party}
+                  </Badge>
                   {vereador.region && (
                     <span className="flex items-center text-xs text-muted-foreground">
                       <MapPin className="w-3 h-3 mr-1" />
@@ -72,7 +72,7 @@ export const CouncilMemberCard = ({
                   )}
                 </div>
               </div>
-              
+
               <div className="text-right flex-shrink-0">
                 <div className={`flex items-center gap-1 ${getScoreColor(matchScore)}`}>
                   <Star className="w-4 h-4 fill-current" />

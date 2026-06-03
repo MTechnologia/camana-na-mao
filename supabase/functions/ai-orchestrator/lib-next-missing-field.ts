@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { hasTransportAccessibilityDetails } from "./lib-index-transport-preview.ts";
+import { URBAN_AFFECTED_SCOPE_FIELD_PROMPT } from "./lib-prompt-ux.ts";
+import {
+  applyUrbanQuickModeDefaults,
+  shouldSkipUrbanRiskScopeQuestions,
+} from "./lib-urban-quick-mode.ts";
 
 export type NextFieldInfo = {
   field: string | null;
@@ -21,6 +26,15 @@ export async function getNextMissingField(
     const natureStr = natureRaw != null ? String(natureRaw).trim() : "";
     const natureOk = (lib.URBAN_REPORT_NATURE_VALUES as readonly string[]).includes(natureStr);
     if (!natureOk) {
+      // Feedback sobre vereador: não tem "dúvida" e o tom é sobre o parlamentar, não "a cidade".
+      if (String(fields.category ?? "") === "feedback_camara") {
+        return {
+          field: "report_nature",
+          picker: null,
+          prompt:
+            "[FIELD_REQUEST:report_nature]Esse seu feedback sobre o vereador é uma **reclamação**, uma **sugestão** ou um **elogio**?\n\n[QUICK_REPLY:reclamacao,sugestao,elogio]",
+        };
+      }
       return {
         field: "report_nature",
         picker: null,
@@ -30,19 +44,24 @@ export async function getNextMissingField(
     }
 
     const description = String(fields.description ?? "");
-    const isGeneric = lib.isGenericIntentText(description);
     const isBareNature = lib.isBareUrbanReportNatureReply(String(description));
-    const descToCheck = isGeneric || isBareNature ? "" : description;
-    const isValidDesc = lib.isValidDomainDescription(descToCheck, "urban");
+    const descToCheck = isBareNature ? "" : description;
+    const isValidDesc = lib.isValidUrbanReportDescription(descToCheck, natureStr);
 
     console.log("[getNextMissingField] Urban description check:", {
       description: description.substring(0, 40),
-      isGeneric,
+      report_nature: natureStr,
       isValidDesc,
     });
 
     if (!isValidDesc) {
       const nk = natureStr || "reclamacao";
+      const isChamberFeedback = String(fields.category ?? "") === "feedback_camara";
+      const chamberPrompts: Record<string, string> = {
+        reclamacao: "**Qual é a sua reclamação** sobre o vereador? Conte o que aconteceu.",
+        sugestao: "**Qual é a sua sugestão** para o vereador?",
+        elogio: "**O que você quer elogiar** no trabalho do vereador?",
+      };
       const descPrompts: Record<string, string> = {
         reclamacao: "**O que está acontecendo?** Me conta o problema.",
         duvida:
@@ -53,7 +72,9 @@ export async function getNextMissingField(
           "**O que você quer elogiar?** Conte o que está funcionando bem e quem ou o quê fez diferença.",
       };
       const descPrompt =
-        descPrompts[nk] || "**Conte mais:** o que você gostaria de registrar sobre a cidade?";
+        (isChamberFeedback ? chamberPrompts[nk] : undefined) ??
+        descPrompts[nk] ??
+        "**Conte mais:** o que você gostaria de registrar sobre a cidade?";
       return { field: "description", picker: null, prompt: descPrompt };
     }
 
@@ -63,6 +84,8 @@ export async function getNextMissingField(
     if (hasLocationEarly && cityEarly && !lib.isCitySaoPaulo(cityEarly)) {
       return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(cityEarly) };
     }
+
+    lib.applyUrbanNatureCategoryDefaults(fields, lib.generateLabelFromDescription);
 
     if (!fields.category) {
       const descriptionLower = description.toLowerCase();
@@ -173,6 +196,18 @@ export async function getNextMissingField(
           autoClass.suggestedLabel || lib.generateLabelFromDescription(String(fields.description ?? ""));
       }
       console.log("[getNextMissingField] Set subcategory:", fields.subcategory);
+    }
+
+    // Feedback à Câmara (sobre um vereador) não é georreferenciado: nunca pede
+    // CEP/endereço/GPS, mesmo quando a natureza é "reclamação".
+    if (
+      lib.urbanNatureSkipsLocationCollection(natureStr) ||
+      String(fields.category ?? "") === "feedback_camara"
+    ) {
+      console.log(
+        "[getNextMissingField] Pula coleta de localização (não-complaint ou feedback à Câmara)",
+      );
+      return { field: null, picker: null, prompt: null };
     }
 
     if (!fields.location_method) {
@@ -311,36 +346,39 @@ export async function getNextMissingField(
     }
 
     if (lib.URBAN_RISK_COLLECTION_CATEGORIES.includes(String(fields.category || ""))) {
-      if (!fields.risk_level) {
-        const inferText = `${String(fields.description ?? "")} ${fields.subcategory || ""}`.trim();
-        const inferred = inferText.length >= 4
-          ? lib.autoInferRisk(inferText)
-          : { risk_level: null as string | null, confidence: 0, risk_types: [] as string[] };
-        if (inferred.risk_level != null && inferred.confidence >= 0.4) {
-          fields.risk_level = inferred.risk_level;
-          if (inferred.risk_types?.length) fields.risk_types = inferred.risk_types;
-          fields._risk_auto_inferred = true;
-          console.log(
-            "[getNextMissingField] Auto-inferred risk_level:",
-            inferred.risk_level,
-            "confidence:",
-            inferred.confidence,
-          );
-        } else {
+      if (shouldSkipUrbanRiskScopeQuestions(fields)) {
+        applyUrbanQuickModeDefaults(fields);
+      } else {
+        if (!fields.risk_level) {
+          const inferText = `${String(fields.description ?? "")} ${fields.subcategory || ""}`.trim();
+          const inferred = inferText.length >= 4
+            ? lib.autoInferRisk(inferText)
+            : { risk_level: null as string | null, confidence: 0, risk_types: [] as string[] };
+          if (inferred.risk_level != null && inferred.confidence >= 0.4) {
+            fields.risk_level = inferred.risk_level;
+            if (inferred.risk_types?.length) fields.risk_types = inferred.risk_types;
+            fields._risk_auto_inferred = true;
+            console.log(
+              "[getNextMissingField] Auto-inferred risk_level:",
+              inferred.risk_level,
+              "confidence:",
+              inferred.confidence,
+            );
+          } else {
+            fields.risk_level = "low";
+            fields._risk_default_low = true;
+            console.log(
+              "[getNextMissingField] No risk patterns matched; defaulting risk_level to 'low' (avoids redundant question; user can adjust via correction menu)",
+            );
+          }
+        }
+        if (!fields.affected_scope) {
           return {
-            field: "risk_level",
+            field: "affected_scope",
             picker: null,
-            prompt:
-              "Qual o **nível de gravidade** deste relato? Toque em uma opção abaixo (ou descreva em uma frase, se preferir).[QUICK_REPLY:critical,moderate,low,none]",
+            prompt: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
           };
         }
-      }
-      if (["critical", "moderate"].includes(String(fields.risk_level || "")) && !fields.affected_scope) {
-        return {
-          field: "affected_scope",
-          picker: null,
-          prompt: "Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?",
-        };
       }
     }
 
@@ -456,20 +494,20 @@ export async function getNextMissingField(
       };
     }
 
-    if (!fields.stop_name) {
+    if (!fields.stop_name && !fields._stop_name_skipped) {
       return {
         field: "stop_name",
         picker: null,
-        prompt: "Qual foi a **parada, ponto, terminal ou estação** específicos onde isso aconteceu?",
+        prompt:
+          "Qual foi a **parada/ponto/estação**? Se não souber, responda **pular** para continuar.",
       };
     }
 
-    if (!fields.stop_location) {
+    if (!fields.stop_location && !fields._stop_location_skipped) {
       return {
         field: "stop_location",
         picker: null,
-        prompt:
-          "Qual o **endereço, cruzamento ou referência** desse ponto? Se preferir, você também pode informar coordenadas `lat,lng`.",
+        prompt: "Qual o **endereço ou referência** do ponto? Se não souber, responda **pular**.",
       };
     }
 

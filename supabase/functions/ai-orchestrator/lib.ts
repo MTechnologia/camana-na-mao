@@ -1,8 +1,15 @@
 import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
+import { resolveAllowedOrigin } from "../_shared/cors.ts";
 import {
+  applyUrbanNatureCategoryDefaults,
   extractUrbanFields,
   isBareUrbanReportNatureReply,
+  buildUrbanNonComplaintLlmInstruction,
+  isUrbanDuvidaReadyForAnswer,
+  isUrbanNonComplaintReadyForLlmTurn,
   normalizeReportNature,
+  urbanNatureSkipsLocationCollection,
+  urbanNonComplaintLlmStatusLine,
 } from "./lib-urban-rules.ts";
 import {
   applyCompleteRatingDimensionsToAccumulated,
@@ -45,7 +52,9 @@ import {
 import {
   hasTransportKeywords,
   isGenericIntentText,
+  isSubstantiveUrbanNatureDescription,
   isValidDomainDescription,
+  isValidUrbanReportDescription,
   normalizeTextForMatching,
 } from "./lib-nlp-utils.ts";
 
@@ -71,7 +80,10 @@ export {
   getServiceOccupancyStatusByServiceId,
   getUltimasNoticias,
   isCamaraFuncionamentoInternoQuery,
+  extractUrbanDuvidaSearchTerms,
+  isUrbanDuvidaKbResultRelevant,
   searchKnowledgeBase,
+  searchKnowledgeBaseForUrbanDuvida,
   suggestCouncilMember,
 } from "./lib-citizen-support.ts";
 export {
@@ -111,10 +123,16 @@ export {
   formatUrbanReportPreviewAfterCategory,
   formatUrbanReportPreviewAfterDescription,
   insertReportSeverityAuditLog,
+  applyUrbanNatureCategoryDefaults,
   isBareUrbanReportNatureReply,
+  buildUrbanNonComplaintLlmInstruction,
+  isUrbanDuvidaReadyForAnswer,
+  isUrbanNonComplaintReadyForLlmTurn,
   mapUrbanRiskLevelToSeverity,
   messageLooksLikeUrbanIncidentStarter,
   normalizeReportNature,
+  urbanNatureSkipsLocationCollection,
+  urbanNonComplaintLlmStatusLine,
 } from "./lib-urban-rules.ts";
 export type { UrbanReportNature } from "./lib-urban-rules.ts";
 export type { CitizenLearningProfile } from "./lib-citizen-learning.ts";
@@ -168,7 +186,9 @@ export {
   isAffirmativeResponse,
   isGenericIntentText,
   isNegativeResponse,
+  isSubstantiveUrbanNatureDescription,
   isValidDomainDescription,
+  isValidUrbanReportDescription,
   normalizeTextForMatching,
 } from "./lib-nlp-utils.ts";
 export {
@@ -216,9 +236,14 @@ export {
   getTransportTypeLabel,
 } from "./lib-transport-preview.ts";
 export { parseFieldResponse } from "./lib-field-response.ts";
+export {
+  analyzeConversationTone,
+  buildConversationToneInstruction,
+} from "./lib-conversation-tone.ts";
 
+// Valor inicial; sobrescrito por request via Object.assign(lib.corsHeaders, buildCorsHeaders(origin)) no index.ts.
 export const corsHeaders: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': resolveAllowedOrigin(null),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
@@ -274,6 +299,8 @@ export function accumulateFieldsFromHistory(
       isGenericIntentText,
       isValidDomainDescription,
       isBareUrbanReportNatureReply,
+      isSubstantiveUrbanNatureDescription,
+      normalizeReportNature,
     });
     if (detectedDescription) {
       accumulated.description = detectedDescription;
@@ -299,6 +326,42 @@ export function accumulateFieldsFromHistory(
       generateLabelFromDescription,
       normalizeReportNature,
     });
+
+    // Feedback à Câmara: a seleção do picker de vereador chega como
+    // "Vereador(a): Nome (PARTIDO)". Esse formato é exclusivo desse fluxo, então
+    // marca a jornada como feedback_camara — assim a coleta não pede CEP/endereço
+    // como um relato urbano comum e o relato é criado com o vereador correto.
+    let chamberSelected = false;
+    for (const m of messages) {
+      if (m.role !== 'user') continue;
+      const sel = getHistoryMessageText(m).match(
+        /vereador(?:\(a\)|a)?\s*:\s*(.+?)\s*\(([^)]+)\)/i,
+      );
+      if (sel) {
+        chamberSelected = true;
+        accumulated.category = 'feedback_camara';
+        accumulated.council_member_name = sel[1].trim();
+        accumulated.council_member_party = sel[2].trim();
+        if (!accumulated.subcategory) {
+          accumulated.subcategory = `Feedback: ${sel[1].trim()}`;
+        }
+      }
+    }
+
+    if (chamberSelected) {
+      // A frase de intenção ("quero dar um feedback sobre um vereador") e a própria
+      // seleção do picker NÃO são a descrição do feedback. Sem isso, o bot achava
+      // que já tinha a descrição e pulava direto para a conclusão sem o cidadão
+      // contar o que quer reclamar/sugerir/elogiar.
+      const desc = String(accumulated.description ?? '').toLowerCase().trim();
+      const looksLikeIntentOrSelection =
+        desc.length < 12 ||
+        /feedback\s+sobre\s+(um|o|a)?\s*vereador/.test(desc) ||
+        /^vereador(?:\(a\)|a)?\s*:/.test(desc);
+      if (looksLikeIntentOrSelection) {
+        delete accumulated.description;
+      }
+    }
   }
   
   // ========== SERVICE_RATING SPECIFIC PARSING ==========
@@ -309,6 +372,20 @@ export function accumulateFieldsFromHistory(
       parseRatingDimensionsMarker,
       applyCompleteRatingDimensionsToAccumulated,
     });
+
+    // NREF004 — não perder contexto: se o cidadão já disse o tipo ("quero avaliar
+    // o CEU/UBS/hospital…") antes de trocar para a avaliação, infere o service_type
+    // das mensagens recentes para o fluxo NÃO re-perguntar "qual tipo de serviço?".
+    if (!accumulated.service_type) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role !== 'user') continue;
+        const inferred = inferServiceTypeFromText(getHistoryMessageText(messages[i]));
+        if (inferred) {
+          accumulated.service_type = inferred;
+          break;
+        }
+      }
+    }
   }
   
   // ========== TRANSPORT_REPORT SPECIFIC PARSING ==========

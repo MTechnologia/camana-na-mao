@@ -14,17 +14,16 @@ export const MenuProvider = ({ children }: { children: ReactNode }) => {
   const openMenu = useCallback(() => setIsMenuOpen(true), []);
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
-  const value = useMemo(() => ({ 
-    isMenuOpen, 
-    openMenu, 
-    closeMenu 
-  }), [isMenuOpen, openMenu, closeMenu]);
-
-  return (
-    <MenuContext.Provider value={value}>
-      {children}
-    </MenuContext.Provider>
+  const value = useMemo(
+    () => ({
+      isMenuOpen,
+      openMenu,
+      closeMenu,
+    }),
+    [isMenuOpen, openMenu, closeMenu],
   );
+
+  return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook

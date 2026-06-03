@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildVertexPublisherModelId } from "../_shared/ai-provider.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
+import { isVertexRagEnabled } from "./lib-vertex-rag.ts";
 
 type PromptContextArgs = {
   accumulatedFields: Record<string, unknown>;
@@ -108,6 +109,44 @@ export async function buildPromptContextAndTools(
     );
   }
 
+  const urbanReportNature = String(accumulatedFields?.report_nature ?? "").toLowerCase();
+  const urbanDuvidaDescription = String(accumulatedFields?.description ?? "").trim();
+  const isUrbanDuvidaLlmTurn = collectionIntent?.type === "urban_report" &&
+    urbanReportNature === "duvida" &&
+    urbanDuvidaDescription.length >= 12 &&
+    !lib.isCamaraFuncionamentoInternoQuery(urbanDuvidaDescription);
+
+  if (isUrbanDuvidaLlmTurn) {
+    try {
+      const kb = await lib.searchKnowledgeBaseForUrbanDuvida(supabase, urbanDuvidaDescription);
+      if (kb.hasRelevantHits && kb.text.trim()) {
+        dynamicSystemPrompt = dynamicSystemPrompt +
+          "\n\n[Contexto da base (dúvida urbana)]:\n" +
+          kb.text.trim() +
+          "\n\nInstrução: Responda **primeiro** à pergunta do cidadão usando apenas trechos acima que forem pertinentes. Não liste estrutura genérica da Câmara (portal, presidência, vereadores, transparência) se não for o tema da pergunta.";
+        console.log(
+          "[ai-orchestrator] Injected Supabase KB for urban duvida, chars:",
+          kb.text.length,
+        );
+      } else {
+        const excerpt = urbanDuvidaDescription.slice(0, 220);
+        dynamicSystemPrompt = dynamicSystemPrompt +
+          `\n\n[Contexto dúvida urbana — sem trecho na base]: A base da Câmara não trouxe trecho específico sobre: "${excerpt}".\n\nInstrução: Responda **diretamente** à pergunta com honestidade. Explique o papel da Câmara Municipal no tema (fiscalização, leis, audiências) sem inventar etapas operacionais do Executivo. Indique canais oficiais adequados (Prefeitura 156, PM 190, portais municipais). **Proibido** listar portal, presidência, vereadores, transparência ou biblioteca da Câmara nesta resposta.`;
+        // [rag-underuse] Guarda desviou do Vertex RAG e a KB Supabase não trouxe trecho:
+        // sinaliza turno onde o RAG poderia ter ajudado (decision RAG subutilizado, Option C).
+        console.log(
+          "[rag-underuse] urban_duvida: KB Supabase sem trecho relevante — Vertex RAG poderia ajudar:",
+          urbanDuvidaDescription.slice(0, 120),
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[ai-orchestrator] Pré-busca searchKnowledgeBaseForUrbanDuvida falhou:",
+        (e as Error).message,
+      );
+    }
+  }
+
   if (collectionIntent?.type === "general" && isCamaraFuncionamentoQuery && !isZoneamentoQuery) {
     try {
       const kbText = await lib.searchKnowledgeBase(supabase, lastUserMessage);
@@ -121,8 +160,11 @@ export async function buildPromptContextAndTools(
           kbText.length,
         );
       } else {
+        // [rag-underuse] Câmara funcionamento roteado p/ KB Supabase (Vertex RAG pulado pela guarda),
+        // mas a KB não trouxe trecho — sinaliza turno onde o RAG poderia ter ajudado (Option C).
         console.log(
-          "[ai-orchestrator] Supabase KB (Câmara funcionamento) sem trechos específicos; modelo pode usar search_knowledge_base",
+          "[rag-underuse] general+funcionamento: KB Supabase sem trecho específico — Vertex RAG poderia ajudar:",
+          lastUserMessage.slice(0, 120),
         );
       }
     } catch (e) {
@@ -135,6 +177,7 @@ export async function buildPromptContextAndTools(
 
   if (
     collectionIntent?.type === "general" &&
+    isVertexRagEnabled() &&
     (vertexRagDatastore || vertexRagCorpus) &&
     finalAiApiKey &&
     lastUserMessage.trim().length > 3 &&
@@ -149,8 +192,19 @@ export async function buildPromptContextAndTools(
       const project = match?.[1];
       const location = match?.[2];
       if (project && location) {
+        // O host deve vir da própria base URL: a location `global` usa
+        // `aiplatform.googleapis.com`, enquanto regiões usam
+        // `{region}-aiplatform.googleapis.com`. Reconstruir como
+        // `${location}-aiplatform...` gera `global-aiplatform...` (404).
+        // Ver bug 2026-06-01-vertex-rag-generatecontent-404.
+        let apiHost = `https://${location}-aiplatform.googleapis.com`;
+        try {
+          apiHost = new URL(finalAiBaseUrl).origin;
+        } catch (_e) {
+          // mantém o fallback regional acima
+        }
         const generateContentUrl =
-          `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${vertexPublisherModelId}:generateContent`;
+          `${apiHost}/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${vertexPublisherModelId}:generateContent`;
         let datastorePath = (vertexRagDatastore || "").trim();
         if (vertexRagDatastore && !datastorePath.startsWith("projects/")) {
           datastorePath =
@@ -225,7 +279,10 @@ export async function buildPromptContextAndTools(
   const supabaseCamaraKbInjected = dynamicSystemPrompt.includes(
     "[Contexto da base de conhecimento da Câmara (Supabase)]",
   );
-  const suppressSearchKnowledgeBase = vertexRagInjected || supabaseCamaraKbInjected;
+  const urbanDuvidaKbInjected = dynamicSystemPrompt.includes("[Contexto da base (dúvida urbana)]") ||
+    dynamicSystemPrompt.includes("[Contexto dúvida urbana — sem trecho na base]");
+  const suppressSearchKnowledgeBase = vertexRagInjected || supabaseCamaraKbInjected ||
+    urbanDuvidaKbInjected;
   const effectiveTools = suppressSearchKnowledgeBase
     ? (lib.tools as Array<{ type?: string; function?: { name?: string } }>).filter((t) =>
       t?.function?.name !== "search_knowledge_base"
@@ -239,6 +296,11 @@ export async function buildPromptContextAndTools(
   if (supabaseCamaraKbInjected) {
     console.log(
       "[ai-orchestrator] Supabase KB (Câmara) injected → search_knowledge_base excluded from tools",
+    );
+  }
+  if (urbanDuvidaKbInjected) {
+    console.log(
+      "[ai-orchestrator] Urban duvida KB/context injected → search_knowledge_base excluded from tools",
     );
   }
 

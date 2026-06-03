@@ -69,7 +69,7 @@ docker run -d \
   # REMOVIDO: --tool-call-parser openai
 ```
 
-**Nota:** O ai-orchestrator está usando o **Lovable AI Gateway**, não o vLLM diretamente. Portanto, esse erro pode estar vindo de requisições diretas ao vLLM ou de algum fallback.
+**Nota:** O `ai-orchestrator` usa o endpoint configurado em `AI_CHAT_BASE_URL`. Se apontar para vLLM, este erro pode aparecer nos logs da VM.
 
 ### Solução 2: Atualizar vLLM para versão mais recente
 
@@ -101,10 +101,10 @@ gcloud compute ssh llm-chat-gpu-l4 --zone=us-central1-a --tunnel-through-iap \
 
 ### 2. Verificar configuração do ai-orchestrator
 
-O código atual usa apenas o Lovable AI Gateway. Se houver requisições indo para o vLLM, pode ser:
-- Fallback automático
-- Configuração de secrets diferente
-- Requisições diretas de outros serviços
+Se houver requisições no vLLM sem uso esperado, pode ser:
+- `AI_CHAT_BASE_URL` apontando para a VM
+- Health checks ou testes manuais
+- Outros serviços chamando o mesmo endpoint
 
 ### 3. Verificar frequência do erro
 
@@ -128,39 +128,18 @@ gcloud compute ssh llm-chat-gpu-l4 --zone=us-central1-a --tunnel-through-iap \
 ## ✅ Status Atual
 
 - **Erro identificado:** ✅ Sim
-- **Impacto no chat:** ❌ **NÃO** - O chat está usando Lovable AI Gateway, não o vLLM
+- **Impacto no chat:** Depende se `AI_CHAT_BASE_URL` aponta para o vLLM com tool calling habilitado
 - **Ação necessária:** Nenhuma ação imediata necessária
 - **Prioridade:** Baixa (erro não está afetando o chat atual)
 
-### 🔍 Descoberta Importante
+### 🔍 Configuração atual
 
-O código do `ai-orchestrator` está **hardcoded** para usar apenas o Lovable AI Gateway:
-
-```typescript
-response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-  // ... sempre usa Lovable
-});
-```
-
-**Isso significa:**
-- ✅ O erro do vLLM **NÃO está afetando** o chat atual
-- ⚠️ As requisições que chegam no vLLM são provavelmente de:
-  - Health checks
-  - Testes manuais
-  - Outros serviços
-- 📝 O vLLM está rodando, mas não está sendo usado pelo chat principal
-
-### 🎯 Conclusão
-
-**O problema no chat NÃO está relacionado ao erro do vLLM.** Se há problemas no chat, eles provavelmente vêm de:
-1. Problemas com o Lovable AI Gateway
-2. Erros no código do ai-orchestrator
-3. Problemas de rede/conectividade
+O `ai-orchestrator` chama `${AI_CHAT_BASE_URL}/chat/completions` com `AI_API_KEY` e `AI_CHAT_MODEL`.
 
 **Próximos passos para diagnosticar problemas no chat:**
-1. Verificar logs do Supabase Edge Function `ai-orchestrator`
-2. Verificar se há erros 400/500 nas requisições
-3. Verificar se o Lovable AI Gateway está respondendo corretamente
+1. Verificar logs da Edge Function `ai-orchestrator` no Supabase
+2. Confirmar secrets `AI_CHAT_BASE_URL`, `AI_API_KEY` e modelo
+3. Testar o endpoint LLM diretamente (`/v1/models` ou chat de teste)
 
 ---
 

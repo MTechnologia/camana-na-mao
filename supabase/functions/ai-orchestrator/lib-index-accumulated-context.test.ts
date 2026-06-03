@@ -1,10 +1,12 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
 import { buildAccumulatedContext } from "./lib-index-accumulated-context.ts";
+import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
 
 function createLibMock(overrides: Record<string, unknown> = {}) {
   return {
     accumulateFieldsFromHistory: () => ({}),
+    inferServiceTypeFromText: () => null,
     isBareUrbanReportNatureReply: () => false,
     isGenericIntentText: () => false,
     isValidDomainDescription: () => false,
@@ -14,6 +16,46 @@ function createLibMock(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+Deno.test("buildAccumulatedContext: NREF004 — ao trocar p/ service_rating preserva o tipo já dito (CEU)", async () => {
+  const result = await buildAccumulatedContext({
+    chatHistoryTyped: [
+      { role: "user", content: "Quero avaliar o ceu aqui de casa" },
+      {
+        role: "user",
+        content: "[JOURNEY_SWITCHED:service_rating] Sim, quero iniciar Avaliação de Serviço.",
+      },
+    ],
+    chatMessages: [],
+    collectionIntent: { type: "service_rating", fields: {} },
+    evaluationContext: null,
+    journeyDeclined: false,
+    journeySwitched: true,
+    lastUserMsg: "[JOURNEY_SWITCHED:service_rating] Sim, quero iniciar Avaliação de Serviço.",
+    // deno-lint-ignore no-explicit-any
+    lib: createLibMock({ inferServiceTypeFromText }) as any,
+  });
+
+  assertEquals(result.accumulatedFields.service_type, "ceu");
+});
+
+Deno.test("buildAccumulatedContext: troca sem tipo mencionado não inventa service_type", async () => {
+  const result = await buildAccumulatedContext({
+    chatHistoryTyped: [
+      { role: "user", content: "[JOURNEY_SWITCHED:service_rating] Sim, quero iniciar Avaliação de Serviço." },
+    ],
+    chatMessages: [],
+    collectionIntent: { type: "service_rating", fields: {} },
+    evaluationContext: null,
+    journeyDeclined: false,
+    journeySwitched: true,
+    lastUserMsg: "[JOURNEY_SWITCHED:service_rating] Sim, quero iniciar Avaliação de Serviço.",
+    // deno-lint-ignore no-explicit-any
+    lib: createLibMock({ inferServiceTypeFromText }) as any,
+  });
+
+  assertEquals(result.accumulatedFields.service_type, undefined);
+});
 
 Deno.test("buildAccumulatedContext injeta evaluationContext em service_rating", async () => {
   const result = await buildAccumulatedContext({
@@ -36,6 +78,9 @@ Deno.test("buildAccumulatedContext injeta evaluationContext em service_rating", 
     service_type: "ubs",
     visit_id: "visit-1",
   });
+  assertEquals(result.journeySnapshot?.schema_version, "journey_snapshot.v1");
+  assertEquals(result.journeySnapshot?.journey_type, "service_rating");
+  assertEquals(result.journeySnapshot?.fields.service_type, "ubs");
   assertEquals(result.lightJourneyMarker, "");
 });
 
@@ -68,6 +113,7 @@ Deno.test("buildAccumulatedContext resolve CEP faltante e preenche endereço", a
     state: "SP",
     street: "Rua Exemplo",
   });
+  assertEquals(result.journeySnapshot?.journey_type, "urban_report");
 });
 
 Deno.test("buildAccumulatedContext aplica atalho de incidente urbano e marker de jornada leve", async () => {
@@ -84,6 +130,7 @@ Deno.test("buildAccumulatedContext aplica atalho de incidente urbano e marker de
   });
 
   assertEquals(result.lightJourneyMarker, "[LIGHT_JOURNEY:general]");
+  assertEquals(result.journeySnapshot?.journey_type, "general");
 });
 
 Deno.test("buildAccumulatedContext define report_nature e description para abertura urbana grave", async () => {
@@ -104,4 +151,5 @@ Deno.test("buildAccumulatedContext define report_nature e description para abert
 
   assertEquals(result.accumulatedFields.description, "tem um incêndio agora na comunidade");
   assertEquals(result.accumulatedFields.report_nature, "reclamacao");
+  assertEquals(result.journeySnapshot?.journey_type, "urban_report");
 });

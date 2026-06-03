@@ -84,7 +84,7 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
         setLoadingId(null);
       }
     },
-    [user, toast]
+    [user, toast],
   );
 
   if (rows.length === 0) return null;
@@ -93,7 +93,7 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
     <div
       className={cn(
         "rounded-lg border border-primary/25 bg-primary/5 p-3 space-y-2 my-2 max-w-full",
-        className
+        className,
       )}
     >
       <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -116,10 +116,14 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
                       {r.protocol_code}
                     </span>
                   ) : null}
-                  <span className="text-primary font-medium">{formatDistance(r.distance_meters)}</span>
+                  <span className="text-primary font-medium">
+                    {formatDistance(r.distance_meters)}
+                  </span>
                 </div>
                 {r.description ? (
-                  <p className="text-foreground leading-snug line-clamp-3 break-words">{r.description}</p>
+                  <p className="text-foreground leading-snug line-clamp-3 break-words">
+                    {r.description}
+                  </p>
                 ) : null}
                 {r.location_address || r.neighborhood ? (
                   <p className="text-xs text-muted-foreground line-clamp-2">
@@ -133,7 +137,9 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
-                  onClick={() => navigate(`/relato-urbano/historico?reportId=${encodeURIComponent(r.id)}`)}
+                  onClick={() =>
+                    navigate(`/relato-urbano/historico?reportId=${encodeURIComponent(r.id)}`)
+                  }
                 >
                   <ExternalLink className="h-3.5 w-3.5 mr-1.5" aria-hidden />
                   Ver detalhes
@@ -146,7 +152,10 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
                   disabled={supported || loadingId === r.id}
                   onClick={() => apoiar(r.id)}
                 >
-                  <Heart className={cn("h-3.5 w-3.5 mr-1.5", supported && "fill-current")} aria-hidden />
+                  <Heart
+                    className={cn("h-3.5 w-3.5 mr-1.5", supported && "fill-current")}
+                    aria-hidden
+                  />
                   {supported ? "Curtido" : "Curtir"}
                 </Button>
               </div>

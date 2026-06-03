@@ -70,7 +70,9 @@ const normalizeEquipmentNature = (value: unknown): NearbyService["equipment_natu
   return null;
 };
 
-const inferEquipmentNatureFromSourceLayer = (sourceLayer: unknown): NearbyService["equipment_nature"] => {
+const inferEquipmentNatureFromSourceLayer = (
+  sourceLayer: unknown,
+): NearbyService["equipment_nature"] => {
   if (typeof sourceLayer !== "string" || !sourceLayer.trim()) return null;
 
   if (sourceLayer === "rede_privada") return "privado";
@@ -109,7 +111,7 @@ export function mapPublicServiceRowToNearbyService(
   const equipmentNature =
     rawEquipmentNature === "privado" && inferredEquipmentNature === "publico"
       ? "publico"
-      : rawEquipmentNature ?? inferredEquipmentNature;
+      : (rawEquipmentNature ?? inferredEquipmentNature);
   return {
     id,
     name: String(raw.name ?? ""),

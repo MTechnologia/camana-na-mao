@@ -1,4 +1,4 @@
-export type DrillType = 'down' | 'up' | 'across' | 'through';
+export type DrillType = "down" | "up" | "across" | "through";
 
 export interface DrillLevel {
   label: string;
@@ -14,7 +14,7 @@ export interface DrillOperation {
   timestamp: Date;
 }
 
-export type AnalyticsView = 'overview' | 'detailed' | 'raw';
+export type AnalyticsView = "overview" | "detailed" | "raw";
 
 export interface AnalyticsState {
   currentView: AnalyticsView;

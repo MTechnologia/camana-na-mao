@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
 import { applyAnalyticsFilters } from "@/lib/analyticsFilterHelpers";
+import { slaWindowToHours } from "@/lib/analyticsFilters";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
@@ -29,6 +30,8 @@ export interface ResponseTimeFilters {
   categories?: string[];
   regions?: string[];
   zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
+  /** HU-14.4 — facet específico da aba Eficiência. */
+  facet?: import("@/lib/analyticsFilters").EficienciaFacet;
 }
 
 export interface TrendPoint {
@@ -302,9 +305,7 @@ function aggregate(
   const avgHours = count > 0 ? sumCurrent / count : 0;
 
   const avgHoursPrevious =
-    previous.length > 0
-      ? previous.reduce((acc, r) => acc + r.hours, 0) / previous.length
-      : 0;
+    previous.length > 0 ? previous.reduce((acc, r) => acc + r.hours, 0) / previous.length : 0;
 
   const deltaPct =
     avgHoursPrevious > 0 ? ((avgHours - avgHoursPrevious) / avgHoursPrevious) * 100 : 0;
@@ -363,9 +364,7 @@ function aggregate(
       ? allAvailableCategories
       : Array.from(
           new Set(
-            current
-              .map((r) => r.category)
-              .filter((c): c is string => !!c && c !== "Sem categoria"),
+            current.map((r) => r.category).filter((c): c is string => !!c && c !== "Sem categoria"),
           ),
         ).sort();
   const availableRegions =
@@ -373,9 +372,7 @@ function aggregate(
       ? allAvailableRegions
       : Array.from(
           new Set(
-            current
-              .map((r) => r.region)
-              .filter((r): r is string => !!r && r !== "Não informada"),
+            current.map((r) => r.region).filter((r): r is string => !!r && r !== "Não informada"),
           ),
         ).sort();
 
@@ -456,16 +453,34 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
       ).sort();
       const allAvailableRegions = Array.from(
         new Set(
-          allCurrent
-            .map((r) => r.region)
-            .filter((r): r is string => !!r && r !== "Não informada"),
+          allCurrent.map((r) => r.region).filter((r): r is string => !!r && r !== "Não informada"),
         ),
       ).sort();
-      const current = applyAnalyticsFilters(allCurrent, analyticsFilter);
-      const previous = applyAnalyticsFilters(
+      const currentBase = applyAnalyticsFilters(allCurrent, analyticsFilter);
+      const previousBase = applyAnalyticsFilters(
         [...urbanPrev, ...transPrev, ...refPrev],
         analyticsFilter,
       );
+      // HU-14.4 — aplicar facet específico da aba Eficiência (slaWindow + range).
+      // Statuses do facet são ignorados aqui porque o hook só busca status='resolved'.
+      const applyEfiFacet = (rows: ResolvedRecord[]): ResolvedRecord[] => {
+        const f = filters.facet;
+        if (!f) return rows;
+        let out = rows;
+        const slaH = f.slaWindow && f.slaWindow !== "all" ? slaWindowToHours(f.slaWindow) : null;
+        if (slaH != null) out = out.filter((r) => r.hours <= slaH);
+        if (f.responseMinDays != null) {
+          const minH = f.responseMinDays * 24;
+          out = out.filter((r) => r.hours >= minH);
+        }
+        if (f.responseMaxDays != null) {
+          const maxH = f.responseMaxDays * 24;
+          out = out.filter((r) => r.hours <= maxH);
+        }
+        return out;
+      };
+      const current = applyEfiFacet(currentBase);
+      const previous = applyEfiFacet(previousBase);
       setStats(aggregate(current, previous, allAvailableCategories, allAvailableRegions));
       setLastUpdate(new Date());
     } catch (err) {
@@ -478,7 +493,16 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
     // HU-5.2 fix — incluir categories/regions/zones nas deps; sem isso o
     // fetchData fica com closure das categorias da 1ª render e o filtro
     // de partido político / categoria nunca era aplicado.
-  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
+    // HU-14.4 — facet serializado pra estabilizar identidade do objeto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filters.startDate,
+    filters.endDate,
+    filters.categories,
+    filters.regions,
+    filters.zones,
+    JSON.stringify(filters.facet),
+  ]);
 
   useEffect(() => {
     void fetchData();
@@ -498,11 +522,7 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
 }
 
 // HU-5.3 — tabelas observadas pelo realtime (referência estável fora do hook).
-const REALTIME_TABLES = [
-  "urban_reports",
-  "transport_reports",
-  "council_member_referrals",
-] as const;
+const REALTIME_TABLES = ["urban_reports", "transport_reports", "council_member_referrals"] as const;
 
 // Exposições para teste.
 export const __test__ = {

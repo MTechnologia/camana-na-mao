@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -129,13 +121,25 @@ export function DimensionAveragesChart({ serviceId, enabled = true }: DimensionA
                   textAnchor="end"
                   height={56}
                 />
-                <YAxis domain={[0, 5]} tickCount={6} width={32} tick={{ fontSize: 11 }} allowDecimals />
+                <YAxis
+                  domain={[0, 5]}
+                  tickCount={6}
+                  width={32}
+                  tick={{ fontSize: 11 }}
+                  allowDecimals
+                />
                 <Tooltip
                   formatter={(value: number) => [`${value.toFixed(2)} / 5`, "Média"]}
                   labelFormatter={(label) => String(label)}
                   contentStyle={{ borderRadius: 8 }}
                 />
-                <Bar dataKey="media" name="Média" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                <Bar
+                  dataKey="media"
+                  name="Média"
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={48}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

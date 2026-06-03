@@ -98,8 +98,11 @@ describe("aggregateRatings", () => {
       rating({
         service_id: "no-coords",
         public_services: {
-          name: "X", district: null, service_type: "Saúde",
-          latitude: null, longitude: null,
+          name: "X",
+          district: null,
+          service_type: "Saúde",
+          latitude: null,
+          longitude: null,
         },
       }),
     ]);
@@ -111,8 +114,11 @@ describe("aggregateRatings", () => {
       rating({
         service_id: "rio",
         public_services: {
-          name: "Rio", district: null, service_type: "Saúde",
-          latitude: -22.9, longitude: -43.2,
+          name: "Rio",
+          district: null,
+          service_type: "Saúde",
+          latitude: -22.9,
+          longitude: -43.2,
         },
       }),
     ]);
@@ -122,8 +128,26 @@ describe("aggregateRatings", () => {
   it("filtra por service_type quando informado", () => {
     const result = aggregateRatings(
       [
-        rating({ service_id: "saude", public_services: { name: "UBS", district: null, service_type: "Saúde", latitude: SP_LAT, longitude: SP_LNG } }),
-        rating({ service_id: "edu", public_services: { name: "Escola", district: null, service_type: "Educação", latitude: SP_LAT, longitude: SP_LNG } }),
+        rating({
+          service_id: "saude",
+          public_services: {
+            name: "UBS",
+            district: null,
+            service_type: "Saúde",
+            latitude: SP_LAT,
+            longitude: SP_LNG,
+          },
+        }),
+        rating({
+          service_id: "edu",
+          public_services: {
+            name: "Escola",
+            district: null,
+            service_type: "Educação",
+            latitude: SP_LAT,
+            longitude: SP_LNG,
+          },
+        }),
       ],
       "Saúde",
     );

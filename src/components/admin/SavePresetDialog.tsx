@@ -12,10 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import {
-  useDashboardPresets,
-  type DashboardPreset,
-} from "@/hooks/useDashboardPresets";
+import { useDashboardPresets, type DashboardPreset } from "@/hooks/useDashboardPresets";
 import { useWidgetTheme } from "@/hooks/useWidgetTheme";
 import { getTheme } from "@/lib/widgetThemes";
 
@@ -112,9 +109,7 @@ export function SavePresetDialog({ open, onOpenChange }: SavePresetDialogProps) 
                 }
               }}
             />
-            {nameError && (
-              <p className="text-xs text-destructive">{nameError}</p>
-            )}
+            {nameError && <p className="text-xs text-destructive">{nameError}</p>}
           </div>
 
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
@@ -129,10 +124,7 @@ export function SavePresetDialog({ open, onOpenChange }: SavePresetDialogProps) 
               onCheckedChange={(v) => setMakeDefault(v === true)}
               disabled={busy}
             />
-            <Label
-              htmlFor="preset-default"
-              className="text-sm cursor-pointer leading-snug"
-            >
+            <Label htmlFor="preset-default" className="text-sm cursor-pointer leading-snug">
               Definir como padrão
               <span className="block text-xs text-muted-foreground font-normal mt-0.5">
                 Aplica automaticamente esta configuração ao abrir a análise.

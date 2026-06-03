@@ -26,7 +26,9 @@ function asString(v: unknown): string | undefined {
 }
 
 /** Converte entradas do histórico local (Perto de você) para o formato da API. */
-export function recentEntriesToSyncPayload(entries: NearbyRecentSearchEntry[]): RemoteAppSuggestionItem[] {
+export function recentEntriesToSyncPayload(
+  entries: NearbyRecentSearchEntry[],
+): RemoteAppSuggestionItem[] {
   const out: RemoteAppSuggestionItem[] = [];
   for (const e of entries) {
     const lastTouchedAt = new Date(e.createdAt).toISOString();
@@ -74,7 +76,9 @@ export function recentEntriesToSyncPayload(entries: NearbyRecentSearchEntry[]): 
 }
 
 /** Converte resposta da API para o formato do hook `useNearbySearchRecent`. */
-export function remoteItemsToRecentEntries(items: RemoteAppSuggestionItem[]): NearbyRecentSearchEntry[] {
+export function remoteItemsToRecentEntries(
+  items: RemoteAppSuggestionItem[],
+): NearbyRecentSearchEntry[] {
   const result: NearbyRecentSearchEntry[] = [];
   for (const it of items) {
     const createdAt = it.lastTouchedAt ? Date.parse(it.lastTouchedAt) : Date.now();
@@ -123,9 +127,12 @@ export function remoteItemsToRecentEntries(items: RemoteAppSuggestionItem[]): Ne
 export async function fetchAppSuggestions(
   context: string = APP_SUGGESTIONS_CONTEXT_NEARBY,
 ): Promise<RemoteAppSuggestionItem[]> {
-  const { data, error } = await supabase.functions.invoke<SyncListResponse>("sync-app-suggestions", {
-    body: { action: "list", context },
-  });
+  const { data, error } = await supabase.functions.invoke<SyncListResponse>(
+    "sync-app-suggestions",
+    {
+      body: { action: "list", context },
+    },
+  );
   if (error) throw new Error(error.message);
   if (!data?.ok || !Array.isArray(data.items)) throw new Error("Resposta inválida do servidor");
   return data.items;
@@ -138,9 +145,12 @@ export async function syncAppSuggestions(
   items: RemoteAppSuggestionItem[],
   context: string = APP_SUGGESTIONS_CONTEXT_NEARBY,
 ): Promise<number> {
-  const { data, error } = await supabase.functions.invoke<SyncSaveResponse>("sync-app-suggestions", {
-    body: { action: "sync", context, items },
-  });
+  const { data, error } = await supabase.functions.invoke<SyncSaveResponse>(
+    "sync-app-suggestions",
+    {
+      body: { action: "sync", context, items },
+    },
+  );
   if (error) throw new Error(error.message);
   if (!data?.ok) throw new Error("Falha ao sincronizar sugestões");
   return data.count ?? items.length;

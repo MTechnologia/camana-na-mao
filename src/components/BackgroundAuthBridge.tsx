@@ -27,7 +27,7 @@ export function BackgroundAuthBridge() {
         type: CAMARA_AUTH_STATE_TYPE,
         user_id: userId,
         access_token: accessToken,
-      })
+      }),
     );
   }, [user?.id, session?.access_token]);
 

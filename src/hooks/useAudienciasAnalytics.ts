@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { localParaZona, type ZonaSP } from "@/lib/audienciaZonas";
+import { formatLocalDate } from "@/lib/dateUtils";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
@@ -33,6 +34,8 @@ export interface AudienciasFilters {
   categories?: string[];
   regions?: string[];
   zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
+  /** HU-14.5 — facet específico da aba Audiências. */
+  facet?: import("@/lib/analyticsFilters").AudienciasFacet;
 }
 
 export interface BreakdownItem {
@@ -49,6 +52,7 @@ export interface TimelinePoint {
 export interface AudienciaRanking {
   id: string;
   titulo: string;
+  ap_code: string | null;
   comissao: string | null;
   tema: string;
   data: string;
@@ -59,6 +63,8 @@ export interface AudienciaRanking {
   vagas: number | null;
   ocupacaoPct: number | null;
   zona: string;
+  /** Agendada com inscrições abertas e data hoje ou futura. */
+  aberta: boolean;
 }
 
 export interface AudienciasStats {
@@ -68,6 +74,8 @@ export interface AudienciasStats {
   totalVideoconferencias: number;
   totalEscritas: number;
   totalAudiencias: number;
+  /** Agendadas, com inscrições abertas e data hoje ou futura (mesma regra do app cidadão). */
+  audienciasAbertas: number;
   audienciasComInscricoes: number;
   pctComInscricoes: number; // 0-100
   ocupacaoMediaPct: number; // 0-100
@@ -81,6 +89,8 @@ export interface AudienciasStats {
   timeline: TimelinePoint[];
 
   // Listas operacionais
+  /** Todas as audiências do recorte (ordenadas por engajamento no aggregate). */
+  allAudiencias: AudienciaRanking[];
   topAudiencias: AudienciaRanking[];
   zeroInscritosProximas: AudienciaRanking[];
   baixaOcupacaoProximas: AudienciaRanking[];
@@ -92,6 +102,7 @@ const EMPTY_STATS: AudienciasStats = {
   totalVideoconferencias: 0,
   totalEscritas: 0,
   totalAudiencias: 0,
+  audienciasAbertas: 0,
   audienciasComInscricoes: 0,
   pctComInscricoes: 0,
   ocupacaoMediaPct: 0,
@@ -101,6 +112,7 @@ const EMPTY_STATS: AudienciasStats = {
   byZona: [],
   byTipoEngajamento: [],
   timeline: [],
+  allAudiencias: [],
   topAudiencias: [],
   zeroInscritosProximas: [],
   baixaOcupacaoProximas: [],
@@ -115,6 +127,7 @@ interface AudienciaRow {
   local: string;
   ap_code: string | null;
   status: string;
+  inscricoes_abertas: boolean | null;
   vagas_disponiveis: number | null;
 }
 
@@ -154,7 +167,7 @@ async function fetchAudiencias(
     let q = supabase
       .from("audiencias")
       .select(
-        "id, titulo, comissao, tema, data, local, ap_code, status, vagas_disponiveis",
+        "id, titulo, comissao, tema, data, local, ap_code, status, inscricoes_abertas, vagas_disponiveis",
       )
       .order("data", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
@@ -195,13 +208,18 @@ async function fetchParticipacoes(audienciaIds: string[]): Promise<ParticipacaoR
     const slice = audienciaIds.slice(i, i + CHUNK);
     // `audiencia_participacoes` pode não estar nos types gerados — usamos
     // cast genérico via supabase.from(<string>).
-    const { data, error } = await (supabase as unknown as {
-      from: (table: string) => {
-        select: (cols: string) => {
-          in: (col: string, vals: string[]) => Promise<{ data: ParticipacaoRow[] | null; error: unknown }>;
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => {
+            in: (
+              col: string,
+              vals: string[],
+            ) => Promise<{ data: ParticipacaoRow[] | null; error: unknown }>;
+          };
         };
-      };
-    })
+      }
+    )
       .from("audiencia_participacoes")
       .select("audiencia_id, user_id, tipo")
       .in("audiencia_id", slice);
@@ -219,6 +237,19 @@ async function fetchParticipacoes(audienciaIds: string[]): Promise<ParticipacaoR
 function ocupacao(inscritos: number, vagas: number | null): number | null {
   if (!vagas || vagas <= 0) return null;
   return Math.min(1, inscritos / vagas);
+}
+
+/** Alinhado a Audiencias.tsx / ChatMessageBubble — inscrições aceitas e data não passada. */
+export function isAudienciaAberta(
+  a: Pick<AudienciaRow, "data" | "status" | "inscricoes_abertas">,
+  todayIso: string,
+): boolean {
+  const dataStr = a.data.slice(0, 10);
+  if (dataStr < todayIso) return false;
+  if (a.inscricoes_abertas === false) return false;
+  const status = (a.status ?? "").toLowerCase().trim();
+  if (/realizada|cancelada|adiada|encerrad/.test(status)) return false;
+  return status === "agendada" || status === "scheduled" || status === "";
 }
 
 function isProximaDentroDe(dataISO: string, dias: number): boolean {
@@ -293,12 +324,15 @@ export function aggregate(
   let totalVideo = 0;
   let totalEscritas = 0;
   let audienciasComInscricoes = 0;
-  let somaOcupacao = 0;
+  let somaOcupacaoPct = 0;
   let countOcupacao = 0;
 
   const rankings: AudienciaRanking[] = [];
+  const todayIso = formatLocalDate(new Date()) ?? new Date().toISOString().slice(0, 10);
+  let audienciasAbertas = 0;
 
   audiencias.forEach((a) => {
+    if (isAudienciaAberta(a, todayIso)) audienciasAbertas += 1;
     const slot = porAudiencia.get(a.id);
     const lembretes = slot?.lembretes ?? 0;
     const video = slot?.video ?? 0;
@@ -312,8 +346,12 @@ export function aggregate(
     if (totalEng > 0) audienciasComInscricoes += 1;
 
     const oc = ocupacao(totalEng, a.vagas_disponiveis);
-    if (oc !== null) {
-      somaOcupacao += oc;
+    // Percentual inteiro por audiência (o mesmo exibido em ocupacaoPct). A média
+    // é feita sobre estes inteiros — evita erro de ponto flutuante ao somar
+    // frações (ex.: 0.01 + 0.06 = 0.06999… faria Math.round(3.4999…) cair p/ 3).
+    const ocPct = oc !== null ? Math.round(oc * 100) : null;
+    if (ocPct !== null) {
+      somaOcupacaoPct += ocPct;
       countOcupacao += 1;
     }
 
@@ -335,6 +373,7 @@ export function aggregate(
     rankings.push({
       id: a.id,
       titulo: a.titulo,
+      ap_code: a.ap_code,
       comissao: a.comissao,
       tema: a.tema,
       data: a.data,
@@ -343,14 +382,15 @@ export function aggregate(
       videoconferencias: video,
       escritas: escrita,
       vagas: a.vagas_disponiveis,
-      ocupacaoPct: oc !== null ? Math.round(oc * 100) : null,
+      ocupacaoPct: ocPct,
       zona,
+      aberta: isAudienciaAberta(a, todayIso),
     });
   });
 
-  const topAudiencias = [...rankings]
-    .sort((a, b) => b.inscricoes - a.inscricoes)
-    .slice(0, 10);
+  const allAudiencias = [...rankings].sort((a, b) => b.data.localeCompare(a.data));
+
+  const topAudiencias = [...rankings].sort((a, b) => b.inscricoes - a.inscricoes).slice(0, 10);
 
   const zeroInscritosProximas = rankings
     .filter((r) => r.inscricoes === 0 && isProximaDentroDe(r.data, PROXIMA_AUDIENCIA_DIAS))
@@ -368,8 +408,7 @@ export function aggregate(
     .sort((a, b) => (a.ocupacaoPct || 0) - (b.ocupacaoPct || 0))
     .slice(0, 20);
 
-  const ocupacaoMediaPct =
-    countOcupacao > 0 ? Math.round((somaOcupacao / countOcupacao) * 100) : 0;
+  const ocupacaoMediaPct = countOcupacao > 0 ? Math.round(somaOcupacaoPct / countOcupacao) : 0;
 
   const byTipoEngajamento: BreakdownItem[] = [
     { label: "Lembrete", count: totalLembretes },
@@ -385,11 +424,10 @@ export function aggregate(
     totalVideoconferencias: totalVideo,
     totalEscritas,
     totalAudiencias: audiencias.length,
+    audienciasAbertas,
     audienciasComInscricoes,
     pctComInscricoes:
-      audiencias.length > 0
-        ? Math.round((audienciasComInscricoes / audiencias.length) * 100)
-        : 0,
+      audiencias.length > 0 ? Math.round((audienciasComInscricoes / audiencias.length) * 100) : 0,
     ocupacaoMediaPct,
     usuariosUnicos: usuariosUnicos.size,
     byComissao: rank(comissaoMap),
@@ -399,6 +437,7 @@ export function aggregate(
     timeline: Array.from(timelineMap.entries())
       .map(([date, v]) => ({ date, ...v }))
       .sort((a, b) => a.date.localeCompare(b.date)),
+    allAudiencias,
     topAudiencias,
     zeroInscritosProximas,
     baixaOcupacaoProximas,
@@ -409,6 +448,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
   const [stats, setStats] = useState<AudienciasStats>(EMPTY_STATS);
   // HU-5.3 — refetch silencioso (initial vs realtime).
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
@@ -418,10 +458,30 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
 
   const fetchData = useCallback(async () => {
     setError(null);
+    setIsRefreshing(true);
     try {
       const startDate = toIsoDate(filters.startDate);
       const endDate = toIsoDate(filters.endDate);
-      const audiencias = await fetchAudiencias(startDate, endDate);
+      const audienciasRaw = await fetchAudiencias(startDate, endDate);
+      // HU-14.5 — aplicar facet (comissões + status) ANTES de buscar inscrições
+      // para reduzir volume de dados consultados.
+      const facet = filters.facet;
+      const audiencias = facet
+        ? audienciasRaw.filter((a) => {
+            if (facet.comissoes && facet.comissoes.length > 0) {
+              const c = (a.comissao ?? "").toLowerCase().trim();
+              if (!c) return false;
+              const wanted = new Set(facet.comissoes.map((s) => s.toLowerCase()));
+              if (!wanted.has(c)) return false;
+            }
+            if (facet.statuses && facet.statuses.length > 0) {
+              const s = (a.status ?? "").toLowerCase().trim();
+              const wanted = new Set(facet.statuses.map((x) => x.toLowerCase()));
+              if (!wanted.has(s)) return false;
+            }
+            return true;
+          })
+        : audienciasRaw;
       const ids = audiencias.map((a) => a.id);
       const [inscricoes, participacoes] = await Promise.all([
         fetchInscricoes(ids),
@@ -435,8 +495,11 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
       // HU-5.3 — não resetar stats: mantém último resultado bom visível.
     } finally {
       setIsInitialLoading(false);
+      setIsRefreshing(false);
     }
-  }, [filters.startDate, filters.endDate]);
+    // HU-14.5 — facet serializado para estabilizar identidade do objeto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, JSON.stringify(filters.facet)]);
 
   useEffect(() => {
     void fetchData();
@@ -449,6 +512,7 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
     stats,
     isLoading: isInitialLoading,
     isInitialLoading,
+    isRefreshing,
     error,
     refresh: fetchData,
     lastUpdate,
@@ -456,15 +520,12 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
 }
 
 // HU-5.3 — tabelas observadas (referência estável).
-const REALTIME_TABLES = [
-  "audiencias",
-  "audiencia_inscricoes",
-  "audiencia_participacoes",
-] as const;
+const REALTIME_TABLES = ["audiencias", "audiencia_inscricoes", "audiencia_participacoes"] as const;
 
 export const __test__ = {
   aggregate,
   ocupacao,
+  isAudienciaAberta,
   isProximaDentroDe,
   rank,
 };

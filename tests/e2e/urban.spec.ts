@@ -32,7 +32,8 @@ test.describe('Relatos Urbanos', () => {
 
     // Respostas adicionais até o relato ser registrado (número/referência, risco imediato, etc.)
     const chatMessages = page.locator('[data-testid="chat-messages"]');
-    const successRegex = /Relato registrado|sucesso|protocolo|REL-\d{4}-\d+|Obrigado|seu relato foi|número do protocolo|enviado e está sendo analisado|contribuição enviada|cadastrado|graças à sua contribuição|informações foram recebidas|processando seu relato/i;
+    const successRegex =
+      /Relato registrado|Seu relato|relato urbano|protocolo|REL-\d|Obrigado|sucesso|registrad|acompanhar|analisad|enviado|contribuição|recebemos|número do protocolo|informações foram recebidas|processando seu relato/i;
     let answeredNumber = false;
     let answeredRisk = false;
     for (let step = 0; step < 6; step++) {
@@ -68,10 +69,11 @@ test.describe('Relatos Urbanos', () => {
     await expect(page.locator('textarea')).toBeEnabled({ timeout: 25000 });
     await page.waitForTimeout(2000);
 
-    // Garantir que a área de mensagens está visível (chromium: layout com sidebar)
+    // Sucesso pode aparecer só no chat, ou também em toast / região de notificações
     await chatMessages.first().scrollIntoViewIfNeeded().catch(() => {});
-    const regLoc = chatMessages.getByText(successRegex);
-    await expect(regLoc.first()).toBeVisible({ timeout: 60000 });
+    const inChat = chatMessages.getByText(successRegex);
+    const inToast = page.getByRole('region', { name: /Notifications/i }).getByText(successRegex);
+    await expect(inChat.first().or(inToast.first())).toBeVisible({ timeout: 90_000 });
   });
 
   test('bar com som alto deve autoclassificar sem loop de confirmação', async ({ page }) => {

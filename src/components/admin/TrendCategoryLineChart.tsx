@@ -7,22 +7,22 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import type { TrendChartRow } from '@/lib/buildTrendChartRows';
+} from "recharts";
+import type { TrendChartRow } from "@/lib/buildTrendChartRows";
 
 const STROKES = [
-  'hsl(var(--primary))',
-  'hsl(199 89% 48%)',
-  'hsl(142 76% 36%)',
-  'hsl(38 92% 50%)',
-  'hsl(280 65% 60%)',
-  'hsl(0 84% 60%)',
-  'hsl(210 90% 55%)',
-  'hsl(330 70% 55%)',
-  'hsl(160 60% 40%)',
-  'hsl(25 95% 53%)',
-  'hsl(250 60% 55%)',
-  'hsl(80 50% 45%)',
+  "hsl(var(--primary))",
+  "hsl(199 89% 48%)",
+  "hsl(142 76% 36%)",
+  "hsl(38 92% 50%)",
+  "hsl(280 65% 60%)",
+  "hsl(0 84% 60%)",
+  "hsl(210 90% 55%)",
+  "hsl(330 70% 55%)",
+  "hsl(160 60% 40%)",
+  "hsl(25 95% 53%)",
+  "hsl(250 60% 55%)",
+  "hsl(80 50% 45%)",
 ];
 
 type TrendCategoryLineChartProps = {
@@ -34,7 +34,7 @@ type TrendCategoryLineChartProps = {
 export function TrendCategoryLineChart({
   data,
   categoryKeys,
-  emptyMessage = 'Sem dados para o período e filtros selecionados.',
+  emptyMessage = "Sem dados para o período e filtros selecionados.",
 }: TrendCategoryLineChartProps) {
   if (!data.length || !categoryKeys.length) {
     return (
@@ -53,9 +53,9 @@ export function TrendCategoryLineChart({
           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={40} />
           <Tooltip
             contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
+              backgroundColor: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: "8px",
             }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />

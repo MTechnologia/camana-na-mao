@@ -66,7 +66,10 @@ export default function InlineAccessibilityChecklist({
                 setSelected((prev) => ({ ...prev, [option.key]: checked === true }))
               }
             />
-            <Label htmlFor={`accessibility-${option.key}`} className="text-sm font-normal cursor-pointer">
+            <Label
+              htmlFor={`accessibility-${option.key}`}
+              className="text-sm font-normal cursor-pointer"
+            >
               {option.label}
             </Label>
           </div>

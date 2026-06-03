@@ -36,11 +36,21 @@ interface ActionConfig {
 const NEXT_BY_STATUS: Record<ReferralStatus, ActionConfig[]> = {
   pending: [
     { next: "sent", label: "Marcar como enviado", icon: Send, variant: "outline" },
-    { next: "acknowledged", label: "Confirmar recebimento", icon: ClipboardCheck, variant: "secondary" },
+    {
+      next: "acknowledged",
+      label: "Confirmar recebimento",
+      icon: ClipboardCheck,
+      variant: "secondary",
+    },
     { next: "resolved", label: "Marcar resolvido", icon: CheckCircle2, variant: "default" },
   ],
   sent: [
-    { next: "acknowledged", label: "Confirmar recebimento", icon: ClipboardCheck, variant: "secondary" },
+    {
+      next: "acknowledged",
+      label: "Confirmar recebimento",
+      icon: ClipboardCheck,
+      variant: "secondary",
+    },
     { next: "resolved", label: "Marcar resolvido", icon: CheckCircle2, variant: "default" },
   ],
   acknowledged: [
@@ -79,10 +89,7 @@ export function ReferralQuickActions({
             size={buttonSize}
             disabled={!!isUpdating}
             onClick={() => void onChangeStatus(action.next)}
-            className={cn(
-              "min-h-[44px] gap-2",
-              isUpdating && "opacity-70 cursor-not-allowed",
-            )}
+            className={cn("min-h-[44px] gap-2", isUpdating && "opacity-70 cursor-not-allowed")}
           >
             <Icon className={cn(iconClass, isUpdating && "animate-spin")} aria-hidden="true" />
             <span>{action.label}</span>

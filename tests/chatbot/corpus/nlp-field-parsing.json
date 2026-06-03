@@ -1,0 +1,16 @@
+{
+  "description": "parseFieldResponse — campos estruturados com texto informal",
+  "cases": [
+    { "id": "dir_ida", "field": "direction", "input": "Ida", "expect_key": "direction", "expect_value": "ida" },
+    { "id": "dir_volta_typo", "field": "direction", "input": "volta", "expect_key": "direction", "expect_value": "volta" },
+    { "id": "rec_toda_semana", "field": "recurrence_frequency", "input": "Toda semana", "expect_key": "recurrence_frequency", "expect_value": "toda_semana" },
+    { "id": "rec_todo_dia_typo", "field": "recurrence_frequency", "input": "todo dia", "expect_key": "recurrence_frequency", "expect_value": "todos_os_dias" },
+    { "id": "time_foi_7h5", "field": "occurrence_time", "input": "foi 7h5", "expect_key": "occurrence_time", "expect_value": "07:05" },
+    { "id": "rec_td_semana", "field": "recurrence_frequency", "input": "td semana", "expect_key": "recurrence_frequency", "expect_value": "toda_semana" },
+    { "id": "rec_td_dia", "field": "recurrence_frequency", "input": "td dia", "expect_key": "recurrence_frequency", "expect_value": "todos_os_dias" },
+    { "id": "dir_circular", "field": "direction", "input": "circular", "expect_key": "direction", "expect_value": "circular" },
+    { "id": "rec_primeira_vez", "field": "recurrence_frequency", "input": "primeira vez", "expect_key": "recurrence_frequency", "expect_value": "primeira_vez" },
+    { "id": "rec_algumas_vezes", "field": "recurrence_frequency", "input": "algumas vezes no mes", "expect_key": "recurrence_frequency", "expect_value": "algumas_vezes_mes" },
+    { "id": "time_foi_8h15", "field": "occurrence_time", "input": "foi 8h15", "expect_key": "occurrence_time", "expect_value": "08:15" }
+  ]
+}

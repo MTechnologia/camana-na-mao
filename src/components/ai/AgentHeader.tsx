@@ -19,22 +19,22 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const headerVariants = {
   initial: { opacity: 0, y: -10 },
-  animate: { 
-    opacity: 1, 
+  animate: {
+    opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }
+    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const },
   },
-  exit: { 
-    opacity: 0, 
+  exit: {
+    opacity: 0,
     y: -10,
-    transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const }
-  }
+    transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const },
+  },
 };
 
 const AgentHeader = () => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
-  const { activeConversationId, clearConversation } = useAIJourney();
+  const { activeConversationId, clearConversation, startNewChatSession } = useAIJourney();
   const { toast } = useToast();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -44,7 +44,9 @@ const AgentHeader = () => {
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (user) {
           const { count } = await supabase
             .from("notifications")
@@ -55,16 +57,16 @@ const AgentHeader = () => {
 
           // Setup realtime
           const channel = supabase
-            .channel('agent-notifications')
+            .channel("agent-notifications")
             .on(
-              'postgres_changes',
+              "postgres_changes",
               {
-                event: '*',
-                schema: 'public',
-                table: 'notifications',
+                event: "*",
+                schema: "public",
+                table: "notifications",
                 filter: `user_id=eq.${user.id}`,
               },
-              () => fetchUnreadCount()
+              () => fetchUnreadCount(),
             )
             .subscribe();
 
@@ -73,7 +75,7 @@ const AgentHeader = () => {
           };
         }
       } catch (error) {
-        console.error('Erro ao buscar notificações:', error);
+        console.error("Erro ao buscar notificações:", error);
       }
     };
     fetchUnreadCount();
@@ -85,15 +87,15 @@ const AgentHeader = () => {
   };
 
   const handleNewConversation = () => {
-    clearConversation();
+    startNewChatSession();
     toast({
       title: "Nova conversa",
-      description: "Uma nova conversa foi iniciada.",
+      description: "Escolha um tema abaixo para começar.",
     });
   };
 
   const handleViewHistory = () => {
-    navigate('/conversas');
+    navigate("/conversas");
   };
 
   const headerLabel = "Assistente Câmara na Mão";
@@ -113,17 +115,17 @@ const AgentHeader = () => {
               "fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4 overflow-hidden",
               "lg:left-[280px] xl:left-[320px] 2xl:left-[360px]",
               "bg-gradient-to-r",
-              headerColor
+              headerColor,
             )}
           >
             {/* Animated overlay */}
-            <motion.div 
+            <motion.div
               className="absolute inset-0 bg-background/20"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
             />
-            
+
             {/* Content */}
             <div className="relative z-10 flex items-center justify-between w-full">
               {/* Back Button with slide animation */}
@@ -132,16 +134,16 @@ const AgentHeader = () => {
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.15, duration: 0.25 }}
               >
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={handleBack}
                   className="text-white hover:bg-white/20"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </motion.div>
-              
+
               {/* Icon + Label with scale animation */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -154,7 +156,7 @@ const AgentHeader = () => {
                   {headerLabel}
                 </span>
               </motion.div>
-              
+
               {/* Kebab Menu with fade animation */}
               <motion.div
                 initial={{ opacity: 0 }}
@@ -163,8 +165,8 @@ const AgentHeader = () => {
               >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className="text-white hover:bg-white/20"
                       data-testid="conversations-menu"
@@ -205,7 +207,7 @@ const AgentHeader = () => {
                 <Menu className="h-5 w-5" />
               </Button>
             </motion.div>
-            
+
             {/* Title - clickable to reset to home */}
             <motion.button
               initial={{ scale: 0.95, opacity: 0 }}
@@ -218,7 +220,7 @@ const AgentHeader = () => {
             >
               Câmara na Mão
             </motion.button>
-            
+
             {/* Right Actions */}
             <motion.div
               initial={{ x: 10, opacity: 0 }}
@@ -227,19 +229,19 @@ const AgentHeader = () => {
               className="flex items-center gap-1"
             >
               {/* Notifications */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => navigate('/notificacoes')}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/notificacoes")}
                 className="relative"
               >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
+                  <Badge
+                    variant="destructive"
                     className="absolute -top-1 -right-1 min-w-[18px] h-[18px] p-0 flex items-center justify-center text-[10px] rounded-full"
                   >
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {unreadCount > 99 ? "99+" : unreadCount}
                   </Badge>
                 )}
               </Button>

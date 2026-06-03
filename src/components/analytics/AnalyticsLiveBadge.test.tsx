@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render as baseRender, screen, fireEvent } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { AnalyticsLiveBadge } from "./AnalyticsLiveBadge";
+
+// Um descendente usa useLocation; embrulha em MemoryRouter para os testes.
+const render = (ui: ReactElement) => baseRender(ui, { wrapper: MemoryRouter });
+
+// globals:false → sem auto-cleanup do RTL; limpa o DOM entre os testes.
+afterEach(cleanup);
 
 describe("AnalyticsLiveBadge", () => {
   beforeEach(() => {
@@ -42,9 +50,7 @@ describe("AnalyticsLiveBadge", () => {
 
   it("desabilita o botão durante refreshing", () => {
     const onRefresh = vi.fn();
-    render(
-      <AnalyticsLiveBadge lastUpdates={[new Date()]} onRefresh={onRefresh} refreshing />,
-    );
+    render(<AnalyticsLiveBadge lastUpdates={[new Date()]} onRefresh={onRefresh} refreshing />);
     const btn = screen.getByRole("button", { name: /recarregar/i });
     expect(btn).toBeDisabled();
   });

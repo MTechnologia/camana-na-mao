@@ -98,7 +98,12 @@ export function ServiceRatingsDetailSheet({ selected, onClose }: Props) {
   const maxStarBucket = Math.max(...(selected?.starsDistribution ?? [0]), 1);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <SheetTitle className="text-base flex items-center gap-2 truncate">
@@ -121,7 +126,12 @@ export function ServiceRatingsDetailSheet({ selected, onClose }: Props) {
           {selected && (
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="rounded border p-3">
-                <div className={cn("text-2xl font-bold tabular-nums flex items-center justify-center gap-1", avgColorClass(selected.avgStars))}>
+                <div
+                  className={cn(
+                    "text-2xl font-bold tabular-nums flex items-center justify-center gap-1",
+                    avgColorClass(selected.avgStars),
+                  )}
+                >
                   {selected.avgStars.toFixed(2)}
                   <Star className="h-4 w-4 fill-current" />
                 </div>
@@ -214,7 +224,11 @@ export function ServiceRatingsDetailSheet({ selected, onClose }: Props) {
                           ))}
                         </span>
                         <span>· {formatDate(c.createdAt)}</span>
-                        {c.sentiment && <Badge variant="outline" className="text-[10px]">{c.sentiment}</Badge>}
+                        {c.sentiment && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {c.sentiment}
+                          </Badge>
+                        )}
                       </div>
                       <p>{c.ratingText}</p>
                     </li>

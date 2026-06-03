@@ -1,27 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    channel: vi.fn(),
-    removeChannel: vi.fn(),
-  },
-}));
+import { createChannelMock, createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { useRealtimeRefresh } from "./useRealtimeRefresh";
 import { supabase } from "@/integrations/supabase/client";
 
-interface MockChannel {
-  on: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-}
-
-function createMockChannel(): MockChannel {
-  const ch = {} as MockChannel;
-  ch.on = vi.fn().mockReturnValue(ch);
-  ch.subscribe = vi.fn().mockReturnValue(ch);
-  return ch;
-}
+// Canal realtime encadeável vindo do mock central (A1.3).
+const createMockChannel = () => createChannelMock();
 
 describe("useRealtimeRefresh", () => {
   beforeEach(() => {
@@ -34,11 +22,11 @@ describe("useRealtimeRefresh", () => {
 
   it("assina canal Supabase para cada tabela informada", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
-
-    renderHook(() =>
-      useRealtimeRefresh(["urban_reports", "transport_reports"], () => {}),
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
     );
+
+    renderHook(() => useRealtimeRefresh(["urban_reports", "transport_reports"], () => {}));
 
     expect(supabase.channel).toHaveBeenCalledTimes(1);
     expect(ch.on).toHaveBeenCalledTimes(2);
@@ -52,7 +40,9 @@ describe("useRealtimeRefresh", () => {
 
   it("dispara onChange com debounce de 600ms quando recebe evento", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
+    );
 
     const onChange = vi.fn();
     renderHook(() => useRealtimeRefresh(["urban_reports"], onChange));
@@ -78,11 +68,11 @@ describe("useRealtimeRefresh", () => {
 
   it("atualiza lastUpdate após o debounce disparar", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
-
-    const { result } = renderHook(() =>
-      useRealtimeRefresh(["urban_reports"], () => {}),
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
     );
+
+    const { result } = renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}));
 
     expect(result.current.lastUpdate).toBeNull();
 
@@ -97,12 +87,12 @@ describe("useRealtimeRefresh", () => {
 
   it("refresh manual atualiza lastUpdate e chama onChange imediatamente", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
+    );
 
     const onChange = vi.fn();
-    const { result } = renderHook(() =>
-      useRealtimeRefresh(["urban_reports"], onChange),
-    );
+    const { result } = renderHook(() => useRealtimeRefresh(["urban_reports"], onChange));
 
     act(() => {
       result.current.refresh();
@@ -114,15 +104,66 @@ describe("useRealtimeRefresh", () => {
 
   it("remove canal no unmount", () => {
     const ch = createMockChannel();
-    vi.spyOn(supabase, "channel").mockReturnValue(ch as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, "channel").mockReturnValue(
+      ch as unknown as ReturnType<typeof supabase.channel>,
+    );
     const removeSpy = vi.spyOn(supabase, "removeChannel");
 
-    const { unmount } = renderHook(() =>
-      useRealtimeRefresh(["urban_reports"], () => {}),
-    );
+    const { unmount } = renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}));
 
     unmount();
 
     expect(removeSpy).toHaveBeenCalledWith(ch);
+  });
+
+  // Resiliência (A1.4): realtime indisponível (dev sem backend) NÃO pode
+  // derrubar a tela "viva" — o hook segue funcionando sem live updates.
+  describe("resiliência sem backend", () => {
+    it("não quebra quando supabase.channel lança", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(supabase, "channel").mockImplementation(() => {
+        throw new Error("realtime indisponível");
+      });
+
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useRealtimeRefresh(["urban_reports"], onChange));
+
+      // Renderizou sem lançar e o refresh manual continua operante.
+      expect(result.current.lastUpdate).toBeNull();
+      act(() => {
+        result.current.refresh();
+      });
+      expect(onChange).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it("não quebra quando subscribe() lança", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const ch = createMockChannel();
+      ch.subscribe = vi.fn(() => {
+        throw new Error("subscribe falhou");
+      });
+      vi.spyOn(supabase, "channel").mockReturnValue(
+        ch as unknown as ReturnType<typeof supabase.channel>,
+      );
+
+      expect(() => renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}))).not.toThrow();
+      warn.mockRestore();
+    });
+
+    it("não quebra no unmount quando removeChannel lança", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const ch = createMockChannel();
+      vi.spyOn(supabase, "channel").mockReturnValue(
+        ch as unknown as ReturnType<typeof supabase.channel>,
+      );
+      vi.spyOn(supabase, "removeChannel").mockImplementation(() => {
+        throw new Error("removeChannel falhou");
+      });
+
+      const { unmount } = renderHook(() => useRealtimeRefresh(["urban_reports"], () => {}));
+      expect(() => unmount()).not.toThrow();
+      warn.mockRestore();
+    });
   });
 });

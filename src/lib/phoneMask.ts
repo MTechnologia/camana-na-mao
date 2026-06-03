@@ -5,11 +5,11 @@
  */
 export const formatPhone = (value: string): string => {
   // Remove tudo que não é dígito
-  const cleaned = value.replace(/\D/g, '');
-  
+  const cleaned = value.replace(/\D/g, "");
+
   // Limita a 11 dígitos (máximo para celular brasileiro)
   const limited = cleaned.slice(0, 11);
-  
+
   // Aplica a máscara baseada no tamanho
   if (limited.length <= 2) {
     return limited;
@@ -28,7 +28,7 @@ export const formatPhone = (value: string): string => {
  * Remove a formatação do telefone, retornando apenas os dígitos
  */
 export const unformatPhone = (value: string): string => {
-  return value.replace(/\D/g, '');
+  return value.replace(/\D/g, "");
 };
 
 /**

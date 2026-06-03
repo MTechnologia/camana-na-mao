@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { __test__, useGabineteAnalytics } from "./useGabineteAnalytics";
 import { supabase } from "@/integrations/supabase/client";

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ReportSource } from "@/contexts/ReportDetailContext";
+import {
+  formatActiveConsequencesListPt,
+  formatAffectedScopePt,
+  formatTransportDirectionPt,
+  formatTransportRecurrencePt,
+  formatUrbanUrgencyReasonPt,
+} from "@/lib/reportDisplayPt";
 
 /**
  * HU-3.6 — Carrega dados completos de um relato individual para o
@@ -41,7 +48,6 @@ export interface ReportDetail {
     priority: string | null;
     patternDetected: boolean | null;
     tags: string[];
-    rawClassification: Record<string, unknown> | null;
     enrichedData: Record<string, unknown> | null;
   };
   authorUserId: string | null;
@@ -97,14 +103,36 @@ export interface UseReportDetailResult {
 }
 
 const URBAN_FIELDS =
-  "id, user_id, category, subcategory, description, status, severity, photos, latitude, longitude, location_address, neighborhood, street, street_number, cep, reference_point, protocol_code, urgency_reason, affected_estimate, affected_scope, active_consequences, ai_classification, n8n_priority, n8n_validated_category, n8n_tags, n8n_enriched_data, created_at, updated_at";
+  "id, user_id, category, subcategory, description, status, severity, photos, latitude, longitude, location_address, neighborhood, street, street_number, cep, reference_point, protocol_code, urgency_reason, affected_estimate, affected_scope, active_consequences, ai_classification, created_at, updated_at";
 
 const TRANSPORT_FIELDS =
-  "id, user_id, report_type, sub_category, description, status, severity, photos, location, stop_name, stop_location, direction, line_code_custom, occurrence_date, occurrence_time, recurrence_frequency, impact_description, personal_impact, accessibility_details, protocol_code, ai_category, ai_sentiment, ai_pattern_detected, n8n_priority, n8n_validated_category, n8n_tags, n8n_enriched_data, responded_at, created_at, updated_at";
+  "id, user_id, report_type, sub_category, description, status, severity, photos, location, stop_name, stop_location, direction, line_code_custom, occurrence_date, occurrence_time, recurrence_frequency, impact_description, personal_impact, accessibility_details, protocol_code, ai_category, ai_sentiment, ai_pattern_detected, responded_at, created_at, updated_at";
 
 function safeJson(value: unknown): Record<string, unknown> | null {
   if (!value) return null;
   if (typeof value === "object") return value as Record<string, unknown>;
+  return null;
+}
+
+/** Primeiro valor textual não vazio. */
+function pickStr(...candidates: unknown[]): string | null {
+  for (const c of candidates) {
+    if (c === null || c === undefined) continue;
+    if (typeof c === "string") {
+      const t = c.trim();
+      if (t) return t;
+    }
+    if (typeof c === "number" && !Number.isNaN(c)) return String(c);
+  }
+  return null;
+}
+
+function pickBool(...candidates: unknown[]): boolean | null {
+  for (const c of candidates) {
+    if (typeof c === "boolean") return c;
+    if (c === "true" || c === "sim" || c === "yes" || c === 1) return true;
+    if (c === "false" || c === "não" || c === "nao" || c === "no" || c === 0) return false;
+  }
   return null;
 }
 
@@ -174,29 +202,51 @@ export function useReportDetail(
 
       const r = rep as Record<string, unknown>;
       const ai = safeJson(r.ai_classification) ?? {};
-      const enriched = safeJson(r.n8n_enriched_data) ?? null;
       const photos = Array.isArray(r.photos) ? (r.photos as string[]) : [];
 
       const extras: Array<{ label: string; value: string }> = [];
       if (source === "urban") {
-        if (r.urgency_reason) extras.push({ label: "Razão da urgência", value: String(r.urgency_reason) });
+        if (r.urgency_reason)
+          extras.push({
+            label: "Razão da urgência",
+            value: formatUrbanUrgencyReasonPt(r.urgency_reason as string),
+          });
         if (r.affected_estimate)
-          extras.push({ label: "Pessoas afetadas (estimativa)", value: String(r.affected_estimate) });
-        if (r.affected_scope) extras.push({ label: "Escopo do impacto", value: String(r.affected_scope) });
-        if (Array.isArray(r.active_consequences) && (r.active_consequences as string[]).length > 0) {
+          extras.push({
+            label: "Pessoas afetadas (estimativa)",
+            value: String(r.affected_estimate),
+          });
+        if (r.affected_scope)
+          extras.push({
+            label: "Escopo do impacto",
+            value: formatAffectedScopePt(r.affected_scope as string),
+          });
+        if (
+          Array.isArray(r.active_consequences) &&
+          (r.active_consequences as string[]).length > 0
+        ) {
           extras.push({
             label: "Consequências ativas",
-            value: (r.active_consequences as string[]).join(", "),
+            value: formatActiveConsequencesListPt(r.active_consequences as string[]),
           });
         }
-        if (r.reference_point) extras.push({ label: "Ponto de referência", value: String(r.reference_point) });
+        if (r.reference_point)
+          extras.push({ label: "Ponto de referência", value: String(r.reference_point) });
       } else {
-        if (r.occurrence_date) extras.push({ label: "Data da ocorrência", value: String(r.occurrence_date) });
+        if (r.occurrence_date)
+          extras.push({ label: "Data da ocorrência", value: String(r.occurrence_date) });
         if (r.occurrence_time) extras.push({ label: "Hora", value: String(r.occurrence_time) });
         if (r.line_code_custom) extras.push({ label: "Linha", value: String(r.line_code_custom) });
-        if (r.direction) extras.push({ label: "Sentido", value: String(r.direction) });
+        if (r.direction)
+          extras.push({
+            label: "Sentido",
+            value: formatTransportDirectionPt(r.direction as string),
+          });
         if (r.recurrence_frequency)
-          extras.push({ label: "Frequência", value: String(r.recurrence_frequency) });
+          extras.push({
+            label: "Frequência",
+            value: formatTransportRecurrencePt(r.recurrence_frequency as string),
+          });
         if (r.personal_impact !== null && r.personal_impact !== undefined)
           extras.push({ label: "Impacto pessoal (1-5)", value: String(r.personal_impact) });
         if (r.impact_description)
@@ -225,17 +275,15 @@ export function useReportDetail(
         updatedAt: r.updated_at as string | null,
         extras,
         aiAnalysis: {
-          sentiment:
-            (ai.sentiment as string | undefined) ?? (r.ai_sentiment as string | undefined) ?? null,
-          category:
-            (ai.category as string | undefined) ?? (r.ai_category as string | undefined) ?? null,
-          priority:
-            (ai.priority as string | undefined) ?? (r.n8n_priority as string | undefined) ?? null,
+          sentiment: pickStr(ai.sentiment, source === "transport" ? r.ai_sentiment : null),
+          category: pickStr(ai.category, ai.validated_category, r.ai_category),
+          priority: pickStr(ai.priority),
           patternDetected:
-            typeof r.ai_pattern_detected === "boolean" ? (r.ai_pattern_detected as boolean) : null,
-          tags: Array.isArray(r.n8n_tags) ? (r.n8n_tags as string[]) : [],
-          rawClassification: ai,
-          enrichedData: enriched,
+            typeof r.ai_pattern_detected === "boolean"
+              ? (r.ai_pattern_detected as boolean)
+              : pickBool(ai.pattern_detected),
+          tags: Array.isArray(ai.tags) ? (ai.tags as string[]) : [],
+          enrichedData: Object.keys(ai).length > 0 ? ai : null,
         },
         authorUserId: r.user_id as string | null,
       };
@@ -246,7 +294,11 @@ export function useReportDetail(
       let authorRecord: ReportAuthor | null = null;
       if (userId) {
         const [{ data: profile }, { data: demo }] = await Promise.all([
-          supabase.from("profiles").select("id, full_name, avatar_url, phone").eq("id", userId).maybeSingle(),
+          supabase
+            .from("profiles")
+            .select("id, full_name, avatar_url, phone")
+            .eq("id", userId)
+            .maybeSingle(),
           supabase
             .from("user_demographics")
             .select("gender, race, social_class, birth_date")

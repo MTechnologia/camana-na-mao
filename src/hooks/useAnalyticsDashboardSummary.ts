@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type DashboardKpiSlice = {
   current: number;
@@ -35,16 +35,16 @@ export function useAnalyticsDashboardSummary(range?: AnalyticsDashboardRange) {
     try {
       setLoading(true);
       setError(null);
-      const { data: raw, error: rpcErr } = await supabase.rpc('get_analytics_dashboard_summary', {
+      const { data: raw, error: rpcErr } = await supabase.rpc("get_analytics_dashboard_summary", {
         p_start: pStart,
         p_end: pEnd,
       });
       if (rpcErr) throw rpcErr;
       setData(raw as AnalyticsDashboardSummary);
     } catch (e) {
-      console.error('[useAnalyticsDashboardSummary]', e);
+      console.error("[useAnalyticsDashboardSummary]", e);
       setData(null);
-      setError(e instanceof Error ? e.message : 'Erro ao carregar painel');
+      setError(e instanceof Error ? e.message : "Erro ao carregar painel");
     } finally {
       setLoading(false);
     }

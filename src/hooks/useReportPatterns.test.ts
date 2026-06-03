@@ -1,11 +1,9 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { useReportPatterns } from "./useReportPatterns";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,7 +29,9 @@ describe("useReportPatterns", () => {
     ];
     const chain = createQueryChain({ data: mockData, error: null });
 
-    vi.spyOn(supabase, "from").mockReturnValue(chain as any);
+    vi.spyOn(supabase, "from").mockReturnValue(
+      chain as unknown as ReturnType<typeof supabase.from>,
+    );
 
     const { result } = renderHook(() => useReportPatterns());
 
@@ -50,7 +50,9 @@ describe("useReportPatterns", () => {
   });
 
   it("deve retornar lista vazia quando o banco não tiver padrões", async () => {
-    vi.spyOn(supabase, "from").mockReturnValue(createQueryChain({ data: [], error: null }) as any);
+    vi.spyOn(supabase, "from").mockReturnValue(
+      createQueryChain({ data: [], error: null }) as unknown as ReturnType<typeof supabase.from>,
+    );
 
     const { result } = renderHook(() => useReportPatterns());
 
@@ -64,7 +66,9 @@ describe("useReportPatterns", () => {
 
   it("deve expor erro quando a query falhar", async () => {
     vi.spyOn(supabase, "from").mockReturnValue(
-      createQueryChain({ data: null, error: { message: "falhou" } }) as any
+      createQueryChain({ data: null, error: { message: "falhou" } }) as unknown as ReturnType<
+        typeof supabase.from
+      >,
     );
 
     const { result } = renderHook(() => useReportPatterns());
@@ -81,7 +85,9 @@ describe("useReportPatterns", () => {
     const lineId = "line-123";
     const chain = createQueryChain({ data: [], error: null });
 
-    vi.spyOn(supabase, "from").mockReturnValue(chain as any);
+    vi.spyOn(supabase, "from").mockReturnValue(
+      chain as unknown as ReturnType<typeof supabase.from>,
+    );
 
     renderHook(() => useReportPatterns(lineId));
 

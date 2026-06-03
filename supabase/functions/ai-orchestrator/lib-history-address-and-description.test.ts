@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { isGenericIntentText, isValidDomainDescription } from "./lib-nlp-utils.ts";
-import { isBareUrbanReportNatureReply } from "./lib-urban-rules.ts";
+import { isGenericIntentText, isSubstantiveUrbanNatureDescription, isValidDomainDescription } from "./lib-nlp-utils.ts";
+import { isBareUrbanReportNatureReply, normalizeReportNature } from "./lib-urban-rules.ts";
 import {
   applySelectedAddressFieldsFromHistory,
   detectLatestDomainDescriptionFromHistory,
@@ -42,6 +42,25 @@ Deno.test("detectLatestDomainDescriptionFromHistory: ignora mensagens estruturad
   );
 
   assertEquals(description, "Tem lixo acumulado na rua há dias e um cheiro forte no local");
+});
+
+Deno.test("detectLatestDomainDescriptionFromHistory: aceita dúvida substantiva (quero saber sobre...)", () => {
+  const description = detectLatestDomainDescriptionFromHistory(
+    [
+      { role: "user", content: "duvida" },
+      { role: "user", content: "Quero saber sobre os serviços disponíveis na cidade de SP" },
+    ],
+    "urban_report",
+    {
+      isGenericIntentText,
+      isValidDomainDescription,
+      isBareUrbanReportNatureReply,
+      isSubstantiveUrbanNatureDescription,
+      normalizeReportNature,
+    },
+  );
+
+  assertEquals(description, "Quero saber sobre os serviços disponíveis na cidade de SP");
 });
 
 Deno.test("detectLatestDomainDescriptionFromHistory: não trata natureza isolada como descrição urbana", () => {

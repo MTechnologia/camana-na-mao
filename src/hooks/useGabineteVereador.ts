@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { useUserRole } from '@/hooks/useUserRole';
-import { useVereadores } from '@/hooks/useVereadores';
+import { useMemo } from "react";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useVereadores } from "@/hooks/useVereadores";
 
 export const useGabineteVereador = () => {
   const {

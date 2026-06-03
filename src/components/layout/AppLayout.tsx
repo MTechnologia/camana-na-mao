@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "@/components/ui/page-header";
 import { useMenu } from "@/contexts/MenuContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import MenuDrawer from "@/components/MenuDrawer";
 import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
 
@@ -32,6 +33,10 @@ const ROUTE_TITLES: Record<string, string> = {
   "/perfil/preferencias": "Preferências",
   "/perfil/interesses": "Interesses",
   "/perfil/visitas": "Histórico de visitas",
+  "/perfil/inscricoes": "Minhas Inscrições",
+  "/perfil/consentimentos": "Consentimentos",
+  "/perfil/exportar-dados": "Exportar Dados",
+  "/perfil/direitos": "Meus Direitos LGPD",
   // Configurações - PT
   "/configuracoes/acessibilidade": "Acessibilidade",
   // Cidadão - PT
@@ -45,7 +50,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/paineis/criar": "Criar Painel",
   // Demais rotas
   "/audiencias": "Audiências Públicas",
-  "/audiencias/minhas-inscricoes": "Minhas inscrições em audiências",
+  "/audiencias/minhas-inscricoes": "Minhas Inscrições",
   "/servicos-proximos": "Serviços Próximos",
   "/servicos/favoritos": "Meus Favoritos",
   "/avaliar": "Avaliar Serviço",
@@ -72,10 +77,15 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const navigate = useNavigate();
   const { isMenuOpen, closeMenu } = useMenu();
 
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const { isAdmin, isGestor } = useUserRole();
+  const isGestorPaineis =
+    (isAdmin || isGestor) &&
+    location.pathname.startsWith("/paineis") &&
+    !location.pathname.startsWith("/paineis/piores-servicos");
+  const isAdminRoute = location.pathname.startsWith("/admin") || isGestorPaineis;
 
   const isHeaderlessRoute = HEADERLESS_ROUTES.some(
-    (route) => location.pathname === route || location.pathname.startsWith("/admin")
+    (route) => location.pathname === route || location.pathname.startsWith("/admin"),
   );
 
   const getTitle = useCallback(() => {
@@ -83,7 +93,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (ROUTE_TITLES[location.pathname]) {
       return ROUTE_TITLES[location.pathname];
     }
-    
+
     // Check for dynamic routes
     const pathParts = location.pathname.split("/");
     if (pathParts[1] === "audiencias" && pathParts[2]) {
@@ -103,22 +113,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   // Admin routes have their own layout - skip AppLayout wrapper but keep Suspense
   if (isAdminRoute) {
-    return (
-      <Suspense fallback={<PageSkeleton />}>
-        {children}
-      </Suspense>
-    );
+    return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
   }
 
   return (
     <>
-      {!isHeaderlessRoute && (
-        <PageHeader 
-          title={getTitle()} 
-          onBack={() => navigate(-1)}
-        />
-      )}
-      
+      {!isHeaderlessRoute && <PageHeader title={getTitle()} onBack={() => navigate(-1)} />}
+
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}
@@ -128,12 +129,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           transition={{ duration: 0.15, ease: "easeOut" }}
           className={`min-h-screen bg-background ${!isHeaderlessRoute ? "pt-[60px]" : ""}`}
         >
-          <Suspense fallback={<PageSkeleton />}>
-            {children}
-          </Suspense>
+          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
         </motion.div>
       </AnimatePresence>
-      
+
       <MenuDrawer isOpen={isMenuOpen} onClose={closeMenu} />
     </>
   );

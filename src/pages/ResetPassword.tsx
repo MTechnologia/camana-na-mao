@@ -31,13 +31,15 @@ const ResetPassword = () => {
 
       if (!error) {
         setEmailSent(true);
-        toast.success("Link de recuperação enviado! Verifique seu email.");
+        toast.success(
+          `Enviamos um link de recuperação de senha para o e-mail ${email}. Verifique sua caixa de entrada e caixa de spam.`,
+        );
       }
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }> };
       if (err?.errors) {
         err.errors.forEach((e) => {
-          toast.error(e.message ?? 'Erro');
+          toast.error(e.message ?? "Erro");
         });
       } else {
         toast.error("Erro ao enviar email de recuperação");
@@ -50,29 +52,28 @@ const ResetPassword = () => {
   if (emailSent) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
-      <div className="px-6 pt-8 pb-6">
-        <button
-          onClick={() => navigate("/login")}
-          className="-ml-2 text-foreground hover:text-primary transition-colors"
-          aria-label="Voltar"
-        >
-          <ChevronLeft size={24} strokeWidth={2} />
-        </button>
-      </div>
+        <div className="px-6 pt-8 pb-6">
+          <button
+            onClick={() => navigate("/login")}
+            className="-ml-2 text-foreground hover:text-primary transition-colors"
+            aria-label="Voltar"
+          >
+            <ChevronLeft size={24} strokeWidth={2} />
+          </button>
+        </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Check className="text-green-600" size={32} />
             </div>
-            
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Email Enviado!
-            </h1>
-            
-            <p className="text-gray-600 mb-8">
-              Enviamos um link de recuperação para <strong>{email}</strong>. 
-              Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">E-mail Enviado</h1>
+
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              Enviamos um link de recuperação de senha para o e-mail <strong>{email}</strong>.
+              Verifique sua caixa de entrada e caixa de spam (lixo eletrônico) e siga as instruções
+              no e-mail.
             </p>
 
             <Button
@@ -103,7 +104,8 @@ const ResetPassword = () => {
       {/* Header Text */}
       <div className="px-6 pb-6">
         <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-          Esqueceu<br />
+          Esqueceu
+          <br />
           sua senha?
         </h1>
         <p className="text-gray-600 mt-4">
@@ -113,9 +115,7 @@ const ResetPassword = () => {
 
       {/* Form Card */}
       <div className="flex-1 bg-white rounded-t-[32px] px-6 pt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          Recuperar Senha
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Recuperar Senha</h2>
 
         <form onSubmit={handleResetPassword} className="space-y-6">
           <div className="relative">
@@ -129,7 +129,10 @@ const ResetPassword = () => {
               required
             />
             {isEmailValid && (
-              <Check className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" size={20} />
+              <Check
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500"
+                size={20}
+              />
             )}
           </div>
 

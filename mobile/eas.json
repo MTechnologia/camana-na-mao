@@ -11,6 +11,14 @@
       "environment": "preview",
       "android": { "buildType": "apk" }
     },
+    "preview-hml": {
+      "extends": "preview",
+      "env": { "EXPO_PUBLIC_APP_ENV": "hml" }
+    },
+    "preview-dev": {
+      "extends": "preview",
+      "env": { "EXPO_PUBLIC_APP_ENV": "dev" }
+    },
     "production": {
       "environment": "production",
       "android": { "buildType": "app-bundle" }

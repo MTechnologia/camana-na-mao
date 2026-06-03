@@ -2,7 +2,7 @@
 ## Contextualização + LGPD
 
 **Data:** 2026-01-28  
-**Contexto:** Decisão de modelo para arquitetura n8n-cêntrica robusta
+**Contexto:** Decisão de modelo para arquitetura automacao-cêntrica robusta
 
 ---
 

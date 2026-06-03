@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
  * HU-3.6 — Estado global do drill-through de relato individual.
  *
  * Permite que qualquer componente da app abra o sheet de detalhe passando
- * apenas (id, source). O sheet em si vive no AdminLayout (ou similar) e
+ * apenas (id, source). O sheet em si vive no AdminAppLayout (ou similar) e
  * escuta esse contexto para abrir/fechar.
  */
 
@@ -49,7 +49,6 @@ export function useReportDetailModal(): ReportDetailContextValue {
       opened: null,
       open: () => {
         if (typeof window !== "undefined") {
-          // eslint-disable-next-line no-console
           console.warn("useReportDetailModal usado fora de ReportDetailProvider");
         }
       },

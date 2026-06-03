@@ -67,10 +67,17 @@ function parseLocalDate(yyyyMmDd: string): Date {
  * Calcula o valor previsto e o intervalo de confiança 95% para cada dia da
  * janela final do histórico. Usa o mesmo modelo da HU-9.2 (trend × weekday).
  *
- * Importante: para evitar vazamento (leak), usamos o modelo treinado em TODO
- * o histórico. Em produção a edge function chama isso 1x/dia depois que o
- * dia anterior já está fechado — então não há perigo do dia em análise estar
- * contaminado por dados futuros, já que ele é o último ponto.
+ * O modelo é treinado sobre TODO o histórico (incluindo a janela). Em séries
+ * reais — ruidosas, com `historyDays`=60 contra `windowDays`=7 — o efeito de
+ * incluir os 7 dias avaliados no treino é pequeno e o z-score usa o desvio
+ * observado dos resíduos (sem piso artificial). Esta é a regra documentada na
+ * spec HU-9.3 (severidade por faixa de |z|) e exercitada pelos testes.
+ *
+ * LIMITAÇÃO CONHECIDA: um surto MUITO sustentado e grande na janela contamina o
+ * próprio baseline (infla o stddev), podendo subestimar |z|. Em séries de ruído
+ * realista o efeito é pequeno; mudar isso (treino fora da janela / modelo de
+ * ruído Poisson) altera o trade-off FP×FN e exige decisão de produto — ver nota
+ * da A1.5. Aqui mantemos a regra spec'd.
  */
 export function detectAnomalies(
   history: VolumePoint[],
@@ -83,11 +90,8 @@ export function detectAnomalies(
     return [];
   }
 
-  // Treina o modelo com TODO o histórico (incluindo a janela). Em séries
-  // reais o efeito de incluir 7 dias adicionais sobre 60 dias é desprezível.
   const result = forecastVolume(history, 0);
-  const { trendSlope, trendIntercept, weekdayFactors, residualStdDev } =
-    result.diagnostics;
+  const { trendSlope, trendIntercept, weekdayFactors, residualStdDev } = result.diagnostics;
 
   // Se stddev é zero (série constante), não há como classificar como
   // anomalia — qualquer valor diferente seria infinito.

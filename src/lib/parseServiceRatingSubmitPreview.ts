@@ -8,7 +8,9 @@ export type ParsedServiceRatingSubmitPreview = {
   comment_preview: string;
 };
 
-export function parseServiceRatingSubmitPreviewJson(content: string): ParsedServiceRatingSubmitPreview | null {
+export function parseServiceRatingSubmitPreviewJson(
+  content: string,
+): ParsedServiceRatingSubmitPreview | null {
   const m = content.match(/\[RATING_SUBMIT_PREVIEW_JSON:([A-Za-z0-9+/=_-]+)\]/);
   if (!m?.[1]) return null;
   try {
@@ -23,7 +25,11 @@ export function parseServiceRatingSubmitPreviewJson(content: string): ParsedServ
       if (Number.isFinite(p)) rating_stars = p;
     }
     let rating_dimensions: Record<string, number> | null = null;
-    if (data.rating_dimensions && typeof data.rating_dimensions === "object" && !Array.isArray(data.rating_dimensions)) {
+    if (
+      data.rating_dimensions &&
+      typeof data.rating_dimensions === "object" &&
+      !Array.isArray(data.rating_dimensions)
+    ) {
       rating_dimensions = data.rating_dimensions as Record<string, number>;
     }
     return {

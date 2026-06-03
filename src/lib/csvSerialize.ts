@@ -6,7 +6,7 @@
  *  - Separador de linha: \r\n
  *  - Campos com vírgula, aspas duplas ou quebra de linha → cercados por aspas duplas
  *  - Aspas duplas dentro do campo → escapadas duplicando ("")
- *  - Prefixa BOM UTF-8 (﻿) pra Excel detectar UTF-8 corretamente
+ *  - Prefixa BOM UTF-8 (U+FEFF) pra Excel detectar UTF-8 corretamente
  *  - null/undefined → string vazia
  *  - Objetos/arrays → JSON.stringify
  */
@@ -41,9 +41,7 @@ export function csvEscape(value: unknown): string {
     s = value.toISOString();
   } else if (Array.isArray(value)) {
     // Arrays: serializa cada elemento como JSON, separados por "; ".
-    s = value
-      .map((v) => (typeof v === "string" ? v : JSON.stringify(v)))
-      .join("; ");
+    s = value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join("; ");
   } else {
     // Objetos: JSON.stringify
     try {
@@ -78,18 +76,49 @@ export function serializeCsv(
 
 /**
  * Helper para acionar o download de um CSV no navegador.
+ *
+ * Estratégia adaptativa:
+ *   1. Dentro do APK Android (WebView): envia o CSV via postMessage para
+ *      o nativo, que salva e abre o menu de Compartilhar (expo-sharing).
+ *   2. Em PWA standalone (Android instalado / iOS Add to Home Screen):
+ *      `<a download>` é bloqueado; abre em nova aba para o user salvar
+ *      via menu do navegador.
+ *   3. Em qualquer outro contexto (desktop, mobile browser comum):
+ *      `<a download>` programático funciona normalmente.
  */
+import { isInsideNativeApp, postFileToNative } from "./nativeBridge";
+
 export function downloadCsv(csv: string, filename: string): void {
   if (typeof window === "undefined") return;
+
+  // 1. Dentro do APK — envia pro nativo.
+  if (isInsideNativeApp()) {
+    const sent = postFileToNative(csv, filename, "text/csv");
+    if (sent) return;
+    // Fallback se a bridge falhar: tenta o caminho web normal.
+  }
+
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
+
+  // 2. PWA standalone — abre em nova aba.
+  const isStandalonePwa =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  if (isStandalonePwa) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
+  // 3. Caminho padrão: download direto via <a download>.
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  // Libera o blob após um tick para o browser ter tempo de iniciar o download.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 

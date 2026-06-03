@@ -12,6 +12,10 @@
  */
 
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
+import {
+  buildRecoveryEmailActionUrl,
+  buildSupabaseVerifyUrl,
+} from "../_shared/auth-recovery-email-link.ts";
 
 const DEFAULT_BRASAO_URL =
   "https://camana-na-mao-767943602990.southamerica-east1.run.app/assets/brasao-sp-DF635zJ4.png";
@@ -35,16 +39,6 @@ interface HookEmailData {
   token_new?: string;
   token_hash_new?: string;
   old_email?: string;
-}
-
-function buildConfirmationUrl(supabaseUrl: string, emailData: HookEmailData): string {
-  const base = (supabaseUrl || "").replace(/\/$/, "");
-  const params = new URLSearchParams({
-    token: emailData.token_hash,
-    type: emailData.email_action_type,
-    redirect_to: emailData.redirect_to || "",
-  });
-  return `${base}/auth/v1/verify?${params.toString()}`;
 }
 
 function escapeHtml(s: string): string {
@@ -266,8 +260,22 @@ Deno.serve(async (req) => {
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const confirmationUrl = buildConfirmationUrl(supabaseUrl || "", emailData);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const appPublicUrl = Deno.env.get("APP_PUBLIC_URL")?.trim() || "";
+  const confirmationUrl =
+    emailData.email_action_type === "recovery"
+      ? buildRecoveryEmailActionUrl({
+          token_hash: emailData.token_hash,
+          redirect_to: emailData.redirect_to,
+          site_url: emailData.site_url,
+          app_public_url: appPublicUrl || undefined,
+        })
+      : buildSupabaseVerifyUrl({
+          supabase_url: supabaseUrl,
+          token_hash: emailData.token_hash,
+          email_action_type: emailData.email_action_type,
+          redirect_to: emailData.redirect_to,
+        });
   const { subject, html } = getSubjectAndBody(
     emailData.email_action_type,
     confirmationUrl,

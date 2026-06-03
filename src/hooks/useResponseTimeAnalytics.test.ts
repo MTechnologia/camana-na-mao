@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import {
   __test__,
@@ -59,10 +57,7 @@ describe("helpers", () => {
   });
 
   it("previousWindow retorna janela imediatamente anterior de mesma duração", () => {
-    const { startIso, endIso } = previousWindow(
-      "2026-04-15T00:00:00Z",
-      "2026-04-22T00:00:00Z",
-    );
+    const { startIso, endIso } = previousWindow("2026-04-15T00:00:00Z", "2026-04-22T00:00:00Z");
     expect(endIso).toBeTruthy();
     expect(startIso).toBeTruthy();
     // duração ≈ 7 dias = 604800000 ms; janela anterior deve ter ≈ mesma duração
@@ -84,10 +79,7 @@ describe("helpers", () => {
   });
 
   it("buildBreakdown ignora chaves listadas em excludeEmpty", () => {
-    const data = [
-      rec({ severity: "alta", hours: 10 }),
-      rec({ severity: "—", hours: 30 }),
-    ];
+    const data = [rec({ severity: "alta", hours: 10 }), rec({ severity: "—", hours: 30 })];
     const result = buildBreakdown(data, (r) => r.severity, ["—"]);
     expect(result).toHaveLength(1);
     expect(result[0].label).toBe("alta");

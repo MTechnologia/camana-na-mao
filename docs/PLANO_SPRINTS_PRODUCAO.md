@@ -52,7 +52,7 @@
 | **CI/CD** | GitHub Actions |
 | **Autenticação** | OAuth2/OIDC (Keycloak/Cognito) |
 | **Observabilidade** | Grafana + Sentry |
-| **Automação** | N8N |
+| **Automação** | automacao |
 
 ---
 
@@ -70,7 +70,7 @@
 | E08 | CSU008 | Relato Urbano Estruturado | Sprint 3 |
 | E09 | - | Autenticação e Gestão de Usuários | Sprint 1 |
 | E10 | - | Área Administrativa | Sprint 9 |
-| E11 | - | Integrações Externas (N8N, APIs) | Sprint 11 |
+| E11 | - | Integrações Externas (automacao, APIs) | Sprint 11 |
 | E12 | - | Infraestrutura e DevOps | Sprint 0, 12 |
 
 ---
@@ -537,8 +537,8 @@ Envio → Atualização da média
 
 | ID | História | Pontos | Critérios de Aceite |
 |----|----------|:------:|---------------------|
-| S11-01 | Como sistema, quero integrar com N8N para automação | 8 | ✓ Webhooks configuráveis<br>✓ Eventos: novo relato, mudança de status<br>✓ Retry em caso de falha<br>✓ Logs de envio |
-| S11-02 | Como admin, quero configurar a integração N8N | 3 | ✓ Interface de configuração<br>✓ URL do webhook<br>✓ Secret key para validação<br>✓ Seleção de eventos |
+| S11-01 | Como sistema, quero integrar com automacao para automação | 8 | ✓ Webhooks configuráveis<br>✓ Eventos: novo relato, mudança de status<br>✓ Retry em caso de falha<br>✓ Logs de envio |
+| S11-02 | Como admin, quero configurar a integração automacao | 3 | ✓ Interface de configuração<br>✓ URL do webhook<br>✓ Secret key para validação<br>✓ Seleção de eventos |
 | S11-03 | Como admin, quero monitorar execuções de workflows | 3 | ✓ Lista de execuções<br>✓ Status de cada envio<br>✓ Detalhes de erro se falha |
 | S11-04 | Como sistema, quero sincronizar vereadores da API SP Legis | 5 | ✓ Cron diário às 3h<br>✓ Atualização incremental<br>✓ Log de sincronização<br>✓ Alerta se falha |
 | S11-05 | Como sistema, quero sincronizar notícias do Portal CMSP | 5 | ✓ Polling a cada 15 min<br>✓ Deduplicação por ID externo<br>✓ Categorização automática |
@@ -548,24 +548,24 @@ Envio → Atualização da média
 
 **Total Sprint 11:** 42 pontos
 
-### Fluxo de Integração N8N
+### Fluxo de Integração automacao
 
 ```
 Evento no sistema (novo relato, mudança de status)
     ↓
-Edge Function notify-n8n
+Edge Function notify-automacao
     ↓
 POST para webhook configurado
     ↓
-N8N processa e executa workflow
+automacao processa e executa workflow
     ↓
-Callback para n8n-callback (se necessário)
+Callback para automacao-callback (se necessário)
     ↓
 Log de execução registrado
 ```
 
 ### Entregáveis
-- [ ] Integração N8N completa
+- [ ] Integração automacao completa
 - [ ] Painel de configuração
 - [ ] Monitoramento de workflows
 - [ ] Sincronização de vereadores
@@ -787,7 +787,7 @@ Com equipe maior, as seguintes sprints podem ser executadas em paralelo:
 
 - [ESCOPO_E_ARQUITETURA_CAMARA_NA_MAO.md](./ESCOPO_E_ARQUITETURA_CAMARA_NA_MAO.md)
 - [ENTREGA_PROTOTIPO_CAMARA_NA_MAO.md](./ENTREGA_PROTOTIPO_CAMARA_NA_MAO.md)
-- [N8N_INTEGRATION_GUIDE.md](./N8N_INTEGRATION_GUIDE.md)
+- [automacao_INTEGRATION_GUIDE.md](./automacao_INTEGRATION_GUIDE.md)
 
 ---
 

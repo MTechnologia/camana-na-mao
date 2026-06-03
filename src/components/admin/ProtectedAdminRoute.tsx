@@ -1,8 +1,8 @@
-import { ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUserRole } from '@/hooks/useUserRole';
-import { WidgetThemeProvider } from '@/contexts/WidgetThemeContext';
-import { toast } from 'sonner';
+import { ReactNode, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
+import { AdminProviders } from "@/components/admin/AdminProviders";
+import { toast } from "sonner";
 
 interface ProtectedAdminRouteProps {
   children: ReactNode;
@@ -10,16 +10,16 @@ interface ProtectedAdminRouteProps {
 
 export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, loading } = useUserRole();
+  const { canAccessAdminPanel, loading } = useUserRole();
 
   useEffect(() => {
-    if (!loading && !isAdmin && !isGestor) {
-      toast.error('Acesso negado', {
-        description: 'Você não tem permissão para acessar esta área.',
+    if (!loading && !canAccessAdminPanel) {
+      toast.error("Acesso negado", {
+        description: "Você não tem permissão para acessar esta área.",
       });
-      navigate('/');
+      navigate("/");
     }
-  }, [isAdmin, isGestor, loading, navigate]);
+  }, [canAccessAdminPanel, loading, navigate]);
 
   if (loading) {
     return (
@@ -32,13 +32,9 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
     );
   }
 
-  if (!isAdmin && !isGestor) {
+  if (!canAccessAdminPanel) {
     return null;
   }
 
-  // HU-6.1 — WidgetThemeProvider precisa estar ACIMA de toda página admin
-  // (ReportsAnalyticsPage chama useWidgetTheme() em seu corpo, antes de
-  // renderizar o AdminLayout). Como ProtectedAdminRoute envolve todas as
-  // rotas admin, é o ponto natural para o Provider.
-  return <WidgetThemeProvider>{children}</WidgetThemeProvider>;
+  return <AdminProviders>{children}</AdminProviders>;
 };

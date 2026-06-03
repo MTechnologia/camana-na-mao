@@ -21,12 +21,11 @@ import {
   isInQuietHours,
 } from "../_shared/quiet-hours.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { computeRetryUpdate } from "../_shared/notification-retry.ts";
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -56,6 +55,7 @@ serve(async (req) => {
       .is("push_delivered_at", null)
       .is("discarded_at", null)
       .lte("scheduled_for", nowIso)
+      .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
       .order("scheduled_for", { ascending: true })
       .limit(100);
 
@@ -70,6 +70,7 @@ serve(async (req) => {
     const list = rows ?? [];
     let processed = 0;
     let failed = 0;
+    let deadLettered = 0;
     let deferredQuietHours = 0;
     let discardedDailyLimit = 0;
     let deliveredInAppOnly = 0;
@@ -191,6 +192,32 @@ serve(async (req) => {
 
       if (!res.ok) {
         console.error("[process-scheduled-notifications] send-web-push HTTP", res.status, resText);
+        // Retry com backoff; ao atingir o máximo, dead-letter (decision 2026-06-01).
+        const upd = computeRetryUpdate(
+          row.retry_count as number | null,
+          Date.now(),
+          `HTTP ${res.status}: ${resText.slice(0, 300)}`,
+        );
+        const patch = upd.dead
+          ? {
+            delivery_status: "dead",
+            retry_count: upd.retry_count,
+            last_error: upd.last_error,
+            discarded_at: new Date().toISOString(),
+            discard_reason: "max_retries",
+          }
+          : {
+            delivery_status: "failed",
+            retry_count: upd.retry_count,
+            next_retry_at: upd.next_retry_at,
+            last_error: upd.last_error,
+          };
+        const { error: upErr } = await supabase
+          .from("notifications")
+          .update(patch)
+          .eq("id", row.id as string);
+        if (upErr) console.error("[process-scheduled-notifications] retry update:", upErr);
+        if (upd.dead) deadLettered++;
         failed++;
         continue;
       }
@@ -218,6 +245,7 @@ serve(async (req) => {
         due: list.length,
         processed,
         failed,
+        dead_lettered: deadLettered,
         deferred_quiet_hours: deferredQuietHours,
         discarded_daily_limit: discardedDailyLimit,
         delivered_in_app_only: deliveredInAppOnly,

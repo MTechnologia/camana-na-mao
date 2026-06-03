@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: vi.fn() },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { __test__ } from "./useCrossDimensionAnalytics";
 import type { UnifiedReport } from "@/lib/analyticsDimensions";
@@ -91,9 +91,7 @@ describe("buildMatrix", () => {
   });
 
   it("relatos sem demografia caem em not_informed", () => {
-    const reports = [
-      rep({ id: "1", demoGender: null, demoRace: null }),
-    ];
+    const reports = [rep({ id: "1", demoGender: null, demoRace: null })];
     const m = buildMatrix(reports, "gender", "race");
     expect(m.cells["not_informed|not_informed"]).toBe(1);
   });
@@ -102,7 +100,19 @@ describe("buildMatrix", () => {
 describe("attachDemographics", () => {
   it("anexa demografia do mapa por user_id", () => {
     const partial = [
-      { id: "1", category: "Urbano" as const, userId: "u1", status: null, severity: null, neighborhood: null, latitude: null, longitude: null, createdAt: null, sentimentRaw: null, source: "manual" as const },
+      {
+        id: "1",
+        category: "Urbano" as const,
+        userId: "u1",
+        status: null,
+        severity: null,
+        neighborhood: null,
+        latitude: null,
+        longitude: null,
+        createdAt: null,
+        sentimentRaw: null,
+        source: "manual" as const,
+      },
     ];
     const map = new Map([
       ["u1", { gender: "feminino", race: "parda", social_class: "C", age: 28 }],
@@ -116,7 +126,19 @@ describe("attachDemographics", () => {
 
   it("relatos sem user_id ficam com demografia null", () => {
     const partial = [
-      { id: "1", category: "Urbano" as const, userId: null, status: null, severity: null, neighborhood: null, latitude: null, longitude: null, createdAt: null, sentimentRaw: null, source: "manual" as const },
+      {
+        id: "1",
+        category: "Urbano" as const,
+        userId: null,
+        status: null,
+        severity: null,
+        neighborhood: null,
+        latitude: null,
+        longitude: null,
+        createdAt: null,
+        sentimentRaw: null,
+        source: "manual" as const,
+      },
     ];
     const result = attachDemographics(partial, new Map());
     expect(result[0].demoGender).toBeNull();

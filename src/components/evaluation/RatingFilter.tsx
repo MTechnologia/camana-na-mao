@@ -29,9 +29,7 @@ export const RatingFilter = ({ value, onChange }: RatingFilterProps) => {
               variant={value === opt.value ? "default" : "outline"}
               className={cn(
                 "cursor-pointer whitespace-nowrap transition-all",
-                value === opt.value
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-secondary"
+                value === opt.value ? "bg-primary text-primary-foreground" : "hover:bg-secondary",
               )}
               onClick={() => onChange(opt.value)}
             >

@@ -25,9 +25,7 @@ const ComissaoCard = ({ comissao }: { comissao: Comissao }) => {
               {comissao.tipo}
             </Badge>
           </div>
-          <p
-            className={`text-sm text-muted-foreground ${expanded ? "" : "line-clamp-2"}`}
-          >
+          <p className={`text-sm text-muted-foreground ${expanded ? "" : "line-clamp-2"}`}>
             {comissao.atribuicoes}
           </p>
         </div>
@@ -59,8 +57,8 @@ const Comissoes = () => {
             Comissões da Câmara Municipal
           </h1>
           <p className="text-muted-foreground">
-            As comissões analisam projetos de lei por tema e emitem pareceres
-            antes da votação no plenário. Conheça as atribuições de cada uma.
+            As comissões analisam projetos de lei por tema e emitem pareceres antes da votação no
+            plenário. Conheça as atribuições de cada uma.
           </p>
         </div>
 
@@ -95,9 +93,9 @@ const Comissoes = () => {
             <strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo
           </p>
           <p>
-            <strong>Atualização:</strong> Lista e atribuições alinhadas à base de
-            conhecimento do assistente virtual. Dados dinâmicos (membros,
-            reuniões) podem ser integrados no futuro via API ComissoesCMSPJSON.
+            <strong>Atualização:</strong> Lista e atribuições alinhadas à base de conhecimento do
+            assistente virtual. Dados dinâmicos (membros, reuniões) podem ser integrados no futuro
+            via API ComissoesCMSPJSON.
           </p>
         </div>
       </div>

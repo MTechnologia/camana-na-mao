@@ -28,7 +28,9 @@ export function MultiDimensionRatingPicker({
   serviceTypeLabel,
   serviceTypeHints = [],
 }: MultiDimensionRatingPickerProps) {
-  const [selections, setSelections] = useState<Partial<Record<ServiceRatingDimensionKey, number>>>({});
+  const [selections, setSelections] = useState<Partial<Record<ServiceRatingDimensionKey, number>>>(
+    {},
+  );
   const [hovered, setHovered] = useState<{ key: ServiceRatingDimensionKey; star: number } | null>(
     null,
   );
@@ -79,9 +81,7 @@ export function MultiDimensionRatingPicker({
       <div className="flex items-center gap-2 mb-1 text-xs text-muted-foreground">
         <Star className="h-3 w-3" />
         <span>
-          {serviceTypeLabel
-            ? `Avalie ${serviceTypeLabel} em cada aspecto`
-            : "Avalie cada aspecto"}{" "}
+          {serviceTypeLabel ? `Avalie ${serviceTypeLabel} em cada aspecto` : "Avalie cada aspecto"}{" "}
           (tempo de espera em faixas; demais dimensões de 1 a 5 estrelas)
         </span>
       </div>

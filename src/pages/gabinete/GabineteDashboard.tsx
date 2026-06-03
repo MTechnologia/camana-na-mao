@@ -39,10 +39,7 @@ import {
 } from "@/components/vereador/ReferralQuickActions";
 import { useGabineteVereador } from "@/hooks/useGabineteVereador";
 import { useManifestsVereador } from "@/hooks/useManifestsVereador";
-import {
-  useReferralsVereador,
-  type ReferralsVereadorItem,
-} from "@/hooks/useReferralsVereador";
+import { useReferralsVereador, type ReferralsVereadorItem } from "@/hooks/useReferralsVereador";
 import { useGabineteAnalytics } from "@/hooks/useGabineteAnalytics";
 
 /**
@@ -92,25 +89,17 @@ export default function GabineteDashboard() {
   const navigate = useNavigate();
   const { vereador, councilMemberId, loading: gabineteLoading } = useGabineteVereador();
   const { items, counts, loading: manifestsLoading } = useManifestsVereador();
-  const {
-    referrals,
-    kpis,
-    loading: referralsLoading,
-    updateStatus,
-  } = useReferralsVereador();
-  const { stats: analytics, isLoading: analyticsLoading } =
-    useGabineteAnalytics(councilMemberId);
+  const { referrals, kpis, loading: referralsLoading, updateStatus } = useReferralsVereador();
+  const { stats: analytics, isLoading: analyticsLoading } = useGabineteAnalytics(councilMemberId);
 
   const loading = gabineteLoading || referralsLoading;
-  const [activeTab, setActiveTab] = useState<
-    "pendentes" | "em_andamento" | "resolvidos"
-  >("pendentes");
+  const [activeTab, setActiveTab] = useState<"pendentes" | "em_andamento" | "resolvidos">(
+    "pendentes",
+  );
 
   const referralGroups = useMemo(() => {
     return {
-      pendentes: referrals.filter(
-        (r) => r.status === "pending" || r.status === "sent",
-      ),
+      pendentes: referrals.filter((r) => r.status === "pending" || r.status === "sent"),
       em_andamento: referrals.filter((r) => r.status === "acknowledged"),
       resolvidos: referrals.filter((r) => r.status === "resolved").slice(0, 20),
     };
@@ -142,14 +131,11 @@ export default function GabineteDashboard() {
                   <h2 className="text-lg md:text-xl font-semibold">
                     {vereador ? `Gabinete de ${vereador.name}` : "Gabinete vinculado"}
                   </h2>
-                  {vereador?.party ? (
-                    <Badge variant="outline">{vereador.party}</Badge>
-                  ) : null}
+                  {vereador?.party ? <Badge variant="outline">{vereador.party}</Badge> : null}
                 </div>
                 <p className="text-sm text-muted-foreground max-w-2xl">
-                  Monitore os encaminhamentos do gabinete e responda as manifestações
-                  que precisam de retorno — acessível também pelo celular para uso
-                  em campo.
+                  Monitore os encaminhamentos do gabinete e responda as manifestações que precisam
+                  de retorno — acessível também pelo celular para uso em campo.
                 </p>
               </div>
             )}
@@ -208,20 +194,13 @@ export default function GabineteDashboard() {
                   <EmptyChart message="Sem encaminhamentos no histórico ainda." />
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={trendData}
-                      margin={{ top: 8, right: 12, left: 0, bottom: 4 }}
-                    >
+                    <LineChart data={trendData} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke="hsl(var(--border))"
                         opacity={0.3}
                       />
-                      <XAxis
-                        dataKey="label"
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={11}
-                      />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                       <YAxis
                         allowDecimals={false}
                         stroke="hsl(var(--muted-foreground))"
@@ -267,10 +246,7 @@ export default function GabineteDashboard() {
               <p className="text-xs text-muted-foreground">Top categorias dos relatos</p>
             </CardHeader>
             <CardContent>
-              <BreakdownChart
-                items={analytics.byCategory.slice(0, 6)}
-                loading={analyticsLoading}
-              />
+              <BreakdownChart items={analytics.byCategory.slice(0, 6)} loading={analyticsLoading} />
             </CardContent>
           </Card>
         </div>
@@ -282,8 +258,7 @@ export default function GabineteDashboard() {
               Por zona da cidade
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Distribuição dos encaminhamentos por região — ajuda a planejar visitas
-              em campo
+              Distribuição dos encaminhamentos por região — ajuda a planejar visitas em campo
             </p>
           </CardHeader>
           <CardContent>
@@ -303,33 +278,21 @@ export default function GabineteDashboard() {
             </p>
           </CardHeader>
           <CardContent>
-            <Tabs
-              value={activeTab}
-              onValueChange={(v) => setActiveTab(v as typeof activeTab)}
-            >
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
               <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger
-                  value="pendentes"
-                  className="flex flex-col gap-0.5 h-auto py-2"
-                >
+                <TabsTrigger value="pendentes" className="flex flex-col gap-0.5 h-auto py-2">
                   <span className="text-xs">Pendentes</span>
                   <Badge variant="secondary" className="text-[10px]">
                     {referralGroups.pendentes.length}
                   </Badge>
                 </TabsTrigger>
-                <TabsTrigger
-                  value="em_andamento"
-                  className="flex flex-col gap-0.5 h-auto py-2"
-                >
+                <TabsTrigger value="em_andamento" className="flex flex-col gap-0.5 h-auto py-2">
                   <span className="text-xs">Em andamento</span>
                   <Badge variant="secondary" className="text-[10px]">
                     {referralGroups.em_andamento.length}
                   </Badge>
                 </TabsTrigger>
-                <TabsTrigger
-                  value="resolvidos"
-                  className="flex flex-col gap-0.5 h-auto py-2"
-                >
+                <TabsTrigger value="resolvidos" className="flex flex-col gap-0.5 h-auto py-2">
                   <span className="text-xs">Resolvidos</span>
                   <Badge variant="secondary" className="text-[10px]">
                     {analytics.resolved}
@@ -426,9 +389,7 @@ export default function GabineteDashboard() {
                 <Button
                   variant="outline"
                   className="justify-start min-h-[44px]"
-                  onClick={() =>
-                    navigate(`/institucional/vereadores/${vereador.id}`)
-                  }
+                  onClick={() => navigate(`/institucional/vereadores/${vereador.id}`)}
                 >
                   <Building2 className="h-4 w-4 mr-2" />
                   Abrir perfil público
@@ -463,11 +424,7 @@ function BreakdownChart({ items, loading, layout = "vertical" }: BreakdownChartP
           layout={layout === "vertical" ? "vertical" : "horizontal"}
           margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
         >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="hsl(var(--border))"
-            opacity={0.3}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
           {layout === "vertical" ? (
             <>
               <XAxis
@@ -487,16 +444,8 @@ function BreakdownChart({ items, loading, layout = "vertical" }: BreakdownChartP
             </>
           ) : (
             <>
-              <XAxis
-                dataKey="label"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={11}
-              />
-              <YAxis
-                allowDecimals={false}
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={11}
-              />
+              <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+              <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
             </>
           )}
           <Tooltip
@@ -511,10 +460,7 @@ function BreakdownChart({ items, loading, layout = "vertical" }: BreakdownChartP
               `${item.payload.resolvidos} resolvidos (${item.payload.resolutionPct}%)`,
             ]}
           />
-          <Bar
-            dataKey="total"
-            radius={layout === "vertical" ? [0, 4, 4, 0] : [4, 4, 0, 0]}
-          >
+          <Bar dataKey="total" radius={layout === "vertical" ? [0, 4, 4, 0] : [4, 4, 0, 0]}>
             {items.map((_, i) => (
               <Cell key={`cell-${i}`} fill={COLOR_PALETTE[i % COLOR_PALETTE.length]} />
             ))}
@@ -532,12 +478,7 @@ interface ReferralListProps {
   emptyMessage: string;
 }
 
-function ReferralList({
-  items,
-  loading,
-  onChangeStatus,
-  emptyMessage,
-}: ReferralListProps) {
+function ReferralList({ items, loading, onChangeStatus, emptyMessage }: ReferralListProps) {
   if (loading && items.length === 0) {
     return (
       <div className="space-y-2">

@@ -1,18 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Calendar as CalendarIcon, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { format, parse, isValid, setMonth, setYear } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { StandardCalendarPanel } from "@/components/ui/standard-calendar-panel";
+import { toLocalCalendarDate } from "@/lib/datePickerConstants";
+import { format, parse, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface EnhancedDateInputProps {
@@ -23,21 +15,6 @@ interface EnhancedDateInputProps {
   minYear?: number;
   maxYear?: number;
 }
-
-const months = [
-  { value: 0, label: "Janeiro" },
-  { value: 1, label: "Fevereiro" },
-  { value: 2, label: "Março" },
-  { value: 3, label: "Abril" },
-  { value: 4, label: "Maio" },
-  { value: 5, label: "Junho" },
-  { value: 6, label: "Julho" },
-  { value: 7, label: "Agosto" },
-  { value: 8, label: "Setembro" },
-  { value: 9, label: "Outubro" },
-  { value: 10, label: "Novembro" },
-  { value: 11, label: "Dezembro" },
-];
 
 export function EnhancedDateInput({
   value,
@@ -52,10 +29,6 @@ export function EnhancedDateInput({
   const [displayMonth, setDisplayMonth] = useState<Date>(value || new Date());
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Generate year options
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
-
-  // Sync input value with prop value
   useEffect(() => {
     if (value && isValid(value)) {
       setInputValue(format(value, "dd/MM/yyyy"));
@@ -65,19 +38,13 @@ export function EnhancedDateInput({
     }
   }, [value]);
 
-  // Apply date mask: DD/MM/YYYY
   const applyMask = (rawValue: string): string => {
-    // Remove non-digits
     const digits = rawValue.replace(/\D/g, "");
-    
     let masked = "";
     for (let i = 0; i < digits.length && i < 8; i++) {
-      if (i === 2 || i === 4) {
-        masked += "/";
-      }
+      if (i === 2 || i === 4) masked += "/";
       masked += digits[i];
     }
-    
     return masked;
   };
 
@@ -85,7 +52,6 @@ export function EnhancedDateInput({
     const masked = applyMask(e.target.value);
     setInputValue(masked);
 
-    // Try to parse complete date
     if (masked.length === 10) {
       const parsed = parse(masked, "dd/MM/yyyy", new Date());
       if (isValid(parsed)) {
@@ -96,36 +62,27 @@ export function EnhancedDateInput({
   };
 
   const handleInputBlur = () => {
-    // Validate on blur
     if (inputValue.length === 10) {
       const parsed = parse(inputValue, "dd/MM/yyyy", new Date());
       if (isValid(parsed)) {
         onChange(parsed);
       } else {
-        // Reset to last valid value or empty
         setInputValue(value ? format(value, "dd/MM/yyyy") : "");
       }
     } else if (inputValue.length > 0 && inputValue.length < 10) {
-      // Incomplete date - reset
       setInputValue(value ? format(value, "dd/MM/yyyy") : "");
     }
   };
 
-  const handleMonthChange = (monthValue: string) => {
-    const newDate = setMonth(displayMonth, parseInt(monthValue));
-    setDisplayMonth(newDate);
-  };
-
-  const handleYearChange = (yearValue: string) => {
-    const newDate = setYear(displayMonth, parseInt(yearValue));
-    setDisplayMonth(newDate);
-  };
-
   const handleCalendarSelect = (date: Date | undefined) => {
-    onChange(date);
     if (date) {
-      setInputValue(format(date, "dd/MM/yyyy"));
-      setDisplayMonth(date);
+      const local = toLocalCalendarDate(date);
+      onChange(local);
+      setInputValue(format(local, "dd/MM/yyyy"));
+      setDisplayMonth(local);
+    } else {
+      onChange(undefined);
+      setInputValue("");
     }
     setOpen(false);
   };
@@ -157,7 +114,7 @@ export function EnhancedDateInput({
                 }}
                 className={cn(
                   "h-11 pl-10 pr-8 rounded-xl font-normal tabular-nums",
-                  !value && "text-muted-foreground"
+                  !value && "text-muted-foreground",
                 )}
                 maxLength={10}
               />
@@ -175,53 +132,16 @@ export function EnhancedDateInput({
         </div>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0 z-50 bg-popover" sideOffset={4}>
-        <div className="p-3 space-y-3">
-          {/* Year/Month selectors */}
-          <div className="flex gap-2">
-            <Select
-              value={displayMonth.getMonth().toString()}
-              onValueChange={handleMonthChange}
-            >
-              <SelectTrigger className="flex-1 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-60 z-[60] bg-popover">
-                {months.map((month) => (
-                  <SelectItem key={month.value} value={month.value.toString()}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={displayMonth.getFullYear().toString()}
-              onValueChange={handleYearChange}
-            >
-              <SelectTrigger className="w-24 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-60 z-[60] bg-popover">
-                {years.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Calendar */}
-          <Calendar
-            mode="single"
-            selected={value}
-            onSelect={handleCalendarSelect}
-            month={displayMonth}
-            onMonthChange={setDisplayMonth}
-            locale={ptBR}
-            className="pointer-events-auto"
-            initialFocus
-          />
-        </div>
+        <StandardCalendarPanel
+          displayMonth={displayMonth}
+          onDisplayMonthChange={setDisplayMonth}
+          minYear={minYear}
+          maxYear={maxYear}
+          mode="single"
+          selected={value}
+          onSelect={handleCalendarSelect}
+          initialFocus
+        />
       </PopoverContent>
     </Popover>
   );

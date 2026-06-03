@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { closeServiceVisitWithDeparture } from "@/lib/closeServiceVisitDeparture";
 
 interface PendingRating {
   id: string;
@@ -46,7 +47,8 @@ export const usePendingRatings = (options?: { limit?: number }) => {
     try {
       const { data, error: fetchError } = await supabase
         .from("service_visits")
-        .select(`
+        .select(
+          `
           id,
           service_id,
           visited_at,
@@ -59,7 +61,8 @@ export const usePendingRatings = (options?: { limit?: number }) => {
             address,
             district
           )
-        `)
+        `,
+        )
         .eq("user_id", userId)
         .eq("status", "pending")
         .gt("expires_at", new Date().toISOString())
@@ -70,7 +73,8 @@ export const usePendingRatings = (options?: { limit?: number }) => {
 
       setPendingRatings((data as Array<Record<string, unknown>>) || []);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Erro ao buscar avaliações pendentes";
+      const errorMessage =
+        err instanceof Error ? err.message : "Erro ao buscar avaliações pendentes";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -90,15 +94,15 @@ export const usePendingRatings = (options?: { limit?: number }) => {
   const markAsSkipped = async (visitId: string) => {
     if (!userId) return;
     try {
-      const { error: updateError } = await supabase
-        .from("service_visits")
-        .update({ status: "skipped" })
-        .eq("id", visitId)
-        .eq("user_id", userId);
+      const { error: updateError } = await closeServiceVisitWithDeparture(supabase, {
+        visitId,
+        userId,
+        status: "skipped",
+      });
 
       if (updateError) throw updateError;
 
-      setPendingRatings(prev => prev.filter(r => r.id !== visitId));
+      setPendingRatings((prev) => prev.filter((r) => r.id !== visitId));
       toast.success("Avaliação dispensada");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao dispensar avaliação";

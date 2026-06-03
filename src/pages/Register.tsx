@@ -3,9 +3,16 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, ChevronLeft, Check } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { passwordRequirements, registerStep1Schema, registerStep2Schema } from "@/lib/validations";
+import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
+import {
+  passwordRequirements,
+  registerCredentialsSchema,
+  registerStep1Schema,
+  validatePasswordPolicy,
+} from "@/lib/validations";
+import type { ZodError } from "zod";
 import { toast } from "sonner";
 import { supabase, supabaseUrl, supabaseAnonKey } from "@/integrations/supabase/client";
 import StepIndicator from "@/components/register/StepIndicator";
@@ -14,7 +21,7 @@ import LocationStep from "@/components/register/LocationStep";
 import InterestsStep from "@/components/register/InterestsStep";
 import { formatPhone, unformatPhone } from "@/lib/phoneMask";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 interface FormData {
   // Step 1: Basic info
@@ -76,46 +83,47 @@ const Register = () => {
   });
 
   const handleChange = (field: keyof FormData, value: string | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: "" };
-    const metRequirements = passwordRequirements.filter((requirement) => requirement.test(password)).length;
+    const metRequirements = passwordRequirements.filter((requirement) =>
+      requirement.test(password),
+    ).length;
     if (metRequirements < 3) return { strength: 33, label: "Fraca", color: "bg-red-500" };
-    if (metRequirements < passwordRequirements.length) return { strength: 66, label: "Média", color: "bg-yellow-500" };
+    if (metRequirements < passwordRequirements.length)
+      return { strength: 66, label: "Média", color: "bg-yellow-500" };
     return { strength: 100, label: "Forte", color: "bg-green-500" };
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
 
-  const handleStep1Submit = (e: React.FormEvent) => {
+  const showZodErrors = (error: unknown) => {
+    const zodErr = error as ZodError;
+    if (zodErr?.issues?.length) {
+      zodErr.issues.forEach((issue) => toast.error(issue.message));
+      return;
+    }
+    const legacy = error as { errors?: Array<{ message?: string }> };
+    legacy.errors?.forEach((e) => toast.error(e.message ?? "Erro"));
+  };
+
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      registerStep1Schema.parse({
+      registerCredentialsSchema.parse({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
-      });
-      setCurrentStep(2);
-    } catch (error: unknown) {
-      if (error.errors) {
-        (error as { errors?: Array<{ message?: string }> }).errors?.forEach((e) => toast.error(e.message ?? 'Erro'));
-      }
-    }
-  };
-
-  const handleStep2Submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      registerStep2Schema.parse({
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       });
-      
-      // Validate terms acceptance
+
       if (!formData.acceptedTerms || !formData.acceptedPrivacy) {
-        toast.error("Você precisa aceitar os termos de uso e a política de privacidade para continuar");
+        toast.error(
+          "Você precisa aceitar os termos de uso e a política de privacidade para continuar",
+        );
         return;
       }
 
@@ -124,7 +132,7 @@ const Register = () => {
         formData.email,
         formData.password,
         formData.fullName,
-        formData.phone
+        formData.phone,
       );
 
       if (!error && data?.user) {
@@ -136,9 +144,7 @@ const Register = () => {
         return;
       }
     } catch (error: unknown) {
-      if (error.errors) {
-        (error as { errors?: Array<{ message?: string }> }).errors?.forEach((e) => toast.error(e.message ?? 'Erro'));
-      }
+      showZodErrors(error);
     } finally {
       setLoading(false);
     }
@@ -161,7 +167,7 @@ const Register = () => {
       toast.error("Selecione a faixa de renda familiar.");
       return;
     }
-    setCurrentStep(4);
+    setCurrentStep(3);
   };
 
   const handleLocationContinue = () => {
@@ -169,13 +175,13 @@ const Register = () => {
     if (!hasCompleteAddress) {
       toast.info("Você pode concluir agora e cadastrar o endereço depois em Perfil > Endereço.");
     }
-    setCurrentStep(5);
+    setCurrentStep(4);
   };
 
   const toggleInterest = (interestId: string) => {
     const current = formData.interests;
     const updated = current.includes(interestId)
-      ? current.filter(id => id !== interestId)
+      ? current.filter((id) => id !== interestId)
       : [...current, interestId];
     handleChange("interests", updated);
   };
@@ -186,7 +192,12 @@ const Register = () => {
       return;
     }
 
-    if (!formData.birthDate?.trim() || !formData.gender?.trim() || !formData.race?.trim() || !formData.incomeRange?.trim()) {
+    if (
+      !formData.birthDate?.trim() ||
+      !formData.gender?.trim() ||
+      !formData.race?.trim() ||
+      !formData.incomeRange?.trim()
+    ) {
       toast.error("Preencha todos os campos da etapa Sobre você.");
       return;
     }
@@ -223,7 +234,9 @@ const Register = () => {
 
       // Token: preferir sessão (atualizada), depois anon key (produção pode não ter env no build)
       await supabase.auth.refreshSession();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token ?? supabaseAnonKey;
       if (!token) {
         toast.error("Sessão expirada. Faça login novamente e complete o cadastro em Perfil.");
@@ -242,7 +255,9 @@ const Register = () => {
       const data = (await res.json().catch(() => ({}))) as { error?: string; details?: string };
       if (!res.ok) {
         console.error("complete-registration error:", res.status, data);
-        toast.error(data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.");
+        toast.error(
+          data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.",
+        );
         return;
       }
       if (data?.error) {
@@ -263,24 +278,31 @@ const Register = () => {
   const handleBack = () => {
     if (currentStep === 1) {
       navigate("/login");
-    } else if (currentStep > 2) {
-      // After account creation, allow going back through profile steps
-      setCurrentStep(prev => prev - 1);
     } else {
-      setCurrentStep(1);
+      setCurrentStep((prev) => prev - 1);
     }
   };
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 1: return { main: "Olá!", sub: "queremos\nte conhecer!" };
-      case 2: return { main: "Quase lá!", sub: "Crie sua senha" };
-      case 3: return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
-      case 4: return { main: "Onde você", sub: "mora?" };
-      case 5: return { main: "Por fim,", sub: "seus interesses" };
-      default: return { main: "", sub: "" };
+      case 1:
+        return { main: "Olá!", sub: "Seja bem vindo a Câmara na Mão - Crie sua conta aqui" };
+      case 2:
+        return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
+      case 3:
+        return { main: "Onde você", sub: "mora?" };
+      case 4:
+        return { main: "Por fim,", sub: "seus interesses" };
+      default:
+        return { main: "", sub: "" };
     }
   };
+
+  const emailFieldValid =
+    formData.email.length > 0 && registerStep1Schema.shape.email.safeParse(formData.email).success;
+  const passwordFieldValid = validatePasswordPolicy(formData.password);
+  const passwordsMatch =
+    formData.password.length > 0 && formData.password === formData.confirmPassword;
 
   const title = getStepTitle();
 
@@ -296,7 +318,8 @@ const Register = () => {
           <ChevronLeft size={24} strokeWidth={2} />
         </button>
         <h1 className="text-3xl font-bold text-foreground leading-tight whitespace-pre-line">
-          {title.main}<br />
+          {title.main}
+          <br />
           {title.sub}
         </h1>
       </div>
@@ -311,7 +334,7 @@ const Register = () => {
         {currentStep === 1 && (
           <>
             <h2 className="text-lg font-semibold text-foreground mb-4">Vamos começar</h2>
-            <form onSubmit={handleStep1Submit} className="space-y-4">
+            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">
                   Nome completo
@@ -326,9 +349,7 @@ const Register = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  E-mail
-                </label>
+                <label className="text-sm font-medium text-foreground mb-2 block">E-mail</label>
                 <Input
                   type="email"
                   placeholder="seuemail@exemplo.com"
@@ -337,11 +358,20 @@ const Register = () => {
                   className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />
+                {formData.email.length > 0 && (
+                  <p
+                    className={`text-xs mt-1 ${
+                      emailFieldValid ? "text-green-700" : "text-destructive"
+                    }`}
+                  >
+                    {emailFieldValid
+                      ? "E-mail com formato válido"
+                      : "Informe um e-mail válido com domínio reconhecível"}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Celular
-                </label>
+                <label className="text-sm font-medium text-foreground mb-2 block">Celular</label>
                 <Input
                   type="tel"
                   placeholder="(11) 99999-9999"
@@ -354,24 +384,8 @@ const Register = () => {
                   required
                 />
               </div>
-              <Button
-                type="submit"
-                className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-base font-medium mt-4"
-              >
-                Continuar
-              </Button>
-            </form>
-          </>
-        )}
-
-        {currentStep === 2 && (
-          <>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Segurança</h2>
-            <form onSubmit={handleStep2Submit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  Senha
-                </label>
+                <label className="text-sm font-medium text-foreground mb-2 block">Senha</label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
@@ -402,35 +416,9 @@ const Register = () => {
                     </span>
                   </div>
                 )}
-                <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
-                  <p className="text-xs font-medium text-foreground mb-2">
-                    A senha deve conter:
-                  </p>
-                  <ul className="space-y-1">
-                    {passwordRequirements.map((requirement) => {
-                      const isMet = requirement.test(formData.password);
-                      return (
-                        <li
-                          key={requirement.id}
-                          className={`flex items-center gap-2 text-xs ${
-                            isMet ? "text-green-700" : "text-muted-foreground"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-4 w-4 items-center justify-center rounded-full border ${
-                              isMet
-                                ? "border-green-600 bg-green-600 text-white"
-                                : "border-muted-foreground/40"
-                            }`}
-                          >
-                            {isMet && <Check size={12} strokeWidth={3} />}
-                          </span>
-                          {requirement.label}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+                {formData.password.length > 0 && (
+                  <PasswordRequirementsChecklist password={formData.password} className="mt-3" />
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">
@@ -453,9 +441,10 @@ const Register = () => {
                     {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
+                {formData.confirmPassword.length > 0 && !passwordsMatch && (
+                  <p className="text-xs text-destructive mt-1">As senhas não coincidem.</p>
+                )}
               </div>
-              
-              {/* Terms and Privacy Acceptance */}
               <div className="space-y-3 pt-2">
                 <div className="flex items-start gap-3">
                   <Checkbox
@@ -483,7 +472,9 @@ const Register = () => {
                   <Checkbox
                     id="privacy"
                     checked={formData.acceptedPrivacy}
-                    onCheckedChange={(checked) => handleChange("acceptedPrivacy", checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      handleChange("acceptedPrivacy", checked as boolean)
+                    }
                     className="mt-1"
                   />
                   <label
@@ -502,19 +493,25 @@ const Register = () => {
                   </label>
                 </div>
               </div>
-
               <Button
                 type="submit"
-                disabled={loading || !formData.acceptedTerms || !formData.acceptedPrivacy}
+                disabled={
+                  loading ||
+                  !formData.acceptedTerms ||
+                  !formData.acceptedPrivacy ||
+                  !emailFieldValid ||
+                  !passwordFieldValid ||
+                  !passwordsMatch
+                }
                 className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-base font-medium mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Criando conta..." : "Continuar"}
+                {loading ? "Criando conta..." : "Criar conta"}
               </Button>
             </form>
           </>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 2 && (
           <AboutYouStep
             data={{
               birthDate: formData.birthDate,
@@ -527,7 +524,7 @@ const Register = () => {
           />
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 3 && (
           <LocationStep
             data={{
               cep: formData.cep,
@@ -543,7 +540,7 @@ const Register = () => {
           />
         )}
 
-        {currentStep === 5 && (
+        {currentStep === 4 && (
           <InterestsStep
             selectedInterests={formData.interests}
             onToggle={toggleInterest}
@@ -553,7 +550,7 @@ const Register = () => {
         )}
 
         {/* Login Link - only show on first two steps */}
-        {currentStep <= 2 && (
+        {currentStep === 1 && (
           <p className="text-center text-sm text-muted-foreground mt-6">
             Já tem uma conta?{" "}
             <Link to="/login" className="text-foreground font-semibold">

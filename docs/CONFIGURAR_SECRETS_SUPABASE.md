@@ -62,7 +62,6 @@ Após adicionar, você deve ter:
 ✅ AI_CHAT_BASE_URL = http://34.41.3.173:8000/v1
 ✅ AI_API_KEY = dummy (ou qualquer valor)
 ✅ AI_CHAT_MODEL = Qwen/Qwen2.5-3B-Instruct (opcional)
-✅ LOVABLE_API_KEY = lv_... (já existe, será usado como fallback)
 ```
 
 ---

@@ -34,10 +34,21 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useReportDetail, type ReportAuditEntry, type ReportComment, type ReportDetail, type ReportAuthor } from "@/hooks/useReportDetail";
+import {
+  useReportDetail,
+  type ReportAuditEntry,
+  type ReportComment,
+  type ReportDetail,
+  type ReportAuthor,
+} from "@/hooks/useReportDetail";
 import { useReportDetailModal, type ReportSource } from "@/contexts/ReportDetailContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
+import {
+  formatIaPriorityPt,
+  formatSentimentPt,
+  formatSeverityBadgePt,
+} from "@/lib/reportDisplayPt";
 import { TriageEditor } from "@/components/admin/triage/TriageEditor";
 import { ReportTimelineTab } from "@/components/admin/triage/ReportTimelineTab";
 import { CommissionReferralDialog } from "@/components/admin/triage/CommissionReferralDialog";
@@ -65,7 +76,8 @@ function severityColorClass(severity: string | null): string {
   const s = (severity ?? "").toLowerCase();
   if (s.includes("crit") || s.includes("crít")) return "bg-destructive text-destructive-foreground";
   if (s.includes("alto") || s === "alta" || s === "high") return "bg-amber-500 text-white";
-  if (s.includes("med") || s === "medium") return "bg-yellow-200 text-yellow-900";
+  if (s.includes("med") || s === "medium" || s === "moderate" || s.includes("moderad"))
+    return "bg-yellow-200 text-yellow-900";
   if (s.includes("bai") || s === "low") return "bg-muted text-muted-foreground";
   return "bg-muted text-muted-foreground";
 }
@@ -112,12 +124,13 @@ export function ReportDetailSheet() {
   const canReferToCommission = isAdmin || isGestor || isAssessor;
 
   return (
-    <Sheet open={!!opened} onOpenChange={(o) => { if (!o) close(); }}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-2xl flex flex-col p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
+    <Sheet
+      open={!!opened}
+      onOpenChange={(o) => {
+        if (!o) close();
+      }}
+    >
+      <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col p-0">
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -125,23 +138,25 @@ export function ReportDetailSheet() {
                 <FileText className="h-4 w-4 shrink-0" />
                 <span className="truncate">{detail?.title || "Carregando…"}</span>
               </SheetTitle>
-              <SheetDescription className="text-xs flex flex-wrap gap-2 items-center mt-1">
-                {detail?.protocolCode && (
-                  <span className="font-mono">#{detail.protocolCode}</span>
-                )}
-                <Badge variant="outline" className="text-[10px]">
-                  {source === "urban" ? "Urbano" : "Transporte"}
-                </Badge>
-                {detail?.status && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {statusLabel(detail.status)}
+              <SheetDescription asChild>
+                <div className="text-xs text-muted-foreground flex flex-wrap gap-2 items-center mt-1">
+                  {detail?.protocolCode && (
+                    <span className="font-mono">#{detail.protocolCode}</span>
+                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {source === "urban" ? "Urbano" : "Transporte"}
                   </Badge>
-                )}
-                {detail?.severity && (
-                  <Badge className={cn("text-[10px]", severityColorClass(detail.severity))}>
-                    {detail.severity}
-                  </Badge>
-                )}
+                  {detail?.status && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {statusLabel(detail.status)}
+                    </Badge>
+                  )}
+                  {detail?.severity && (
+                    <Badge className={cn("text-[10px]", severityColorClass(detail.severity))}>
+                      {formatSeverityBadgePt(detail.severity)}
+                    </Badge>
+                  )}
+                </div>
               </SheetDescription>
             </div>
             <Button
@@ -162,14 +177,26 @@ export function ReportDetailSheet() {
           className="flex-1 flex flex-col overflow-hidden"
         >
           <TabsList className="flex flex-wrap mx-4 mt-3 h-auto gap-1 p-1">
-            <TabsTrigger value="detalhes" className="flex-1 min-w-[80px] text-xs">Detalhes</TabsTrigger>
-            <TabsTrigger value="autor" className="flex-1 min-w-[80px] text-xs">Autor</TabsTrigger>
-            <TabsTrigger value="ia" className="flex-1 min-w-[60px] text-xs">IA</TabsTrigger>
+            <TabsTrigger value="detalhes" className="flex-1 min-w-[80px] text-xs">
+              Detalhes
+            </TabsTrigger>
+            <TabsTrigger value="autor" className="flex-1 min-w-[80px] text-xs">
+              Autor
+            </TabsTrigger>
+            <TabsTrigger value="ia" className="flex-1 min-w-[60px] text-xs">
+              IA
+            </TabsTrigger>
             {canManageTriage && (
-              <TabsTrigger value="triagem" className="flex-1 min-w-[80px] text-xs">Triagem</TabsTrigger>
+              <TabsTrigger value="triagem" className="flex-1 min-w-[80px] text-xs">
+                Triagem
+              </TabsTrigger>
             )}
-            <TabsTrigger value="acompanhamento" className="flex-1 min-w-[120px] text-xs">Acompanhamento</TabsTrigger>
-            <TabsTrigger value="historico" className="flex-1 min-w-[90px] text-xs">Histórico</TabsTrigger>
+            <TabsTrigger value="acompanhamento" className="flex-1 min-w-[120px] text-xs">
+              Acompanhamento
+            </TabsTrigger>
+            <TabsTrigger value="historico" className="flex-1 min-w-[90px] text-xs">
+              Histórico
+            </TabsTrigger>
           </TabsList>
 
           <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -206,11 +233,7 @@ export function ReportDetailSheet() {
                   <ReportTimelineTab reportId={id} source={source} />
                   {canReferToCommission && (
                     <div className="flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setReferralOpen(true)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => setReferralOpen(true)}>
                         <Send className="h-3.5 w-3.5 mr-2" />
                         Encaminhar a comissão
                       </Button>
@@ -221,11 +244,7 @@ export function ReportDetailSheet() {
             </TabsContent>
 
             <TabsContent value="historico" className="mt-0 space-y-4">
-              <HistoryPanel
-                auditLog={auditLog}
-                comments={comments}
-                isLoading={isLoading}
-              />
+              <HistoryPanel auditLog={auditLog} comments={comments} isLoading={isLoading} />
             </TabsContent>
           </div>
 
@@ -259,13 +278,7 @@ export function ReportDetailSheet() {
 // Sub-componentes de cada aba
 // ---------------------------------------------------------------------------
 
-function DetailsPanel({
-  detail,
-  isLoading,
-}: {
-  detail: ReportDetail | null;
-  isLoading: boolean;
-}) {
+function DetailsPanel({ detail, isLoading }: { detail: ReportDetail | null; isLoading: boolean }) {
   if (isLoading && !detail) {
     return (
       <div className="space-y-3">
@@ -320,9 +333,7 @@ function DetailsPanel({
             <MapPin className="h-3.5 w-3.5" />
             Localização
           </h3>
-          {detail.addressLine && (
-            <p className="text-sm">{detail.addressLine}</p>
-          )}
+          {detail.addressLine && <p className="text-sm">{detail.addressLine}</p>}
           {detail.latitude !== null && detail.longitude !== null && (
             <a
               href={`https://www.google.com/maps?q=${detail.latitude},${detail.longitude}`}
@@ -366,22 +377,12 @@ function DetailsPanel({
   );
 }
 
-function AuthorPanel({
-  author,
-  isLoading,
-}: {
-  author: ReportAuthor | null;
-  isLoading: boolean;
-}) {
+function AuthorPanel({ author, isLoading }: { author: ReportAuthor | null; isLoading: boolean }) {
   if (isLoading && !author) {
     return <Skeleton className="h-32 w-full" />;
   }
   if (!author) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Autor anônimo ou perfil não disponível.
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">Autor anônimo ou perfil não disponível.</p>;
   }
   return (
     <div className="space-y-3">
@@ -424,13 +425,7 @@ function DemoField({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function AIPanel({
-  detail,
-  isLoading,
-}: {
-  detail: ReportDetail | null;
-  isLoading: boolean;
-}) {
+function AIPanel({ detail, isLoading }: { detail: ReportDetail | null; isLoading: boolean }) {
   if (isLoading && !detail) {
     return <Skeleton className="h-32 w-full" />;
   }
@@ -444,9 +439,9 @@ function AIPanel({
       </div>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-        <DemoField label="Sentimento" value={ai.sentiment} />
+        <DemoField label="Sentimento" value={formatSentimentPt(ai.sentiment)} />
         <DemoField label="Categoria validada" value={ai.category} />
-        <DemoField label="Prioridade" value={ai.priority} />
+        <DemoField label="Prioridade" value={formatIaPriorityPt(ai.priority)} />
         <DemoField
           label="Padrão detectado"
           value={ai.patternDetected !== null ? (ai.patternDetected ? "Sim" : "Não") : null}
@@ -458,27 +453,18 @@ function AIPanel({
           <p className="text-xs text-muted-foreground mb-1">Tags</p>
           <div className="flex flex-wrap gap-1">
             {ai.tags.map((t) => (
-              <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+              <Badge key={t} variant="secondary" className="text-[10px]">
+                {t}
+              </Badge>
             ))}
           </div>
         </div>
       )}
 
-      {ai.rawClassification && Object.keys(ai.rawClassification).length > 0 && (
-        <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Resposta bruta da classificação IA
-          </summary>
-          <pre className="mt-2 p-2 bg-muted rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
-            {JSON.stringify(ai.rawClassification, null, 2)}
-          </pre>
-        </details>
-      )}
-
       {ai.enrichedData && (
         <details className="text-xs">
           <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-            Dados enriquecidos pelo n8n
+            Dados enriquecidos (processamento automático)
           </summary>
           <pre className="mt-2 p-2 bg-muted rounded text-[10px] overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(ai.enrichedData, null, 2)}
@@ -521,9 +507,7 @@ function HistoryPanel({
   }
   if (timeline.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Sem histórico de mudanças ou comentários.
-      </p>
+      <p className="text-sm text-muted-foreground">Sem histórico de mudanças ou comentários.</p>
     );
   }
 
@@ -560,8 +544,14 @@ function HistoryPanel({
                 <span className="font-medium">{a.action}</span>
                 {oldStatus && newStatus && oldStatus !== newStatus && (
                   <>
-                    : status mudou de <Badge variant="outline" className="text-[10px] ml-1">{statusLabel(oldStatus)}</Badge>{" "}
-                    para <Badge variant="outline" className="text-[10px]">{statusLabel(newStatus)}</Badge>
+                    : status mudou de{" "}
+                    <Badge variant="outline" className="text-[10px] ml-1">
+                      {statusLabel(oldStatus)}
+                    </Badge>{" "}
+                    para{" "}
+                    <Badge variant="outline" className="text-[10px]">
+                      {statusLabel(newStatus)}
+                    </Badge>
                   </>
                 )}
               </p>
@@ -679,7 +669,9 @@ function ActionsFooter({
             </SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

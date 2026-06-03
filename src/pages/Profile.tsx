@@ -11,20 +11,19 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { 
-  MapPin, 
-  BarChart3, 
-  ChevronRight, 
+import {
+  MapPin,
+  BarChart3,
+  ChevronRight,
   Heart,
+  Star,
   Bookmark,
-  Settings, 
-  Accessibility,
+  Settings,
   CheckCircle2,
   LogOut,
   Camera,
   Loader2,
   Shield,
-  Download,
   History,
   Building2,
 } from "lucide-react";
@@ -32,7 +31,11 @@ import {
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { status: profileStatus, checkCompletion } = useProfileCompletion();
+  const {
+    status: profileStatus,
+    loading: profileCompletionLoading,
+    checkCompletion,
+  } = useProfileCompletion();
   const { canViewGabinete } = useUserRole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -55,7 +58,7 @@ const Profile = () => {
     if (user) {
       loadProfile();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProfile runs when user changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProfile runs when user changes
   }, [user]);
 
   const loadProfile = async () => {
@@ -63,16 +66,12 @@ const Profile = () => {
 
     try {
       const [profileRes, addressRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('user_addresses')
-          .select('street, number, complement, neighborhood, city, state, zip_code')
-          .eq('user_id', user.id)
-          .eq('is_primary', true)
+          .from("user_addresses")
+          .select("street, number, complement, neighborhood, city, state, zip_code")
+          .eq("user_id", user.id)
+          .eq("is_primary", true)
           .maybeSingle(),
       ]);
 
@@ -108,7 +107,7 @@ const Profile = () => {
     if (!file || !user) return;
 
     // Validar tipo de arquivo
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       toast.error("Por favor, selecione uma imagem");
       return;
     }
@@ -122,31 +121,29 @@ const Profile = () => {
     setUploadingAvatar(true);
     try {
       // Upload para Supabase Storage
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const filePath = `${user.id}/avatar.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from("avatars")
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       // Obter URL pública
-      const { data: urlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
       // Atualizar perfil
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ avatar_url: avatarUrl })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (updateError) throw updateError;
 
-      setProfile(prev => ({ ...prev, avatarUrl }));
+      setProfile((prev) => ({ ...prev, avatarUrl }));
       checkCompletion();
       toast.success("Foto atualizada com sucesso!");
     } catch (error: unknown) {
@@ -159,12 +156,13 @@ const Profile = () => {
 
   // Determinar status de completude de cada seção
   const getCompletionStatus = (cardId: string): boolean | null => {
+    if (profileCompletionLoading) return null;
     switch (cardId) {
-      case 'address':
+      case "address":
         return profileStatus.address;
-      case 'interests':
+      case "interests":
         return profileStatus.interests;
-      case 'demographics':
+      case "demographics":
         return profileStatus.demographics;
       default:
         return null;
@@ -172,129 +170,116 @@ const Profile = () => {
   };
 
   const addressDescription = primaryAddress
-    ? [primaryAddress.street, primaryAddress.number, primaryAddress.complement, primaryAddress.neighborhood]
+    ? [
+        primaryAddress.street,
+        primaryAddress.number,
+        primaryAddress.complement,
+        primaryAddress.neighborhood,
+      ]
         .filter(Boolean)
         .join(" · ") || "CEP, rua e complemento"
     : "CEP, rua e complemento";
 
   const dataCards = [
     {
-      id: 'address',
-      title: 'Endereço',
+      id: "address",
+      title: "Endereço",
       description: addressDescription,
       icon: MapPin,
-      iconColor: 'text-emerald-600',
-      iconBg: 'bg-emerald-100',
-      path: '/perfil/endereco',
+      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-100",
+      path: "/perfil/endereco",
     },
     {
-      id: 'favorites',
-      title: 'Meus Favoritos',
-      description: 'Equipamentos públicos salvos',
-      icon: Bookmark,
-      iconColor: 'text-amber-600',
-      iconBg: 'bg-amber-100',
-      path: '/servicos/favoritos',
-    },
-    {
-      id: 'visitas',
-      title: 'Histórico de visitas',
-      description: 'Equipamentos detectados por geolocalização',
-      icon: History,
-      iconColor: 'text-sky-600',
-      iconBg: 'bg-sky-100',
-      path: '/perfil/visitas',
-    },
-    {
-      id: 'interests',
-      title: 'Interesses',
-      description: 'Áreas de interesse e preferências',
+      id: "favorites",
+      title: "Meus Favoritos",
+      description: "Atalhos salvos com o coração (não são alertas de avaliação)",
       icon: Heart,
-      iconColor: 'text-rose-600',
-      iconBg: 'bg-rose-100',
-      path: '/perfil/interesses',
+      iconColor: "text-amber-600",
+      iconBg: "bg-amber-100",
+      path: "/servicos/favoritos",
     },
     {
-      id: 'demographics',
-      title: 'Dados Demográficos',
-      description: 'Gênero, idade e classe social',
+      id: "visitas",
+      title: "Histórico de visitas",
+      description: "Equipamentos detectados por geolocalização",
+      icon: History,
+      iconColor: "text-sky-600",
+      iconBg: "bg-sky-100",
+      path: "/perfil/visitas",
+    },
+    {
+      id: "interests",
+      title: "Interesses",
+      description: "Áreas de interesse e preferências",
+      icon: Star,
+      iconColor: "text-rose-600",
+      iconBg: "bg-rose-100",
+      path: "/perfil/interesses",
+    },
+    {
+      id: "demographics",
+      title: "Dados Demográficos",
+      description: "Gênero, idade e classe social",
       icon: BarChart3,
-      iconColor: 'text-violet-600',
-      iconBg: 'bg-violet-100',
-      path: '/perfil/dados-demograficos',
+      iconColor: "text-violet-600",
+      iconBg: "bg-violet-100",
+      path: "/perfil/dados-demograficos",
     },
   ];
 
   const settingsCards = [
     {
-      id: 'gabinete',
-      title: 'Gabinete',
-      description: 'Painel institucional do vereador e assessoria',
+      id: "gabinete",
+      title: "Gabinete",
+      description: "Painel institucional do vereador e assessoria",
       icon: Building2,
-      iconColor: 'text-blue-600',
-      iconBg: 'bg-blue-100',
-      path: '/gabinete',
+      iconColor: "text-blue-600",
+      iconBg: "bg-blue-100",
+      path: "/gabinete",
     },
     {
-      id: 'subscriptions',
-      title: 'Minhas Inscrições',
-      description: 'Gestão de alertas e temas',
+      id: "subscriptions",
+      title: "Minhas Inscrições",
+      description: "Gestão de alertas e temas",
       icon: Bookmark,
-      iconColor: 'text-indigo-600',
-      iconBg: 'bg-indigo-100',
-      path: '/perfil/inscricoes',
+      iconColor: "text-indigo-600",
+      iconBg: "bg-indigo-100",
+      path: "/perfil/inscricoes",
     },
     {
-      id: 'accessibility',
-      title: 'Acessibilidade',
-      description: 'Fonte, contraste e leitura',
-      icon: Accessibility,
-      iconColor: 'text-orange-600',
-      iconBg: 'bg-orange-100',
-      path: '/configuracoes/acessibilidade',
-    },
-    {
-      id: 'preferences',
-      title: 'Preferências',
-      description: 'Notificações e privacidade',
+      id: "preferences",
+      title: "Preferências",
+      description: "Notificações e privacidade",
       icon: Settings,
-      iconColor: 'text-slate-600',
-      iconBg: 'bg-slate-100',
-      path: '/perfil/preferencias',
+      iconColor: "text-slate-600",
+      iconBg: "bg-slate-100",
+      path: "/perfil/preferencias",
     },
     {
-      id: 'consents',
-      title: 'Consentimentos',
-      description: 'Gestão de consentimentos LGPD',
+      id: "consents",
+      title: "Consentimentos",
+      description: "Gestão de consentimentos LGPD",
       icon: Shield,
-      iconColor: 'text-blue-600',
-      iconBg: 'bg-blue-100',
-      path: '/perfil/consentimentos',
+      iconColor: "text-blue-600",
+      iconBg: "bg-blue-100",
+      path: "/perfil/consentimentos",
     },
     {
-      id: 'export',
-      title: 'Exportar Dados',
-      description: 'Portabilidade de dados (LGPD)',
-      icon: Download,
-      iconColor: 'text-purple-600',
-      iconBg: 'bg-purple-100',
-      path: '/perfil/exportar-dados',
-    },
-    {
-      id: 'rights',
-      title: 'Meus Direitos LGPD',
-      description: 'Acesso, correção, exclusão e mais',
+      id: "rights",
+      title: "Meus Direitos LGPD",
+      description: "Acesso, correção, exclusão e mais",
       icon: Shield,
-      iconColor: 'text-indigo-600',
-      iconBg: 'bg-indigo-100',
-      path: '/perfil/direitos',
+      iconColor: "text-indigo-600",
+      iconBg: "bg-indigo-100",
+      path: "/perfil/direitos",
     },
   ];
 
-  const renderCard = (card: typeof dataCards[0], showStatus: boolean = false) => {
+  const renderCard = (card: (typeof dataCards)[0], showStatus: boolean = false) => {
     const Icon = card.icon;
     const completionStatus = showStatus ? getCompletionStatus(card.id) : null;
-    
+
     return (
       <Card
         key={card.id}
@@ -313,13 +298,12 @@ const Profile = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {completionStatus !== null && (
-                completionStatus ? (
+              {completionStatus !== null &&
+                (completionStatus ? (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 ) : (
                   <div className="h-2 w-2 rounded-full bg-amber-400" />
-                )
-              )}
+                ))}
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
@@ -346,21 +330,25 @@ const Profile = () => {
         {user && (
           <Card
             className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50 mb-2"
-            onClick={() => navigate('/perfil/dados-pessoais')}
+            onClick={() => navigate("/perfil/dados-pessoais")}
           >
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 {/* Avatar com botão de upload */}
-                <div 
-                  className="relative flex-shrink-0 group"
-                  onClick={handleAvatarClick}
-                >
+                <div className="relative flex-shrink-0 group" onClick={handleAvatarClick}>
                   <Avatar className="w-14 h-14 ring-2 ring-border transition-opacity group-hover:opacity-80">
                     {profile.avatarUrl ? (
                       <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
                     ) : null}
                     <AvatarFallback className="bg-primary text-primary-foreground text-lg font-bold">
-                      {profile.fullName ? profile.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                      {profile.fullName
+                        ? profile.fullName
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()
+                        : "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110">
@@ -371,27 +359,24 @@ const Profile = () => {
                     )}
                   </div>
                 </div>
-                
+
                 {/* Informações */}
                 <div className="flex-1 min-w-0">
                   <h2 className="font-semibold text-foreground text-sm truncate">
                     {profile.fullName || "Sem nome"}
                   </h2>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user.email}
-                  </p>
-                  <p className="text-[10px] text-primary mt-0.5">
-                    Toque para editar dados
-                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  <p className="text-[10px] text-primary mt-0.5">Toque para editar dados</p>
                 </div>
-                
-                {/* Status de completude */}
+
+                {/* Status de completude — só após carregar (evita flash amarelo → verde) */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {profileStatus.basic ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <div className="h-2 w-2 rounded-full bg-amber-400" />
-                  )}
+                  {!profileCompletionLoading &&
+                    (profileStatus.basic ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <div className="h-2 w-2 rounded-full bg-amber-400" />
+                    ))}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
@@ -399,8 +384,8 @@ const Profile = () => {
           </Card>
         )}
 
-        {/* Profile Completion Card */}
-        {profileStatus.percentage < 100 && (
+        {/* Profile Completion Card — oculto até carregar (evita flash "Complete seu perfil") */}
+        {!profileCompletionLoading && profileStatus.percentage < 100 && (
           <div className="mb-2">
             <ProfileCompletionCard status={profileStatus} />
           </div>
@@ -412,9 +397,7 @@ const Profile = () => {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
               Meus Dados
             </h3>
-            <div className="space-y-1.5">
-              {dataCards.map(card => renderCard(card, true))}
-            </div>
+            <div className="space-y-1.5">{dataCards.map((card) => renderCard(card, true))}</div>
           </div>
 
           {/* Configurações Section */}
@@ -424,8 +407,8 @@ const Profile = () => {
             </h3>
             <div className="space-y-1.5">
               {settingsCards
-                .filter((card) => card.id !== 'gabinete' || canViewGabinete)
-                .map(card => renderCard(card, false))}
+                .filter((card) => card.id !== "gabinete" || canViewGabinete)
+                .map((card) => renderCard(card, false))}
             </div>
           </div>
         </div>

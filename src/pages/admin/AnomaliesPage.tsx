@@ -1,11 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  RefreshCw,
-  Siren,
-  Sparkles,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, Siren, Sparkles } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,10 +8,7 @@ import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AnomaliesTable } from "@/components/admin/anomalies/AnomaliesTable";
 import { AnomalyDetailSheet } from "@/components/admin/anomalies/AnomalyDetailSheet";
-import {
-  useReportAnomalies,
-  type AnomalyEntry,
-} from "@/hooks/useReportAnomalies";
+import { useReportAnomalies, type AnomalyEntry } from "@/hooks/useReportAnomalies";
 
 /**
  * HU-9.3 — Página /admin/anomalias.
@@ -59,9 +50,8 @@ export default function AnomaliesPage() {
     const active = anomalies.filter((a) => a.status === "active");
     return {
       activeTotal: active.length,
-      criticalToday: active.filter(
-        (a) => a.severity === "critical" && a.signalDate >= today,
-      ).length,
+      criticalToday: active.filter((a) => a.severity === "critical" && a.signalDate >= today)
+        .length,
       lastWeek: anomalies.filter((a) => a.signalDate >= sevenDaysAgo).length,
       acknowledged: anomalies.filter((a) => a.status === "acknowledged").length,
     };
@@ -95,9 +85,8 @@ export default function AnomaliesPage() {
               Detecção de anomalias
             </h1>
             <p className="text-muted-foreground">
-              O sistema monitora o volume diário de relatos e dispara alerta
-              quando o valor real escapa do intervalo esperado. Use para
-              reagir rapidamente a picos ou quedas atípicas.
+              O sistema monitora o volume diário de relatos e dispara alerta quando o valor real
+              escapa do intervalo esperado. Use para reagir rapidamente a picos ou quedas atípicas.
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -112,9 +101,7 @@ export default function AnomaliesPage() {
               onClick={() => void handleRunDetection()}
               disabled={isRunningDetection}
             >
-              <RefreshCw
-                className={`h-4 w-4 mr-2 ${isRunningDetection ? "animate-spin" : ""}`}
-              />
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRunningDetection ? "animate-spin" : ""}`} />
               Detectar agora
             </Button>
           </div>
@@ -136,17 +123,13 @@ export default function AnomaliesPage() {
             subtitle="Aguardando ação"
             value={stats.activeTotal}
             icon={AlertTriangle}
-            className={
-              stats.activeTotal > 0 ? "border-destructive/40" : undefined
-            }
+            className={stats.activeTotal > 0 ? "border-destructive/40" : undefined}
           />
           <KPICard
             title="Críticas (hoje)"
             value={stats.criticalToday}
             icon={Siren}
-            className={
-              stats.criticalToday > 0 ? "border-destructive/40" : undefined
-            }
+            className={stats.criticalToday > 0 ? "border-destructive/40" : undefined}
           />
           <KPICard
             title="Últimos 7 dias"
@@ -164,17 +147,13 @@ export default function AnomaliesPage() {
         </div>
 
         {/* Tabela */}
-        <AnomaliesTable
-          anomalies={anomalies}
-          onSelectAnomaly={setSelected}
-        />
+        <AnomaliesTable anomalies={anomalies} onSelectAnomaly={setSelected} />
 
         {/* Rodapé com info do modelo */}
         <Card className="p-3 text-[11px] text-muted-foreground">
-          <span className="font-medium">Como funciona:</span> a detecção roda
-          1x/dia comparando o volume real ao previsto pelo modelo (HU-9.2).
-          Dispara alerta quando |z-score| ≥ 2,5 — ou seja, quando o desvio
-          em relação ao esperado é estatisticamente significativo.
+          <span className="font-medium">Como funciona:</span> a detecção roda 1x/dia comparando o
+          volume real ao previsto pelo modelo (HU-9.2). Dispara alerta quando |z-score| ≥ 2,5 — ou
+          seja, quando o desvio em relação ao esperado é estatisticamente significativo.
         </Card>
 
         <AnomalyDetailSheet

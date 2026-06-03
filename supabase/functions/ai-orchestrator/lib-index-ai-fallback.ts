@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  buildContextualEmptyFallbackMessage,
+  extractLastFieldRequestFromHistory,
+} from "./lib-contextual-fallback.ts";
 import { handleAiToolCall } from "./lib-index-ai-stream.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import type { NextFieldInfo } from "./lib-next-missing-field.ts";
@@ -7,6 +11,7 @@ import type { CollectionIntent } from "./lib.ts";
 
 type StreamFallbackArgs = {
   accumulatedFields: Record<string, unknown>;
+  chatMessages: Array<{ role: string; content: string }>;
   collectionIntent: CollectionIntent | null;
   fullContent: string;
   lastUserMsg: string;
@@ -42,6 +47,7 @@ async function buildEmptyContentFallback(
   accumulatedFields: Record<string, unknown>,
   collectionIntent: CollectionIntent | null,
   nextFieldInfo: NextFieldInfo,
+  chatMessages: Array<{ role: string; content: string }>,
   supabase: SupabaseClient,
   lib: typeof import("./lib.ts"),
 ): Promise<string> {
@@ -70,7 +76,12 @@ async function buildEmptyContentFallback(
     }`;
   }
 
-  return "Desculpe, não consegui processar sua mensagem. Pode reformular?";
+  const lastFieldRequest = extractLastFieldRequestFromHistory(chatMessages);
+  return buildContextualEmptyFallbackMessage({
+    collectionIntent,
+    lastFieldRequest,
+    nextFieldInfo,
+  });
 }
 
 export async function handleAiStreamFallback(
@@ -78,6 +89,7 @@ export async function handleAiStreamFallback(
 ): Promise<Response> {
   const {
     accumulatedFields,
+    chatMessages,
     collectionIntent,
     fullContent,
     lastUserMsg,
@@ -95,6 +107,7 @@ export async function handleAiStreamFallback(
       accumulatedFields,
       collectionIntent,
       nextFieldInfo,
+      chatMessages,
       supabase,
       lib,
     );
@@ -114,6 +127,18 @@ export async function handleAiStreamFallback(
     (lib.isInformationalQuestionAboutBuscarAudiencia(lastUserMsg) || lib.isInformationalQuestionAboutAudience(lastUserMsg))
   ) {
     responseContent += "\n\n[APP_ACTIONS:audiencias]";
+  }
+
+  const urbanNonComplaintLlmMode = collectionIntent?.type === "urban_report" &&
+    lib.isUrbanNonComplaintReadyForLlmTurn(accumulatedFields);
+  const generalCamaraInfoMode = collectionIntent?.type === "general" &&
+    responseContent.replace(/\[COLLECTION_PROGRESS:[^\]]+\]/g, "").trim().length >= 80;
+  if (urbanNonComplaintLlmMode || generalCamaraInfoMode) {
+    responseContent = responseContent.replace(/\n*\[SHOW_SERVICES_CHIPS\]\s*/g, "\n");
+    responseContent = responseContent.replace(
+      /\n*(?:Posso ajudar com mais alguma coisa\?|Se precisar de mais alguma informação[^.]*\.|Tenha um ótimo dia!?)\s*$/i,
+      "",
+    ).trimEnd();
   }
 
   console.log("[ai-orchestrator] Request completed in", Date.now() - requestStartTime, "ms (stream)");

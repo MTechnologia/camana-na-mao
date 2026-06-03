@@ -1,0 +1,112 @@
+{
+  "journey": "urban_report",
+  "description": "Cobertura transversal: gírias, baixa escrita, frustração, ofensa direta, áudio transcrito, intenção mista e risco",
+  "cases": [
+    {
+      "id": "robust_urban_frustrated_lixo",
+      "input": "essa rua ta uma merda, tem lixo espalhado na esquina",
+      "expect_intent": "urban_report",
+      "languageProfile": "ofensivo_sobre_problema",
+      "expectedBehavior": "classificar",
+      "notes": "Palavrão descreve a situação, não deve bloquear a coleta."
+    },
+    {
+      "id": "robust_urban_direct_insult_buraco",
+      "input": "voces sao incompetentes, tem buraco enorme na avenida",
+      "expect_intent": "urban_report",
+      "languageProfile": "ofensivo_direto",
+      "expectedBehavior": "advertir_e_continuar"
+    },
+    {
+      "id": "robust_urban_low_literacy_bueiro",
+      "input": "o bueiro ta intupido agua n desce",
+      "expect_intent": "urban_report",
+      "languageProfile": "baixa_escrita",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_urban_audio_transcript_poste",
+      "input": "olha eu to falando aqui porque tem um poste apagado faz dias na rua e ta muito escuro",
+      "expect_intent": "urban_report",
+      "languageProfile": "audio_transcrito",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_urban_risk_fio_caido",
+      "input": "tem fio caido na rua com risco de choque",
+      "expect_intent": "urban_report",
+      "languageProfile": "risco",
+      "expectedBehavior": "orientar_emergencia"
+    },
+    {
+      "id": "robust_transport_direct_insult_nao_passou",
+      "input": "voces sao incompetentes, o onibus 875 nao passou de novo",
+      "expect_intent": "transport_report",
+      "languageProfile": "ofensivo_direto",
+      "expectedBehavior": "advertir_e_continuar"
+    },
+    {
+      "id": "robust_transport_low_literacy_busao",
+      "input": "qro fala do busao lotado td dia",
+      "expect_intent": "transport_report",
+      "languageProfile": "girias",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_transport_risk_weapon",
+      "input": "tem arma e briga dentro do onibus agora",
+      "expect_intent": "transport_report",
+      "languageProfile": "risco",
+      "expectedBehavior": "orientar_emergencia"
+    },
+    {
+      "id": "robust_service_frustrated_ubs",
+      "input": "quero avaliar a UBS, atendimento foi uma porcaria",
+      "expect_intent": "service_rating",
+      "languageProfile": "ofensivo_sobre_problema",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_service_low_literacy_hospital",
+      "input": "quero avaliar hospital demora dms atendimento ruim",
+      "expect_intent": "service_rating",
+      "languageProfile": "baixa_escrita",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_services_audio_transcript_ubs",
+      "input": "eu queria achar uma ubs perto de mim sabe porque eu nao sei onde tem aqui no bairro",
+      "expect_intent": "services",
+      "languageProfile": "audio_transcrito",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_general_informal_votacao",
+      "input": "essa camara e complicada, quero entender como funciona a votacao",
+      "expect_intent": "general",
+      "languageProfile": "informal",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_vereadores_frustrated_region",
+      "input": "quero saber qual vereador atende meu bairro, esse app ta uma porcaria",
+      "expect_intent": "vereadores",
+      "languageProfile": "ofensivo_sobre_problema",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_noticias_low_literacy",
+      "input": "q noticias da camara hj",
+      "expect_intent": "noticias",
+      "languageProfile": "baixa_escrita",
+      "expectedBehavior": "classificar"
+    },
+    {
+      "id": "robust_mixed_transport_urban",
+      "input": "meu onibus atrasou e a rua tambem alagou",
+      "expect_intent": "transport_report",
+      "languageProfile": "intencao_mista",
+      "expectedBehavior": "perguntar_clarificacao"
+    }
+  ]
+}

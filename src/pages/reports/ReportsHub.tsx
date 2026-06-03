@@ -1,8 +1,8 @@
-import { useNavigate } from 'react-router-dom';
-import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck, TrendingUp } from 'lucide-react';
-import PageHeader from '@/components/ui/page-header';
-import { Card, CardContent } from '@/components/ui/card';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useNavigate } from "react-router-dom";
+import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck, TrendingUp } from "lucide-react";
+import PageHeader from "@/components/ui/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function ReportsHub() {
   const navigate = useNavigate();
@@ -22,8 +22,8 @@ export default function ReportsHub() {
               <div className="flex-1">
                 <h2 className="text-lg font-semibold">Acompanhe seus relatos</h2>
                 <p className="text-sm text-muted-foreground">
-                  Veja seus registros (transporte, urbano e avaliações){' '}
-                  {canReferToCouncilMember ? 'e encaminhe para vereador quando necessário.' : '.'}
+                  Veja seus registros (transporte, urbano e avaliações){" "}
+                  {canReferToCouncilMember ? "e encaminhe para vereador quando necessário." : "."}
                 </p>
               </div>
             </div>
@@ -32,7 +32,7 @@ export default function ReportsHub() {
           {/* Novo relato urbano: abre hub com opção IA, formulário manual (com foto) e histórico */}
           <Card
             className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99] border-primary/20 bg-primary/5"
-            onClick={() => navigate('/relato-urbano')}
+            onClick={() => navigate("/relato-urbano")}
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -41,7 +41,9 @@ export default function ReportsHub() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold">Novo relato urbano</h3>
-                  <p className="text-sm text-muted-foreground">Conversar com a IA ou preencher formulário manual (com foto)</p>
+                  <p className="text-sm text-muted-foreground">
+                    Conversar com a IA ou preencher formulário manual (com foto)
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -50,7 +52,7 @@ export default function ReportsHub() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/transporte/historico')}
+              onClick={() => navigate("/transporte/historico")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -59,7 +61,9 @@ export default function ReportsHub() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold">Transporte</h3>
-                    <p className="text-sm text-muted-foreground">Minhas contribuições de transporte</p>
+                    <p className="text-sm text-muted-foreground">
+                      Minhas contribuições de transporte
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -67,7 +71,7 @@ export default function ReportsHub() {
 
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/transporte/padroes')}
+              onClick={() => navigate("/transporte/padroes")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -76,7 +80,9 @@ export default function ReportsHub() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold">Padrões de transporte</h3>
-                    <p className="text-sm text-muted-foreground">Veja problemas recorrentes detectados</p>
+                    <p className="text-sm text-muted-foreground">
+                      Veja problemas recorrentes detectados
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -84,7 +90,7 @@ export default function ReportsHub() {
 
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/relato-urbano/historico')}
+              onClick={() => navigate("/relato-urbano/historico")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -93,7 +99,9 @@ export default function ReportsHub() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold">Urbano</h3>
-                    <p className="text-sm text-muted-foreground">Histórico de contribuições urbanas</p>
+                    <p className="text-sm text-muted-foreground">
+                      Histórico de contribuições urbanas
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -101,7 +109,7 @@ export default function ReportsHub() {
 
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/avaliacoes/historico')}
+              onClick={() => navigate("/avaliacoes/historico")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -118,7 +126,7 @@ export default function ReportsHub() {
 
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/audiencias/minhas-inscricoes')}
+              onClick={() => navigate("/audiencias/minhas-inscricoes")}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -127,7 +135,9 @@ export default function ReportsHub() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold">Audiências</h3>
-                    <p className="text-sm text-muted-foreground">Minhas inscrições em audiências públicas</p>
+                    <p className="text-sm text-muted-foreground">
+                      Minhas inscrições em audiências públicas
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -138,4 +148,3 @@ export default function ReportsHub() {
     </>
   );
 }
-

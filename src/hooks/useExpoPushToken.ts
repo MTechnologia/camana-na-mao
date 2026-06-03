@@ -26,7 +26,8 @@ export function useExpoPushToken(userId: string | undefined) {
     if (userId && typeof window !== "undefined") {
       console.log("[useExpoPushToken] check:", {
         userId: userId.slice(0, 8) + "...",
-        __CAMARA_IN_APP__: !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__,
+        __CAMARA_IN_APP__: !!(window as unknown as { __CAMARA_IN_APP__?: boolean })
+          .__CAMARA_IN_APP__,
         done: doneRef.current,
       });
     }
@@ -36,23 +37,36 @@ export function useExpoPushToken(userId: string | undefined) {
     if (doneRef.current) return;
 
     const supabaseUrlBuild = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
-    console.log("[useExpoPushToken] ativo no app (WebView), userId:", userId, "| Supabase URL do build:", supabaseUrlBuild ?? "(VAZIO - confira trigger Cloud Build)");
+    console.log(
+      "[useExpoPushToken] ativo no app (WebView), userId:",
+      userId,
+      "| Supabase URL do build:",
+      supabaseUrlBuild ?? "(VAZIO - confira trigger Cloud Build)",
+    );
 
     const saveToken = async (token: string) => {
-      if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken")) return false;
+      if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken"))
+        return false;
       doneRef.current = true;
       const w = window as unknown as { __EXPO_PUSH_TOKEN__?: string };
-if (w.__EXPO_PUSH_TOKEN__ === token) delete w.__EXPO_PUSH_TOKEN__;
+      if (w.__EXPO_PUSH_TOKEN__ === token) delete w.__EXPO_PUSH_TOKEN__;
 
       const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!supabaseUrl || !session?.access_token) {
         console.warn(
           "[useExpoPushToken] Edge Function não chamada:",
-          !supabaseUrl ? "URL do Supabase ausente (CAMARA_URL/VITE_SUPABASE_URL)" : "sem sessão no WebView"
+          !supabaseUrl
+            ? "URL do Supabase ausente (CAMARA_URL/VITE_SUPABASE_URL)"
+            : "sem sessão no WebView",
         );
-        const { error } = await supabase.from("profiles").update({ expo_push_token: token }).eq("id", userId);
+        const { error } = await supabase
+          .from("profiles")
+          .update({ expo_push_token: token })
+          .eq("id", userId);
         if (error) console.warn("[useExpoPushToken] update direto error:", error);
         return true;
       }
@@ -63,7 +77,10 @@ if (w.__EXPO_PUSH_TOKEN__ === token) delete w.__EXPO_PUSH_TOKEN__;
         // Enviar também access_token no body: em WebView/Android o header Authorization às vezes é removido
         const res = await fetch(fnUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({ token, access_token: session.access_token }),
         });
         if (res.ok) {
@@ -71,12 +88,18 @@ if (w.__EXPO_PUSH_TOKEN__ === token) delete w.__EXPO_PUSH_TOKEN__;
         } else {
           const err = await res.text();
           console.warn("[useExpoPushToken] Edge Function error:", res.status, err);
-          const { error } = await supabase.from("profiles").update({ expo_push_token: token }).eq("id", userId);
+          const { error } = await supabase
+            .from("profiles")
+            .update({ expo_push_token: token })
+            .eq("id", userId);
           if (error) console.warn("[useExpoPushToken] update fallback error:", error);
         }
       } catch (e) {
         console.warn("[useExpoPushToken] fetch falhou (rede/CORS?):", e);
-        const { error } = await supabase.from("profiles").update({ expo_push_token: token }).eq("id", userId);
+        const { error } = await supabase
+          .from("profiles")
+          .update({ expo_push_token: token })
+          .eq("id", userId);
         if (error) console.warn("[useExpoPushToken] update fallback error:", error);
       }
       return true;
@@ -119,11 +142,15 @@ if (w.__EXPO_PUSH_TOKEN__ === token) delete w.__EXPO_PUSH_TOKEN__;
       }
     }, pollMs);
 
-    const rnw = (window as unknown as { ReactNativeWebView?: { postMessage?: (msg: string) => void } }).ReactNativeWebView;
+    const rnw = (
+      window as unknown as { ReactNativeWebView?: { postMessage?: (msg: string) => void } }
+    ).ReactNativeWebView;
     const requestToken = () => {
       try {
         if (rnw?.postMessage) rnw.postMessage(JSON.stringify({ type: MESSAGE_TYPE }));
-      } catch { /* ignore postMessage errors when RN bridge unavailable */ }
+      } catch {
+        /* ignore postMessage errors when RN bridge unavailable */
+      }
     };
     requestToken();
     const t1 = setTimeout(() => {

@@ -2,16 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Calendar as CalendarIcon,
-  Download,
-  Eye,
-  Filter,
-  Lock,
-  Search,
-  Users,
-} from "lucide-react";
-import { AdminLayout } from "@/layouts/AdminLayout";
+import { Calendar as CalendarIcon, Download, Eye, Filter, Lock, Search, Users } from "lucide-react";
+import { AdminPageShell } from "@/components/admin/AdminPageShell";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useUserRole } from "@/hooks/useUserRole";
 import {
@@ -41,8 +33,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { rowsToCsv, type AuditCsvRow } from "@/lib/auditCsv";
-import { useToast } from "@/hooks/use-toast";
+import { usePerformanceMark } from "@/hooks/usePerformanceMark";
+import { AuditExportDialog } from "@/components/admin/audit/AuditExportDialog";
+import {
+  AUDIT_ACTION_OPTIONS,
+  AUDIT_FILTER_ALL,
+  buildAuditLogQueryFilters,
+  type AuditExportFilterState,
+  type AuditRangePreset,
+} from "@/lib/auditExportFilters";
+import { ReportsListPagination } from "@/components/admin/reports/ReportsListPagination";
 
 /**
  * HU-12.2 — Trilha de auditoria com filtros completos.
@@ -55,11 +55,9 @@ import { useToast } from "@/hooks/use-toast";
  *
  * UX:
  *   - Clicar em linha abre Sheet com diff old vs new (HU-12.2)
- *   - Botão Exportar CSV gera arquivo com o filtro aplicado
+ *   - Botão Exportar CSV abre modal para escolher filtros e colunas
  *   - Badge "Imutável" no header reforça compliance (HU-12.3)
  */
-
-type RangePreset = "24h" | "7d" | "30d" | "custom" | "all";
 
 interface AuditLogRow {
   id: string;
@@ -75,39 +73,7 @@ interface AuditLogRow {
   created_at: string;
 }
 
-const ALL_VALUE = "__all__";
-
-const ACTION_OPTIONS = [
-  { value: ALL_VALUE, label: "Todas as ações" },
-  { value: "login", label: "Login" },
-  { value: "logout", label: "Logout" },
-  { value: "create", label: "Criar" },
-  { value: "update", label: "Atualizar" },
-  { value: "delete", label: "Deletar" },
-  { value: "export", label: "Exportar" },
-  { value: "role_changed", label: "Mudança de papel" },
-  { value: "triage_changed", label: "Triagem alterada" },
-  { value: "commission_referral_changed", label: "Encaminhamento alterado" },
-  { value: "anomaly_changed", label: "Anomalia alterada" },
-  { value: "user_suspension_changed", label: "Suspensão de usuário" },
-];
-
-function rangeForPreset(preset: RangePreset): {
-  start?: Date;
-  end?: Date;
-} {
-  const now = new Date();
-  if (preset === "24h") {
-    return { start: new Date(now.getTime() - 24 * 60 * 60 * 1000), end: now };
-  }
-  if (preset === "7d") {
-    return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), end: now };
-  }
-  if (preset === "30d") {
-    return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), end: now };
-  }
-  return {};
-}
+const AUDIT_LOGS_PAGE_SIZE = 25;
 
 function fmtDateTime(iso: string): string {
   try {
@@ -117,11 +83,10 @@ function fmtDateTime(iso: string): string {
   }
 }
 
-const AuditLogs = () => {
+const AuditLogs = ({ embedded }: { embedded?: boolean }) => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
   const { getAllLogs, getActors } = useAuditLog();
-  const { toast } = useToast();
 
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [actors, setActors] = useState<
@@ -130,14 +95,18 @@ const AuditLogs = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [actionFilter, setActionFilter] = useState<string>(ALL_VALUE);
-  const [entityFilter, setEntityFilter] = useState<string>(ALL_VALUE);
-  const [userFilter, setUserFilter] = useState<string>(ALL_VALUE);
-  const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
+  const [actionFilter, setActionFilter] = useState<string>(AUDIT_FILTER_ALL);
+  const [entityFilter, setEntityFilter] = useState<string>(AUDIT_FILTER_ALL);
+  const [userFilter, setUserFilter] = useState<string>(AUDIT_FILTER_ALL);
+  const [rangePreset, setRangePreset] = useState<AuditRangePreset>("7d");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selected, setSelected] = useState<AuditLogRow | null>(null);
-  const [exportFile, setExportFile] = useState<{ url: string; filename: string } | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [page, setPage] = useState(1);
+
+  // HU-13.2 — Mede tempo de carga inicial da página (SLA 3s).
+  usePerformanceMark("audit_logs_load", !isLoading);
 
   useEffect(() => {
     if (!roleLoading && !hasRole("admin")) {
@@ -151,35 +120,28 @@ const AuditLogs = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const exportFilters = useMemo<AuditExportFilterState>(
+    () => ({
+      searchTerm,
+      actionFilter,
+      entityFilter,
+      userFilter,
+      rangePreset,
+      customStart,
+      customEnd,
+    }),
+    [searchTerm, actionFilter, entityFilter, userFilter, rangePreset, customStart, customEnd],
+  );
+
   const loadLogs = useCallback(async () => {
     setIsLoading(true);
-    const filters: Record<string, unknown> = { limit: 500 };
-
-    if (actionFilter !== ALL_VALUE) filters.action = actionFilter;
-    if (entityFilter !== ALL_VALUE) filters.entityType = entityFilter;
-    if (userFilter !== ALL_VALUE) filters.userId = userFilter;
-
-    if (rangePreset === "custom") {
-      if (customStart) filters.startDate = new Date(customStart);
-      if (customEnd) filters.endDate = new Date(`${customEnd}T23:59:59`);
-    } else if (rangePreset !== "all") {
-      const { start, end } = rangeForPreset(rangePreset);
-      if (start) filters.startDate = start;
-      if (end) filters.endDate = end;
-    }
-
-    const data = (await getAllLogs(filters)) as unknown as AuditLogRow[];
+    const data = (await getAllLogs(
+      buildAuditLogQueryFilters(exportFilters),
+    )) as unknown as AuditLogRow[];
     setLogs(data ?? []);
     setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    actionFilter,
-    entityFilter,
-    userFilter,
-    rangePreset,
-    customStart,
-    customEnd,
-  ]);
+  }, [exportFilters]);
 
   useEffect(() => {
     void loadActors();
@@ -188,14 +150,6 @@ const AuditLogs = () => {
   useEffect(() => {
     void loadLogs();
   }, [loadLogs]);
-
-  useEffect(() => {
-    return () => {
-      if (exportFile?.url) {
-        window.URL.revokeObjectURL(exportFile.url);
-      }
-    };
-  }, [exportFile?.url]);
 
   const actorById = useMemo(() => {
     const m = new Map<string, (typeof actors)[number]>();
@@ -208,92 +162,47 @@ const AuditLogs = () => {
     if (!q) return logs;
     return logs.filter((log) => {
       const actor = log.user_id ? actorById.get(log.user_id) : null;
-      const hay = `${log.action} ${log.entity_type} ${log.entity_id ?? ""} ${actor?.fullName ?? ""} ${actor?.email ?? ""}`.toLowerCase();
+      const hay =
+        `${log.action} ${log.entity_type} ${log.entity_id ?? ""} ${actor?.fullName ?? ""} ${actor?.email ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
   }, [logs, searchTerm, actorById]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredLogs.length / AUDIT_LOGS_PAGE_SIZE)),
+    [filteredLogs.length],
+  );
+
+  const paginatedLogs = useMemo(() => {
+    const start = (page - 1) * AUDIT_LOGS_PAGE_SIZE;
+    return filteredLogs.slice(start, start + AUDIT_LOGS_PAGE_SIZE);
+  }, [filteredLogs, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, actionFilter, entityFilter, userFilter, rangePreset, customStart, customEnd]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const entityTypes = useMemo(
     () => Array.from(new Set(logs.map((log) => log.entity_type))).sort(),
     [logs],
   );
 
-  const exportLogs = async () => {
-    const rows: AuditCsvRow[] = filteredLogs.map((log) => {
-      const actor = log.user_id ? actorById.get(log.user_id) : null;
-      return {
-        data_hora: fmtDateTime(log.created_at),
-        user_id: log.user_id ?? "",
-        usuario: actor?.fullName ?? "",
-        email: actor?.email ?? "",
-        acao: log.action,
-        entidade: log.entity_type,
-        entidade_id: log.entity_id ?? "",
-        ip: log.ip_address ?? "",
-        user_agent: log.user_agent ?? "",
-        old_values: log.old_values ?? null,
-        new_values: log.new_values ?? null,
-      };
-    });
-
-    const csv = rowsToCsv(rows);
-    const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
-    const file = new File([csv], filename, { type: "text/csv;charset=utf-8" });
-    const shareData: ShareData = {
-      files: [file],
-      title: "Logs de Auditoria",
-      text: "Exportação CSV dos logs de auditoria.",
-    };
-
-    if (
-      typeof navigator.share === "function" &&
-      (!navigator.canShare || navigator.canShare(shareData))
-    ) {
-      try {
-        await navigator.share(shareData);
-        setExportFile(null);
-        toast({
-          title: "CSV pronto para compartilhar",
-          description: "No celular, escolha Salvar em Arquivos, Drive ou outro app.",
-        });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.warn("Falha ao abrir compartilhamento do CSV:", error);
-      }
-    }
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    setExportFile({ url, filename });
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.rel = "noopener";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    toast({
-      title: "CSV pronto",
-      description: "Se o celular não baixou automaticamente, toque em Baixar CSV abaixo.",
-    });
-  };
-
   if (roleLoading) {
     return (
-      <AdminLayout>
+      <AdminPageShell embedded={embedded}>
         <div className="flex items-center justify-center h-96">
           <div className="text-muted-foreground">Carregando...</div>
         </div>
-      </AdminLayout>
+      </AdminPageShell>
     );
   }
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -305,54 +214,15 @@ const AuditLogs = () => {
               </Badge>
             </h1>
             <p className="text-muted-foreground text-sm">
-              Histórico completo de ações administrativas no sistema.
-              Registros não podem ser editados ou apagados (somente arquivados
-              após 12 meses).
+              Histórico completo de ações administrativas no sistema. Registros não podem ser
+              editados ou apagados (somente arquivados após 12 meses).
             </p>
           </div>
-          <Button onClick={exportLogs} className="gap-2" variant="outline">
+          <Button onClick={() => setExportOpen(true)} className="gap-2" variant="outline">
             <Download className="w-4 h-4" />
             Exportar CSV
           </Button>
         </div>
-
-        {exportFile && (
-          <Card className="p-3 border-primary/30 bg-primary/5 space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">CSV pronto para baixar</p>
-              <p className="text-xs text-muted-foreground">
-                Se o download automático não abriu no celular, toque no botão abaixo.
-                Em alguns navegadores móveis, o arquivo abre em uma nova aba antes de
-                salvar.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Button asChild className="w-full gap-2">
-                <a
-                  href={exportFile.url}
-                  download={exportFile.filename}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Download className="w-4 h-4" />
-                  Baixar CSV
-                </a>
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <a href={exportFile.url} target="_blank" rel="noopener noreferrer">
-                  Abrir CSV
-                </a>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => setExportFile(null)}
-              >
-                Dispensar
-              </Button>
-            </div>
-          </Card>
-        )}
 
         {/* Filtros */}
         <Card className="p-3 space-y-3">
@@ -367,7 +237,10 @@ const AuditLogs = () => {
               />
             </div>
 
-            <Select value={rangePreset} onValueChange={(v) => setRangePreset(v as RangePreset)}>
+            <Select
+              value={rangePreset}
+              onValueChange={(v) => setRangePreset(v as AuditRangePreset)}
+            >
               <SelectTrigger className="w-full lg:w-[180px]">
                 <CalendarIcon className="w-3.5 h-3.5 mr-1" />
                 <SelectValue />
@@ -387,7 +260,7 @@ const AuditLogs = () => {
                 <SelectValue placeholder="Usuário" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>Todos os usuários</SelectItem>
+                <SelectItem value={AUDIT_FILTER_ALL}>Todos os usuários</SelectItem>
                 {actors.map((a) => (
                   <SelectItem key={a.userId} value={a.userId}>
                     {a.fullName} ({a.logCount})
@@ -404,7 +277,7 @@ const AuditLogs = () => {
                 <SelectValue placeholder="Ação" />
               </SelectTrigger>
               <SelectContent>
-                {ACTION_OPTIONS.map((opt) => (
+                {AUDIT_ACTION_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>
@@ -417,7 +290,7 @@ const AuditLogs = () => {
                 <SelectValue placeholder="Entidade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>Todas as entidades</SelectItem>
+                <SelectItem value={AUDIT_FILTER_ALL}>Todas as entidades</SelectItem>
                 {entityTypes.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type}
@@ -472,7 +345,7 @@ const AuditLogs = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLogs.map((log) => {
+                paginatedLogs.map((log) => {
                   const actor = log.user_id ? actorById.get(log.user_id) : null;
                   return (
                     <TableRow
@@ -508,22 +381,35 @@ const AuditLogs = () => {
               )}
             </TableBody>
           </Table>
+          <ReportsListPagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={filteredLogs.length}
+            pageSize={AUDIT_LOGS_PAGE_SIZE}
+            onPageChange={setPage}
+          />
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          Exibindo {filteredLogs.length} de {logs.length} registros
-          {logs.length >= 500 && (
-            <span> · Limite 500 — refine os filtros para ver mais.</span>
-          )}
+          Exibindo {filteredLogs.length} de {logs.length} registros filtrados
+          {logs.length >= 500 && <span> · Limite 500 — refine os filtros para ver mais.</span>}
         </div>
       </div>
 
       <AuditLogDetailSheet
         log={selected}
         onOpenChange={(o) => !o && setSelected(null)}
-        actor={selected?.user_id ? actorById.get(selected.user_id) ?? null : null}
+        actor={selected?.user_id ? (actorById.get(selected.user_id) ?? null) : null}
       />
-    </AdminLayout>
+
+      <AuditExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        defaultFilters={exportFilters}
+        actors={actors}
+        entityTypes={entityTypes}
+      />
+    </AdminPageShell>
   );
 };
 
@@ -551,9 +437,7 @@ function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetPr
           <SheetTitle>{log.action}</SheetTitle>
           <SheetDescription>
             {log.entity_type}
-            {log.entity_id && (
-              <span className="font-mono text-xs ml-1">· {log.entity_id}</span>
-            )}
+            {log.entity_id && <span className="font-mono text-xs ml-1">· {log.entity_id}</span>}
           </SheetDescription>
         </SheetHeader>
 
@@ -566,9 +450,7 @@ function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetPr
             <p>
               <span className="text-muted-foreground">Quem: </span>
               {actor?.fullName ?? log.user_id ?? "—"}
-              {actor?.email && (
-                <span className="text-muted-foreground"> ({actor.email})</span>
-              )}
+              {actor?.email && <span className="text-muted-foreground"> ({actor.email})</span>}
             </p>
             {log.ip_address && (
               <p>
@@ -604,7 +486,9 @@ function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetPr
                         "p-1.5 rounded border-l-2 break-all",
                         oldVal === undefined && "border-green-500 bg-green-50",
                         newVal === undefined && "border-red-500 bg-red-50",
-                        oldVal !== undefined && newVal !== undefined && "border-amber-500 bg-amber-50",
+                        oldVal !== undefined &&
+                          newVal !== undefined &&
+                          "border-amber-500 bg-amber-50",
                       )}
                     >
                       <p className="font-semibold">{key}</p>

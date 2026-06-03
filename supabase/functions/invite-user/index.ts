@@ -17,11 +17,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
+// corsHeaders resolvido por request (reatribuído no início do handler).
+let corsHeaders: Record<string, string> = buildCorsHeaders();
 
 interface InvitePayload {
   email: string;
@@ -31,6 +29,7 @@ interface InvitePayload {
 }
 
 serve(async (req: Request) => {
+  corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -119,24 +118,95 @@ serve(async (req: Request) => {
         : (Deno.env.get('SITE_URL') ?? new URL(req.url).origin);
     const redirectTo = `${siteUrl}/completar-convite`;
 
-    // Convite por email (cria user em status 'invited').
-    const { data: inviteData, error: inviteErr } =
-      await adminClient.auth.admin.inviteUserByEmail(payload.email, {
-        data: {
-          full_name: payload.fullName ?? null,
-          invited_by: callerId,
-          invited_role: payload.role,
-          invited_council_member_id: payload.councilMemberId ?? null,
-        },
+    const inviteMetadata = {
+      full_name: payload.fullName ?? null,
+      invited_by: callerId,
+      invited_role: payload.role,
+      invited_council_member_id: payload.councilMemberId ?? null,
+    };
+
+    const sendInvite = () =>
+      adminClient.auth.admin.inviteUserByEmail(payload.email, {
+        data: inviteMetadata,
         redirectTo,
       });
 
+    let inviteStatus: 'success' | 'resent' = 'success';
+
+    // Convite por email (cria user em status 'invited').
+    const inviteResult = await sendInvite();
+    let inviteData = inviteResult.data;
+    let inviteErr = inviteResult.error;
+
     if (inviteErr) {
       console.error('[invite-user] inviteUserByEmail error', inviteErr);
-      // Detecta usuário duplicado.
       const msg = inviteErr.message ?? '';
-      const status = msg.toLowerCase().includes('already') ? 409 : 500;
-      return json({ error: msg || 'Falha ao enviar convite.' }, status);
+      const lower = msg.toLowerCase();
+      const alreadyExists =
+        lower.includes('already') || lower.includes('user already registered');
+
+      if (alreadyExists) {
+        const existing = await findAuthUserByEmail(
+          supabaseUrl,
+          serviceRoleKey,
+          anonKey,
+          payload.email,
+        );
+
+        if (existing?.email_confirmed_at) {
+          return json(
+            {
+              error:
+                'Este e-mail já possui conta ativa. Peça para a pessoa fazer login ou use "Esqueci a senha".',
+              user_id: existing.id,
+            },
+            409,
+          );
+        }
+
+        if (existing?.id) {
+          // Convite pendente: remove usuário não confirmado e reenvia convite.
+          const { error: delErr } = await adminClient.auth.admin.deleteUser(existing.id);
+          if (delErr) {
+            console.error('[invite-user] delete pending user error', delErr);
+            return json(
+              {
+                error:
+                  'Este e-mail já foi convidado, mas não foi possível reenviar o convite. Exclua o usuário em Gestão de Usuários e tente de novo.',
+              },
+              409,
+            );
+          }
+          const retry = await sendInvite();
+          if (retry.error) {
+            const retryMsg = retry.error.message ?? 'Falha ao reenviar convite.';
+            return json({ error: retryMsg }, 409);
+          }
+          inviteData = retry.data;
+          inviteErr = null;
+          inviteStatus = 'resent';
+        }
+
+        return json(
+          {
+            error: 'Este e-mail já tem cadastro no sistema.',
+            raw: msg,
+          },
+          409,
+        );
+      }
+
+      // Mapeia outros erros conhecidos do Supabase Auth.
+      let status = 500;
+      let friendly = msg || 'Falha ao enviar convite.';
+      if (lower.includes('rate limit') || (inviteErr as { code?: string }).code === 'over_email_send_rate_limit') {
+        status = 429;
+        friendly = 'Limite de envio de emails atingido. Aguarde alguns minutos antes de tentar novamente, ou configure SMTP customizado no Supabase.';
+      } else if (lower.includes('invalid') && lower.includes('email')) {
+        status = 400;
+        friendly = 'Email inválido segundo o provedor de autenticação.';
+      }
+      return json({ error: friendly, raw: msg }, status);
     }
 
     const newUserId = inviteData?.user?.id;
@@ -191,7 +261,7 @@ serve(async (req: Request) => {
     }
 
     return json({
-      status: 'success',
+      status: inviteStatus,
       user_id: newUserId,
       email: payload.email,
       role: payload.role,
@@ -208,4 +278,39 @@ function json(body: Record<string, unknown>, status = 200): Response {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+type AuthUserRow = {
+  id: string;
+  email?: string;
+  email_confirmed_at?: string | null;
+};
+
+/** Busca usuário em auth.users pelo e-mail (GoTrue admin filter). */
+async function findAuthUserByEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  anonKey: string,
+  email: string,
+): Promise<AuthUserRow | null> {
+  const filter = encodeURIComponent(`email.eq.${email.trim()}`);
+  const url = `${supabaseUrl}/auth/v1/admin/users?filter=${filter}&per_page=1`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: anonKey,
+      },
+    });
+    if (!res.ok) {
+      console.warn('[invite-user] findAuthUserByEmail HTTP', res.status);
+      return null;
+    }
+    const body = await res.json() as { users?: AuthUserRow[] };
+    const users = body?.users ?? [];
+    return users.length > 0 ? users[0] : null;
+  } catch (e) {
+    console.warn('[invite-user] findAuthUserByEmail failed', e);
+    return null;
+  }
 }

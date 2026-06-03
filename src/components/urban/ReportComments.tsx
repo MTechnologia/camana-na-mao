@@ -15,7 +15,8 @@ interface ReportCommentsProps {
 
 export const ReportComments = ({ reportId }: ReportCommentsProps) => {
   const { user } = useAuth();
-  const { comments, loading, submitting, addComment, deleteComment } = useUrbanReportComments(reportId);
+  const { comments, loading, submitting, addComment, deleteComment } =
+    useUrbanReportComments(reportId);
   const [commentText, setCommentText] = useState("");
 
   const handleSubmit = async () => {
@@ -28,7 +29,7 @@ export const ReportComments = ({ reportId }: ReportCommentsProps) => {
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map(i => (
+        {[1, 2, 3].map((i) => (
           <div key={i} className="flex gap-3">
             <Skeleton className="w-8 h-8 rounded-full" />
             <div className="flex-1 space-y-2">
@@ -52,11 +53,7 @@ export const ReportComments = ({ reportId }: ReportCommentsProps) => {
           className="min-h-[80px] resize-none"
         />
         <div className="flex justify-end">
-          <Button
-            onClick={handleSubmit}
-            disabled={!commentText.trim() || submitting}
-            size="sm"
-          >
+          <Button onClick={handleSubmit} disabled={!commentText.trim() || submitting} size="sm">
             <Send className="w-4 h-4 mr-2" />
             Comentar
           </Button>
@@ -74,11 +71,9 @@ export const ReportComments = ({ reportId }: ReportCommentsProps) => {
             <div key={comment.id} className="flex gap-3">
               <Avatar className="w-8 h-8">
                 <AvatarImage src={comment.profiles?.avatar_url || undefined} />
-                <AvatarFallback>
-                  {comment.profiles?.full_name?.charAt(0) || "?"}
-                </AvatarFallback>
+                <AvatarFallback>{comment.profiles?.full_name?.charAt(0) || "?"}</AvatarFallback>
               </Avatar>
-              
+
               <div className="flex-1">
                 <div className="bg-muted rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
@@ -99,7 +94,9 @@ export const ReportComments = ({ reportId }: ReportCommentsProps) => {
                   <p className="text-sm text-foreground">{comment.comment_text}</p>
                 </div>
                 <span className="text-xs text-muted-foreground ml-3 mt-1 inline-block">
-                  {format(new Date(comment.created_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                  {format(new Date(comment.created_at), "dd 'de' MMMM 'às' HH:mm", {
+                    locale: ptBR,
+                  })}
                 </span>
               </div>
             </div>

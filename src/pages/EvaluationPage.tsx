@@ -1,4 +1,9 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import {
+  resolveReturnToChatAction,
+  type ManualReportNavigationState,
+} from "@/lib/manualReportNavigation";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
 
@@ -10,13 +15,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { buildVisitCloseUpdate } from "@/lib/closeServiceVisitDeparture";
 import { getServiceDisplayName } from "@/lib/mapUtils";
+import { evaluationVisitErrorMessage, validateEvaluationVisit } from "@/lib/evaluationVisit";
 import { Star, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export default function EvaluationPage() {
   type VisitWithService = {
     id: string;
+    departed_at?: string | null;
     service_id?: string;
     service: {
       name: string;
@@ -27,8 +35,31 @@ export default function EvaluationPage() {
 
   const { visitId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { setActiveConversationId } = useAIJourney();
+  const returnNavState = location.state as ManualReportNavigationState | null | undefined;
+  const hasReturnToChat = Boolean(returnNavState?.returnToChatConversationId?.trim());
+
+  const handleReturnToChat = () => {
+    const { path, conversationId } = resolveReturnToChatAction(returnNavState);
+    if (conversationId) setActiveConversationId(conversationId);
+    navigate(path);
+  };
+
+  const handleExitEvaluation = () => {
+    if (hasReturnToChat) {
+      handleReturnToChat();
+      return;
+    }
+    navigate("/");
+  };
+
   const { user, loading: authLoading } = useAuth();
-  const { pendingRatings, loading: pendingLoading, markAsSkipped } = usePendingRatings({ limit: 50 });
+  const {
+    pendingRatings,
+    loading: pendingLoading,
+    markAsSkipped,
+  } = usePendingRatings({ limit: 50 });
   const [visit, setVisit] = useState<VisitWithService | null>(null);
   const [loading, setLoading] = useState(true);
   const [evaluationDone, setEvaluationDone] = useState(false);
@@ -47,17 +78,19 @@ export default function EvaluationPage() {
     } else {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadVisit/navigate intentionally excluded
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadVisit/navigate intentionally excluded
   }, [visitId, user, authLoading]);
 
   const loadVisit = async () => {
     try {
       const { data, error } = await supabase
         .from("service_visits")
-        .select(`
+        .select(
+          `
           *,
           service:public_services (*)
-        `)
+        `,
+        )
         .eq("id", visitId)
         .eq("user_id", user?.id)
         .maybeSingle();
@@ -68,8 +101,20 @@ export default function EvaluationPage() {
       }
 
       if (!data) {
-        toast.error("Visita não encontrada");
-        navigate("/");
+        toast.error(evaluationVisitErrorMessage("not_found"));
+        navigate("/avaliar");
+        return;
+      }
+
+      const visitCheck = validateEvaluationVisit({
+        id: data.id,
+        status: data.status,
+        expires_at: data.expires_at,
+        departed_at: data.departed_at,
+      });
+      if (!visitCheck.ok) {
+        toast.error(evaluationVisitErrorMessage(visitCheck.reason));
+        navigate("/avaliar");
         return;
       }
 
@@ -94,7 +139,7 @@ export default function EvaluationPage() {
       // A avaliação já foi salva pelo create_service_rating (IA). Só atualizamos o status da visita.
       const { error: visitError } = await supabase
         .from("service_visits")
-        .update({ status: "completed" })
+        .update(buildVisitCloseUpdate("completed", visit.departed_at ?? null))
         .eq("id", visitId);
 
       if (visitError) throw visitError;
@@ -116,7 +161,7 @@ export default function EvaluationPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Carregando..." />
+        <PageHeader title="Carregando..." onBack={handleExitEvaluation} />
         <div className="p-4">
           <Skeleton className="h-[500px] w-full" />
         </div>
@@ -129,7 +174,7 @@ export default function EvaluationPage() {
     if (pendingLoading) {
       return (
         <div className="min-h-screen bg-background pb-24 pt-[60px]">
-          <PageHeader title="Avaliar Serviço" />
+          <PageHeader title="Avaliar Serviço" onBack={handleExitEvaluation} />
           <div className="p-4">
             <Skeleton className="h-[200px] w-full" />
           </div>
@@ -138,7 +183,7 @@ export default function EvaluationPage() {
     }
     return (
       <div className="min-h-screen bg-background flex flex-col pb-24 pt-[60px]">
-        <PageHeader title="Avaliar serviços" />
+        <PageHeader title="Avaliar serviços" onBack={handleExitEvaluation} />
         <div className="p-4 flex-1 flex flex-col gap-6 min-h-0 max-w-3xl mx-auto w-full">
           {pendingRatings.length > 0 && (
             <section aria-labelledby="pending-visits-heading" className="space-y-3 shrink-0">
@@ -165,15 +210,10 @@ export default function EvaluationPage() {
                               service_type: rating.service.service_type,
                             })}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {rating.service.district}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{rating.service.district}</p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="sm"
-                            onClick={() => navigate(`/avaliar/${rating.id}`)}
-                          >
+                          <Button size="sm" onClick={() => navigate(`/avaliar/${rating.id}`)}>
                             Avaliar
                             <ChevronRight className="w-4 h-4 ml-1" />
                           </Button>
@@ -202,7 +242,8 @@ export default function EvaluationPage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">Nenhuma visita pendente</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Quando o app detectar que você esteve em um serviço público, a avaliação pode aparecer aqui. Enquanto isso, use o modo livre abaixo.
+                    Quando o app detectar que você esteve em um serviço público, a avaliação pode
+                    aparecer aqui. Enquanto isso, use o modo livre abaixo.
                   </p>
                 </div>
               </CardContent>
@@ -220,7 +261,8 @@ export default function EvaluationPage() {
               {pendingRatings.length > 0 ? "Ou avalie outro serviço (modo livre)" : "Modo livre"}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Informe tipo e nome do equipamento — o assistente contextualiza a avaliação conforme o tipo selecionado, com dicas específicas antes das dimensões.
+              Informe tipo e nome do equipamento — o assistente contextualiza a avaliação conforme o
+              tipo selecionado, com dicas específicas antes das dimensões.
             </p>
             <div className="flex-1 flex flex-col min-h-0 min-h-[420px]">
               <ConversationalEvaluation
@@ -233,10 +275,15 @@ export default function EvaluationPage() {
               <Card className="shrink-0 border-primary/30 bg-primary/5">
                 <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-foreground">
-                    Sua avaliação foi registrada. A visita foi vinculada na base para manter o histórico consistente.
+                    Sua avaliação foi registrada. A visita foi vinculada na base para manter o
+                    histórico consistente.
                   </p>
                   <div className="flex flex-col gap-2 shrink-0 sm:flex-row">
-                    <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/servicos-proximos")}
+                    >
                       Ir para Perto de você
                     </Button>
                     <Button size="sm" onClick={() => navigate("/")}>
@@ -257,6 +304,7 @@ export default function EvaluationPage() {
     <div className="h-[100dvh] min-h-screen bg-background flex flex-col overflow-hidden pb-24 pt-[60px]">
       <PageHeader
         title={visit ? `Avaliar ${visit.service.name}` : "Avaliar Serviço"}
+        onBack={handleExitEvaluation}
       />
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 gap-4">
@@ -264,12 +312,8 @@ export default function EvaluationPage() {
           <>
             <Card data-testid="service-card" className="shrink-0">
               <CardContent className="p-4">
-                <h3 className="font-semibold text-foreground mb-1">
-                  {visit.service.name}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {visit.service.district}
-                </p>
+                <h3 className="font-semibold text-foreground mb-1">{visit.service.name}</h3>
+                <p className="text-sm text-muted-foreground">{visit.service.district}</p>
               </CardContent>
             </Card>
 
@@ -288,10 +332,15 @@ export default function EvaluationPage() {
               <Card className="shrink-0 border-primary/30 bg-primary/5">
                 <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-foreground">
-                    Sua avaliação foi registrada. Use o botão abaixo quando quiser sair — assim você não perde filtros ou outras telas por um redirecionamento automático.
+                    Sua avaliação foi registrada. Use o botão abaixo quando quiser sair — assim você
+                    não perde filtros ou outras telas por um redirecionamento automático.
                   </p>
                   <div className="flex flex-col gap-2 shrink-0 sm:flex-row">
-                    <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate("/servicos-proximos")}
+                    >
                       Ir para Perto de você
                     </Button>
                     <Button size="sm" onClick={() => navigate("/")}>

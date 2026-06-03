@@ -135,7 +135,7 @@
 |------------|--------------|
 | **VM Chat (L4)** | R$ 2.500 |
 | **VM Embeddings** | R$ 200 |
-| **n8n Cloud Run** | R$ 1.500-3.000 |
+| **automacao Cloud Run** | R$ 1.500-3.000 |
 | **Infraestrutura** | R$ 500 |
 | **Fallback GPT-4** | R$ 500-1.000 |
 | **TOTAL** | **R$ 5.200-7.200/mês** |
@@ -149,7 +149,7 @@
 |------------|--------------|
 | **VM Chat (A100)** | R$ 8.000 |
 | **VM Embeddings** | R$ 200 |
-| **n8n Cloud Run** | R$ 1.500-3.000 |
+| **automacao Cloud Run** | R$ 1.500-3.000 |
 | **Infraestrutura** | R$ 500 |
 | **Fallback GPT-4** | R$ 500-1.000 |
 | **TOTAL** | **R$ 10.700-12.700/mês** |
@@ -363,7 +363,7 @@ docker logs -f vllm-chat
 3. **Criar VM com L4**
 4. **Deploy Qwen 2.5 32B**
 5. **Testar performance e qualidade**
-6. **Atualizar n8n** para usar novo modelo
+6. **Atualizar automacao** para usar novo modelo
 7. **Migrar produção**
 
 ---

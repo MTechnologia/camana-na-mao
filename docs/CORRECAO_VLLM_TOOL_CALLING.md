@@ -104,7 +104,7 @@ Essas flags podem não estar disponíveis em versões antigas do vLLM. Se der er
 
 1. **Versão do vLLM**: Use a versão mais recente (`vllm/vllm-openai:latest`)
 2. **Documentação**: Consulte a documentação do vLLM para versões específicas
-3. **Alternativa**: Se não funcionar, pode precisar usar Lovable AI para tool calling
+3. **Alternativa**: Usar provedor com suporte nativo a tool calling
 
 ---
 
@@ -113,7 +113,7 @@ Essas flags podem não estar disponíveis em versões antigas do vLLM. Se der er
 Mesmo com tool calling habilitado, o sistema ainda tem fallback automático:
 
 1. **vLLM com tool calling** (principal)
-2. **Lovable AI** (fallback se vLLM falhar)
+2. **Provedor alternativo** (se `AI_CHAT_BASE_URL` for trocado)
 3. **Mensagem amigável** (se ambos falharem)
 
 ---

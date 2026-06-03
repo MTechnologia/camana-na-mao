@@ -41,7 +41,7 @@ const AnimatedAIAvatar = ({ size = "md" }: AnimatedAIAvatarProps) => {
 
       {/* Glow de fundo */}
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary via-secondary to-accent opacity-20 blur-xl" />
-      
+
       {/* Container principal com ícone */}
       <motion.div
         className="relative w-full h-full rounded-full bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 p-1 shadow-lg"
@@ -49,11 +49,7 @@ const AnimatedAIAvatar = ({ size = "md" }: AnimatedAIAvatarProps) => {
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       >
         <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
-          <img 
-            src={iaIcone} 
-            alt="Câmara na Mão" 
-            className={`${iconSizes[size]} object-contain`} 
-          />
+          <img src={iaIcone} alt="Câmara na Mão" className={`${iconSizes[size]} object-contain`} />
         </div>
       </motion.div>
     </div>

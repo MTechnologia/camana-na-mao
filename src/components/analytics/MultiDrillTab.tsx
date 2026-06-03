@@ -16,11 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/analytics/KPICard";
 import { DrillNavBar } from "@/components/analytics/DrillNavBar";
 import { cn } from "@/lib/utils";
-import {
-  useMultiDrill,
-  type DrillDimension,
-  type MultiDrillPosition,
-} from "@/hooks/useMultiDrill";
+import { useMultiDrill, type DrillDimension, type MultiDrillPosition } from "@/hooks/useMultiDrill";
 import {
   useUrlSyncedState,
   type FieldSerializer,
@@ -201,7 +197,8 @@ export function MultiDrillTab() {
   const handleUp = () => {
     if (position.level3) setPosition({ ...position, level3: null });
     else if (position.level2) setPosition({ ...position, level2: null, level3: null });
-    else if (position.level1) setPosition({ ...position, level1: null, level2: null, level3: null });
+    else if (position.level1)
+      setPosition({ ...position, level1: null, level2: null, level3: null });
   };
   useDrillKeyboardShortcuts({ onUp: handleUp, onReset: handleReset });
 
@@ -212,7 +209,7 @@ export function MultiDrillTab() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Compass className="h-4 w-4" />
-            Dimensão de drill-down
+            Dimensão para detalhar
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -258,11 +255,7 @@ export function MultiDrillTab() {
 
       {/* KPIs do recorte — empilháveis no mobile, 2 colunas no tablet, 4 no desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard
-          title="Total"
-          value={stats.total}
-          icon={ClipboardList}
-        />
+        <KPICard title="Total" value={stats.total} icon={ClipboardList} />
         {position.dimension === "audiencia" ? (
           <KPICard title="Inscritos" value={stats.total} icon={Users} />
         ) : (
@@ -281,11 +274,7 @@ export function MultiDrillTab() {
             />
           </>
         )}
-        <KPICard
-          title="% Resolvidos"
-          value={`${stats.resolutionPct}%`}
-          icon={Gauge}
-        />
+        <KPICard title="% Resolvidos" value={`${stats.resolutionPct}%`} icon={Gauge} />
       </div>
 
       {/* Lista do próximo nível OU lista detalhada de relatos/inscritos */}
@@ -321,10 +310,7 @@ export function MultiDrillTab() {
           ) : (
             <ul className="divide-y">
               {stats.nextItems.map((item) => (
-                <li
-                  key={item.value}
-                  className="flex items-center justify-between gap-3 py-2.5"
-                >
+                <li key={item.value} className="flex items-center justify-between gap-3 py-2.5">
                   <button
                     type="button"
                     onClick={() => handleNextClick(item.value)}
@@ -357,11 +343,7 @@ function LeafRecordsList({
 }) {
   const { open: openReport } = useReportDetailModal();
   if (records.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Sem registros detalhados neste recorte.
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">Sem registros detalhados neste recorte.</p>;
   }
   return (
     <ul className="divide-y">
@@ -385,13 +367,16 @@ function LeafRecordsList({
           );
         }
         const reportSource =
-          rec.source === "urbano" ? "urban" :
-          rec.source === "transporte" ? "transport" : null;
+          rec.source === "urbano" ? "urban" : rec.source === "transporte" ? "transport" : null;
         const clickable = !!reportSource;
         return (
           <li
             key={rec.id}
-            className={clickable ? "py-3 cursor-pointer hover:bg-muted/50 -mx-2 px-2 rounded transition-colors" : "py-3"}
+            className={
+              clickable
+                ? "py-3 cursor-pointer hover:bg-muted/50 -mx-2 px-2 rounded transition-colors"
+                : "py-3"
+            }
             onClick={() => clickable && reportSource && openReport(rec.id, reportSource)}
             role={clickable ? "button" : undefined}
             tabIndex={clickable ? 0 : undefined}
@@ -415,7 +400,9 @@ function LeafRecordsList({
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <Badge variant={statusBadgeVariant(rec.status)}>{rec.status}</Badge>
                 {rec.severity !== "Sem classificação" && (
-                  <Badge variant="outline" className="text-xs">{rec.severity}</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {rec.severity}
+                  </Badge>
                 )}
               </div>
             </div>

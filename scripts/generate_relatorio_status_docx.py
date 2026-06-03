@@ -58,7 +58,7 @@ def add_roadmap_table(doc: Document) -> None:
         [
             "Mapeamento de Integrações",
             "Parcial (documentado + functions criadas)",
-            "docs/N8N_INTEGRATION_GUIDE.md; supabase/functions/*; docs/adr/0002-backend-baas-supabase.md; docs/ENVIRONMENT_VARIABLES.md",
+            "docs/automacao_INTEGRATION_GUIDE.md; supabase/functions/*; docs/adr/0002-backend-baas-supabase.md; docs/ENVIRONMENT_VARIABLES.md",
             "Completar um diagrama único (sistemas externos + dados + credenciais) e definir responsáveis por cada integração.",
         ],
         [
@@ -158,9 +158,9 @@ def main() -> None:
         doc,
         [
             "Edge Function principal: supabase/functions/ai-orchestrator.",
-            "Gateway: Lovable AI Gateway (endpoint https://ai.gateway.lovable.dev/v1/chat/completions).",
-            "Modelos (config): google/gemini-2.5-flash (streaming) e google/gemini-2.5-flash-lite (tarefas curtas como rótulos).",
-            "Credencial: LOVABLE_API_KEY (variável de ambiente no Supabase).",
+            "Provedor: endpoint OpenAI-compatible configurado em AI_CHAT_BASE_URL (Supabase Secrets).",
+            "Modelo: AI_CHAT_MODEL (ex.: Qwen/Qwen2.5-3B-Instruct ou equivalente no provedor).",
+            "Credencial: AI_API_KEY (variável de ambiente no Supabase).",
         ],
     )
 
@@ -169,7 +169,7 @@ def main() -> None:
         doc,
         [
             "Supabase (BaaS): Auth, Postgres (RLS), Realtime, Edge Functions (docs/adr/0002-backend-baas-supabase.md).",
-            "N8N: integração via Edge Functions notify-n8n e n8n-callback + guia completo em docs/N8N_INTEGRATION_GUIDE.md.",
+            "automacao: integração via Edge Functions notify-automacao e automacao-callback + guia completo em docs/automacao_INTEGRATION_GUIDE.md.",
             "Google Places: Edge Functions google-places-autocomplete e google-places-details.",
             "Agenda/Notícias/Vereadores: Edge Functions fetch-agenda, fetch-noticias, fetch-vereadores.",
         ],

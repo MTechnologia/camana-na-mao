@@ -11,9 +11,12 @@ export function isAffirmativeResponse(text: string): boolean {
     /^pode$/i, /^pode ser$/i, /^pode sim$/i, /^bora$/i, /^vamos$/i, /^vamos lá$/i,
     /^ok$/i, /^okay$/i, /^okey$/i, /^beleza$/i, /^blz$/i, /^show$/i,
     /^quero$/i, /^desejo$/i, /^aceito$/i, /^confirmo$/i, /^confirma$/i,
-    /^isso$/i, /^isso mesmo$/i, /^exato$/i, /^exatamente$/i, /^isso aí$/i, /^isso ai$/i,
+    /^isso$/i, /^isso mesmo$/i, /^isso\s+msm$/i, /^isso\s+mesmo$/i,
+    /^exato$/i, /^exatamente$/i, /^isso aí$/i, /^isso ai$/i,
     /^correto$/i, /^certo$/i, /^verdade$/i, /^positivo$/i,
     /^ta$/i, /^tá$/i, /^ta bom$/i, /^tá bom$/i, /^tá certo$/i, /^tá ok$/i,
+    /^ta\s+certo[!.?…]*$/i, /^ta\s+ok[!.?…]*$/i,
+    /^tá\s+certo[!.?…]*$/i,
     /^legal$/i, /^ótimo$/i, /^otimo$/i, /^perfeito$/i, /^massa$/i,
     /^claro$/i, /^com certeza$/i, /^sem dúvida$/i, /^lógico$/i, /^logico$/i,
     /^é isso$/i, /^e isso$/i, /^é esse$/i, /^é essa$/i,
@@ -34,7 +37,8 @@ export function isNegativeResponse(text: string): boolean {
     /^não é$/i, /^nao e$/i, /^não é isso$/i, /^nao e isso$/i,
     /^não quero$/i, /^nao quero$/i, /^não pode$/i, /^nao pode$/i,
     /^cancela$/i, /^cancelar$/i, /^parar$/i, /^para$/i, /^deixa$/i,
-    /^deixa pra lá$/i, /^deixa quieto$/i, /^esquece$/i, /^desisto$/i,
+    /^deixa pra lá$/i, /^deixa\s+pra\s+la$/i, /^deixa quieto$/i, /^esquece$/i, /^desisto$/i,
+    /^esquece(\s+isso)?[!.?…]*$/i, /^para com isso[!.?…]*$/i,
     /^outro$/i, /^outra$/i, /^diferente$/i, /^mudar$/i, /^trocar$/i,
     /^👎$/i, /^❌$/i, /^✖$/i,
   ];
@@ -87,6 +91,37 @@ export function isValidDomainDescription(text: string, _domain: string): boolean
   if (!text || text.trim().length === 0) return false;
   if (isGenericIntentText(text)) return false;
   return true;
+}
+
+/** Respostas substantivas a "qual é sua dúvida/sugestão/elogio" (não são abertura de jornada). */
+export function isSubstantiveUrbanNatureDescription(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 12) return false;
+  if (/^(reclamacao|duvida|sugestao|elogio)$/i.test(t.normalize("NFD").replace(/\p{M}/gu, ""))) {
+    return false;
+  }
+  const journeyOnly = [
+    /^quero\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^preciso\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^quero\s+falar\s+da\s+cidade\b/i,
+    /^quero\s+falar\s+(de|do|sobre)\s*(transporte|avalia)/i,
+    /falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)\s*$/i,
+  ];
+  if (journeyOnly.some((p) => p.test(t))) return false;
+  return true;
+}
+
+export function isValidUrbanReportDescription(
+  text: string,
+  reportNature: string | undefined | null,
+): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  const nature = String(reportNature ?? "reclamacao").trim().toLowerCase();
+  if (["duvida", "sugestao", "elogio"].includes(nature)) {
+    return isSubstantiveUrbanNatureDescription(t);
+  }
+  return isValidDomainDescription(t, "urban");
 }
 
 export function extractImplicitData(

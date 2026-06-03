@@ -13,12 +13,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -40,23 +35,12 @@ import {
   type ExportRole,
 } from "@/lib/exportFields";
 import { useUserRole } from "@/hooks/useUserRole";
-import {
-  useCsvExport,
-  CSV_EXPORT_MAX_ROWS,
-  type CsvExportConfig,
-} from "@/hooks/useCsvExport";
-import {
-  useXlsxExport,
-  XLSX_EXPORT_MAX_ROWS,
-  type XlsxExportConfig,
-} from "@/hooks/useXlsxExport";
-import { useExportJobs } from "@/hooks/useExportJobs";
+import { effectiveExportRole as resolveStaffExportRole } from "@/lib/exportStaffRole";
+import { useCsvExport, CSV_EXPORT_MAX_ROWS, type CsvExportConfig } from "@/hooks/useCsvExport";
+import { useXlsxExport, XLSX_EXPORT_MAX_ROWS, type XlsxExportConfig } from "@/hooks/useXlsxExport";
 import { ScheduleExportDialog } from "@/components/analytics/ScheduleExportDialog";
 import { CalendarClock } from "lucide-react";
-import type { ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
-
-/** Acima desse limite, vai pro caminho server-side (HU-7.5). */
-const CLIENT_SIDE_THRESHOLD = 50_000;
+import type { DataExportDefaultFilters } from "@/lib/buildDataExportFilters";
 
 /**
  * HU-7.1 + HU-7.2 — Dialog unificado de exportação de dados.
@@ -76,13 +60,7 @@ export type ExportFormat = "csv" | "xlsx";
 interface DataExportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultFilters?: {
-    startDate?: Date | string | null;
-    endDate?: Date | string | null;
-    categories?: string[];
-    regions?: string[];
-    zones?: ZonaVolumeOuDesconhecida[];
-  };
+  defaultFilters?: DataExportDefaultFilters;
   defaultDataset?: ExportDataset;
   defaultFormat?: ExportFormat;
 }
@@ -158,7 +136,6 @@ export function DataExportDialog({
 
   const csvExport = useCsvExport();
   const xlsxExport = useXlsxExport();
-  const exportJobs = useExportJobs();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const exporting = csvExport.exporting || xlsxExport.exporting;
   const progressLoaded = format === "csv" ? csvExport.progressLoaded : xlsxExport.progressLoaded;
@@ -166,8 +143,13 @@ export function DataExportDialog({
 
   // HU-7.3 — Determina a role efetiva (admin tem precedência sobre gestor)
   // e calcula o cap de linhas dinâmico baseado em role+formato.
-  const { isAdmin, isGestor } = useUserRole();
-  const effectiveRole: ExportRole | null = isAdmin ? "admin" : isGestor ? "gestor" : null;
+  const { isAdmin, isGestor, isAssessor, isVereador } = useUserRole();
+  const effectiveRole: ExportRole | null = resolveStaffExportRole({
+    isAdmin,
+    isGestor,
+    isAssessor,
+    isVereador,
+  });
   const roleCap = getRowCap(effectiveRole, format);
   // Hard cap do client (browser tem que aguentar o conjunto em memória).
   // Acima disso, vai pra Edge Function (HU-7.5).
@@ -217,9 +199,7 @@ export function DataExportDialog({
   const applyPreset = (preset: "basico" | "completo" | "limpar") => {
     if (preset === "basico") {
       // HU-7.3 — intersecta com os campos visíveis para a role.
-      setSelectedFields(
-        getBasicPresetFieldIds(dataset).filter((id) => visibleFieldIds.has(id)),
-      );
+      setSelectedFields(getBasicPresetFieldIds(dataset).filter((id) => visibleFieldIds.has(id)));
     } else if (preset === "completo") {
       setSelectedFields(getAllFieldIds(dataset).filter((id) => visibleFieldIds.has(id)));
     } else setSelectedFields([]);
@@ -231,10 +211,7 @@ export function DataExportDialog({
   }, [dataset, selectedFields]);
 
   useEffect(() => {
-    if (
-      orderableFields.length > 0 &&
-      !orderableFields.find((f) => f.id === orderFieldId)
-    ) {
+    if (orderableFields.length > 0 && !orderableFields.find((f) => f.id === orderFieldId)) {
       setOrderFieldId(orderableFields[0].id);
     }
   }, [orderableFields, orderFieldId]);
@@ -294,31 +271,6 @@ export function DataExportDialog({
     }
   };
 
-  /** HU-7.5 — Caminho server-side: cria export_job e fecha o dialog. */
-  const handleExportServerSide = async () => {
-    if (selectedFields.length === 0) {
-      toast.error("Selecione ao menos um campo para exportar.");
-      return;
-    }
-    persistChoices();
-    const job = await exportJobs.create({
-      dataset: datasetId,
-      format,
-      fieldIds: selectedFields,
-      orderBy: { fieldId: orderFieldId, direction: orderDir },
-      filters: defaultFilters,
-      includeSummary,
-    });
-    if (job) {
-      toast.success(
-        "Exportação enfileirada. Acompanhe em 'Minhas exportações' — ela ficará disponível em alguns minutos.",
-      );
-      onOpenChange(false);
-    } else {
-      toast.error("Não foi possível enfileirar a exportação.");
-    }
-  };
-
   /** HU-7.4 — Abre o dialog de agendamento com a config atual. */
   const openSchedule = () => {
     if (selectedFields.length === 0) {
@@ -328,9 +280,6 @@ export function DataExportDialog({
     persistChoices();
     setScheduleOpen(true);
   };
-
-  /** Cap acima do qual já recomendamos server-side (acima do client threshold). */
-  const showServerSideOption = roleCap > CLIENT_SIDE_THRESHOLD;
 
   // HU-7.3 — agrupa apenas os campos visíveis para a role atual.
   const grouped = useMemo(() => {
@@ -348,6 +297,7 @@ export function DataExportDialog({
     if ((f?.categories?.length ?? 0) > 0) chips.push(`${f!.categories!.length} categoria(s)`);
     if ((f?.regions?.length ?? 0) > 0) chips.push(`${f!.regions!.length} bairro(s)`);
     if ((f?.zones?.length ?? 0) > 0) chips.push(`${f!.zones!.length} zona(s)`);
+    if (f?.status) chips.push("Status");
     return chips;
   }, [defaultFilters]);
 
@@ -357,8 +307,8 @@ export function DataExportDialog({
         <DialogHeader>
           <DialogTitle>Exportar dados</DialogTitle>
           <DialogDescription>
-            Escolha formato, conjunto de dados, campos e ordenação. Os filtros
-            ativos na página são aplicados automaticamente.
+            Escolha formato, conjunto de dados, campos e ordenação. Os filtros ativos na página são
+            aplicados automaticamente.
           </DialogDescription>
         </DialogHeader>
 
@@ -422,7 +372,8 @@ export function DataExportDialog({
                   <span className="text-sm">
                     Incluir aba "Resumo" com KPIs e breakdowns
                     <span className="block text-xs text-muted-foreground">
-                      Adiciona uma planilha extra com indicadores agregados sobre os dados exportados.
+                      Adiciona uma planilha extra com indicadores agregados sobre os dados
+                      exportados.
                     </span>
                   </span>
                 </Label>
@@ -552,17 +503,11 @@ export function DataExportDialog({
                 onValueChange={(v) => setOrderDir(v as "asc" | "desc")}
                 className="flex gap-4"
               >
-                <Label
-                  htmlFor="order-asc"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
+                <Label htmlFor="order-asc" className="flex items-center gap-2 cursor-pointer">
                   <RadioGroupItem value="asc" id="order-asc" />
                   <span className="text-sm">Crescente (A→Z, 0→9, antigo→novo)</span>
                 </Label>
-                <Label
-                  htmlFor="order-desc"
-                  className="flex items-center gap-2 cursor-pointer"
-                >
+                <Label htmlFor="order-desc" className="flex items-center gap-2 cursor-pointer">
                   <RadioGroupItem value="desc" id="order-desc" />
                   <span className="text-sm">Decrescente (Z→A, 9→0, novo→antigo)</span>
                 </Label>
@@ -571,9 +516,7 @@ export function DataExportDialog({
           </TabsContent>
         </Tabs>
 
-        {error && (
-          <p className="text-xs text-destructive">{error}</p>
-        )}
+        {error && <p className="text-xs text-destructive">{error}</p>}
 
         {exporting && (
           <div className="space-y-1">
@@ -595,11 +538,7 @@ export function DataExportDialog({
         )}
 
         <DialogFooter className="flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={exporting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={exporting}>
             Cancelar
           </Button>
           {/* HU-7.4 — Agendar (cria scheduled_export periódico). */}
@@ -611,17 +550,6 @@ export function DataExportDialog({
             <CalendarClock className="h-4 w-4 mr-2" />
             Agendar
           </Button>
-          {/* HU-7.5 — Processar em background (cria export_job server-side).
-              Útil quando o gestor sabe que vai puxar muitos dados. */}
-          {showServerSideOption && (
-            <Button
-              variant="outline"
-              onClick={() => void handleExportServerSide()}
-              disabled={exporting || selectedFields.length === 0}
-            >
-              Processar em background
-            </Button>
-          )}
           <Button
             onClick={() => void handleExport()}
             disabled={exporting || selectedFields.length === 0}

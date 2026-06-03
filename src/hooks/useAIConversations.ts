@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { cleanInternalMarkers } from '@/lib/sanitizeMarkers';
-import { createClientId } from '@/lib/clientId';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { cleanInternalMarkers } from "@/lib/sanitizeMarkers";
+import { createClientId } from "@/lib/clientId";
+import { parseLatestCollectionProgressFields } from "@/lib/chatCollectionProgress";
 
 export interface AIConversation {
   id: string;
@@ -14,7 +15,7 @@ export interface AIConversation {
   lastMessageAt: Date;
   createdAt: Date;
   messageCount: number;
-  status: 'active' | 'archived';
+  status: "active" | "archived";
   reportData?: {
     category?: string;
     address?: string;
@@ -23,25 +24,31 @@ export interface AIConversation {
 }
 
 // Extract report data from messages
-const extractReportData = (messages: Array<{ content?: string }>): { category?: string; address?: string; status?: string } | undefined => {
+const extractReportData = (
+  messages: Array<{ content?: string }>,
+): { category?: string; address?: string; status?: string } | undefined => {
   for (const msg of messages) {
     const content = msg?.content || "";
-    
-    // Try to extract from COLLECTION_PROGRESS marker
-    const progressMatch = content.match(/\[COLLECTION_PROGRESS:(\w+):(\{.*?\})\]/);
-    if (progressMatch) {
-      try {
-        const data = JSON.parse(progressMatch[2]);
-        const category = data.category || data.report_type;
-        const address = [data.street, data.street_number, data.neighborhood].filter(Boolean).join(", ");
-        return {
-          category: formatCategory(category),
-          address: address || undefined,
-          status: "Em andamento"
-        };
-      } catch { /* ignore parse errors */ }
+
+    const progress = parseLatestCollectionProgressFields(content);
+    if (progress) {
+      const data = progress.fields;
+      const category =
+        typeof data.category === "string"
+          ? data.category
+          : typeof data.report_type === "string"
+            ? data.report_type
+            : undefined;
+      const address = [data.street, data.street_number, data.neighborhood]
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .join(", ");
+      return {
+        category: formatCategory(category),
+        address: address || undefined,
+        status: "Em andamento",
+      };
     }
-    
+
     // Try to extract from REPORT_CREATED marker
     const reportMatch = content.match(/\[REPORT_CREATED:([^\]]+)\]/);
     if (reportMatch) {
@@ -55,28 +62,28 @@ const extractReportData = (messages: Array<{ content?: string }>): { category?: 
 const formatCategory = (category: string | undefined): string | undefined => {
   if (!category) return undefined;
   const categoryMap: Record<string, string> = {
-    "iluminacao": "Iluminação",
-    "via_publica": "Via Pública",
-    "esgoto": "Esgoto/Saneamento",
-    "lixo": "Lixo/Limpeza",
-    "calcada": "Calçada",
-    "sinalizacao": "Sinalização",
-    "drenagem": "Drenagem",
-    "area_verde": "Área Verde",
-    "animais": "Animais",
-    "atraso": "Atraso",
-    "lotacao": "Lotação",
-    "manutencao": "Manutenção",
-    "seguranca": "Segurança",
-    "acessibilidade": "Acessibilidade"
+    iluminacao: "Iluminação",
+    via_publica: "Via Pública",
+    esgoto: "Esgoto/Saneamento",
+    lixo: "Lixo/Limpeza",
+    calcada: "Calçada",
+    sinalizacao: "Sinalização",
+    drenagem: "Drenagem",
+    area_verde: "Área Verde",
+    animais: "Animais",
+    atraso: "Atraso",
+    lotacao: "Lotação",
+    manutencao: "Manutenção",
+    seguranca: "Segurança",
+    acessibilidade: "Acessibilidade",
   };
   return categoryMap[category.toLowerCase()] || category;
 };
 
 // Generate intelligent title from user messages (skip generic starts, find descriptive content)
 const generateIntelligentTitle = (messages: Array<{ role?: string; content?: string }>): string => {
-  const userMessages = messages.filter(m => m?.role === "user");
-  
+  const userMessages = messages.filter((m) => m?.role === "user");
+
   // Generic phrases to skip
   const genericPhrases = [
     "quero registrar um problema urbano",
@@ -84,21 +91,21 @@ const generateIntelligentTitle = (messages: Array<{ role?: string; content?: str
     "quero registrar",
     "preciso registrar",
     "problema urbano",
-    "relato urbano"
+    "relato urbano",
   ];
-  
+
   for (const msg of userMessages) {
     const cleaned = cleanInternalMarkers(msg.content || "").trim();
     const lowerCleaned = cleaned.toLowerCase();
-    
+
     // Skip generic/short messages
     if (cleaned.length < 5) continue;
-    if (genericPhrases.some(phrase => lowerCleaned.includes(phrase))) continue;
-    
+    if (genericPhrases.some((phrase) => lowerCleaned.includes(phrase))) continue;
+
     // Found a descriptive message
     return cleaned.length > 80 ? cleaned.substring(0, 80) + "..." : cleaned;
   }
-  
+
   // Fallback to first user message if no descriptive one found
   const firstUser = userMessages[0];
   if (firstUser?.content) {
@@ -107,7 +114,7 @@ const generateIntelligentTitle = (messages: Array<{ role?: string; content?: str
       return cleaned.length > 80 ? cleaned.substring(0, 80) + "..." : cleaned;
     }
   }
-  
+
   return "Conversa iniciada";
 };
 
@@ -122,50 +129,51 @@ export const useAIConversations = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('ai_conversations')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('last_message_at', { ascending: false });
+        .from("ai_conversations")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("last_message_at", { ascending: false });
 
       if (error) throw error;
 
       const formatted: AIConversation[] = (data || []).map((conv) => {
         const messages = (conv.messages as Array<{ role?: string; content?: string }>) || [];
         const lastMsg = messages[messages.length - 1];
-        const lastMsgContent = cleanInternalMarkers(lastMsg?.content || '');
-        
+        const lastMsgContent = cleanInternalMarkers(lastMsg?.content || "");
+
         // Generate intelligent title from first user message
         const intelligentTitle = generateIntelligentTitle(messages);
-        
+
         // Extract report data from messages
         const reportData = extractReportData(messages);
-        
+
         return {
           id: conv.id,
-          journeyId: conv.journey_id || 'general',
+          journeyId: conv.journey_id || "general",
           title: intelligentTitle,
           lastMessage: lastMsgContent,
-          lastMessagePreview: lastMsgContent.length > 100 ? lastMsgContent.substring(0, 100) + '...' : lastMsgContent,
+          lastMessagePreview:
+            lastMsgContent.length > 100 ? lastMsgContent.substring(0, 100) + "..." : lastMsgContent,
           lastMessageAt: new Date(conv.last_message_at),
           createdAt: new Date(conv.created_at),
           messageCount: messages.length,
-          status: conv.status as 'active' | 'archived',
+          status: conv.status as "active" | "archived",
           reportData,
         };
       });
 
       setConversations(formatted);
     } catch (error: unknown) {
-      console.error('Error loading conversations:', error);
+      console.error("Error loading conversations:", error);
       toast({
-        title: 'Erro ao carregar conversas',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        variant: 'destructive',
+        title: "Erro ao carregar conversas",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable
   }, [user]);
 
   useEffect(() => {
@@ -173,13 +181,16 @@ export const useAIConversations = () => {
   }, [loadConversations]);
 
   const conversationsByJourney = useMemo(() => {
-    const grouped = conversations.reduce((acc, conv) => {
-      if (!acc[conv.journeyId]) {
-        acc[conv.journeyId] = [];
-      }
-      acc[conv.journeyId].push(conv);
-      return acc;
-    }, {} as Record<string, AIConversation[]>);
+    const grouped = conversations.reduce(
+      (acc, conv) => {
+        if (!acc[conv.journeyId]) {
+          acc[conv.journeyId] = [];
+        }
+        acc[conv.journeyId].push(conv);
+        return acc;
+      },
+      {} as Record<string, AIConversation[]>,
+    );
 
     return grouped;
   }, [conversations]);
@@ -187,20 +198,20 @@ export const useAIConversations = () => {
   const generateTitle = (firstMessage: string): string => {
     const maxLength = 50;
     const cleaned = firstMessage.trim();
-    
+
     if (cleaned.length <= maxLength) {
       return cleaned;
     }
-    
-    return cleaned.substring(0, maxLength) + '...';
+
+    return cleaned.substring(0, maxLength) + "...";
   };
 
   const createConversation = async (journeyId: string, initialMessage?: string) => {
     if (!user) return null;
 
     try {
-      const title = initialMessage ? generateTitle(initialMessage) : 'Nova conversa';
-      
+      const title = initialMessage ? generateTitle(initialMessage) : "Nova conversa";
+
       // Criar array de mensagens com a mensagem inicial do assistente
       const messages = [];
       if (initialMessage) {
@@ -215,15 +226,15 @@ export const useAIConversations = () => {
           source: "IA Câmara na Mão",
         });
       }
-      
+
       const { data, error } = await supabase
-        .from('ai_conversations')
+        .from("ai_conversations")
         .insert({
           user_id: user.id,
           journey_id: journeyId,
           title,
           messages,
-          status: 'active',
+          status: "active",
           context: journeyId,
         })
         .select()
@@ -234,11 +245,11 @@ export const useAIConversations = () => {
       await loadConversations();
       return data.id;
     } catch (error: unknown) {
-      console.error('Error creating conversation:', error);
+      console.error("Error creating conversation:", error);
       toast({
-        title: 'Erro ao criar conversa',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        variant: 'destructive',
+        title: "Erro ao criar conversa",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
       });
       return null;
     }
@@ -247,31 +258,31 @@ export const useAIConversations = () => {
   const resumeConversation = async (conversationId: string) => {
     try {
       const { data, error } = await supabase
-        .from('ai_conversations')
-        .select('*')
-        .eq('id', conversationId)
+        .from("ai_conversations")
+        .select("*")
+        .eq("id", conversationId)
         .maybeSingle();
 
       if (error) {
-        console.error('Error resuming conversation:', error);
+        console.error("Error resuming conversation:", error);
         throw error;
       }
 
       if (!data) {
         toast({
-          title: 'Conversa não encontrada',
-          variant: 'destructive',
+          title: "Conversa não encontrada",
+          variant: "destructive",
         });
         return null;
       }
 
       return data;
     } catch (error: unknown) {
-      console.error('Error resuming conversation:', error);
+      console.error("Error resuming conversation:", error);
       toast({
-        title: 'Erro ao retomar conversa',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        variant: 'destructive',
+        title: "Erro ao retomar conversa",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
       });
       return null;
     }
@@ -282,24 +293,24 @@ export const useAIConversations = () => {
 
     try {
       const { error } = await supabase
-        .from('ai_conversations')
-        .update({ status: 'archived' })
-        .eq('id', conversationId)
-        .eq('user_id', user.id);
+        .from("ai_conversations")
+        .update({ status: "archived" })
+        .eq("id", conversationId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
       await loadConversations();
       toast({
-        title: 'Conversa arquivada',
-        description: 'A conversa foi arquivada com sucesso',
+        title: "Conversa arquivada",
+        description: "A conversa foi arquivada com sucesso",
       });
     } catch (error: unknown) {
-      console.error('Error archiving conversation:', error);
+      console.error("Error archiving conversation:", error);
       toast({
-        title: 'Erro ao arquivar conversa',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        variant: 'destructive',
+        title: "Erro ao arquivar conversa",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
       });
     }
   };
@@ -309,48 +320,98 @@ export const useAIConversations = () => {
 
     try {
       const { error } = await supabase
-        .from('ai_conversations')
-        .update({ status: 'active', updated_at: new Date().toISOString() })
-        .eq('id', conversationId)
-        .eq('user_id', user.id);
+        .from("ai_conversations")
+        .update({ status: "active", updated_at: new Date().toISOString() })
+        .eq("id", conversationId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
       await loadConversations();
       toast({
-        title: 'Conversa restaurada',
-        description: 'A conversa foi restaurada com sucesso.',
+        title: "Conversa restaurada",
+        description: "A conversa foi restaurada com sucesso.",
       });
     } catch (error: unknown) {
-      console.error('Error restoring conversation:', error);
+      console.error("Error restoring conversation:", error);
       toast({
-        title: 'Erro ao restaurar',
-        description: 'Não foi possível restaurar a conversa.',
-        variant: 'destructive',
+        title: "Erro ao restaurar",
+        description: "Não foi possível restaurar a conversa.",
+        variant: "destructive",
       });
     }
   };
 
   const deleteConversation = async (conversationId: string) => {
-    if (!user) return;
+    if (!user) return false;
 
     try {
       const { error } = await supabase
-        .from('ai_conversations')
+        .from("ai_conversations")
         .delete()
-        .eq('id', conversationId)
-        .eq('user_id', user.id);
+        .eq("id", conversationId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
       await loadConversations();
+      return true;
     } catch (error: unknown) {
-      console.error('Error deleting conversation:', error);
+      console.error("Error deleting conversation:", error);
       toast({
-        title: 'Erro ao deletar',
-        description: 'Não foi possível deletar a conversa.',
-        variant: 'destructive',
+        title: "Erro ao deletar",
+        description: "Não foi possível deletar a conversa.",
+        variant: "destructive",
       });
+      return false;
+    }
+  };
+
+  const deleteConversations = async (conversationIds: string[]) => {
+    if (!user || conversationIds.length === 0) return 0;
+
+    try {
+      const { error } = await supabase
+        .from("ai_conversations")
+        .delete()
+        .in("id", conversationIds)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await loadConversations();
+      return conversationIds.length;
+    } catch (error: unknown) {
+      console.error("Error deleting conversations:", error);
+      toast({
+        title: "Erro ao excluir conversas",
+        description: "Não foi possível remover as conversas selecionadas.",
+        variant: "destructive",
+      });
+      return 0;
+    }
+  };
+
+  const deleteAllConversations = async () => {
+    if (!user) return 0;
+    const count = conversations.length;
+    if (count === 0) return 0;
+
+    try {
+      const { error } = await supabase.from("ai_conversations").delete().eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await loadConversations();
+      return count;
+    } catch (error: unknown) {
+      console.error("Error deleting all conversations:", error);
+      toast({
+        title: "Erro ao limpar conversas",
+        description: "Não foi possível remover todas as conversas.",
+        variant: "destructive",
+      });
+      return 0;
     }
   };
 
@@ -362,6 +423,8 @@ export const useAIConversations = () => {
     archiveConversation,
     restoreConversation,
     deleteConversation,
+    deleteConversations,
+    deleteAllConversations,
     loadConversations,
     isLoading,
   };

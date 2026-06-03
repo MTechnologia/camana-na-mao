@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Chatbot deterministic corpus tests
+        run: npm run test:chatbot
+
       - name: Unit tests with coverage thresholds
         run: npm run test:coverage
 

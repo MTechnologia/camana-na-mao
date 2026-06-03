@@ -1,30 +1,30 @@
-import { useMemo, useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { Card } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { useMemo, useState } from "react";
+import { useGlobalShortcutPeriod } from "@/hooks/useGlobalShortcutPeriod";
+import { PageShell } from "@/components/ui/PageShell";
+import { RN_ANL_003_TRENDS_LEGEND } from "@/lib/analyticsParameterLegends";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { TrendCategoryLineChart } from '@/components/admin/TrendCategoryLineChart';
-import {
-  useReportsTrend,
-  type ReportsTrendPeriod,
-  type ReportsTrendTypeFilter,
-} from '@/hooks/useReportsTrend';
-import { useTransportLines } from '@/hooks/useTransportLines';
-import { buildTrendChartRows } from '@/lib/buildTrendChartRows';
-import { LineChart as LineChartIcon, RefreshCw, AlertTriangle } from 'lucide-react';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendCategoryLineChart } from "@/components/admin/TrendCategoryLineChart";
+import { useReportsTrend, type ReportsTrendTypeFilter } from "@/hooks/useReportsTrend";
+import { useTransportLines } from "@/hooks/useTransportLines";
+import { buildTrendChartRows } from "@/lib/buildTrendChartRows";
+import { RefreshCw, AlertTriangle } from "lucide-react";
+import { ExecutiveKpiSection } from "@/components/admin/analytics/ExecutiveKpiSection";
+import { AnalyticsDrillBreadcrumb } from "@/components/admin/analytics/AnalyticsDrillBreadcrumb";
 
-export default function TrendDashboardPage() {
-  const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>('all');
+export function TrendDashboardPage() {
+  const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>("all");
   const [lineId, setLineId] = useState<string | null>(null);
-  const [period, setPeriod] = useState<ReportsTrendPeriod>('30d');
+  const period = useGlobalShortcutPeriod();
 
   const { lines, loading: linesLoading } = useTransportLines();
   const { data, isLoading, error, refresh } = useReportsTrend({
@@ -38,38 +38,30 @@ export default function TrendDashboardPage() {
     return buildTrendChartRows(data.points, data.granularity);
   }, [data]);
 
-  const lineFilterVisible = typeFilter === 'all' || typeFilter === 'transport';
+  const lineFilterVisible = typeFilter === "all" || typeFilter === "transport";
 
   return (
-    <AdminLayout>
+    <PageShell title="Tendências temporais" titleInfo={RN_ANL_003_TRENDS_LEGEND}>
       <div className="space-y-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <LineChartIcon className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Tendência temporal</h1>
-              <p className="text-sm text-muted-foreground">
-                Evolução de reclamações e avaliações por categoria, com filtros dinâmicos.
-              </p>
-            </div>
-          </div>
+        <AnalyticsDrillBreadcrumb />
+        <ExecutiveKpiSection />
+
+        <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
 
         <Card className="p-4 md:p-6">
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="mb-6 grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="trend-type">Tipo</Label>
               <Select
                 value={typeFilter}
                 onValueChange={(v) => {
                   setTypeFilter(v as ReportsTrendTypeFilter);
-                  if (v !== 'all' && v !== 'transport') setLineId(null);
+                  if (v !== "all" && v !== "transport") setLineId(null);
                 }}
               >
                 <SelectTrigger id="trend-type">
@@ -87,12 +79,12 @@ export default function TrendDashboardPage() {
             <div className="space-y-2">
               <Label htmlFor="trend-line">Linha (transporte)</Label>
               <Select
-                value={lineId ?? '__all__'}
-                onValueChange={(v) => setLineId(v === '__all__' ? null : v)}
+                value={lineId ?? "__all__"}
+                onValueChange={(v) => setLineId(v === "__all__" ? null : v)}
                 disabled={!lineFilterVisible || linesLoading}
               >
                 <SelectTrigger id="trend-line">
-                  <SelectValue placeholder={linesLoading ? 'Carregando…' : 'Todas as linhas'} />
+                  <SelectValue placeholder={linesLoading ? "Carregando…" : "Todas as linhas"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas as linhas</SelectItem>
@@ -106,21 +98,6 @@ export default function TrendDashboardPage() {
               {!lineFilterVisible && (
                 <p className="text-xs text-muted-foreground">Aplica-se a relatos de transporte.</p>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="trend-period">Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as ReportsTrendPeriod)}>
-                <SelectTrigger id="trend-period">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -139,12 +116,20 @@ export default function TrendDashboardPage() {
 
           {data && (
             <p className="mt-4 text-xs text-muted-foreground">
-              Agregação: {data.granularity === 'day' ? 'por dia' : data.granularity === 'week' ? 'por semana' : 'por mês'}.
-              {data.start_at ? ` A partir de ${new Date(data.start_at).toLocaleString('pt-BR')}.` : ''}
+              Agregação:{" "}
+              {data.granularity === "day"
+                ? "por dia"
+                : data.granularity === "week"
+                  ? "por semana"
+                  : "por mês"}
+              .
+              {data.start_at
+                ? ` A partir de ${new Date(data.start_at).toLocaleString("pt-BR")}.`
+                : ""}
             </p>
           )}
         </Card>
       </div>
-    </AdminLayout>
+    </PageShell>
   );
 }

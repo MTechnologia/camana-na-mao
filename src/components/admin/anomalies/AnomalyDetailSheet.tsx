@@ -24,11 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import {
-  SEVERITY_LABEL_PT,
-  DIRECTION_LABEL_PT,
-  type AnomalySeverity,
-} from "@/lib/detectAnomalies";
+import { SEVERITY_LABEL_PT, DIRECTION_LABEL_PT, type AnomalySeverity } from "@/lib/detectAnomalies";
 import type {
   AnomalyEntry,
   AnomalyStatus,
@@ -45,10 +41,7 @@ import type {
 interface AnomalyDetailSheetProps {
   anomaly: AnomalyEntry | null;
   onOpenChange: (open: boolean) => void;
-  actions: Pick<
-    UseReportAnomaliesResult,
-    "acknowledge" | "dismiss" | "setNotes"
-  >;
+  actions: Pick<UseReportAnomaliesResult, "acknowledge" | "dismiss" | "setNotes">;
 }
 
 const SEVERITY_STYLES: Record<AnomalySeverity, string> = {
@@ -135,11 +128,7 @@ function ObservedVsExpected({
   );
 }
 
-export function AnomalyDetailSheet({
-  anomaly,
-  onOpenChange,
-  actions,
-}: AnomalyDetailSheetProps) {
+export function AnomalyDetailSheet({ anomaly, onOpenChange, actions }: AnomalyDetailSheetProps) {
   const [notes, setNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
   const [acking, setAcking] = useState(false);
@@ -209,12 +198,7 @@ export function AnomalyDetailSheet({
         <div className="space-y-4 py-4">
           {/* Badges principais */}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              className={cn(
-                "border-none",
-                SEVERITY_STYLES[anomaly.severity],
-              )}
-            >
+            <Badge className={cn("border-none", SEVERITY_STYLES[anomaly.severity])}>
               <AlertTriangle className="h-3 w-3 mr-1" />
               {SEVERITY_LABEL_PT[anomaly.severity]}
             </Badge>
@@ -234,16 +218,12 @@ export function AnomalyDetailSheet({
           <div className="grid grid-cols-2 gap-3">
             <Card className="p-3">
               <p className="text-xs text-muted-foreground">Volume observado</p>
-              <p className="text-2xl font-semibold mt-1">
-                {formatPt(anomaly.observedValue)}
-              </p>
+              <p className="text-2xl font-semibold mt-1">{formatPt(anomaly.observedValue)}</p>
               <p className="text-[11px] text-muted-foreground">relatos no dia</p>
             </Card>
             <Card className="p-3">
               <p className="text-xs text-muted-foreground">Volume esperado</p>
-              <p className="text-2xl font-semibold mt-1">
-                {formatPt(anomaly.expectedValue)}
-              </p>
+              <p className="text-2xl font-semibold mt-1">{formatPt(anomaly.expectedValue)}</p>
               <p className="text-[11px] text-muted-foreground">
                 IC 95%: {formatPt(anomaly.expectedLower)} – {formatPt(anomaly.expectedUpper)}
               </p>
@@ -255,8 +235,7 @@ export function AnomalyDetailSheet({
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-medium">Desvio do esperado</p>
               <p className="text-xs text-muted-foreground">
-                |z| = {Math.abs(anomaly.zScore).toFixed(2)} (
-                {isSpike ? "+" : ""}
+                |z| = {Math.abs(anomaly.zScore).toFixed(2)} ({isSpike ? "+" : ""}
                 {anomaly.zScore.toFixed(2)} σ)
               </p>
             </div>
@@ -294,9 +273,7 @@ export function AnomalyDetailSheet({
 
           {/* Notas */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground">
-              Notas internas
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">Notas internas</label>
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -337,10 +314,7 @@ export function AnomalyDetailSheet({
             </Button>
           )}
           {anomaly.status !== "acknowledged" && (
-            <Button
-              onClick={() => void handleAcknowledge()}
-              disabled={acking || dismissing}
-            >
+            <Button onClick={() => void handleAcknowledge()} disabled={acking || dismissing}>
               {acking ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (

@@ -1,5 +1,10 @@
 import type { CollectionIntent } from "./lib.ts";
 import { LIGHT_JOURNEY_TYPES } from "./lib-index-collection-intent.ts";
+import { buildJourneySnapshotV1, type JourneySnapshotV1 } from "./lib-index-journey-snapshot.ts";
+import {
+  applyUrbanQuickModeDefaults,
+  detectUrbanQuickModeFromHistory,
+} from "./lib-urban-quick-mode.ts";
 
 type ChatHistoryEntry = {
   role: string;
@@ -19,6 +24,7 @@ type BuildAccumulatedContextArgs = {
 
 type BuildAccumulatedContextResult = {
   accumulatedFields: Record<string, unknown>;
+  journeySnapshot: JourneySnapshotV1 | null;
   lightJourneyMarker: string;
 };
 
@@ -39,8 +45,24 @@ export async function buildAccumulatedContext(
   let accumulatedFields: Record<string, unknown> = {};
   if (collectionIntent) {
     if (journeySwitched) {
-      accumulatedFields = {};
-      console.log("[ai-orchestrator] Journey switched, starting with fresh fields");
+      accumulatedFields = { ...(collectionIntent.fields ?? {}) };
+      // NREF004 — Perda de contexto: ao trocar para Avaliação de Serviço, preserva o
+      // tipo já dito ("quero avaliar o CEU/UBS/hospital…") para NÃO re-perguntar o
+      // tipo. O switch zera os demais campos de propósito, mas o tipo é contexto útil.
+      if (collectionIntent.type === "service_rating" && !accumulatedFields.service_type) {
+        for (let i = chatHistoryTyped.length - 1; i >= 0; i--) {
+          if (chatHistoryTyped[i].role !== "user") continue;
+          const inferred = lib.inferServiceTypeFromText(String(chatHistoryTyped[i].content ?? ""));
+          if (inferred) {
+            accumulatedFields.service_type = inferred;
+            break;
+          }
+        }
+      }
+      console.log(
+        "[ai-orchestrator] Journey switched, starting with fresh fields",
+        accumulatedFields.service_type ? `(service_type=${accumulatedFields.service_type})` : "",
+      );
     } else {
       accumulatedFields = lib.accumulateFieldsFromHistory(chatHistoryTyped, collectionIntent.type);
       accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
@@ -112,6 +134,19 @@ export async function buildAccumulatedContext(
           "[ai-orchestrator] Urban incident opening: report_nature + description definidos → fluxo até location_method",
         );
       }
+
+      if (
+        detectUrbanQuickModeFromHistory(
+          chatMessages.map((message) => ({
+            role: String(message.role ?? ""),
+            content: String(message.content ?? ""),
+          })),
+        )
+      ) {
+        accumulatedFields._urban_quick_mode = true;
+        applyUrbanQuickModeDefaults(accumulatedFields);
+        console.log("[ai-orchestrator] Urban quick mode ativo (defaults de risco/escopo)");
+      }
     }
 
     console.log("[ai-orchestrator] Effective collectionType:", collectionIntent.type);
@@ -124,8 +159,13 @@ export async function buildAccumulatedContext(
     console.log("[ai-orchestrator] Will emit light journey marker:", lightJourneyMarker);
   }
 
+  const journeySnapshot = collectionIntent
+    ? buildJourneySnapshotV1(collectionIntent.type, accumulatedFields)
+    : null;
+
   return {
     accumulatedFields,
+    journeySnapshot,
     lightJourneyMarker,
   };
 }

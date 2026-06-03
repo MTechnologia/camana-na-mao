@@ -14,7 +14,7 @@ O **Câmara na Mão** é uma plataforma digital desenvolvida para a Câmara Muni
 ### Diferenciais Arquiteturais
 
 - **Assistente Unificado**: Um único agente conversacional que detecta automaticamente a intenção do cidadão e aciona ferramentas especializadas
-- **Arquitetura Serverless**: Edge Functions do Supabase para processamento síncrono e n8n para workflows assíncronos
+- **Arquitetura Serverless**: Edge Functions do Supabase para processamento síncrono e automacao para workflows assíncronos
 - **IA Self-hosted**: vLLM rodando em GCP para processamento de linguagem natural com controle total
 - **Mobile-first**: App React Native com WebView para validação rápida e migração gradual para nativo
 
@@ -36,7 +36,7 @@ O **Câmara na Mão** é uma plataforma digital desenvolvida para a Câmara Muni
 │                    CÂMARA NA MÃO                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  Frontend Web (React + Vite)  │  Mobile (Expo + WebView)       │
-│  Supabase Edge Functions       │  n8n Workflows                 │
+│  Supabase Edge Functions       │  automacao Workflows                 │
 │  PostgreSQL + PostGIS          │  vLLM (Self-hosted)           │
 └────────────────────┬──────────────────┬─────────────────────────┘
                      │                  │
@@ -58,9 +58,9 @@ O **Câmara na Mão** é uma plataforma digital desenvolvida para a Câmara Muni
 | **Backend** | Supabase (BaaS) | Auth, Database, Storage, Edge Functions |
 | **Banco de Dados** | PostgreSQL 15 + PostGIS + pgvector | Persistência e geolocalização |
 | **IA Síncrona** | ai-orchestrator (Edge Function) | Chat e tool-calling em tempo real |
-| **IA Assíncrona** | n8n + vLLM (Self-hosted) | Processamento e enriquecimento de relatos |
+| **IA Assíncrona** | automacao + vLLM (Self-hosted) | Processamento e enriquecimento de relatos |
 | **LLM** | Qwen2.5-7B-Instruct (vLLM) | Modelo de linguagem self-hosted |
-| **Automação** | n8n Workflows | Processamento assíncrono e priorização |
+| **Automação** | automacao Workflows | Processamento assíncrono e priorização |
 | **Deploy Web** | Google Cloud Run | Frontend estático servido via Nginx |
 | **Deploy Mobile** | EAS Build (Expo) | Geração de APK/AAB |
 
@@ -131,8 +131,8 @@ mobile/
 
 - **Edge Functions**: `supabase/functions/`
   - `ai-orchestrator`: Assistente IA com tool-calling
-  - `notify-n8n`: Notificação para workflows n8n
-  - `n8n-callback`: Recebe resultados do n8n
+  - `notify-automacao`: Notificação para workflows automacao
+  - `automacao-callback`: Recebe resultados do automacao
   - `generate-embeddings`: Geração de embeddings para RAG
   - `recommend-services`: Recomendação de serviços
   - `analyze-sentiment`: Análise de sentimento
@@ -162,8 +162,8 @@ mobile/
 - **`public.service_ratings`**: Avaliações de serviços
 - **`public.ai_conversations`**: Histórico de conversas com IA
 - **`public.knowledge_base`**: Base de conhecimento para RAG
-- **`public.n8n_settings`**: Configurações de integração n8n
-- **`public.n8n_integration_logs`**: Logs de integração n8n
+- **`public.automacao_settings`**: Configurações de integração automacao
+- **`public.automacao_integration_logs`**: Logs de integração automacao
 
 #### Extensões
 
@@ -205,26 +205,26 @@ mobile/
 #### Configuração de LLM
 
 - **Provider**: Configurável via secrets
-  - `AI_CHAT_BASE_URL`: URL do vLLM ou Lovable AI Gateway
+  - `AI_CHAT_BASE_URL`: URL do provedor LLM (vLLM ou API OpenAI-compatible)
   - `AI_CHAT_API_KEY`: Chave de API
   - `AI_CHAT_MODEL`: Modelo a usar (ex: `Qwen/Qwen2.5-7B-Instruct`)
-- **Fallback**: Lovable AI Gateway (se vLLM não disponível)
+- **Provedor**: configurável via secrets (`AI_CHAT_BASE_URL`, `AI_API_KEY`, `AI_CHAT_MODEL`)
 
-### 3.2 n8n Workflows (Assíncrono)
+### 3.2 automacao Workflows (Assíncrono)
 
-**Localização:** n8n Cloud (`felipemtechn8n.app.n8n.cloud`)  
+**Localização:** automacao Cloud (`felipemtechautomacao.app.automacao.cloud`)
 **Propósito:** Processamento assíncrono e enriquecimento de relatos
 
 #### Fluxo de Workflow
 
 ```
-1. Relato criado → notify-n8n Edge Function
-2. notify-n8n envia webhook para n8n
-3. n8n valida secret key
-4. n8n prepara dados
-5. n8n chama vLLM para análise
-6. n8n processa resposta do vLLM
-7. n8n envia callback para Supabase
+1. Relato criado → notify-automacao Edge Function
+2. notify-automacao envia webhook para automacao
+3. automacao valida secret key
+4. automacao prepara dados
+5. automacao chama vLLM para análise
+6. automacao processa resposta do vLLM
+7. automacao envia callback para Supabase
 8. Dados enriquecidos são salvos no banco
 ```
 
@@ -237,10 +237,10 @@ mobile/
 
 #### Configuração
 
-- **Webhook URL**: `https://felipemtechn8n.app.n8n.cloud/webhook/camara-na-mao`
-- **Secret Key**: Configurado no Supabase e n8n
+- **Webhook URL**: `https://felipemtechautomacao.app.automacao.cloud/webhook/camara-na-mao`
+- **Secret Key**: Configurado no Supabase e automacao
 - **vLLM URL**: `http://35.193.16.137:8000/v1/chat/completions`
-- **Callback URL**: `https://vjzkzsczlbtmrzewffdx.supabase.co/functions/v1/n8n-callback`
+- **Callback URL**: `https://vjzkzsczlbtmrzewffdx.supabase.co/functions/v1/automacao-callback`
 
 ### 3.3 vLLM (Self-hosted)
 
@@ -293,13 +293,13 @@ mobile/
        │
        ▼
 ┌─────────────────────┐
-│  notify-n8n         │
+│  notify-automacao         │
 │  (Edge Function)    │
 └──────┬──────────────┘
        │
        ▼
 ┌─────────────────────┐
-│  n8n Webhook        │
+│  automacao Webhook        │
 │  (Workflow)         │
 └──────┬──────────────┘
        │
@@ -311,7 +311,7 @@ mobile/
        │
        ▼
 ┌─────────────────────┐
-│  n8n-callback       │
+│  automacao-callback       │
 │  (Edge Function)    │
 └──────┬──────────────┘
        │
@@ -344,7 +344,7 @@ mobile/
        │
        ▼
 ┌─────────────────────┐
-│  LLM (vLLM/Lovable) │
+│  LLM (vLLM / OpenAI-compatible) │
 │  (Tool Calling)     │
 └──────┬──────────────┘
        │
@@ -385,7 +385,7 @@ mobile/
 ### 5.3 Proteção de APIs
 
 - **Edge Functions**: JWT verification (configurável via `config.toml`)
-- **n8n Webhooks**: Secret key validation
+- **automacao Webhooks**: Secret key validation
 - **CORS**: Configurado para domínios permitidos
 
 ---
@@ -443,10 +443,10 @@ mobile/
 - **Container**: Docker com vLLM
 - **Acesso**: HTTP na porta 8000
 
-### 7.5 n8n
+### 7.5 automacao
 
-- **Hosting**: n8n Cloud
-- **URL**: `https://felipemtechn8n.app.n8n.cloud`
+- **Hosting**: automacao Cloud
+- **URL**: `https://felipemtechautomacao.app.automacao.cloud`
 - **Workflows**: Configurados via UI
 
 ---
@@ -464,7 +464,7 @@ mobile/
 - `SUPABASE_URL`: URL do Supabase
 - `SUPABASE_ANON_KEY`: Chave anon do Supabase
 - `SUPABASE_SERVICE_ROLE_KEY`: Chave de service role
-- `AI_CHAT_BASE_URL`: URL do vLLM ou Lovable
+- `AI_CHAT_BASE_URL`: URL do provedor LLM
 - `AI_CHAT_API_KEY`: Chave de API do LLM
 - `AI_CHAT_MODEL`: Modelo a usar
 - `AI_EMBEDDING_BASE_URL`: URL do serviço de embeddings
@@ -502,14 +502,14 @@ mobile/
 ### 10.1 Logs
 
 - **Supabase**: Logs de Edge Functions no dashboard
-- **n8n**: Logs de execução de workflows
+- **automacao**: Logs de execução de workflows
 - **Frontend**: Console logs (dev) + Sentry (produção)
 
 ### 10.2 Métricas
 
 - **Supabase**: Métricas de uso no dashboard
 - **Cloud Run**: Métricas de requisições e latência
-- **n8n**: Métricas de execução de workflows
+- **automacao**: Métricas de execução de workflows
 
 ---
 
@@ -519,7 +519,7 @@ mobile/
 
 - [ ] Abrir porta 8000 no firewall do GCP para vLLM
 - [ ] Configurar Load Balancer para vLLM (produção)
-- [ ] Implementar retry logic no n8n
+- [ ] Implementar retry logic no automacao
 - [ ] Adicionar monitoramento de saúde do vLLM
 
 ### 11.2 Médio Prazo
@@ -541,12 +541,12 @@ mobile/
 ## 12. Referências
 
 - [Documentação Supabase](https://supabase.com/docs)
-- [Documentação n8n](https://docs.n8n.io)
+- [Documentação automacao](https://docs.automacao.io)
 - [Documentação vLLM](https://docs.vllm.ai)
 - [ADR-0001: Frontend Web](./adr/0001-frontend-web-vite-react-e-deploy-render.md)
 - [ADR-0002: Backend BaaS Supabase](./adr/0002-backend-baas-supabase.md)
 - [ADR-0003: Mobile Expo WebView](./adr/0003-mobile-expo-react-native-com-webview-pov.md)
-- [Guia de Configuração N8N](./GUIA_CONFIGURACAO_N8N_PASSO_A_PASSO.md)
+- [Guia de Configuração automacao](./GUIA_CONFIGURACAO_automacao_PASSO_A_PASSO.md)
 - [Especificação do AI Orchestrator](./AI_ORCHESTRATOR_SPECIFICATION.md)
 
 ---

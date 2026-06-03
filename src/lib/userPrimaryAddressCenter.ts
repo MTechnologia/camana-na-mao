@@ -17,7 +17,9 @@ export type UserPrimaryAddressCenterResult =
   | { center: CepCenter; reason: "ok" }
   | { center: null; reason: "not_found" | "missing_coordinates" };
 
-async function geocodeAddressViaPlaces(fullAddress: string): Promise<{ latitude: number; longitude: number } | null> {
+async function geocodeAddressViaPlaces(
+  fullAddress: string,
+): Promise<{ latitude: number; longitude: number } | null> {
   try {
     const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke(
       "google-places-autocomplete",

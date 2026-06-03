@@ -23,17 +23,24 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
   const navigate = useNavigate();
   const { pendingRatings } = usePendingRatings();
   const { user } = useAuth();
-  const [upcomingAudiencia, setUpcomingAudiencia] = useState<{ id: string; titulo?: string; data?: string; hora?: string; status?: string } | null>(null);
+  const [upcomingAudiencia, setUpcomingAudiencia] = useState<{
+    id: string;
+    titulo?: string;
+    data?: string;
+    hora?: string;
+    status?: string;
+  } | null>(null);
 
   useEffect(() => {
     const fetchUpcomingAudiencia = async () => {
       if (!user) return;
 
       const today = new Date().toISOString().split("T")[0];
-      
+
       const { data } = await supabase
         .from("audiencia_inscricoes")
-        .select(`
+        .select(
+          `
           audiencia_id,
           audiencias (
             id,
@@ -42,16 +49,19 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
             hora,
             status
           )
-        `)
+        `,
+        )
         .eq("user_id", user.id)
         .eq("status", "confirmado");
 
       if (data && data.length > 0) {
-        const todayAudiencia = data.find((item: { audiencias?: { data?: string; status?: string } }) => {
-          const audiencia = item.audiencias;
-          return audiencia?.data === today && audiencia?.status === "agendada";
-        });
-        
+        const todayAudiencia = data.find(
+          (item: { audiencias?: { data?: string; status?: string } }) => {
+            const audiencia = item.audiencias;
+            return audiencia?.data === today && audiencia?.status === "agendada";
+          },
+        );
+
         if (todayAudiencia) {
           setUpcomingAudiencia(todayAudiencia.audiencias);
         }
@@ -126,16 +136,14 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
             </div>
           )}
         </div>
-        
+
         <div className="flex-1 text-left min-w-0 overflow-hidden">
           <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
             {priorityAction.title}
           </h3>
-          <p className="text-xs text-muted-foreground truncate">
-            {priorityAction.subtitle}
-          </p>
+          <p className="text-xs text-muted-foreground truncate">{priorityAction.subtitle}</p>
         </div>
-        
+
         <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
       </div>
     </motion.button>

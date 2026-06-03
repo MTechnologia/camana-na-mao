@@ -1,59 +1,79 @@
-import { useState, useEffect } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { useNotifications } from '@/contexts/NotificationsContext';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Bell, Check, CheckCheck, Trash2, Search, Filter, 
-  AlertTriangle, Users, FileText, Bus, Building2, RefreshCw
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { getNotificationType, getNotificationPriority, ADMIN_NOTIFICATION_TYPES } from '@/constants/notificationTypes';
-import { NOTIFICATION_TYPE_ICONS } from '@/components/icons';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useState, useEffect } from "react";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { useNotifications } from "@/contexts/NotificationsContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  Trash2,
+  Search,
+  Filter,
+  AlertTriangle,
+  Users,
+  FileText,
+  Bus,
+  Building2,
+  RefreshCw,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { handleNotificationNavigation } from "@/lib/handleNotificationNavigation";
+import {
+  getNotificationType,
+  getNotificationPriority,
+  ADMIN_NOTIFICATION_TYPES,
+} from "@/constants/notificationTypes";
+import { NOTIFICATION_TYPE_ICONS } from "@/components/icons";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const AdminNotifications = () => {
   const navigate = useNavigate();
-  const { 
-    notifications, 
-    unreadCount, 
+  const {
+    notifications,
+    unreadCount,
     isLoading,
-    markAsRead, 
-    markAllAsRead, 
+    markAsRead,
+    markAllAsRead,
     deleteNotification,
-    fetchNotifications
+    fetchNotifications,
   } = useNotifications();
-  
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Filter notifications
-  const filteredNotifications = notifications.filter(n => {
+  const filteredNotifications = notifications.filter((n) => {
     // Read filter
-    if (filter === 'unread' && n.is_read) return false;
-    
+    if (filter === "unread" && n.is_read) return false;
+
     // Type filter
-    if (typeFilter !== 'all' && n.type !== typeFilter) return false;
-    
+    if (typeFilter !== "all" && n.type !== typeFilter) return false;
+
     // Priority filter
-    if (priorityFilter !== 'all' && n.priority !== priorityFilter) return false;
-    
+    if (priorityFilter !== "all" && n.priority !== priorityFilter) return false;
+
     // Search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      return n.title.toLowerCase().includes(query) || 
-             n.message.toLowerCase().includes(query);
+      return n.title.toLowerCase().includes(query) || n.message.toLowerCase().includes(query);
     }
-    
+
     return true;
   });
 
@@ -61,25 +81,23 @@ const AdminNotifications = () => {
   const stats = {
     total: notifications.length,
     unread: unreadCount,
-    critical: notifications.filter(n => n.priority === 'high' && !n.is_read).length,
-    newReports: notifications.filter(n => 
-      ['new_urban_report', 'new_transport_report'].includes(n.type) && !n.is_read
+    critical: notifications.filter((n) => n.priority === "high" && !n.is_read).length,
+    newReports: notifications.filter(
+      (n) => ["new_urban_report", "new_transport_report"].includes(n.type) && !n.is_read,
     ).length,
-    newUsers: notifications.filter(n => n.type === 'new_user' && !n.is_read).length,
+    newUsers: notifications.filter((n) => n.type === "new_user" && !n.is_read).length,
   };
 
-  const handleNotificationClick = (notification: typeof notifications[0]) => {
+  const handleNotificationClick = (notification: (typeof notifications)[0]) => {
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
-    if (notification.action_url) {
-      navigate(notification.action_url);
-    }
+    void handleNotificationNavigation(notification, navigate);
   };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(filteredNotifications.map(n => n.id));
+      setSelectedIds(filteredNotifications.map((n) => n.id));
     } else {
       setSelectedIds([]);
     }
@@ -87,31 +105,31 @@ const AdminNotifications = () => {
 
   const handleSelectOne = (id: string, checked: boolean) => {
     if (checked) {
-      setSelectedIds(prev => [...prev, id]);
+      setSelectedIds((prev) => [...prev, id]);
     } else {
-      setSelectedIds(prev => prev.filter(i => i !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
     }
   };
 
   const handleBatchMarkRead = () => {
-    selectedIds.forEach(id => markAsRead(id));
+    selectedIds.forEach((id) => markAsRead(id));
     setSelectedIds([]);
   };
 
   const handleBatchDelete = () => {
-    selectedIds.forEach(id => deleteNotification(id));
+    selectedIds.forEach((id) => deleteNotification(id));
     setSelectedIds([]);
   };
 
   const getIconForType = (type: string) => {
     switch (type) {
-      case 'new_urban_report':
+      case "new_urban_report":
         return <Building2 className="h-4 w-4" />;
-      case 'new_transport_report':
+      case "new_transport_report":
         return <Bus className="h-4 w-4" />;
-      case 'new_user':
+      case "new_user":
         return <Users className="h-4 w-4" />;
-      case 'critical_report':
+      case "critical_report":
         return <AlertTriangle className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
@@ -128,9 +146,7 @@ const AdminNotifications = () => {
               <Bell className="h-6 w-6" />
               Central de Alertas
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Gerencie notificações e alertas do sistema
-            </p>
+            <p className="text-muted-foreground mt-1">Gerencie notificações e alertas do sistema</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => fetchNotifications()}>
@@ -232,14 +248,14 @@ const AdminNotifications = () => {
                   className="pl-9"
                 />
               </div>
-              
+
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-full md:w-[180px]">
                   <SelectValue placeholder="Tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os tipos</SelectItem>
-                  {ADMIN_NOTIFICATION_TYPES.map(type => {
+                  {ADMIN_NOTIFICATION_TYPES.map((type) => {
                     const TypeIcon = NOTIFICATION_TYPE_ICONS[type.value];
                     return (
                       <SelectItem key={type.value} value={type.value}>
@@ -271,7 +287,7 @@ const AdminNotifications = () => {
         </Card>
 
         {/* Tabs */}
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread')}>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as "all" | "unread")}>
           <div className="flex items-center justify-between">
             <TabsList>
               <TabsTrigger value="all">Todas ({notifications.length})</TabsTrigger>
@@ -305,9 +321,9 @@ const AdminNotifications = () => {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Bell className="h-12 w-12 text-muted-foreground/50 mb-4" />
                   <p className="text-muted-foreground">
-                    {filter === 'unread' 
-                      ? 'Nenhuma notificação não lida' 
-                      : 'Nenhuma notificação encontrada'}
+                    {filter === "unread"
+                      ? "Nenhuma notificação não lida"
+                      : "Nenhuma notificação encontrada"}
                   </p>
                 </CardContent>
               </Card>
@@ -317,7 +333,10 @@ const AdminNotifications = () => {
                   {/* Select All Header */}
                   <div className="flex items-center gap-3 p-4 bg-muted/50">
                     <Checkbox
-                      checked={selectedIds.length === filteredNotifications.length && filteredNotifications.length > 0}
+                      checked={
+                        selectedIds.length === filteredNotifications.length &&
+                        filteredNotifications.length > 0
+                      }
                       onCheckedChange={handleSelectAll}
                     />
                     <span className="text-sm text-muted-foreground">Selecionar todas</span>
@@ -328,7 +347,7 @@ const AdminNotifications = () => {
                     <div
                       key={notification.id}
                       className={`flex items-start gap-3 p-4 transition-colors hover:bg-secondary/50 ${
-                        !notification.is_read ? 'bg-primary/5' : ''
+                        !notification.is_read ? "bg-primary/5" : ""
                       }`}
                     >
                       <Checkbox
@@ -337,7 +356,7 @@ const AdminNotifications = () => {
                         onClick={(e) => e.stopPropagation()}
                       />
 
-                      <div 
+                      <div
                         className="flex-1 min-w-0 cursor-pointer"
                         onClick={() => handleNotificationClick(notification)}
                       >
@@ -345,35 +364,39 @@ const AdminNotifications = () => {
                           {!notification.is_read && (
                             <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                           )}
-                          
-                          <Badge 
-                            variant="secondary" 
+
+                          <Badge
+                            variant="secondary"
                             className={`text-xs ${getNotificationType(notification.type).color}`}
                           >
                             {getIconForType(notification.type)}
-                            <span className="ml-1">{getNotificationType(notification.type).label}</span>
+                            <span className="ml-1">
+                              {getNotificationType(notification.type).label}
+                            </span>
                           </Badge>
-                          
-                          {notification.priority === 'high' && (
+
+                          {notification.priority === "high" && (
                             <Badge variant="destructive" className="text-xs">
                               Urgente
                             </Badge>
                           )}
-                          
+
                           <span className="text-xs text-muted-foreground ml-auto">
-                            {formatDistanceToNow(new Date(notification.created_at), { 
-                              addSuffix: true, 
-                              locale: ptBR 
+                            {formatDistanceToNow(new Date(notification.created_at), {
+                              addSuffix: true,
+                              locale: ptBR,
                             })}
                           </span>
                         </div>
-                        
-                        <h3 className={`font-medium ${
-                          notification.is_read ? 'text-muted-foreground' : 'text-foreground'
-                        }`}>
+
+                        <h3
+                          className={`font-medium ${
+                            notification.is_read ? "text-muted-foreground" : "text-foreground"
+                          }`}
+                        >
                           {notification.title}
                         </h3>
-                        
+
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           {notification.message}
                         </p>

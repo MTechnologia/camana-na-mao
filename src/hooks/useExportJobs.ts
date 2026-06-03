@@ -21,13 +21,15 @@ const TABLE = "export_jobs" as const;
 const REALTIME_TABLES = [TABLE] as const;
 const STORAGE_BUCKET = "export-files" as const;
 const SIGNED_URL_EXPIRES_SECONDS = 60 * 60 * 24 * 7; // 7 dias
+const APP_ORIGIN_FILTER_KEY = "__app_origin";
 
-export type ExportJobStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
+function withAppOrigin<T extends Record<string, unknown>>(filters: T): T {
+  if (typeof window === "undefined" || !window.location?.origin) return filters;
+  if (typeof filters[APP_ORIGIN_FILTER_KEY] === "string") return filters;
+  return { ...filters, [APP_ORIGIN_FILTER_KEY]: window.location.origin } as T;
+}
+
+export type ExportJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
 export interface ExportJob {
   id: string;
@@ -102,11 +104,10 @@ function toModel(row: RawRow): ExportJob {
     dataset: row.dataset as ExportDataset,
     format: row.format as "csv" | "xlsx",
     fields: (row.fields as string[]) ?? [],
-    orderBy:
-      (row.order_by as { fieldId: string; direction: "asc" | "desc" }) ?? {
-        fieldId: "created_at",
-        direction: "desc",
-      },
+    orderBy: (row.order_by as { fieldId: string; direction: "asc" | "desc" }) ?? {
+      fieldId: "created_at",
+      direction: "desc",
+    },
     filters: (row.filters as ExportJob["filters"]) ?? {},
     includeSummary: row.include_summary,
     source: row.source as "manual" | "scheduled",
@@ -172,7 +173,7 @@ export function useExportJobs(): UseExportJobsResult {
             format: input.format,
             fields: input.fieldIds,
             order_by: input.orderBy,
-            filters: input.filters ?? {},
+            filters: withAppOrigin((input.filters ?? {}) as Record<string, unknown>),
             include_summary: input.includeSummary ?? false,
             source: "manual",
             status: "pending",
@@ -206,9 +207,7 @@ export function useExportJobs(): UseExportJobsResult {
     async (id: string) => {
       if (!userId) return;
       const prev = jobs;
-      setJobs((p) =>
-        p.map((j) => (j.id === id ? { ...j, status: "cancelled" } : j)),
-      );
+      setJobs((p) => p.map((j) => (j.id === id ? { ...j, status: "cancelled" } : j)));
       try {
         const { error: updErr } = await supabase
           .from(TABLE)

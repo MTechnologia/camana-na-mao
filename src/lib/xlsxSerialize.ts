@@ -80,11 +80,7 @@ export function buildXlsxWorkbook(input: XlsxBuildInput): ArrayBuffer {
 
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
     // Largura razoável da 1ª coluna
-    summarySheet["!cols"] = [
-      { wch: 32 },
-      { wch: 16 },
-      { wch: 10 },
-    ];
+    summarySheet["!cols"] = [{ wch: 32 }, { wch: 16 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, summarySheet, "Resumo");
   }
 
@@ -107,13 +103,43 @@ export function buildXlsxWorkbook(input: XlsxBuildInput): ArrayBuffer {
 
 /**
  * Helper para download no navegador.
+ *
+ * Estratégia adaptativa:
+ *   1. Dentro do APK Android (WebView): envia o buffer via postMessage para
+ *      o nativo, que salva e abre o menu de Compartilhar (expo-sharing).
+ *   2. Em PWA standalone (Android instalado / iOS Add to Home Screen):
+ *      `<a download>` é bloqueado; abre em nova aba para o user salvar.
+ *   3. Em qualquer outro contexto: `<a download>` programático.
  */
+import { isInsideNativeApp, postFileToNative } from "./nativeBridge";
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
 export function downloadXlsx(buffer: ArrayBuffer, filename: string): void {
   if (typeof window === "undefined") return;
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+
+  // 1. Dentro do APK — envia pro nativo.
+  if (isInsideNativeApp()) {
+    const sent = postFileToNative(buffer, filename, XLSX_MIME);
+    if (sent) return;
+    // Fallback web se a bridge falhar.
+  }
+
+  const blob = new Blob([buffer], { type: XLSX_MIME });
   const url = URL.createObjectURL(blob);
+
+  // 2. PWA standalone — abre em nova aba.
+  const isStandalonePwa =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  if (isStandalonePwa) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
+  // 3. Caminho padrão.
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -138,9 +164,7 @@ function normalizeCellValue(v: unknown): string | number | boolean | Date {
     return v;
   }
   if (Array.isArray(v)) {
-    return v
-      .map((x) => (typeof x === "string" ? x : JSON.stringify(x)))
-      .join("; ");
+    return v.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join("; ");
   }
   try {
     return JSON.stringify(v);

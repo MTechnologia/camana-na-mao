@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { logManualClassificationPrediction } from '@/lib/classificationPredictionLog';
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { logManualClassificationPrediction } from "@/lib/classificationPredictionLog";
 
 interface ReportData {
   line_id?: string;
@@ -27,20 +27,25 @@ export const useTransportReport = () => {
     try {
       setSubmitting(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
 
       const insertData = {
         ...reportData,
-        severity: reportData.severity || 'pending',
+        severity: reportData.severity || "pending",
         user_id: user.id,
-        photos: Array.isArray(reportData.photos) && reportData.photos.length > 0 ? reportData.photos.slice(0, 3) : null,
+        photos:
+          Array.isArray(reportData.photos) && reportData.photos.length > 0
+            ? reportData.photos.slice(0, 3)
+            : null,
       };
-      if (insertData.line_id === '') {
+      if (insertData.line_id === "") {
         delete insertData.line_id;
       }
       const { data, error } = await supabase
-        .from('transport_reports')
+        .from("transport_reports")
         .insert(insertData)
         .select()
         .single();
@@ -50,22 +55,22 @@ export const useTransportReport = () => {
       await logManualClassificationPrediction(supabase, {
         userId: user.id,
         reportId: data.id,
-        reportType: 'transport',
+        reportType: "transport",
         predictedCategory: reportData.report_type,
         predictedSubcategory: null,
       });
 
       toast({
-        title: 'Relato enviado!',
-        description: 'Seu relato foi registrado com sucesso.',
+        title: "Relato enviado!",
+        description: "Seu relato foi registrado com sucesso.",
       });
 
       return data;
     } catch (err) {
       toast({
-        variant: 'destructive',
-        title: 'Erro ao enviar relato',
-        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive",
+        title: "Erro ao enviar relato",
+        description: err instanceof Error ? err.message : "Erro desconhecido",
       });
       throw err;
     } finally {
@@ -74,12 +79,15 @@ export const useTransportReport = () => {
   };
 
   const getMyReports = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return [];
 
     const { data, error } = await supabase
-      .from('transport_reports')
-      .select(`
+      .from("transport_reports")
+      .select(
+        `
         id,
         protocol_code,
         line_id,
@@ -98,16 +106,12 @@ export const useTransportReport = () => {
         status,
         created_at,
         updated_at,
-        n8n_processed,
-        n8n_processed_at,
-        n8n_priority,
-        n8n_validated_category,
-        n8n_tags,
         line:transport_lines(line_code, line_name, line_type),
         transport_report_likes(count)
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      `,
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
     return data || [];

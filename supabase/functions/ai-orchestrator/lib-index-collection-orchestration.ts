@@ -6,12 +6,15 @@ import { handleDeterministicTransportAutoCreate } from "./lib-index-transport-au
 import { handleDeterministicUrbanAutoCreate } from "./lib-index-urban-auto.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import { getNextMissingField } from "./lib-next-missing-field.ts";
+import { compactFieldPrompt } from "./lib-prompt-ux.ts";
 
 type NextFieldInfo = { field: string | null; picker: string | null; prompt: string | null };
 
 type CollectionOrchestrationArgs = {
   accumulatedFields: Record<string, unknown>;
   attachmentUrls: string[];
+  /** Prompt base (versão ativa + operacional) — usado ao injetar contexto de coleta. */
+  baseSystemPrompt: string;
   chatMessages: Array<Record<string, unknown>>;
   collectionIntent: CollectionIntent | null;
   conversationId: unknown;
@@ -52,6 +55,7 @@ export async function orchestrateCollectionTurn(
   const {
     accumulatedFields,
     attachmentUrls,
+    baseSystemPrompt: _baseSystemPrompt,
     chatMessages,
     collectionIntent,
     conversationId,
@@ -89,9 +93,35 @@ export async function orchestrateCollectionTurn(
       userId,
       lib,
     );
+    if (nextFieldInfo.field && nextFieldInfo.prompt) {
+      nextFieldInfo = {
+        ...nextFieldInfo,
+        prompt: compactFieldPrompt(nextFieldInfo.prompt),
+      };
+    }
     console.log("[ai-orchestrator] Deterministic next field:", nextFieldInfo.field);
 
-    if (!nextFieldInfo.field && accumulatedFields) {
+    if (!nextFieldInfo.field && nextFieldInfo.prompt) {
+      let terminalContent = nextFieldInfo.prompt;
+      if (lightJourneyMarker && !terminalContent.includes("[LIGHT_JOURNEY:")) {
+        terminalContent = lightJourneyMarker + terminalContent;
+      }
+      if (!terminalContent.includes("[COLLECTION_PROGRESS:")) {
+        terminalContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:{}]${terminalContent}`;
+      }
+      console.log("[ai-orchestrator] Deterministic terminal message returned directly (field=null, prompt set)");
+      return {
+        dynamicSystemPrompt: finalDynamicSystemPrompt,
+        nextFieldInfo,
+        response: createSseResponse(terminalContent, lib.corsHeaders),
+      };
+    }
+
+    const urbanNonComplaintLlmMode =
+      collectionIntent.type === "urban_report" &&
+      lib.isUrbanNonComplaintReadyForLlmTurn(accumulatedFields);
+
+    if (!nextFieldInfo.field && accumulatedFields && !urbanNonComplaintLlmMode) {
       console.log("[ai-orchestrator] All fields collected, auto-calling create function for:", collectionIntent.type);
 
       let toolResult: ExecuteToolResult | undefined;
@@ -100,7 +130,9 @@ export async function orchestrateCollectionTurn(
           const urbanAutoResult = await handleUrbanAutoImpl({
             accumulatedFields,
             attachmentUrls,
+            chatMessages,
             conversationId: typeof conversationId === "string" ? conversationId : undefined,
+            getMessageText,
             lastAssistantLower,
             lastAssistantMessage,
             lastUserMessage,
@@ -216,11 +248,25 @@ export async function orchestrateCollectionTurn(
     const hasUrgentContent =
       /(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente|incêndio|incendio|fogo|queimando|chamas)/i
         .test(descLower) || lastUserUrgent;
-    const empathyNote = hasUrgentContent
+    const urbanNonComplaintLlmMode =
+      collectionIntent.type === "urban_report" &&
+      lib.isUrbanNonComplaintReadyForLlmTurn(accumulatedFields);
+
+    const empathyNote = hasUrgentContent && !urbanNonComplaintLlmMode
       ? "\n\n⚠️ **ATENÇÃO - CONTEÚDO URGENTE / GRAVE:**\nReconheça a gravidade com empatia e eficiência.\n" +
         '**Localização:** NUNCA peça só "digite o CEP". O próximo passo correto é **location_method** com opções GPS / endereço cadastrado / CEP (o app mostra botões quando o backend envia `[LOCATION_METHOD_PICKER]`).\n' +
         "NÃO pergunte de novo por dados já listados em \"Campos JÁ COLETADOS\".\n"
       : "";
+
+    const nonComplaintLlmNote = urbanNonComplaintLlmMode
+      ? lib.buildUrbanNonComplaintLlmInstruction(accumulatedFields)
+      : "";
+
+    const statusLine = nextFieldInfo.field
+      ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n**PERGUNTA SUGERIDA:** ${nextFieldInfo.prompt || ""}`
+      : urbanNonComplaintLlmMode
+      ? lib.urbanNonComplaintLlmStatusLine(accumulatedFields)
+      : "\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta de criação para finalizar.";
 
     const collectionContext = `
 
@@ -229,7 +275,8 @@ export async function orchestrateCollectionTurn(
 **Jornada ativa:** ${collectionIntent.type}
 **Campos JÁ COLETADOS (NÃO PERGUNTAR NOVAMENTE):**
 ${fieldsList}
-${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n**PERGUNTA SUGERIDA:** ${nextFieldInfo.prompt || ""}` : "\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta de criação para finalizar."}
+${statusLine}
+${nonComplaintLlmNote}
 ${empathyNote}
 **REGRAS CRÍTICAS:**
 1. NUNCA pergunte por campos já listados acima (cep, street, neighborhood, category, line_code, etc.)
@@ -240,7 +287,7 @@ ${empathyNote}
 6. Se a descrição já contém detalhes suficientes, NÃO pergunte "qual tipo de problema" - classifique automaticamente
 ===`;
 
-    finalDynamicSystemPrompt = lib.systemPrompt + "\n\n" + collectionContext;
+    finalDynamicSystemPrompt = finalDynamicSystemPrompt + "\n\n" + collectionContext;
     console.log(
       "[ai-orchestrator] Injected collection context. Next field:",
       nextFieldInfo.field,

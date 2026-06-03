@@ -283,7 +283,21 @@ export async function handleDeterministicShortcuts(
   const skipDeterministicForUrbanNature = collectionIntent?.type === "urban_report" &&
     nextFieldInfo.field === "report_nature";
 
-  if (!skipDeterministicForUrbanNature && (isGreeting || isEmpathyRequest || isGenericReport || isOffTopic)) {
+  // NREF005 — Perda de contexto: uma saudação pura ("oi", "olá") NO MEIO de uma
+  // coleta estruturada em andamento (já existe próximo campo a pedir) não deve
+  // resetar para o menu de boas-vindas. Deixa seguir o short-circuit abaixo, que
+  // re-pergunta o campo atual e mantém o relato.
+  const hasActiveStructuredCollection = !!collectionIntent &&
+    ["urban_report", "transport_report", "service_rating"].includes(collectionIntent.type) &&
+    !!nextFieldInfo.field;
+  const isBareGreetingMidCollection = hasActiveStructuredCollection &&
+    isGreeting && !isOffTopic && !isEmpathyRequest && !isGenericReport && !isUrgent;
+
+  if (
+    !skipDeterministicForUrbanNature &&
+    !isBareGreetingMidCollection &&
+    (isGreeting || isEmpathyRequest || isGenericReport || isOffTopic)
+  ) {
     console.log("[ai-orchestrator] Deterministic response detected:", {
       isGreeting,
       isEmpathyRequest,
@@ -314,7 +328,9 @@ export async function handleDeterministicShortcuts(
     ["urban_report", "transport_report", "service_rating"].includes(collectionIntent.type);
 
   if (shouldShortCircuit && nextFieldInfo.prompt) {
-    const prefix = journeySwitched ? "Ok! " : "";
+    // NREF005: se o usuário deu só um "oi" no meio do relato, cumprimenta de volta
+    // e segue de onde parou, sem perder o contexto.
+    const prefix = isBareGreetingMidCollection ? "Olá! Vamos continuar o seu relato. " : journeySwitched ? "Ok! " : "";
     console.log(
       "[ai-orchestrator] SHORT-CIRCUIT: Responding deterministically for field:",
       nextFieldInfo.field,

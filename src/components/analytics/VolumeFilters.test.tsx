@@ -2,10 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { VolumeFilters } from "./VolumeFilters";
-import {
-  EMPTY_VOLUME_FILTERS,
-  type VolumeFiltersValue,
-} from "./volumeFiltersConstants";
+import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "./volumeFiltersConstants";
 
 afterEach(() => {
   cleanup();

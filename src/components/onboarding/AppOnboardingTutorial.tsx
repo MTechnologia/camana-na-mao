@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronRight, 
+import {
+  ChevronRight,
   ChevronLeft,
-  X, 
-  MessageSquare, 
-  Bus, 
-  Megaphone, 
-  Navigation, 
-  Bot, 
+  X,
+  MessageSquare,
+  Bus,
+  Megaphone,
+  Navigation,
+  Bot,
   Star,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import iaIcone from "@/assets/ia-icone.png";
@@ -24,49 +24,56 @@ const steps = [
   {
     icon: Sparkles,
     title: "Bem-vindo ao Câmara na Mão!",
-    description: "Seu portal de participação cidadã com a Câmara Municipal de São Paulo. Vamos conhecer as principais funcionalidades?",
+    description:
+      "Seu portal de participação cidadã com a Câmara Municipal de São Paulo. Vamos conhecer as principais funcionalidades?",
     color: "from-primary to-primary/70",
     useImage: true,
   },
   {
     icon: MessageSquare,
     title: "Relatos Urbanos",
-    description: "Reporte problemas na cidade como buracos, iluminação defeituosa, sinalização e muito mais. Sua voz importa!",
+    description:
+      "Reporte problemas na cidade como buracos, iluminação defeituosa, sinalização e muito mais. Sua voz importa!",
     color: "from-cyan-500 to-blue-500",
     useImage: false,
   },
   {
     icon: Bus,
     title: "Transporte Público",
-    description: "Avalie e relate problemas nas linhas de ônibus da SPTrans. Ajude a melhorar o transporte na cidade.",
+    description:
+      "Avalie e relate problemas nas linhas de ônibus da SPTrans. Ajude a melhorar o transporte na cidade.",
     color: "from-green-500 to-emerald-500",
     useImage: false,
   },
   {
     icon: Megaphone,
     title: "Audiências Públicas",
-    description: "Participe de debates e acompanhe temas importantes para a cidade. Sua participação fortalece a democracia!",
+    description:
+      "Participe de debates e acompanhe temas importantes para a cidade. Sua participação fortalece a democracia!",
     color: "from-pink-500 to-rose-500",
     useImage: false,
   },
   {
     icon: Navigation,
     title: "Serviços Próximos",
-    description: "Encontre UBS, escolas, hospitais e outros serviços públicos perto de você com facilidade.",
+    description:
+      "Encontre UBS, escolas, hospitais e outros serviços públicos perto de você com facilidade.",
     color: "from-blue-500 to-cyan-500",
     useImage: false,
   },
   {
     icon: Bot,
     title: "Assistente IA",
-    description: "Tire dúvidas sobre legislação, projetos de lei, vereadores e muito mais com nossa IA inteligente.",
+    description:
+      "Tire dúvidas sobre legislação, projetos de lei, vereadores e muito mais com nossa IA inteligente.",
     color: "from-purple-500 to-violet-500",
     useImage: false,
   },
   {
     icon: Star,
     title: "Você está pronto!",
-    description: "Explore o app e participe ativamente da construção de uma cidade melhor. Sua voz faz a diferença!",
+    description:
+      "Explore o app e participe ativamente da construção de uma cidade melhor. Sua voz faz a diferença!",
     color: "from-amber-500 to-orange-500",
     useImage: false,
   },
@@ -130,11 +137,7 @@ const AppOnboardingTutorial = ({ onComplete, onSkip }: AppOnboardingTutorialProp
                   transition={{ duration: 2, repeat: Infinity }}
                 >
                   <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
-                    <img 
-                      src={iaIcone} 
-                      alt="Câmara na Mão" 
-                      className="w-24 h-24 object-contain"
-                    />
+                    <img src={iaIcone} alt="Câmara na Mão" className="w-24 h-24 object-contain" />
                   </div>
                 </motion.div>
               ) : (
@@ -168,8 +171,8 @@ const AppOnboardingTutorial = ({ onComplete, onSkip }: AppOnboardingTutorialProp
                     index === currentStep
                       ? "w-8 bg-primary"
                       : index < currentStep
-                      ? "w-2 bg-primary/50"
-                      : "w-2 bg-border"
+                        ? "w-2 bg-primary/50"
+                        : "w-2 bg-border"
                   }`}
                   aria-label={`Ir para passo ${index + 1}`}
                 />
@@ -184,11 +187,7 @@ const AppOnboardingTutorial = ({ onComplete, onSkip }: AppOnboardingTutorialProp
             {/* Buttons */}
             <div className="flex gap-3">
               {currentStep > 0 && (
-                <Button
-                  onClick={handlePrevious}
-                  variant="outline"
-                  className="flex-1"
-                >
+                <Button onClick={handlePrevious} variant="outline" className="flex-1">
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   Voltar
                 </Button>

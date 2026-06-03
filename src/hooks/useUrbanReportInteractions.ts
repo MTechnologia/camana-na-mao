@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export const useUrbanReportInteractions = (reportId: string) => {
   const { user } = useAuth();
@@ -15,33 +15,33 @@ export const useUrbanReportInteractions = (reportId: string) => {
     try {
       // Carregar contagem de curtidas
       const { count: likes } = await supabase
-        .from('urban_report_likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('report_id', reportId);
+        .from("urban_report_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("report_id", reportId);
 
       setLikesCount(likes || 0);
 
       // Carregar contagem de comentários
       const { count: comments } = await supabase
-        .from('urban_report_comments')
-        .select('*', { count: 'exact', head: true })
-        .eq('report_id', reportId);
+        .from("urban_report_comments")
+        .select("*", { count: "exact", head: true })
+        .eq("report_id", reportId);
 
       setCommentsCount(comments || 0);
 
       // Verificar se o usuário curtiu
       if (user) {
         const { data } = await supabase
-          .from('urban_report_likes')
-          .select('id')
-          .eq('report_id', reportId)
-          .eq('user_id', user.id)
+          .from("urban_report_likes")
+          .select("id")
+          .eq("report_id", reportId)
+          .eq("user_id", user.id)
           .maybeSingle();
 
         setIsLiked(!!data);
       }
     } catch (error) {
-      console.error('Erro ao carregar interações:', error);
+      console.error("Erro ao carregar interações:", error);
     } finally {
       setLoading(false);
     }
@@ -54,9 +54,9 @@ export const useUrbanReportInteractions = (reportId: string) => {
   const toggleLike = async () => {
     if (!user) {
       toast({
-        variant: 'destructive',
-        title: 'Acesso negado',
-        description: 'Você precisa estar logado para curtir relatos',
+        variant: "destructive",
+        title: "Acesso negado",
+        description: "Você precisa estar logado para curtir relatos",
       });
       return;
     }
@@ -64,30 +64,28 @@ export const useUrbanReportInteractions = (reportId: string) => {
     try {
       if (isLiked) {
         await supabase
-          .from('urban_report_likes')
+          .from("urban_report_likes")
           .delete()
-          .eq('report_id', reportId)
-          .eq('user_id', user.id);
+          .eq("report_id", reportId)
+          .eq("user_id", user.id);
 
         setIsLiked(false);
-        setLikesCount(prev => prev - 1);
+        setLikesCount((prev) => prev - 1);
       } else {
-        await supabase
-          .from('urban_report_likes')
-          .insert({
-            report_id: reportId,
-            user_id: user.id,
-          });
+        await supabase.from("urban_report_likes").insert({
+          report_id: reportId,
+          user_id: user.id,
+        });
 
         setIsLiked(true);
-        setLikesCount(prev => prev + 1);
+        setLikesCount((prev) => prev + 1);
       }
     } catch (error) {
-      console.error('Erro ao curtir/descurtir:', error);
+      console.error("Erro ao curtir/descurtir:", error);
       toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Não foi possível processar sua curtida',
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível processar sua curtida",
       });
     }
   };

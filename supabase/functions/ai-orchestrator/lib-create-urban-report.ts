@@ -1,7 +1,39 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { appendConversationClosingIfNeeded } from "./lib-conversation-closing.ts";
+import {
+  URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+  URBAN_RISK_LEVEL_FIELD_PROMPT,
+} from "./lib-prompt-ux.ts";
 import { URBAN_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
+
+/** Tipos de equipamento público que o cadastro de SP (public_services) cobre. */
+const NAMED_EQUIPMENT_RE =
+  /\b(ubs|ama|upa|posto\s+de\s+sa[uú]de|pronto[-\s]?socorro|hospital|santa\s+casa|caps|emef|emei|emebs|ceu|cei|creche|escola|biblioteca|parque|cras|cdc)\b/i;
+
+/**
+ * NREF002 — Endereços fora de SP. Se o local nomeia um equipamento público
+ * (UBS, escola, hospital, etc.) que NÃO existe no cadastro de São Paulo
+ * (`public_services`, que só contém equipamentos do município), não registramos
+ * como relato da cidade — pedimos correção. Retorna a mensagem de bloqueio, ou
+ * `null` quando é um equipamento de SP OU quando o texto não nomeia um equipamento.
+ */
+export async function validateNamedEquipmentInSaoPaulo(
+  supabase: SupabaseClient,
+  locationText: string,
+  getServiceAddressByName: (supabase: SupabaseClient, serviceName: string) => Promise<string | null>,
+): Promise<string | null> {
+  const text = (locationText || "").trim();
+  if (text.length < 6 || !NAMED_EQUIPMENT_RE.test(text)) return null;
+  const found = await getServiceAddressByName(supabase, text);
+  if (found) return null;
+  return (
+    `Não encontrei **${text}** entre os equipamentos públicos do **município de São Paulo**. ` +
+    `Só consigo registrar locais e equipamentos da cidade de São Paulo — confira o nome e o bairro e tente novamente. ` +
+    `Se o equipamento fica em outra cidade (ex.: Guarulhos, Osasco), procure os canais daquele município.`
+  );
+}
 
 type GeocodeAddressInput = {
   street?: string | null;
@@ -25,6 +57,7 @@ type CreateUrbanReportDeps = {
   mapUrbanRiskLevelToSeverity: (riskLevel: string | null | undefined) => string | null;
   geocodeAddressWithGoogle: (supabase: SupabaseClient, addressParts: GeocodeAddressInput) => Promise<GeocodeCoords>;
   geocodeAddressToCoord: (addressParts: GeocodeAddressInput) => Promise<GeocodeCoords>;
+  getServiceAddressByName: (supabase: SupabaseClient, serviceName: string) => Promise<string | null>;
   adjustSeverityForProximityToSensitiveEquipment: (
     supabase: SupabaseClient,
     lat: number,
@@ -140,8 +173,6 @@ const URBAN_CONSEQUENCE_LABELS: Record<string, string> = {
   safety_risk: "Risco à segurança",
 };
 
-const SAFETY_HEALTH_CATEGORIES = ["esgoto", "via_publica", "iluminacao", "sinalizacao", "drenagem", "area_verde"];
-
 function buildUrbanLocationAddress(eff: Record<string, unknown>): string {
   const locationParts = [];
   if (eff.street) locationParts.push(eff.street);
@@ -221,15 +252,16 @@ function buildUrbanSuccessMessage(
   const cepLine = eff.cep ? `CEP ${eff.cep}` : "";
   const urbanSeveritySummaryLines = buildUrbanSeveritySummaryLines(eff, acc, urbanRiskCollectionCategories);
   const photosSection = Array.isArray(eff.photos) && eff.photos.length > 0
-    ? `\n\n📷 **Fotos anexadas:** ${eff.photos.length} imagem(ns)\n`
-    : "";
+    ? `📷 **Fotos anexadas:** ${eff.photos.length} imagem(ns)`
+    : null;
 
-  return [
+  const lines: (string | null)[] = [
     `[REPORT_CREATED:${data.id}]`,
     "",
     "✅ **Relato registrado com sucesso!**",
     "",
-    data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : "",
+    data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`` : null,
+    data.protocol_code ? "" : null,
     "**Resumo do seu relato:**",
     "",
     `📋 **Categoria:** ${categoryLabel}${eff.subcategory ? ` - ${eff.subcategory}` : ""}`,
@@ -238,10 +270,11 @@ function buildUrbanSuccessMessage(
     ...(urbanSeveritySummaryLines.length > 0 ? ["", ...urbanSeveritySummaryLines] : []),
     "",
     "📍 **Endereço:**",
-    addressLine ? `- ${addressLine}` : "",
-    neighborhoodLine ? `- ${neighborhoodLine}` : "",
-    cepLine ? `- ${cepLine}` : "",
-    eff.reference_point ? `- Referência: ${eff.reference_point}` : "",
+    addressLine ? `- ${addressLine}` : null,
+    neighborhoodLine ? `- ${neighborhoodLine}` : null,
+    cepLine ? `- ${cepLine}` : null,
+    eff.reference_point ? `- Referência: ${eff.reference_point}` : null,
+    photosSection ? "" : null,
     photosSection,
     "",
     "---",
@@ -255,7 +288,13 @@ function buildUrbanSuccessMessage(
     "**Quer que eu encaminhe esse relato para algum vereador?**",
     "",
     "Posso ajudar com mais alguma coisa?",
-  ].filter((line) => line !== "").join("\n");
+  ];
+
+  const body = lines.filter((line): line is string => line !== null).join("\n");
+  return appendConversationClosingIfNeeded(body, {
+    kind: "urban_report_created",
+    reportNature: eff.report_nature != null ? String(eff.report_nature) : null,
+  });
 }
 
 export async function handleCreateUrbanReport(
@@ -326,19 +365,30 @@ export async function handleCreateUrbanReport(
     };
   }
 
+  // NREF002 — Endereços fora de SP: equipamento nomeado que não consta no
+  // cadastro do município de São Paulo (ex.: "UBS Rosa de França" / Guarulhos).
+  const outsideSpEquipmentMsg = await validateNamedEquipmentInSaoPaulo(
+    supabase,
+    String(eff.street ?? ""),
+    deps.getServiceAddressByName,
+  );
+  if (outsideSpEquipmentMsg) {
+    return { success: false, message: outsideSpEquipmentMsg };
+  }
+
   if (deps.urbanRiskCollectionCategories.includes(String(eff.category || ""))) {
     if (!eff.risk_level) {
       const label = URBAN_RISK_CATEGORY_LABELS[String(eff.category)] || eff.category;
       return {
         success: false,
-        message: `[FIELD_REQUEST:risk_level]Para registrar com **criticidade correta**, qual o **nível de gravidade**? Toque em uma opção abaixo (ou descreva em uma frase). _(Categoria: ${label})_[QUICK_REPLY:critical,moderate,low,none]`,
+        message: `${URBAN_RISK_LEVEL_FIELD_PROMPT} _(Categoria: ${label})_`,
       };
     }
 
-    if (["critical", "moderate"].includes(String(eff.risk_level)) && !eff.affected_scope) {
+    if (!eff.affected_scope) {
       return {
         success: false,
-        message: "[FIELD_REQUEST:affected_scope]Entendi que há risco. Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?",
+        message: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
       };
     }
   }
@@ -384,12 +434,6 @@ export async function handleCreateUrbanReport(
   const reportNatureResolved =
     deps.normalizeReportNature((eff.report_nature as string) ?? (acc.report_nature as string)) ?? "reclamacao";
 
-  const isCriticalSeverity = derivedSeverity === "critical";
-  const isSafetyHealthWithRisk =
-    SAFETY_HEALTH_CATEGORIES.includes(String(eff.category)) &&
-    ["critical", "moderate"].includes(String(eff.risk_level || ""));
-  const initialN8nPriority = isCriticalSeverity || isSafetyHealthWithRisk ? "critica" : null;
-
   console.log("[create_urban_report] Attempting to insert report:", {
     userId,
     category: eff.category,
@@ -431,7 +475,6 @@ export async function handleCreateUrbanReport(
       urgency_reason: eff.urgency_reason || null,
       severity: derivedSeverity,
       status: "pending",
-      n8n_priority: initialN8nPriority,
     })
     .select("id, protocol_code")
     .single();
@@ -499,19 +542,6 @@ export async function handleCreateUrbanReport(
         proximity_details: proximityAdjustment.proximityDetails,
       },
     });
-  }
-
-  try {
-    await supabase.functions.invoke("notify-n8n", {
-      body: {
-        event_type: "urban_report.created",
-        entity_type: "urban_report",
-        entity_id: data.id,
-        payload: { ...eff, user_id: userId },
-      },
-    });
-  } catch (n8nError) {
-    console.error("[executeTool] N8N notification failed:", n8nError);
   }
 
   const successMessage = buildUrbanSuccessMessage(data, eff, acc, deps.urbanRiskCollectionCategories);

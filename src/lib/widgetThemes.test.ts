@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  WIDGET_THEMES,
-  WIDGET_THEMES_BY_ID,
-  DEFAULT_THEME_ID,
-  getTheme,
-} from "./widgetThemes";
+import { WIDGET_THEMES, WIDGET_THEMES_BY_ID, DEFAULT_THEME_ID, getTheme } from "./widgetThemes";
 
 describe("WIDGET_THEMES catalog", () => {
   it("começa com 'geral' como primeiro tema (opção neutra)", () => {

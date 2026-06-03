@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { from: vi.fn() },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { __test__ } from "./useIntensityDemand";
 
@@ -35,9 +35,7 @@ function rep(over: Partial<RawReport> = {}): RawReport {
 
 describe("compositeWaitHours", () => {
   it("retorna null para relato sem dados de tempo", () => {
-    expect(
-      compositeWaitHours(rep({ status: null, createdAt: null, updatedAt: null })),
-    ).toBeNull();
+    expect(compositeWaitHours(rep({ status: null, createdAt: null, updatedAt: null }))).toBeNull();
   });
 
   it("usa apenas tempo de resolução quando status=resolved e sem firstResponse", () => {
@@ -100,11 +98,7 @@ describe("aggregateByZone", () => {
   });
 
   it("agrega por zona somando volume", () => {
-    const reports = [
-      rep({ zone: "Centro" }),
-      rep({ zone: "Centro" }),
-      rep({ zone: "Zona Norte" }),
-    ];
+    const reports = [rep({ zone: "Centro" }), rep({ zone: "Centro" }), rep({ zone: "Zona Norte" })];
     const result = aggregateByZone(reports);
     const centro = result.find((z) => z.zone === "Centro");
     expect(centro?.count).toBe(2);

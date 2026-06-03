@@ -1,14 +1,23 @@
-import { useNavigate } from 'react-router-dom';
-import PageHeader from '@/components/ui/page-header';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Shield, FileText, Lock, Eye, Trash2, CheckCircle } from 'lucide-react';
-import { DocumentViewer } from '@/components/docs/DocumentViewer';
+import { useNavigate } from "react-router-dom";
+import PageHeader from "@/components/ui/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowLeft,
+  Download,
+  Shield,
+  FileText,
+  Lock,
+  Eye,
+  Trash2,
+  CheckCircle,
+} from "lucide-react";
+import { DocumentViewer } from "@/components/docs/DocumentViewer";
 
 const privacyPolicyContent = `
 # Política de Privacidade - Câmara na Mão
 
-**Última atualização:** ${new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' })}
+**Última atualização:** ${new Date().toLocaleDateString("pt-BR", { year: "numeric", month: "long", day: "numeric" })}
 
 ---
 
@@ -257,7 +266,7 @@ Esta Política de Privacidade está em conformidade com:
 
 Ao utilizar a plataforma Câmara na Mão, você declara ter lido, compreendido e concordado com esta Política de Privacidade.
 
-**Última atualização:** ${new Date().toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' })}
+**Última atualização:** ${new Date().toLocaleDateString("pt-BR", { year: "numeric", month: "long", day: "numeric" })}
 `;
 
 export default function PrivacyPolicyPage() {
@@ -265,11 +274,8 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader 
-        title="Política de Privacidade" 
-        backTo="/"
-      />
-      
+      <PageHeader title="Política de Privacidade" backTo="/" />
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="mb-6">
           <CardContent className="p-6">
@@ -284,7 +290,7 @@ export default function PrivacyPolicyPage() {
                 </p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
               <div className="flex items-center gap-2 text-sm">
                 <Lock className="w-4 h-4 text-muted-foreground" />

@@ -14,10 +14,7 @@ import {
   PatternsTimeline,
   PeakHoursHeatmap,
 } from "@/components/admin/patterns/PatternsVisualizations";
-import {
-  usePatternsList,
-  type PatternEntry,
-} from "@/hooks/usePatternsList";
+import { usePatternsList, type PatternEntry } from "@/hooks/usePatternsList";
 
 /**
  * HU-9.1 — Página dedicada para visualizar padrões identificados pela IA.
@@ -69,8 +66,7 @@ export default function PatternsManagementPage() {
       void refresh();
     } catch (err) {
       console.error("[PatternsManagementPage] reanalyze error", err);
-      const message =
-        err instanceof Error ? err.message : "Erro desconhecido.";
+      const message = err instanceof Error ? err.message : "Erro desconhecido.";
       toast.error(`Não foi possível reanalisar: ${message}`);
     } finally {
       setReanalyzing(false);
@@ -87,8 +83,8 @@ export default function PatternsManagementPage() {
               Padrões identificados pela IA
             </h1>
             <p className="text-muted-foreground">
-              Análise automática de relatos detecta tendências, picos e
-              recorrências. Clique em um padrão para ver os relatos que o compõem.
+              Análise automática de relatos detecta tendências, picos e recorrências. Clique em um
+              padrão para ver os relatos que o compõem.
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -103,9 +99,7 @@ export default function PatternsManagementPage() {
               onClick={() => void handleReanalyze()}
               disabled={reanalyzing}
             >
-              <RefreshCw
-                className={`h-4 w-4 mr-2 ${reanalyzing ? "animate-spin" : ""}`}
-              />
+              <RefreshCw className={`h-4 w-4 mr-2 ${reanalyzing ? "animate-spin" : ""}`} />
               Reanalisar agora
             </Button>
           </div>
@@ -122,7 +116,12 @@ export default function PatternsManagementPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KPICard title="Total" subtitle="Padrões detectados" value={stats.total} icon={Sparkles} />
+          <KPICard
+            title="Total"
+            subtitle="Padrões detectados"
+            value={stats.total}
+            icon={Sparkles}
+          />
           <KPICard title="Ativos" value={stats.active} icon={Activity} />
           <KPICard
             title="Críticos"
@@ -157,10 +156,7 @@ export default function PatternsManagementPage() {
           </TabsContent>
         </Tabs>
 
-        <PatternDetailSheet
-          pattern={selected}
-          onOpenChange={(v) => !v && setSelected(null)}
-        />
+        <PatternDetailSheet pattern={selected} onOpenChange={(v) => !v && setSelected(null)} />
       </div>
     </AdminLayout>
   );

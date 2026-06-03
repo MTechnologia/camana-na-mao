@@ -60,7 +60,7 @@ export async function saveNearbyServicesCache(
   services: CachedNearbyService[],
   centerLat: number,
   centerLng: number,
-  radiusMeters: number
+  radiusMeters: number,
 ): Promise<void> {
   if (services.length === 0) return;
   try {
@@ -89,8 +89,15 @@ export async function saveNearbyServicesCache(
       savedAt: Date.now(),
     };
     const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    store.put({ key: CACHE_KEY, ...entry });
+    tx.objectStore(STORE_NAME).put({ key: CACHE_KEY, ...entry });
+    // Aguarda o COMMIT antes de fechar/retornar — senão a escrita pode não
+    // persistir (ex.: navegação/fechamento logo após salvar) e um get imediato
+    // retornaria vazio (perda de dados offline).
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
     db.close();
   } catch (e) {
     console.warn("[nearbyServicesCache] save failed:", e);
@@ -103,13 +110,15 @@ export async function saveNearbyServicesCache(
 export async function getNearbyServicesCache(): Promise<NearbyServicesCacheEntry | null> {
   try {
     const db = await openDB();
-    const entry = await new Promise<{ key: string } & NearbyServicesCacheEntry | undefined>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(CACHE_KEY);
-      req.onerror = () => reject(req.error);
-      req.onsuccess = () => resolve(req.result);
-    });
+    const entry = await new Promise<({ key: string } & NearbyServicesCacheEntry) | undefined>(
+      (resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(CACHE_KEY);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => resolve(req.result);
+      },
+    );
     db.close();
     if (!entry?.services?.length) return null;
     return {

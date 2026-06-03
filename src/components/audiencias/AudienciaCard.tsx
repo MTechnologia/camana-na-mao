@@ -15,7 +15,7 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
       const date = parseISO(dateStr);
       return {
         day: format(date, "dd"),
-        month: format(date, "MMM").toUpperCase()
+        month: format(date, "MMM").toUpperCase(),
       };
     } catch {
       return { day: "--", month: "---" };
@@ -34,12 +34,8 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
         {/* Date Badge */}
         <div className="flex-shrink-0">
           <div className="w-16 h-16 bg-primary/10 rounded-xl flex flex-col items-center justify-center">
-            <span className="text-xs font-medium text-primary uppercase">
-              {dateInfo.month}
-            </span>
-            <span className="text-2xl font-bold text-primary">
-              {dateInfo.day}
-            </span>
+            <span className="text-xs font-medium text-primary uppercase">{dateInfo.month}</span>
+            <span className="text-2xl font-bold text-primary">{dateInfo.day}</span>
           </div>
         </div>
 
@@ -51,13 +47,9 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
           >
             {typeConfig.label}
           </Badge>
-          <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
-            {audiencia.title}
-          </h3>
+          <h3 className="font-semibold text-foreground line-clamp-2 mb-2">{audiencia.title}</h3>
 
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-            {audiencia.description}
-          </p>
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{audiencia.description}</p>
 
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
             {audiencia.eventTime && (

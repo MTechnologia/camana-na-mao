@@ -109,7 +109,10 @@ const lookupViaCep = async (cleanCep: string, timeoutMs: number): Promise<CepAdd
 };
 
 const lookupBrasilApi = async (cleanCep: string, timeoutMs: number): Promise<CepAddress | null> => {
-  const response = await fetchWithTimeout(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`, timeoutMs);
+  const response = await fetchWithTimeout(
+    `https://brasilapi.com.br/api/cep/v1/${cleanCep}`,
+    timeoutMs,
+  );
   if (response.status === 400 || response.status === 404) return null;
   if (!response.ok) throw new Error(`BrasilAPI HTTP ${response.status}`);
 
@@ -161,7 +164,7 @@ const CEP_PROVIDERS: ReadonlyArray<{
 
 export const lookupCepAddress = async (
   cep: string,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number },
 ): Promise<CepLookupResult> => {
   const cleanCep = normalizeCep(cep);
   if (!/^\d{8}$/.test(cleanCep)) {

@@ -32,7 +32,7 @@ flowchart TB
     subgraph "IA e Processamento"
         AIO["🤖 AI Orchestrator<br/>(Síncrono)"]
         VLLM["🧠 vLLM<br/>(Self-hosted GCP)"]
-        N8N["⚙️ n8n Workflows<br/>(Assíncrono)"]
+        automacao["⚙️ automacao Workflows<br/>(Assíncrono)"]
     end
     
     subgraph "APIs Externas"
@@ -48,14 +48,14 @@ flowchart TB
     MOB --> EF
     EF --> AIO
     AIO --> VLLM
-    EF --> N8N
-    N8N --> VLLM
+    EF --> automacao
+    automacao --> VLLM
     EF --> SPL
     EF --> CMSP
     EF --> GMAP
     EF --> FCM
     EF --> DB
-    N8N --> EF
+    automacao --> EF
 ```
 
 ### 1.2 Legenda de Componentes
@@ -69,7 +69,7 @@ flowchart TB
 | ⚡ | Edge Functions | Supabase Functions |
 | 🤖 | AI Orchestrator | Processamento síncrono |
 | 🧠 | vLLM | LLM self-hosted |
-| ⚙️ | n8n | Workflow automation |
+| ⚙️ | automacao | Workflow automation |
 | 📜 | SP Legis | API externa |
 | 🏛️ | Portal CMSP | WordPress API |
 | 🗺️ | Google Maps | Places API |
@@ -127,7 +127,7 @@ flowchart LR
     A[Frontend] -->|Mensagem| B[AI Orchestrator]
     B -->|Tool Calling| C{LLM Provider}
     C -->|vLLM| D[Self-hosted GCP]
-    C -->|Fallback| E[Lovable Gateway]
+    C -->|Fallback| E[Provedor LLM alternativo]
     D -->|Resposta| B
     E -->|Resposta| B
     B -->|SSE Stream| A
@@ -140,8 +140,8 @@ flowchart LR
 - **Modelo**: `Qwen/Qwen2.5-7B-Instruct`
 - **API**: OpenAI-compatible
 
-**Provider Fallback (Lovable):**
-- **URL**: `https://ai.gateway.lovable.dev/v1`
+**Provedor LLM (configurável):**
+- **URL**: `AI_CHAT_BASE_URL` (Supabase Secrets)
 - **Modelo**: `google/gemini-2.5-flash`
 - **API**: OpenAI-compatible
 
@@ -169,7 +169,7 @@ sequenceDiagram
 
 ---
 
-## 4. Integração: Supabase ↔ n8n
+## 4. Integração: Supabase ↔ automacao
 
 ### 4.1 Diagrama de Sequência Completo
 
@@ -178,17 +178,17 @@ sequenceDiagram
     participant U as Usuário
     participant F as Frontend
     participant S as Supabase
-    participant N as notify-n8n
-    participant W as n8n Webhook
+    participant N as notify-automacao
+    participant W as automacao Webhook
     participant V as vLLM
-    participant C as n8n-callback
+    participant C as automacao-callback
     participant D as Database
     
     U->>F: Criar relato
     F->>S: POST /rest/v1/urban_reports
     S->>D: INSERT urban_report
     D->>S: Trigger
-    S->>N: notify-n8n (trigger)
+    S->>N: notify-automacao (trigger)
     N->>W: POST webhook + secret
     W->>W: Validar secret
     W->>W: Preparar dados
@@ -201,7 +201,7 @@ sequenceDiagram
     F-->>U: Relato enriquecido
 ```
 
-### 4.2 Fluxo Detalhado do Workflow n8n
+### 4.2 Fluxo Detalhado do Workflow automacao
 
 ```mermaid
 flowchart TB
@@ -220,7 +220,7 @@ flowchart TB
 
 ### 4.3 Payloads de Integração
 
-**Webhook → n8n:**
+**Webhook → automacao:**
 ```json
 {
   "event": "urban_report_created",
@@ -231,11 +231,11 @@ flowchart TB
     "description": "Buraco na rua",
     "category": "pavimentacao"
   },
-  "callback_url": "https://.../functions/v1/n8n-callback"
+  "callback_url": "https://.../functions/v1/automacao-callback"
 }
 ```
 
-**n8n → Callback:**
+**automacao → Callback:**
 ```json
 {
   "report_id": "uuid",
@@ -355,13 +355,13 @@ flowchart TB
 
 ---
 
-## 7. Integração: n8n ↔ vLLM
+## 7. Integração: automacao ↔ vLLM
 
 ### 7.1 Diagrama de Comunicação
 
 ```mermaid
 sequenceDiagram
-    participant N as n8n Workflow
+    participant N as automacao Workflow
     participant V as vLLM (GCP)
     participant D as Database
     
@@ -425,8 +425,8 @@ flowchart TB
     
     subgraph "2. Notificação"
         E --> F[Trigger]
-        F --> G[notify-n8n]
-        G --> H[n8n Webhook]
+        F --> G[notify-automacao]
+        G --> H[automacao Webhook]
     end
     
     subgraph "3. Processamento"
@@ -438,7 +438,7 @@ flowchart TB
     end
     
     subgraph "4. Callback"
-        M --> N[n8n-callback]
+        M --> N[automacao-callback]
         N --> O[UPDATE Database]
         O --> P[Notificar Frontend]
     end
@@ -455,13 +455,13 @@ flowchart TB
 T+0ms:   Usuário envia mensagem
 T+100ms: AI Orchestrator processa
 T+200ms: Tool cria relato no DB
-T+300ms: Trigger dispara notify-n8n
-T+400ms: n8n recebe webhook
-T+500ms: n8n valida e prepara
-T+1000ms: n8n chama vLLM
+T+300ms: Trigger dispara notify-automacao
+T+400ms: automacao recebe webhook
+T+500ms: automacao valida e prepara
+T+1000ms: automacao chama vLLM
 T+3000ms: vLLM retorna análise
-T+3100ms: n8n enriquece dados
-T+3200ms: n8n envia callback
+T+3100ms: automacao enriquece dados
+T+3200ms: automacao envia callback
 T+3300ms: Database atualizado
 T+3400ms: Frontend recebe atualização
 ```
@@ -543,8 +543,8 @@ sequenceDiagram
 |------------|-----------|--------------|
 | Frontend ↔ Supabase | HTTPS | JWT (Bearer Token) |
 | Edge Functions ↔ APIs | HTTPS | API Keys |
-| n8n ↔ Supabase | HTTPS | Secret Key (Header) |
-| n8n ↔ vLLM | HTTP | Opcional (API Key) |
+| automacao ↔ Supabase | HTTPS | Secret Key (Header) |
+| automacao ↔ vLLM | HTTP | Opcional (API Key) |
 | Mobile ↔ Frontend | HTTPS | JWT (via Supabase) |
 
 ### 11.2 Headers de Autenticação
@@ -555,9 +555,9 @@ Authorization: Bearer <jwt_token>
 apikey: <supabase_anon_key>
 ```
 
-**n8n Webhook:**
+**automacao Webhook:**
 ```
-x-n8n-secret: <secret_key>
+x-automacao-secret: <secret_key>
 Content-Type: application/json
 ```
 
@@ -582,8 +582,8 @@ Content-Type: application/json
 | Endpoint | Método | Descrição |
 |----------|--------|-----------|
 | `/functions/v1/ai-orchestrator` | POST | Chat com IA |
-| `/functions/v1/notify-n8n` | POST | Notificar n8n |
-| `/functions/v1/n8n-callback` | POST | Callback do n8n |
+| `/functions/v1/notify-automacao` | POST | Notificar automacao |
+| `/functions/v1/automacao-callback` | POST | Callback do automacao |
 | `/functions/v1/generate-embeddings` | POST | Gerar embeddings |
 | `/functions/v1/fetch-vereadores` | GET | Buscar vereadores |
 | `/functions/v1/fetch-noticias` | GET | Buscar notícias |
@@ -595,7 +595,7 @@ Content-Type: application/json
 
 | Serviço | URL | Descrição |
 |---------|-----|-----------|
-| n8n Webhook | `https://felipemtechn8n.app.n8n.cloud/webhook/camara-na-mao` | Webhook de entrada |
+| automacao Webhook | `https://felipemtechautomacao.app.automacao.cloud/webhook/camara-na-mao` | Webhook de entrada |
 | vLLM | `http://35.193.16.137:8000/v1` | API do LLM self-hosted |
 | SP Legis | `https://saopaulo.sp.leg.br/vereadores-json/` | API de vereadores |
 | Portal CMSP | `https://saopaulo.sp.leg.br/wp-json/wp/v2/` | WordPress API |
@@ -623,7 +623,7 @@ flowchart TB
 
 ### 13.2 Retry Logic
 
-- **n8n**: Retry automático (3 tentativas)
+- **automacao**: Retry automático (3 tentativas)
 - **Edge Functions**: Retry manual via código
 - **vLLM**: Timeout de 30s, sem retry automático
 - **APIs Externas**: Cache como fallback
@@ -638,7 +638,7 @@ flowchart TB
 flowchart LR
     A[Frontend] -->|Log| B[Console]
     C[Edge Functions] -->|Log| D[Supabase Logs]
-    E[n8n] -->|Log| F[n8n Executions]
+    E[automacao] -->|Log| F[automacao Executions]
     G[vLLM] -->|Log| H[Docker Logs]
     
     B --> I[Observabilidade]
@@ -679,7 +679,7 @@ flowchart TB
 - **CORS**: Configurado por origem
 - **JWT**: Verificação em todas as Edge Functions
 - **RLS**: Row Level Security no PostgreSQL
-- **Secret Keys**: Validação em webhooks n8n
+- **Secret Keys**: Validação em webhooks automacao
 - **Rate Limiting**: Implementado no Supabase
 
 ---
@@ -687,9 +687,9 @@ flowchart TB
 ## 16. Referências
 
 - [Documento de Arquitetura](./DOCUMENTO_ARQUITETURA.md)
-- [Guia de Configuração N8N](./GUIA_CONFIGURACAO_N8N_PASSO_A_PASSO.md)
+- [Guia de Configuração automacao](./GUIA_CONFIGURACAO_automacao_PASSO_A_PASSO.md)
 - [Especificação do AI Orchestrator](./AI_ORCHESTRATOR_SPECIFICATION.md)
-- [Guia de Integração N8N](./N8N_INTEGRATION_GUIDE.md)
+- [Guia de Integração automacao](./automacao_INTEGRATION_GUIDE.md)
 
 ---
 

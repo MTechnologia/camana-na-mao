@@ -6,11 +6,9 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { useWidgetTheme, WidgetThemeProvider } from "@/contexts/WidgetThemeContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +37,10 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe("useWidgetTheme (via WidgetThemeProvider)", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    // shouldAdvanceTime: o relógio falso acompanha o tempo real, então o polling
+    // interno do waitFor() dispara (senão trava e estoura o timeout de 5s);
+    // vi.advanceTimersByTime continua válido para testar o debounce do upsert.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     useAuthMock.mockReturnValue({
       // @ts-expect-error — partial mock só com o que o provider usa
       user: { id: "user-1" },
@@ -73,15 +74,12 @@ describe("useWidgetTheme (via WidgetThemeProvider)", () => {
   it("setTheme dispara upsert após debounce e propaga para outros consumidores", async () => {
     const selectChain = mockSelect({ data: null, error: null });
     const upsertChain = mockUpsert({ error: null });
-    supabaseFromMock
-      .mockReturnValueOnce(selectChain)
-      .mockReturnValueOnce(upsertChain);
+    supabaseFromMock.mockReturnValueOnce(selectChain).mockReturnValueOnce(upsertChain);
 
     // Dois consumidores compartilhando o mesmo Provider.
-    const { result } = renderHook(
-      () => ({ a: useWidgetTheme(), b: useWidgetTheme() }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => ({ a: useWidgetTheme(), b: useWidgetTheme() }), {
+      wrapper,
+    });
 
     await act(async () => {
       await Promise.resolve();
@@ -104,12 +102,29 @@ describe("useWidgetTheme (via WidgetThemeProvider)", () => {
     expect(upsertChain.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it("erro ao carregar do servidor → degrada para 'geral' + expõe error (sem crash) [A1.12]", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    supabaseFromMock.mockReturnValue(
+      mockSelect({ data: null, error: { message: "falha de rede" } }),
+    );
+
+    const { result } = renderHook(() => useWidgetTheme(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Não crasha; cai no tema default e sinaliza o erro para a UI.
+    expect(result.current.theme).toBe("geral");
+    expect(result.current.error).toMatch(/não foi possível carregar/i);
+    consoleError.mockRestore();
+  });
+
   it("useWidgetTheme fora do Provider lança erro descritivo", () => {
     // Suprime erro do React no console pra não poluir o teste.
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    expect(() => renderHook(() => useWidgetTheme())).toThrow(
-      /WidgetThemeProvider/i,
-    );
+    expect(() => renderHook(() => useWidgetTheme())).toThrow(/WidgetThemeProvider/i);
     consoleError.mockRestore();
   });
 });

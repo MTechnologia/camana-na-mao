@@ -1,14 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { 
-  X, 
-  Calendar, 
+import {
+  X,
+  Calendar,
   Mic2,
-  Users, 
-  Building2, 
-  BookOpen, 
-  GraduationCap, 
+  Users,
+  Building2,
+  BookOpen,
+  GraduationCap,
   Newspaper,
   LayoutList,
+  LayoutDashboard,
   BarChart3,
   FileText,
   Shield,
@@ -19,6 +20,7 @@ import {
   MapPin,
   CalendarCheck,
   Bookmark,
+  Heart,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -35,7 +37,7 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, canViewDashboards, canViewGabinete } = useUserRole();
+  const { canAccessAdminPanel, canViewDashboards, canViewGabinete } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
   const { prefetch } = usePrefetch();
@@ -50,7 +52,6 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate("/login");
       onClose();
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
@@ -58,28 +59,28 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   };
 
   const accountOptions = [
-    { 
-      id: 1, 
-      label: "Meu Perfil", 
+    {
+      id: 1,
+      label: "Meu Perfil",
       icon: User,
-      route: "/perfil"
+      route: "/perfil",
     },
-    { 
-      id: 2, 
-      label: "Conversas", 
+    {
+      id: 2,
+      label: "Conversas",
       icon: MessageSquare,
-      route: "/conversas"
+      route: "/conversas",
     },
-    { 
-      id: 2.2, 
-      label: "Perto de Você", 
+    {
+      id: 2.2,
+      label: "Perto de Você",
       icon: MapPin,
-      route: "/servicos-proximos"
+      route: "/servicos-proximos",
     },
     {
       id: 2.25,
       label: "Meus Favoritos",
-      icon: Bookmark,
+      icon: Heart,
       route: "/servicos/favoritos",
     },
     {
@@ -88,81 +89,97 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: Bookmark,
       route: "/perfil/inscricoes",
     },
-    ...(canViewGabinete ? [{
-      id: 2.35,
-      label: "Gabinete",
-      icon: Building2,
-      route: "/gabinete",
-    }] : []),
-    { 
+    ...(canViewGabinete
+      ? [
+          {
+            id: 2.35,
+            label: "Gabinete",
+            icon: Building2,
+            route: "/gabinete",
+          },
+        ]
+      : []),
+    {
       id: 2.5,
       label: "Relatos",
       icon: FileText,
       route: "/relatos",
     },
-    ...(canViewDashboards ? [{
-      id: 3,
-      label: "Painéis Analíticos",
-      icon: BarChart3,
-      route: "/paineis",
-    }] : []),
+    {
+      id: 2.7,
+      label: "Minha Cidade",
+      icon: LayoutDashboard,
+      route: "/minha-cidade",
+    },
+    ...(canViewDashboards
+      ? [
+          {
+            id: 3,
+            label: "Painéis Analíticos",
+            icon: BarChart3,
+            route: "/paineis",
+          },
+        ]
+      : []),
   ];
-
 
   const menuOptions = [
-    { 
-      id: 1, 
-      label: "Agenda da Câmara", 
+    {
+      id: 1,
+      label: "Agenda da Câmara",
       icon: Calendar,
-      route: "/institucional/agenda"
+      route: "/institucional/agenda",
     },
-    { 
-      id: 2, 
-      label: "Audiências Públicas", 
+    {
+      id: 2,
+      label: "Audiências Públicas",
       icon: Mic2,
-      route: "/audiencias"
+      route: "/audiencias",
     },
-    { 
-      id: 3, 
-      label: "Vereadores", 
+    {
+      id: 3,
+      label: "Vereadores",
       icon: Users,
-      route: "/institucional/vereadores"
+      route: "/institucional/vereadores",
     },
-    { 
-      id: 4, 
-      label: "Conheça a Câmara", 
+    {
+      id: 4,
+      label: "Conheça a Câmara",
       icon: Building2,
-      route: "/institucional/conheca-camara"
+      route: "/institucional/conheca-camara",
     },
-    { 
-      id: 5, 
-      label: "Comissões", 
+    {
+      id: 5,
+      label: "Comissões",
       icon: LayoutList,
-      route: "/institucional/comissoes"
+      route: "/institucional/comissoes",
     },
-    { 
-      id: 6, 
-      label: "Câmara Explica", 
+    {
+      id: 6,
+      label: "Câmara Explica",
       icon: BookOpen,
-      route: "/institucional/camara-explica"
+      route: "/institucional/camara-explica",
     },
-    { 
-      id: 7, 
-      label: "Escola do Parlamento", 
+    {
+      id: 7,
+      label: "Escola do Parlamento",
       icon: GraduationCap,
-      route: "/institucional/escola-parlamento"
+      route: "/institucional/escola-parlamento",
     },
-    { 
-      id: 8, 
-      label: "Notícias", 
+    {
+      id: 8,
+      label: "Notícias",
       icon: Newspaper,
-      route: "/institucional/noticias"
+      route: "/institucional/noticias",
     },
   ];
 
-  const handlePrefetch = useCallback((route: string) => {
-    prefetch(route);
-  }, [prefetch]);
+  const handlePrefetch = useCallback(
+    (route: string) => {
+      prefetch(route);
+    },
+    [prefetch],
+  );
 
   const handleMenuClick = (route?: string) => {
     onClose();
@@ -232,7 +249,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
             <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Minha Conta
             </h3>
-            
+
             {accountOptions.map((option) => {
               const Icon = option.icon;
               return (
@@ -259,7 +276,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
             <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Navegação Institucional
             </h3>
-            
+
             {menuOptions.map((option) => {
               const Icon = option.icon;
               return (
@@ -280,7 +297,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
           </div>
 
           {/* Admin Area */}
-          {(isAdmin || isGestor) && (
+          {canAccessAdminPanel && (
             <>
               <div className="my-4 border-t border-border" />
               <div className="mb-4">
@@ -288,9 +305,9 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                   Área Administrativa
                 </h3>
                 <button
-                  onClick={() => handleMenuClick('/admin')}
-                  onMouseEnter={() => handlePrefetch('/admin')}
-                  onFocus={() => handlePrefetch('/admin')}
+                  onClick={() => handleMenuClick("/admin")}
+                  onMouseEnter={() => handlePrefetch("/admin")}
+                  onFocus={() => handlePrefetch("/admin")}
                   className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
@@ -301,15 +318,14 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
               </div>
             </>
           )}
-
         </div>
 
         {/* Bottom Options - Fixed */}
         <div className="px-4 pb-4 pt-2 space-y-1 border-t border-border shrink-0">
           <button
-            onClick={() => handleMenuClick('/privacidade')}
-            onMouseEnter={() => handlePrefetch('/privacidade')}
-            onFocus={() => handlePrefetch('/privacidade')}
+            onClick={() => handleMenuClick("/privacidade")}
+            onMouseEnter={() => handlePrefetch("/privacidade")}
+            onFocus={() => handlePrefetch("/privacidade")}
             className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
           >
             <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
@@ -317,8 +333,8 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
             </div>
             <span className="text-foreground font-medium text-sm">Política de privacidade</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={handleLogout}
             className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
           >

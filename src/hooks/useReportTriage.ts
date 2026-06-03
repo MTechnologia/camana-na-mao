@@ -20,7 +20,9 @@ export interface TriageRecord {
   sourceTable: "urban_reports" | "transport_reports";
   reportId: string;
   priority: TriagePriority | null;
+  /** @deprecated Legado — usuário staff; preferir responsibleCommissionId. */
   assigneeId: string | null;
+  responsibleCommissionId: string | null;
   triageStatus: TriageStatus;
   notes: string | null;
   triagedBy: string | null;
@@ -33,6 +35,7 @@ export interface TriageRecord {
 export interface TriageInput {
   priority?: TriagePriority | null;
   assigneeId?: string | null;
+  responsibleCommissionId?: string | null;
   triageStatus?: TriageStatus;
   notes?: string | null;
 }
@@ -52,6 +55,7 @@ interface RawRow {
   report_id: string;
   priority: TriagePriority | null;
   assignee_id: string | null;
+  responsible_commission_id: string | null;
   triage_status: TriageStatus;
   notes: string | null;
   triaged_by: string | null;
@@ -68,6 +72,7 @@ function toModel(row: RawRow): TriageRecord {
     reportId: row.report_id,
     priority: row.priority,
     assigneeId: row.assignee_id,
+    responsibleCommissionId: row.responsible_commission_id,
     triageStatus: row.triage_status,
     notes: row.notes,
     triagedBy: row.triaged_by,
@@ -103,7 +108,7 @@ export function useReportTriage(
       const { data, error: qErr } = await supabase
         .from(TABLE)
         .select(
-          "id, source_table, report_id, priority, assignee_id, triage_status, notes, triaged_by, triaged_at, resolved_at, created_at, updated_at",
+          "id, source_table, report_id, priority, assignee_id, responsible_commission_id, triage_status, notes, triaged_by, triaged_at, resolved_at, created_at, updated_at",
         )
         .eq("source_table", sourceTable)
         .eq("report_id", reportId)
@@ -136,6 +141,12 @@ export function useReportTriage(
       };
       if (input.priority !== undefined) payload.priority = input.priority;
       if (input.assigneeId !== undefined) payload.assignee_id = input.assigneeId;
+      if (input.responsibleCommissionId !== undefined) {
+        payload.responsible_commission_id = input.responsibleCommissionId;
+        if (input.responsibleCommissionId !== null) {
+          payload.assignee_id = null;
+        }
+      }
       if (input.triageStatus !== undefined) payload.triage_status = input.triageStatus;
       if (input.notes !== undefined) payload.notes = input.notes;
 
@@ -177,18 +188,18 @@ export function useReportTriage(
           });
         }
         if (
-          input.assigneeId !== undefined
-          && input.assigneeId !== triage?.assigneeId
+          input.responsibleCommissionId !== undefined &&
+          input.responsibleCommissionId !== triage?.responsibleCommissionId
         ) {
           events.push({
             type: "assigned",
-            data: { from: triage?.assigneeId ?? null, to: input.assigneeId },
+            data: {
+              from: triage?.responsibleCommissionId ?? null,
+              to: input.responsibleCommissionId,
+            },
           });
         }
-        if (
-          input.triageStatus !== undefined
-          && input.triageStatus !== triage?.triageStatus
-        ) {
+        if (input.triageStatus !== undefined && input.triageStatus !== triage?.triageStatus) {
           events.push({
             type: "status_changed",
             data: { from: triage?.triageStatus ?? null, to: input.triageStatus },

@@ -10,10 +10,7 @@ export function shouldSchedulePostExitRatingPush(params: {
 }): boolean {
   const sendAt = new Date(params.departedAt.getTime() + 15 * 60 * 1000);
   const ratingDeadline = new Date(
-    Math.min(
-      params.expiresAt.getTime(),
-      params.createdAt.getTime() + 48 * 60 * 60 * 1000,
-    ),
+    Math.min(params.expiresAt.getTime(), params.createdAt.getTime() + 48 * 60 * 60 * 1000),
   );
   return sendAt.getTime() < ratingDeadline.getTime();
 }

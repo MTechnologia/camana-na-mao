@@ -15,26 +15,42 @@ interface AvatarUploadProps {
   onAvatarUpdated: (url: string) => void;
 }
 
-const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: AvatarUploadProps) => {
+const AvatarUpload = ({
+  userId,
+  userName,
+  currentAvatarUrl,
+  onAvatarUpdated,
+}: AvatarUploadProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const getInitials = (name: string): string => {
     return name
-      .split(' ')
-      .map(n => n[0])
+      .split(" ")
+      .map((n) => n[0])
       .slice(0, 2)
-      .join('')
+      .join("")
       .toUpperCase();
   };
 
-  const onCropComplete = useCallback((_croppedArea: unknown, croppedAreaPixels: { x: number; y: number; width: number; height: number }) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
+  const onCropComplete = useCallback(
+    (
+      _croppedArea: unknown,
+      croppedAreaPixels: { x: number; y: number; width: number; height: number },
+    ) => {
+      setCroppedAreaPixels(croppedAreaPixels);
+    },
+    [],
+  );
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -65,11 +81,9 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
 
       // Deletar avatar antigo se existir
       if (currentAvatarUrl) {
-        const oldPath = currentAvatarUrl.split('/').pop();
+        const oldPath = currentAvatarUrl.split("/").pop();
         if (oldPath) {
-          await supabase.storage
-            .from('avatars')
-            .remove([`${userId}/${oldPath}`]);
+          await supabase.storage.from("avatars").remove([`${userId}/${oldPath}`]);
         }
       }
 
@@ -78,24 +92,24 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
       const filePath = `${userId}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
+        .from("avatars")
         .upload(filePath, croppedBlob, {
-          cacheControl: '3600',
+          cacheControl: "3600",
           upsert: true,
         });
 
       if (uploadError) throw uploadError;
 
       // Obter URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
       // Atualizar perfil
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ avatar_url: publicUrl })
-        .eq('id', userId);
+        .eq("id", userId);
 
       if (updateError) throw updateError;
 
@@ -104,7 +118,9 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
       handleClose();
     } catch (error: unknown) {
       console.error("Error uploading avatar:", error);
-      toast.error((error instanceof Error ? error.message : String(error)) || "Erro ao fazer upload da foto");
+      toast.error(
+        (error instanceof Error ? error.message : String(error)) || "Erro ao fazer upload da foto",
+      );
     } finally {
       setUploading(false);
     }
@@ -120,18 +136,11 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
 
   return (
     <>
-      <label
-        htmlFor="avatar-upload"
-        className="relative cursor-pointer group"
-      >
+      <label htmlFor="avatar-upload" className="relative cursor-pointer group">
         {/* Avatar Container */}
         <div className="w-24 h-24 rounded-full overflow-hidden bg-muted ring-4 ring-background shadow-xl transition-transform group-hover:scale-105">
           {currentAvatarUrl ? (
-            <img
-              src={currentAvatarUrl}
-              alt="Avatar"
-              className="w-full h-full object-cover"
-            />
+            <img src={currentAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-3xl font-bold">
               {userName ? getInitials(userName) : userId.charAt(0).toUpperCase()}
@@ -155,9 +164,7 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
       </label>
 
       {/* Hint Text */}
-      <p className="text-xs text-muted-foreground mt-2 text-center">
-        Toque para alterar foto
-      </p>
+      <p className="text-xs text-muted-foreground mt-2 text-center">Toque para alterar foto</p>
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
@@ -203,11 +210,7 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
                     <X className="mr-2 h-4 w-4" />
                     Cancelar
                   </Button>
-                  <Button
-                    className="flex-1 bg-primary"
-                    onClick={handleUpload}
-                    disabled={uploading}
-                  >
+                  <Button className="flex-1 bg-primary" onClick={handleUpload} disabled={uploading}>
                     {uploading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

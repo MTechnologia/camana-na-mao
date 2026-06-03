@@ -31,7 +31,7 @@ export function useReportsHeatmap(params: {
           start_at: "",
           points: [],
           truncated: false,
-        }
+        },
       );
     } catch (e) {
       console.error("[useReportsHeatmap]", e);

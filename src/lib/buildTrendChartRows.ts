@@ -1,5 +1,5 @@
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export type TrendPoint = { bucket: string; category: string; count: number };
 
@@ -11,8 +11,8 @@ export function formatTrendBucketLabel(bucket: string, granularity: string): str
   try {
     const d = parseISO(bucket);
     if (Number.isNaN(d.getTime())) return bucket;
-    if (granularity === 'month') return format(d, 'MMM yyyy', { locale: ptBR });
-    return format(d, 'dd/MM', { locale: ptBR });
+    if (granularity === "month") return format(d, "MMM yyyy", { locale: ptBR });
+    return format(d, "dd/MM", { locale: ptBR });
   } catch {
     return bucket;
   }
@@ -21,7 +21,7 @@ export function formatTrendBucketLabel(bucket: string, granularity: string): str
 export function buildTrendChartRows(
   points: TrendPoint[],
   granularity: string,
-  maxSeries: number = DEFAULT_MAX_SERIES
+  maxSeries: number = DEFAULT_MAX_SERIES,
 ): { rows: TrendChartRow[]; categoryKeys: string[] } {
   if (!points.length) {
     return { rows: [], categoryKeys: [] };
@@ -38,16 +38,16 @@ export function buildTrendChartRows(
 
   const normalized: TrendPoint[] = points.map((p) => ({
     ...p,
-    category: topSet.has(p.category) ? p.category : 'Outros',
+    category: topSet.has(p.category) ? p.category : "Outros",
   }));
 
   const buckets = [...new Set(normalized.map((p) => p.bucket))].sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+    (a, b) => new Date(a).getTime() - new Date(b).getTime(),
   );
 
   const categoryKeys = [...new Set(normalized.map((p) => p.category))].sort((a, b) => {
-    if (a === 'Outros') return 1;
-    if (b === 'Outros') return -1;
+    if (a === "Outros") return 1;
+    if (b === "Outros") return -1;
     return (totals.get(b) ?? 0) - (totals.get(a) ?? 0);
   });
 

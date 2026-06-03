@@ -1,11 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-    rpc: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { __test__ } from "./useMultiDrill";
 
@@ -86,7 +83,12 @@ describe("levelOf", () => {
     expect(levelOf({ dimension: "categoria", level1: "Urbano" })).toBe(2);
     expect(levelOf({ dimension: "categoria", level1: "Urbano", level2: "Iluminação" })).toBe(3);
     expect(
-      levelOf({ dimension: "categoria", level1: "Urbano", level2: "Iluminação", level3: "Tatuapé" }),
+      levelOf({
+        dimension: "categoria",
+        level1: "Urbano",
+        level2: "Iluminação",
+        level3: "Tatuapé",
+      }),
     ).toBe(4);
   });
 });
@@ -126,9 +128,9 @@ describe("inScopeReport — dimensão categoria", () => {
     expect(
       inScopeReport(r, { dimension: "categoria", level1: "Urbano", level2: "Iluminação" }),
     ).toBe(true);
-    expect(
-      inScopeReport(r, { dimension: "categoria", level1: "Urbano", level2: "Buracos" }),
-    ).toBe(false);
+    expect(inScopeReport(r, { dimension: "categoria", level1: "Urbano", level2: "Buracos" })).toBe(
+      false,
+    );
     expect(
       inScopeReport(r, {
         dimension: "categoria",
@@ -156,11 +158,7 @@ describe("inScopeReport — dimensão tempo", () => {
     expect(inScopeReport(r, { dimension: "tempo", level1: "2026", level2: "4" })).toBe(true);
     expect(inScopeReport(r, { dimension: "tempo", level1: "2026", level2: "5" })).toBe(false);
     // dia depende do timezone — usamos a data local; aqui aceitamos 14 ou 15
-    expect(
-      ["14", "15"].includes(
-        new Date(r.createdAt).getDate().toString(),
-      ),
-    ).toBe(true);
+    expect(["14", "15"].includes(new Date(r.createdAt).getDate().toString())).toBe(true);
   });
 
   it("rejeita createdAt inválido", () => {
@@ -174,12 +172,12 @@ describe("inScopeReport — dimensão status", () => {
     const r = report({ status: "Resolvido", severity: "Alto", neighborhood: "Mooca" });
     expect(inScopeReport(r, { dimension: "status", level1: "Resolvido" })).toBe(true);
     expect(inScopeReport(r, { dimension: "status", level1: "Pendente" })).toBe(false);
-    expect(
-      inScopeReport(r, { dimension: "status", level1: "Resolvido", level2: "Alto" }),
-    ).toBe(true);
-    expect(
-      inScopeReport(r, { dimension: "status", level1: "Resolvido", level2: "Crítico" }),
-    ).toBe(false);
+    expect(inScopeReport(r, { dimension: "status", level1: "Resolvido", level2: "Alto" })).toBe(
+      true,
+    );
+    expect(inScopeReport(r, { dimension: "status", level1: "Resolvido", level2: "Crítico" })).toBe(
+      false,
+    );
     expect(
       inScopeReport(r, {
         dimension: "status",
@@ -227,7 +225,13 @@ describe("aggregate — dimensão categoria", () => {
   const reports: RawReport[] = [
     report({ id: "1", type: "Urbano", category: "Iluminação", neighborhood: "Tatuapé" }),
     report({ id: "2", type: "Urbano", category: "Iluminação", neighborhood: "Mooca" }),
-    report({ id: "3", type: "Urbano", category: "Buracos", neighborhood: "Tatuapé", isResolved: true }),
+    report({
+      id: "3",
+      type: "Urbano",
+      category: "Buracos",
+      neighborhood: "Tatuapé",
+      isResolved: true,
+    }),
     report({
       id: "4",
       source: "transporte",
@@ -305,7 +309,13 @@ describe("aggregate — dimensão status", () => {
   const reports: RawReport[] = [
     report({ id: "a", status: "Pendente", severity: "Crítico", neighborhood: "Sé" }),
     report({ id: "b", status: "Pendente", severity: "Alto", neighborhood: "Sé" }),
-    report({ id: "c", status: "Resolvido", severity: "Médio", neighborhood: "Mooca", isResolved: true }),
+    report({
+      id: "c",
+      status: "Resolvido",
+      severity: "Médio",
+      neighborhood: "Mooca",
+      isResolved: true,
+    }),
   ];
 
   it("nível 1: agrupa por status", () => {
@@ -324,7 +334,12 @@ describe("aggregate — dimensão status", () => {
 
 describe("aggregate — dimensão audiencia", () => {
   const subs: RawSubscription[] = [
-    subscription({ id: "s1", audienciaId: "a1", inscricaoStatus: "Confirmada", bairro: "Pinheiros" }),
+    subscription({
+      id: "s1",
+      audienciaId: "a1",
+      inscricaoStatus: "Confirmada",
+      bairro: "Pinheiros",
+    }),
     subscription({ id: "s2", audienciaId: "a1", inscricaoStatus: "Confirmada", bairro: "Mooca" }),
     subscription({ id: "s3", audienciaId: "a1", inscricaoStatus: "Presente", bairro: "Pinheiros" }),
     subscription({ id: "s4", audienciaId: "a2", inscricaoStatus: "Confirmada", bairro: "Sé" }),

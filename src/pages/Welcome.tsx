@@ -34,15 +34,11 @@ const Welcome = () => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const [emblaRef, emblaApi] = useEmblaCarousel(
-    { loop: true, skipSnaps: false },
-    [Autoplay({ delay: 5000, stopOnInteraction: true })]
-  );
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, skipSnaps: false }, [
+    Autoplay({ delay: 5000, stopOnInteraction: true }),
+  ]);
 
-  const scrollTo = useCallback(
-    (index: number) => emblaApi && emblaApi.scrollTo(index),
-    [emblaApi]
-  );
+  const scrollTo = useCallback((index: number) => emblaApi && emblaApi.scrollTo(index), [emblaApi]);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -63,11 +59,7 @@ const Welcome = () => {
       {/* Header with logo */}
       <header className="flex items-center px-6 py-4">
         <div className="flex items-center gap-2">
-          <img 
-            src={brasaoSP} 
-            alt="Brasão de São Paulo" 
-            className="h-9 w-auto"
-          />
+          <img src={brasaoSP} alt="Brasão de São Paulo" className="h-9 w-auto" />
           <span className="text-base font-bold text-foreground">Câmara na Mão</span>
         </div>
       </header>
@@ -78,28 +70,32 @@ const Welcome = () => {
           {slides.map((slide, index) => {
             const Icon = slide.icon;
             const isActive = selectedIndex === index;
-            
+
             return (
               <div key={index} className="flex-[0_0_100%] min-w-0 h-full">
                 <div className="flex flex-col items-center justify-center h-full px-8 text-center">
                   {/* Animated Icon Container */}
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ 
-                      scale: isActive ? 1 : 0.8, 
-                      opacity: isActive ? 1 : 0 
+                    animate={{
+                      scale: isActive ? 1 : 0.8,
+                      opacity: isActive ? 1 : 0,
                     }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                     className="mb-8"
                   >
-                    <motion.div 
+                    <motion.div
                       className="w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center relative"
-                      animate={isActive ? {
-                        boxShadow: [
-                          "0 0 0 0 hsl(var(--primary) / 0.1)",
-                          "0 0 0 20px hsl(var(--primary) / 0)",
-                        ]
-                      } : {}}
+                      animate={
+                        isActive
+                          ? {
+                              boxShadow: [
+                                "0 0 0 0 hsl(var(--primary) / 0.1)",
+                                "0 0 0 20px hsl(var(--primary) / 0)",
+                              ],
+                            }
+                          : {}
+                      }
                       transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
                     >
                       {/* Pulsing ring effect */}
@@ -110,16 +106,20 @@ const Welcome = () => {
                           transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
                         />
                       )}
-                      
+
                       {/* Icon with subtle animation */}
                       <motion.div
-                        animate={isActive ? {
-                          y: [0, -4, 0],
-                        } : {}}
-                        transition={{ 
-                          duration: 2, 
-                          repeat: Infinity, 
-                          ease: "easeInOut" 
+                        animate={
+                          isActive
+                            ? {
+                                y: [0, -4, 0],
+                              }
+                            : {}
+                        }
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
                         }}
                       >
                         <Icon className="w-14 h-14 text-primary" strokeWidth={1.5} />
@@ -193,9 +193,7 @@ const Welcome = () => {
 
         {/* Footer text */}
         <div className="text-center mt-6">
-          <p className="text-xs text-muted-foreground">
-            Câmara Municipal de São Paulo
-          </p>
+          <p className="text-xs text-muted-foreground">Câmara Municipal de São Paulo</p>
         </div>
       </div>
     </div>

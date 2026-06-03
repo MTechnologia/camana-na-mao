@@ -11,7 +11,7 @@
 2. [Logs de Auditoria (Audit Logs)](#2-logs-de-auditoria-audit-logs)
 3. [Logs do GCP Cloud Run](#3-logs-do-gcp-cloud-run)
 4. [Logs do vLLM (VM GCP)](#4-logs-do-vllm-vm-gcp)
-5. [Logs do n8n](#5-logs-do-n8n)
+5. [Logs do automacao](#5-logs-do-automacao)
 6. [Logs do Frontend (Browser Console)](#6-logs-do-frontend-browser-console)
 
 ---
@@ -175,11 +175,11 @@ gcloud run services logs read camana-na-mao \
   --until "2026-01-28T23:59:59Z"
 ```
 
-### 3.3 Logs do n8n no Cloud Run
+### 3.3 Logs do automacao no Cloud Run
 
 ```bash
-# Logs do n8n
-gcloud run services logs read n8n --region southamerica-east1 --follow
+# Logs do automacao
+gcloud run services logs read automacao --region southamerica-east1 --follow
 ```
 
 ---
@@ -236,33 +236,33 @@ docker logs vllm-chat --tail 50 | grep "POST /v1/chat/completions"
 
 ---
 
-## 5. Logs do n8n
+## 5. Logs do automacao
 
-### 5.1 Via Interface Web do n8n
+### 5.1 Via Interface Web do automacao
 
-1. Acesse a URL do n8n (Cloud Run)
+1. Acesse a URL do automacao (Cloud Run)
 2. Faça login
 3. Vá em **Executions** (Execuções)
 4. Visualize execuções, erros e logs de cada workflow
 
-### 5.2 Via API do n8n
+### 5.2 Via API do automacao
 
 ```bash
 # Obter execuções recentes
-curl -X GET "https://n8n-url.com/api/v1/executions" \
-  -H "X-N8N-API-KEY: YOUR_API_KEY" \
+curl -X GET "https://automacao-url.com/api/v1/executions" \
+  -H "X-automacao-API-KEY: YOUR_API_KEY" \
   -H "Content-Type: application/json"
 
 # Obter execução específica
-curl -X GET "https://n8n-url.com/api/v1/executions/EXECUTION_ID" \
-  -H "X-N8N-API-KEY: YOUR_API_KEY"
+curl -X GET "https://automacao-url.com/api/v1/executions/EXECUTION_ID" \
+  -H "X-automacao-API-KEY: YOUR_API_KEY"
 ```
 
 ### 5.3 Via Cloud Run Logs
 
 ```bash
-# Logs do n8n no Cloud Run
-gcloud run services logs read n8n --region southamerica-east1 --follow
+# Logs do automacao no Cloud Run
+gcloud run services logs read automacao --region southamerica-east1 --follow
 ```
 
 ---
@@ -306,8 +306,8 @@ supabase functions logs ai-orchestrator --limit 50
 # 2. GCP Cloud Run (Frontend)
 gcloud run services logs read camana-na-mao --region southamerica-east1 --limit 50
 
-# 3. GCP Cloud Run (n8n)
-gcloud run services logs read n8n --region southamerica-east1 --limit 50
+# 3. GCP Cloud Run (automacao)
+gcloud run services logs read automacao --region southamerica-east1 --limit 50
 
 # 4. vLLM (via SSH)
 gcloud compute ssh llm-chat-gpu --zone us-central1-b --command "docker logs vllm-chat --tail 50"
@@ -362,7 +362,7 @@ INFO:     Request: model=meta-llama/Llama-3.1-8B-Instruct, messages=3, tools=12
 INFO:     Response: tokens=150, time=2.3s
 ```
 
-### n8n
+### automacao
 
 ```
 [Workflow: "Process Report"] Execution started

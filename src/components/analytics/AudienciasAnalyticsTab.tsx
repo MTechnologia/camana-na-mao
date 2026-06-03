@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   Bar,
   BarChart,
@@ -31,9 +31,23 @@ import { Badge } from "@/components/ui/badge";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
-import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
+import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
+import { AudienciasFacetPicker } from "@/components/analytics/facets/AudienciasFacetPicker";
+import {
+  EMPTY_VOLUME_FILTERS,
+  type VolumeFiltersValue,
+} from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
+import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
+import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useFacetUrlState } from "@/hooks/useFacetUrlState";
+import {
+  EMPTY_AUDIENCIAS_FACET,
+  countActiveAudienciasFacet,
+  type AudienciasFacet,
+} from "@/lib/analyticsFilters";
 import {
   useAudienciasAnalytics,
   type AudienciasFilters,
@@ -78,14 +92,65 @@ function formatDateLong(iso: string): string {
 }
 
 export function AudienciasAnalyticsTab() {
-  const [period, setPeriod] = useState<DateRangeValue | undefined>(undefined);
+  // HU-3.3 — período sincronizado com URL.
+  const [periodState, setPeriodState] = useUrlSyncedState<{
+    p: { startDate?: string; endDate?: string } | null;
+  }>({
+    prefix: "aud",
+    defaults: { p: null },
+    serializers: { p: dateRangeSerializer() },
+  });
+  const period: DateRangeValue | undefined = useMemo(
+    () =>
+      periodState.p
+        ? {
+            from: parseLocalDate(periodState.p.startDate),
+            to: parseLocalDate(periodState.p.endDate),
+          }
+        : undefined,
+    [periodState.p?.startDate, periodState.p?.endDate],
+  );
+  const setPeriod = useCallback(
+    (next: DateRangeValue | undefined) =>
+      setPeriodState({
+        p: next
+          ? {
+              startDate: formatLocalDate(next.from),
+              endDate: formatLocalDate(next.to),
+            }
+          : null,
+      }),
+    [setPeriodState],
+  );
+
+  // VolumeFilters precisa de granularFilters mesmo que o tab oculte categorias/regiões/zonas
+  // — mantemos o objeto cheio pra preservar a API do componente.
+  const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+
+  // HU-14.5 — Facet da aba Audiências (comissões + status) sincronizado com URL.
+  const [audFacet, setAudFacet] = useFacetUrlState<AudienciasFacet>("aud", EMPTY_AUDIENCIAS_FACET);
+  const debouncedAudFacet = useDebouncedValue(audFacet, 300);
+  const facetActiveCount = countActiveAudienciasFacet(audFacet);
 
   const filters: AudienciasFilters = useMemo(
-    () => ({ startDate: period?.from, endDate: period?.to }),
-    [period],
+    () => ({
+      startDate: period?.from,
+      endDate: period?.to,
+      facet: debouncedAudFacet,
+    }),
+    [period, debouncedAudFacet],
   );
 
   const { stats, isLoading, error, refresh, lastUpdate } = useAudienciasAnalytics(filters);
+
+  // Lista de comissões para o picker (derivada do agregado byComissao).
+  const availableComissoes = useMemo(
+    () =>
+      Array.from(
+        new Set(stats.byComissao.map((c) => c.label).filter((l) => !!l && l !== "Sem comissão")),
+      ).sort(),
+    [stats.byComissao],
+  );
 
   const timelineData = useMemo(
     () =>
@@ -120,18 +185,35 @@ export function AudienciasAnalyticsTab() {
         />
       </div>
 
-      {/* Filtro de período */}
-      <div className="rounded-lg border border-border bg-card p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Calendar className="h-4 w-4" aria-hidden="true" />
-          <span>Período (data da audiência)</span>
-        </div>
-        <FilterDatePicker
-          value={period}
-          onChange={setPeriod}
-          placeholder="Todos os períodos"
-        />
-      </div>
+      {/* HU-14.5 — Tronco (período) + facet Audiências (comissões + status). */}
+      <AnalyticsFiltersBar
+        volumeProps={{
+          value: { ...granularFilters, period },
+          onChange: (next) => {
+            setPeriod(next.period);
+            setGranularFilters({ ...next, period: next.period });
+          },
+          availableCategories: [],
+          availableRegions: [],
+          loading: isLoading,
+          title: "Filtros de audiências",
+          ariaLabel: "Filtros de audiências",
+          showCategory: false,
+          showRegions: false,
+          showZones: false,
+        }}
+        facetLabel="Comissões & status"
+        facetHint="Filtros específicos da aba Audiências — filtra por comissão legislativa pautadora e estado atual da audiência. Aplicam-se apenas a este corte."
+        facetActiveCount={facetActiveCount}
+        facet={
+          <AudienciasFacetPicker
+            value={audFacet}
+            onChange={setAudFacet}
+            availableComissoes={availableComissoes}
+            disabled={isLoading}
+          />
+        }
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -170,10 +252,7 @@ export function AudienciasAnalyticsTab() {
       </div>
 
       {/* Timeline */}
-      <ChartCard
-        title="Tendência de inscrições"
-        subtitle="Inscritos por dia (data da audiência)"
-      >
+      <ChartCard title="Tendência de inscrições" subtitle="Inscritos por dia (data da audiência)">
         <div className="h-72">
           {isLoading && timelineData.length === 0 ? (
             <div className="h-full w-full bg-muted/40 rounded animate-pulse" />
@@ -181,10 +260,7 @@ export function AudienciasAnalyticsTab() {
             <EmptyState message="Nenhuma audiência no período selecionado." />
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={timelineData}
-                margin={{ top: 8, right: 16, left: 0, bottom: 4 }}
-              >
+              <LineChart data={timelineData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                 <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
                 <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
@@ -275,9 +351,7 @@ export function AudienciasAnalyticsTab() {
         <Card className="p-6 border-destructive/30 bg-destructive/5">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="h-4 w-4 text-destructive" />
-            <h3 className="text-lg font-semibold">
-              Sem inscritos a &lt; {7} dias
-            </h3>
+            <h3 className="text-lg font-semibold">Sem inscritos a &lt; {7} dias</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             Próximas audiências sem nenhuma inscrição registrada — ação prioritária de divulgação
@@ -298,9 +372,7 @@ export function AudienciasAnalyticsTab() {
         <Card className="p-6 border-amber-500/30 bg-amber-500/5">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <h3 className="text-lg font-semibold">
-              Baixa ocupação a &lt; 7 dias
-            </h3>
+            <h3 className="text-lg font-semibold">Baixa ocupação a &lt; 7 dias</h3>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
             Próximas audiências com menos de 25% das vagas preenchidas
@@ -409,7 +481,8 @@ function AudienciaRow({
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm leading-snug truncate">{audiencia.titulo}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {audiencia.comissao || "Sem comissão"} • {formatDateLong(audiencia.data)} • {audiencia.zona}
+            {audiencia.comissao || "Sem comissão"} • {formatDateLong(audiencia.data)} •{" "}
+            {audiencia.zona}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">

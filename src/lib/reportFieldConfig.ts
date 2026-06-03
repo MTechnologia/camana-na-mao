@@ -19,7 +19,9 @@ export interface TransportSubcategoryOption {
   label: string;
 }
 
-export const TRANSPORT_SUBCATEGORIES: Readonly<Record<string, readonly TransportSubcategoryOption[]>> = {
+export const TRANSPORT_SUBCATEGORIES: Readonly<
+  Record<string, readonly TransportSubcategoryOption[]>
+> = {
   atraso: [
     { value: "nao_passou", label: "Não passou" },
     { value: "atraso_maior_30", label: "Veio com mais de 30 min de atraso" },
@@ -56,9 +58,7 @@ export const TRANSPORT_SUBCATEGORIES: Readonly<Record<string, readonly Transport
     { value: "motorista_imprudente", label: "Condução imprudente do motorista" },
     { value: "nao_parou_ponto", label: "Não parou no ponto" },
   ],
-  outro: [
-    { value: "outro", label: "Outro (descrever)" },
-  ],
+  outro: [{ value: "outro", label: "Outro (descrever)" }],
 };
 
 /**
@@ -66,88 +66,111 @@ export const TRANSPORT_SUBCATEGORIES: Readonly<Record<string, readonly Transport
  * Exclui feedback_camara. Manter alinhado a `URBAN_RISK_COLLECTION_CATEGORIES` em supabase/functions/ai-orchestrator/lib.ts
  */
 export const URBAN_RISK_COLLECTION_CATEGORIES: readonly string[] = [
-  'via_publica',
-  'pavimentacao',
-  'iluminacao',
-  'esgoto',
-  'area_verde',
-  'calcada',
-  'sinalizacao',
-  'drenagem',
-  'poluicao',
-  'lixo',
-  'higiene_urbana',
-  'animais',
-  'outro',
+  "via_publica",
+  "pavimentacao",
+  "iluminacao",
+  "esgoto",
+  "area_verde",
+  "calcada",
+  "sinalizacao",
+  "drenagem",
+  "poluicao",
+  "lixo",
+  "higiene_urbana",
+  "animais",
+  "outro",
 ];
 
 export const URBAN_REPORT_FIELDS: FieldConfig[] = [
-  { key: 'category', label: 'Categoria', required: true },
-  { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
-  { key: 'cep', label: 'CEP', required: false },
-  { key: 'street', label: 'Rua', required: true },
-  { key: 'street_number', label: 'Número', required: false },
-  { key: 'neighborhood', label: 'Bairro', required: true },
-  { key: 'reference_point', label: 'Referência', required: false },
-  { key: 'risk_level', label: 'Gravidade', required: false, requiredFor: [...URBAN_RISK_COLLECTION_CATEGORIES] },
-  { key: 'affected_scope', label: 'Afetação', required: false, requiredWhen: { field: 'risk_level', values: ['critical', 'moderate'] } },
+  { key: "category", label: "Categoria", required: true },
+  { key: "description", label: "Descrição", required: true }, // No minLength - semantic validation by LLM
+  { key: "cep", label: "CEP", required: false },
+  { key: "street", label: "Rua", required: true },
+  { key: "street_number", label: "Número", required: false },
+  { key: "neighborhood", label: "Bairro", required: true },
+  { key: "reference_point", label: "Referência", required: false },
+  {
+    key: "risk_level",
+    label: "Gravidade",
+    required: false,
+    requiredFor: [...URBAN_RISK_COLLECTION_CATEGORIES],
+  },
+  {
+    key: "affected_scope",
+    label: "Afetação",
+    required: false,
+    requiredWhen: { field: "risk_level", values: ["critical", "moderate"] },
+  },
 ];
 
 export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
-  { key: 'report_type', label: 'Tipo', required: true },
-  { key: 'sub_category', label: 'Detalhe do problema', required: true, requiredWhen: { field: 'report_type', values: ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'] } },
-  { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
-  { key: 'stop_name', label: 'Parada / estação', required: true },
-  { key: 'stop_location', label: 'Ponto / referência', required: true },
-  { key: 'occurrence_date', label: 'Data', required: true },
-  { key: 'occurrence_time', label: 'Horário', required: true },
-  { key: 'direction', label: 'Sentido', required: true },
-  { key: 'line_code', label: 'Linha', required: false },
-  { key: 'location', label: 'Local', required: false },
-  { key: 'accessibility_details', label: 'Checklist de acessibilidade', required: false, requiredWhen: { field: 'report_type', values: ['acessibilidade'] } },
-  { key: 'severity', label: 'Gravidade', required: false },
+  { key: "report_type", label: "Tipo", required: true },
+  {
+    key: "sub_category",
+    label: "Detalhe do problema",
+    required: true,
+    requiredWhen: {
+      field: "report_type",
+      values: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
+    },
+  },
+  { key: "description", label: "Descrição", required: true }, // No minLength - semantic validation by LLM
+  { key: "stop_name", label: "Parada / estação", required: true },
+  { key: "stop_location", label: "Ponto / referência", required: true },
+  { key: "occurrence_date", label: "Data", required: true },
+  { key: "occurrence_time", label: "Horário", required: true },
+  { key: "direction", label: "Sentido", required: true },
+  { key: "line_code", label: "Linha", required: false },
+  { key: "location", label: "Local", required: false },
+  {
+    key: "accessibility_details",
+    label: "Checklist de acessibilidade",
+    required: false,
+    requiredWhen: { field: "report_type", values: ["acessibilidade"] },
+  },
+  { key: "severity", label: "Gravidade", required: false },
 ];
 
 export const SERVICE_RATING_FIELDS: FieldConfig[] = [
-  { key: 'service_type', label: 'Tipo', required: true },
-  { key: 'service_name', label: 'Serviço', required: true },
-  { key: 'service_neighborhood', label: 'Bairro', required: false },
-  { key: 'service_address', label: 'Endereço', required: false },
-  { key: 'service_address_confirmed', label: 'Endereço Confirmado', required: true },
-  { key: 'rating_stars', label: 'Avaliação geral (1–5)', required: true },
-  { key: 'rating_text', label: 'Comentário', required: true },
+  { key: "service_type", label: "Tipo", required: true },
+  { key: "service_name", label: "Serviço", required: true },
+  { key: "service_neighborhood", label: "Bairro", required: false },
+  { key: "service_address", label: "Endereço", required: false },
+  { key: "service_address_confirmed", label: "Endereço Confirmado", required: true },
+  { key: "rating_stars", label: "Avaliação geral (1–5)", required: true },
+  { key: "rating_text", label: "Comentário", required: true },
 ];
 
 export const CHAMBER_FEEDBACK_FIELDS: FieldConfig[] = [
-  { key: 'subcategory', label: 'Tipo', required: true },
-  { key: 'council_member_name', label: 'Vereador(a)', required: false },
-  { key: 'council_member_party', label: 'Partido', required: false },
-  { key: 'description', label: 'Detalhes', required: true },
+  { key: "subcategory", label: "Tipo", required: true },
+  { key: "council_member_name", label: "Vereador(a)", required: false },
+  { key: "council_member_party", label: "Partido", required: false },
+  { key: "description", label: "Detalhes", required: true },
 ];
 
 /**
  * Get required fields that are missing based on collected data
  */
 export function getMissingRequiredFields(
-  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | null,
-  collectedFields: Record<string, unknown>
+  collectionType: "urban_report" | "transport_report" | "service_rating" | null,
+  collectedFields: Record<string, unknown>,
 ): string[] {
   if (!collectionType) return [];
 
   let fields: FieldConfig[];
-  
+
   // Check for chamber feedback (urban_report with category=feedback_camara)
-  if (collectionType === 'urban_report' && collectedFields.category === 'feedback_camara') {
+  if (collectionType === "urban_report" && collectedFields.category === "feedback_camara") {
     fields = CHAMBER_FEEDBACK_FIELDS;
   } else {
     switch (collectionType) {
-      case 'urban_report':
+      case "urban_report":
         fields = URBAN_REPORT_FIELDS;
         break;
-      case 'transport_report':
+      case "transport_report":
         fields = TRANSPORT_REPORT_FIELDS;
         break;
-      case 'service_rating':
+      case "service_rating":
         fields = SERVICE_RATING_FIELDS;
         break;
       default:
@@ -190,8 +213,8 @@ export function getMissingRequiredFields(
  * Check if all required fields are collected
  */
 export function isCollectionComplete(
-  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | null,
-  collectedFields: Record<string, unknown>
+  collectionType: "urban_report" | "transport_report" | "service_rating" | null,
+  collectedFields: Record<string, unknown>,
 ): boolean {
   return getMissingRequiredFields(collectionType, collectedFields).length === 0;
 }
@@ -206,7 +229,7 @@ export function getFieldLabel(key: string): string {
     ...SERVICE_RATING_FIELDS,
     ...CHAMBER_FEEDBACK_FIELDS,
   ];
-  
-  const field = allFields.find(f => f.key === key);
+
+  const field = allFields.find((f) => f.key === key);
   return field?.label || key;
 }

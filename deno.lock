@@ -70,6 +70,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@deck.gl/aggregation-layers@9.3.2",
+        "npm:@deck.gl/core@9.3.2",
+        "npm:@deck.gl/google-maps@9.3.2",
         "npm:@dnd-kit/core@^6.3.1",
         "npm:@dnd-kit/sortable@10",
         "npm:@dnd-kit/utilities@^3.2.2",
@@ -130,10 +133,10 @@
         "npm:html2canvas@^1.4.1",
         "npm:jsdom@^29.0.2",
         "npm:jspdf@^4.2.1",
-        "npm:lovable-tagger@^1.1.13",
         "npm:lucide-react@0.462",
         "npm:mermaid@^11.12.2",
         "npm:next-themes@0.3",
+        "npm:patch-package@^8.0.1",
         "npm:postcss@^8.5.6",
         "npm:prettier@^3.7.4",
         "npm:proj4@^2.20.2",
@@ -157,6 +160,7 @@
         "npm:vite-plugin-pwa@^1.2.0",
         "npm:vite@^5.4.19",
         "npm:vitest@^4.1.3",
+        "npm:xlsx@~0.18.5",
         "npm:zod@^3.25.76"
       ]
     }

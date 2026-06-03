@@ -5,15 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Lock, ChevronLeft, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { z } from "zod";
-
-const passwordSchema = z.object({
-  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
+import { updatePasswordSchema, validatePasswordPolicy } from "@/lib/validations";
+import { isInsideNativeApp } from "@/lib/nativeBridge";
+import { formatAuthErrorForUser } from "@/lib/authErrorMessages";
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
@@ -26,52 +21,81 @@ const UpdatePassword = () => {
   const [sessionReady, setSessionReady] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  const isPasswordValid = password.length >= 6;
+  const isPasswordValid = validatePasswordPolicy(password);
   const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   useEffect(() => {
     let mounted = true;
-    
+
     // Listen for auth state changes to detect when recovery session is established
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event, 'Session:', !!session);
-      
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event, "Session:", !!session);
+
       if (!mounted) return;
-      
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         if (session) {
           setSessionReady(true);
           setCheckingSession(false);
         }
       }
-      
-      if (event === 'USER_UPDATED') {
+
+      if (event === "USER_UPDATED") {
         // Password was updated successfully
-        console.log('User updated event received');
+        console.log("User updated event received");
       }
     });
 
     // Check if there's already a valid session (user might have clicked the link and session is already established)
     const checkExistingSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenHash = urlParams.get("token_hash");
+        const queryType = urlParams.get("type");
+
+        if (tokenHash && queryType === "recovery") {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+
+          if (!mounted) return;
+
+          if (verifyError) {
+            console.error("Recovery verifyOtp failed:", verifyError);
+            toast.error("Link de recuperação inválido ou expirado. Solicite um novo.");
+            setTimeout(() => navigate("/reset-password"), 2000);
+            return;
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setSessionReady(true);
+          return;
+        }
+
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
         if (!mounted) return;
-        
+
         if (session && !error) {
-          console.log('Existing session found');
+          console.log("Existing session found");
           setSessionReady(true);
         } else {
-          // Check URL for recovery token - Supabase should process it automatically
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const accessToken = hashParams.get('access_token');
-          const type = hashParams.get('type');
-          
-          if (accessToken && type === 'recovery') {
-            console.log('Recovery token found in URL, waiting for session...');
-            // Give Supabase a moment to process the token
+          const accessToken = hashParams.get("access_token");
+          const type = hashParams.get("type");
+
+          if (accessToken && type === "recovery") {
+            console.log("Recovery token found in URL hash, waiting for session...");
             setTimeout(async () => {
-              const { data: { session: newSession } } = await supabase.auth.getSession();
+              const {
+                data: { session: newSession },
+              } = await supabase.auth.getSession();
               if (mounted && newSession) {
                 setSessionReady(true);
               }
@@ -79,14 +103,11 @@ const UpdatePassword = () => {
             }, 1000);
             return;
           }
-          
-          // Also check for token in query params (some redirects use query params)
-          const urlParams = new URLSearchParams(window.location.search);
-          const tokenFromQuery = urlParams.get('access_token') || urlParams.get('token');
-          
+
+          const tokenFromQuery = urlParams.get("access_token") || urlParams.get("token");
+
           if (!accessToken && !tokenFromQuery) {
-            console.log('No recovery token found');
-            // No token in URL and no session - invalid access
+            console.log("No recovery token found");
             if (mounted) {
               toast.error("Link de recuperação inválido ou expirado. Solicite um novo.");
               setTimeout(() => navigate("/reset-password"), 2000);
@@ -94,7 +115,7 @@ const UpdatePassword = () => {
           }
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error("Error checking session:", error);
       } finally {
         if (mounted) {
           setCheckingSession(false);
@@ -121,11 +142,11 @@ const UpdatePassword = () => {
     }
 
     try {
-      passwordSchema.parse({ password, confirmPassword });
+      updatePasswordSchema.parse({ password, confirmPassword });
       setLoading(true);
 
-      const { error } = await supabase.auth.updateUser({ 
-        password: password 
+      const { error } = await supabase.auth.updateUser({
+        password: password,
       });
 
       if (error) {
@@ -137,25 +158,20 @@ const UpdatePassword = () => {
 
       setSuccess(true);
       toast.success("Senha alterada com sucesso!");
-      
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        navigate("/login");
-      }, 2000);
     } catch (error: unknown) {
-      console.error('Error updating password:', error);
+      console.error("Error updating password:", error);
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
       if (err.errors) {
         err.errors.forEach((e) => {
-          toast.error(e.message ?? 'Erro');
+          toast.error(e.message ?? "Erro");
         });
       } else {
-        const msg = err.message ?? '';
-        if (msg.includes('session')) {
+        const msg = err.message ?? "";
+        if (msg.toLowerCase().includes("session")) {
           toast.error("Sessão expirada. Solicite um novo link de recuperação.");
           setTimeout(() => navigate("/reset-password"), 2000);
         } else {
-          toast.error(msg || "Erro ao alterar senha");
+          toast.error(formatAuthErrorForUser(error, "Erro ao alterar senha"));
         }
       }
     } finally {
@@ -172,25 +188,29 @@ const UpdatePassword = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Verificando link de recuperação...
           </h2>
-          <p className="text-gray-600">
-            Aguarde enquanto validamos seu acesso.
-          </p>
+          <p className="text-gray-600">Aguarde enquanto validamos seu acesso.</p>
         </div>
       </div>
     );
   }
 
   if (success) {
+    const inNativeApp = isInsideNativeApp();
+
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
         <div className="px-6 pt-8 pb-6">
-          <button
-            onClick={() => navigate("/login")}
-            className="-ml-2 text-foreground hover:text-primary transition-colors"
-            aria-label="Voltar"
-          >
-            <ChevronLeft size={24} strokeWidth={2} />
-          </button>
+          {inNativeApp ? (
+            <div className="h-6" aria-hidden />
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="-ml-2 text-foreground hover:text-primary transition-colors"
+              aria-label="Voltar"
+            >
+              <ChevronLeft size={24} strokeWidth={2} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12">
@@ -198,21 +218,22 @@ const UpdatePassword = () => {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Check className="text-green-600" size={32} />
             </div>
-            
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Senha Alterada!
-            </h1>
-            
-            <p className="text-gray-600 mb-8">
-              Sua senha foi alterada com sucesso! Faça login com sua nova senha para continuar.
+
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Senha atualizada</h1>
+
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              Sua senha foi atualizada. Volte ao aplicativo e realize novamente a tentativa de
+              Login.
             </p>
 
-            <Button
-              onClick={() => navigate("/login")}
-              className="w-full h-12 bg-gray-900 text-white hover:bg-gray-800 rounded-xl"
-            >
-              Ir para Login
-            </Button>
+            {inNativeApp && (
+              <Button
+                onClick={() => navigate("/login")}
+                className="w-full h-12 bg-gray-900 text-white hover:bg-gray-800 rounded-xl"
+              >
+                Fazer login
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -234,20 +255,15 @@ const UpdatePassword = () => {
 
       {/* Header Text */}
       <div className="px-6 pb-6">
-        <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-          Criar nova<br />
-          senha
-        </h1>
+        <h1 className="text-4xl font-bold text-gray-900 leading-tight">Criar nova senha</h1>
         <p className="text-gray-600 mt-4">
-          Digite sua nova senha abaixo. Ela deve ter no mínimo 6 caracteres.
+          Digite sua nova senha abaixo, respeitando as regras indicadas.
         </p>
       </div>
 
       {/* Form Card */}
       <div className="flex-1 bg-white rounded-t-[32px] px-6 pt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          Nova Senha
-        </h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Nova Senha</h2>
 
         <form onSubmit={handleUpdatePassword} className="space-y-4">
           <div className="relative">
@@ -287,21 +303,27 @@ const UpdatePassword = () => {
               {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
             {doPasswordsMatch && (
-              <Check className="absolute right-12 top-1/2 -translate-y-1/2 text-green-500" size={20} />
+              <Check
+                className="absolute right-12 top-1/2 -translate-y-1/2 text-green-500"
+                size={20}
+              />
             )}
           </div>
 
-          {/* Password requirements hint */}
-          <div className="text-sm text-gray-500 space-y-1">
-            <p className={`flex items-center gap-2 ${isPasswordValid ? 'text-green-600' : ''}`}>
-              {isPasswordValid ? <Check size={14} /> : <span className="w-3.5" />}
-              Mínimo de 6 caracteres
-            </p>
-            <p className={`flex items-center gap-2 ${doPasswordsMatch ? 'text-green-600' : ''}`}>
+          <PasswordRequirementsChecklist
+            password={password}
+            className="border-gray-200 bg-gray-50"
+          />
+          {confirmPassword.length > 0 && (
+            <p
+              className={`flex items-center gap-2 text-sm ${
+                doPasswordsMatch ? "text-green-600" : "text-gray-500"
+              }`}
+            >
               {doPasswordsMatch ? <Check size={14} /> : <span className="w-3.5" />}
               As senhas coincidem
             </p>
-          </div>
+          )}
 
           <Button
             type="submit"
@@ -310,11 +332,11 @@ const UpdatePassword = () => {
           >
             {loading ? "Alterando..." : "Alterar Senha"}
           </Button>
-          
+
           {!sessionReady && !checkingSession && (
             <p className="text-center text-sm text-red-500 mt-2">
-              Sessão de recuperação não encontrada. 
-              <button 
+              Sessão de recuperação não encontrada.
+              <button
                 type="button"
                 onClick={() => navigate("/reset-password")}
                 className="underline ml-1"

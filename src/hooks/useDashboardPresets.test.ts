@@ -5,16 +5,9 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-    channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockResolvedValue(undefined),
-    })),
-    removeChannel: vi.fn().mockResolvedValue(undefined),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 import { useDashboardPresets } from "./useDashboardPresets";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,8 +94,8 @@ describe("useDashboardPresets", () => {
       error: null,
     });
     supabaseFromMock
-      .mockReturnValueOnce(selectChain)   // select inicial
-      .mockReturnValueOnce(insertChain);  // insert
+      .mockReturnValueOnce(selectChain) // select inicial
+      .mockReturnValueOnce(insertChain); // insert
 
     const { result } = renderHook(() => useDashboardPresets());
     await waitFor(() => expect(result.current.isLoading).toBe(false));

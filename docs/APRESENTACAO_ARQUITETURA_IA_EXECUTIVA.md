@@ -10,9 +10,9 @@
 
 **Arquitetura Híbrida Recomendada:**
 - ✅ **vLLM Self-hosted** (GCP) - Chat em tempo real
-- ✅ **n8n Cloud Run** (GCP) - Processamento assíncrono
+- ✅ **automacao Cloud Run** (GCP) - Processamento assíncrono
 - ✅ **Embeddings Self-hosted** (GCP) - Busca semântica
-- ✅ **Fallback SaaS** (Lovable AI) - Contingência
+- ✅ **Provedor LLM** configurável (vLLM / OpenAI-compatible)
 
 **Por que Híbrido?**
 - **LGPD**: Dados processados no Brasil (southamerica-east1)
@@ -31,7 +31,7 @@
 |------------|---------------|--------------|
 | **VM Chat (GPU)** | n1-standard-4 + T4 (preemptible) | ~R$ 1.200 |
 | **VM Embeddings (CPU)** | e2-standard-4 | ~R$ 200 |
-| **n8n Cloud Run** | Auto-scaling (1-10 instâncias) | ~R$ 300 |
+| **automacao Cloud Run** | Auto-scaling (1-10 instâncias) | ~R$ 300 |
 | **Disco/Storage** | 200GB SSD + 50GB | ~R$ 100 |
 | **Tráfego de Rede** | Primeiros 1GB grátis | ~R$ 50 |
 | **Subtotal Self-hosted** | | **~R$ 1.850** |
@@ -40,7 +40,7 @@
 
 | Serviço | Uso Estimado | Custo Mensal |
 |---------|--------------|--------------|
-| **Lovable AI** | Apenas contingência | ~R$ 200-500 |
+| **Provedor SaaS alternativo** | Contingência (se configurado) | Variável |
 | **Subtotal Fallback** | | **~R$ 200-500** |
 
 ### **TOTAL ESTIMADO: R$ 2.050 - R$ 2.350/mês**
@@ -49,7 +49,7 @@
 
 | Abordagem | Custo Mensal | Economia |
 |-----------|--------------|----------|
-| **SaaS Puro** (n8n Cloud + OpenAI) | ~R$ 6.000-8.000 | - |
+| **SaaS Puro** (automacao Cloud + OpenAI) | ~R$ 6.000-8.000 | - |
 | **Híbrido (Recomendado)** | ~R$ 2.050-2.350 | **65-70%** |
 
 **Economia anual estimada: R$ 45.000 - R$ 68.000**
@@ -86,7 +86,7 @@
 
 #### 5. **Controle e Flexibilidade**
 - ✅ Modelos customizáveis (Llama 3.1 8B, Qwen, etc.)
-- ✅ Workflows personalizados (n8n)
+- ✅ Workflows personalizados (automacao)
 - ✅ Integração direta com infraestrutura existente
 - ✅ Sem dependência de terceiros para operação crítica
 
@@ -168,10 +168,10 @@ vLLM é um servidor otimizado para servir modelos de linguagem grandes (LLMs) co
 
 ---
 
-### n8n (Workflow Automation)
+### automacao (Workflow Automation)
 
 **O que é?**
-n8n é uma plataforma de automação de workflows que permite criar fluxos de trabalho visuais sem código.
+automacao é uma plataforma de automação de workflows que permite criar fluxos de trabalho visuais sem código.
 
 **Aplicação no projeto:**
 - ✅ **Processamento assíncrono**: Enriquecimento de relatos
@@ -204,7 +204,7 @@ n8n é uma plataforma de automação de workflows que permite criar fluxos de tr
        │                 │
        ▼                 ▼
 ┌─────────────┐   ┌─────────────┐
-│   vLLM      │   │     n8n     │
+│   vLLM      │   │     automacao     │
 │  (Chat)     │   │ (Workflow)  │
 └──────┬──────┘   └──────┬──────┘
        │                 │
@@ -251,7 +251,7 @@ n8n é uma plataforma de automação de workflows que permite criar fluxos de tr
 
 | Risco | Mitigação |
 |-------|-----------|
-| **Falha de VM GPU** | ✅ Fallback automático para Lovable AI |
+| **Falha de VM GPU** | ✅ Trocar `AI_CHAT_BASE_URL` para provedor de contingência |
 | **Custo inesperado** | ✅ Preemptible VMs (80% desconto) |
 | **Alta demanda** | ✅ Auto-scaling (Cloud Run) |
 | **Manutenção** | ✅ Rolling updates (zero downtime) |
@@ -264,7 +264,7 @@ n8n é uma plataforma de automação de workflows que permite criar fluxos de tr
 ### Fase 1: Infraestrutura Base (Semana 1-2)
 - [x] VM Chat (vLLM) em `southamerica-east1`
 - [x] VM Embeddings em `southamerica-east1`
-- [x] n8n Cloud Run deployado
+- [x] automacao Cloud Run deployado
 - [ ] Integração e testes
 
 ### Fase 2: Modelos e Otimização (Semana 3-4)
@@ -303,11 +303,11 @@ n8n é uma plataforma de automação de workflows que permite criar fluxos de tr
 
 **Documentação Técnica:**
 - Arquitetura completa: `docs/DOCUMENTO_ARQUITETURA.md`
-- Deploy n8n: `docs/DEPLOY_N8N_CLOUD_RUN.md`
+- Deploy automacao: `docs/DEPLOY_automacao_CLOUD_RUN.md`
 - Migração Llama: `docs/MIGRACAO_LLAMA_3.1_8B.md`
 
 **Status Atual:**
-- ✅ n8n Cloud Run: Deployado e funcionando
+- ✅ automacao Cloud Run: Deployado e funcionando
 - ✅ vLLM: Configurado (aguardando migração para Llama 3.1 8B)
 - ⏳ Embeddings: VM criada, aguardando configuração
 

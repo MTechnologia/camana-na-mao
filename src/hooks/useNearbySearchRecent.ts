@@ -162,9 +162,7 @@ export function useNearbySearchRecent() {
       void withPoolRetry(() => syncAppSuggestions(payload), {
         retries: 1,
         baseDelayMs: 900,
-      }).catch((e) =>
-        console.warn("[useNearbySearchRecent] Falha ao sincronizar na nuvem:", e),
-      );
+      }).catch((e) => console.warn("[useNearbySearchRecent] Falha ao sincronizar na nuvem:", e));
     }, CLOUD_SYNC_DEBOUNCE_MS);
 
     return () => window.clearTimeout(handle);

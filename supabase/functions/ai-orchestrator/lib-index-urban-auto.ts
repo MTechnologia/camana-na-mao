@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createSseResponse } from "./lib-index-sse.ts";
+import {
+  URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+  URBAN_RISK_LEVEL_FIELD_PROMPT,
+} from "./lib-prompt-ux.ts";
 
 type ExecuteToolResult = {
   success: boolean;
@@ -10,7 +14,9 @@ type ExecuteToolResult = {
 type UrbanAutoArgs = {
   accumulatedFields: Record<string, unknown>;
   attachmentUrls: string[];
+  chatMessages?: Array<Record<string, unknown>>;
   conversationId?: string;
+  getMessageText?: (m: Record<string, unknown>) => string;
   lastAssistantLower: string;
   lastAssistantMessage: string;
   lastUserMessage: string;
@@ -63,6 +69,14 @@ function buildUrbanPreview(
     .join(", ");
   const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : "";
 
+  // Feedback à Câmara não tem endereço — no lugar, mostramos o vereador.
+  const isChamberFeedback = cat === "feedback_camara";
+  const councilName = String(accumulatedFields.council_member_name || "").trim();
+  const councilParty = String(accumulatedFields.council_member_party || "").trim();
+  const targetLine = isChamberFeedback
+    ? `• **Vereador(a):** ${councilName || "—"}${councilParty ? ` (${councilParty})` : ""}`
+    : `• **Endereço:** ${addr}${neighborhood}${photoLine}`;
+
   return buildUrbanProgressContent(
     accumulatedFields,
     `**Resumo do relato**
@@ -72,7 +86,7 @@ function buildUrbanPreview(
 • **Descrição:** ${(accumulatedFields.description || "").toString().slice(0, 200)}${
       (accumulatedFields.description || "").toString().length > 200 ? "..." : ""
     }${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
-• **Endereço:** ${addr}${neighborhood}${photoLine}
+${targetLine}
 
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`,
   );
@@ -84,7 +98,9 @@ export async function handleDeterministicUrbanAutoCreate(
   const {
     accumulatedFields,
     attachmentUrls,
+    chatMessages,
     conversationId,
+    getMessageText,
     lastAssistantLower,
     lastAssistantMessage,
     lastUserMessage,
@@ -94,17 +110,122 @@ export async function handleDeterministicUrbanAutoCreate(
     lib,
   } = args;
 
-  const lastOfferedCorrectionOptions =
-    /Selecione uma opção abaixo/i.test(lastAssistantLower) &&
-    /\[QUICK_REPLY:.*gravidade/i.test(lastAssistantMessage);
-  const userPickedGravidadeCorrection = /^(gravidade|gravidad)$/i.test(msgLower.trim());
-  if (lastOfferedCorrectionOptions && userPickedGravidadeCorrection) {
-    const riskAsk = buildUrbanProgressContent(
+  const askedUrbanCorrectionMenu =
+    /o que você gostaria de corrigir/i.test(lastAssistantLower) &&
+    /\[QUICK_REPLY:[^\]]*descri/i.test(lastAssistantMessage);
+
+  if (askedUrbanCorrectionMenu) {
+    const pickNorm = msgLower
+      .trim()
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/ç/g, "c");
+    let correctionReply = "";
+    if (/^descri/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:description]Qual é a **descrição correta**? Reescreva o que aconteceu com mais detalhes.",
+      );
+    } else if (/^endereco$/.test(pickNorm) || pickNorm === "endereco") {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:cep]Qual o **endereço correto**? Informe o **CEP** ou a **rua e bairro** do local.",
+      );
+    } else if (pickNorm === "cep") {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:cep]Qual o **CEP correto** do local? (8 dígitos, ex.: 05601001)",
+      );
+    } else if (/^categoria$/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:category]Qual o **tema** correto? (iluminação, buraco na via, pavimentação, sinalização, drenagem, esgoto, lixo, barulho, área verde, calçada, ou descreva)",
+      );
+    } else if (/^tipo/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:subcategory]Qual o **tipo / detalhe** correto? (em poucas palavras, ex.: \"Buraco grande na via\", \"Lâmpada queimada\")",
+      );
+    } else if (/^gravidad/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        URBAN_RISK_LEVEL_FIELD_PROMPT,
+      );
+    } else if (/^(tipos?_?de_?risco|tipos_risco|riscos)$/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:risk_types]Quais **tipos de risco** se aplicam? Descreva (ex.: elétrico, alagamento, trânsito, estrutural, saúde, incêndio).",
+      );
+    } else if (/^afet/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+      );
+    } else if (/^natureza$/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[FIELD_REQUEST:report_nature]Qual a **natureza** correta do relato?[QUICK_REPLY:reclamacao,duvida,sugestao,elogio]",
+      );
+    }
+
+    if (correctionReply) {
+      console.log("[ai-orchestrator] Urban report: correction menu pick → field request:", pickNorm);
+      return { response: createSseResponse(correctionReply, lib.corsHeaders) };
+    }
+
+    const reaskMenu = buildUrbanProgressContent(
       accumulatedFields,
-      "[FIELD_REQUEST:risk_level]Qual o **nível de gravidade** correto para este relato?[QUICK_REPLY:critical,moderate,low,none]",
+      "Não reconheci essa opção. **O que você gostaria de corrigir** no resumo do relato?\n\nSelecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza]",
     );
-    console.log("[ai-orchestrator] Urban report: correction → gravidade com botões");
-    return { response: createSseResponse(riskAsk, lib.corsHeaders) };
+    console.log("[ai-orchestrator] Urban report: correction menu — pick não reconhecido, reexibindo opções");
+    return { response: createSseResponse(reaskMenu, lib.corsHeaders) };
+  }
+
+  const urbanFieldReqMatch = lastAssistantMessage.match(/\[FIELD_REQUEST:(\w+)\]/);
+  const prevWasUrbanFieldRequest =
+    /\[COLLECTION_PROGRESS:urban_report:/i.test(lastAssistantMessage) && !!urbanFieldReqMatch;
+
+  const threadHadUrbanPreviewOrCorrection = (chatMessages ?? []).some((m: Record<string, unknown>) => {
+    if (m.role !== "assistant") return false;
+    const t = (getMessageText?.(m) ?? "").toLowerCase();
+    return (
+      /resumo\s+do\s+relato\b/i.test(t) ||
+      /o\s+que\s+voc[eê]\s+gostaria\s+de\s+corrigir/i.test(t)
+    );
+  });
+
+  if (
+    prevWasUrbanFieldRequest &&
+    threadHadUrbanPreviewOrCorrection &&
+    lastUserMessage.trim().length > 0
+  ) {
+    const correctionMenuTokens = new Set([
+      "descrição",
+      "descricao",
+      "endereço",
+      "endereco",
+      "categoria",
+      "tipo_detalhe",
+      "tipo detalhe",
+      "gravidade",
+      "tipos_de_risco",
+      "tipos de risco",
+      "afetação",
+      "afetacao",
+      "cep",
+      "natureza",
+    ]);
+    const userText = msgLower.trim();
+    const isMenuPick = correctionMenuTokens.has(userText);
+    const isFlowControl =
+      /^(corrigir|editar|ajustar|confirmar|registrar|sim|ok|tudo\s+certo)$/i.test(userText);
+    if (!isMenuPick && !isFlowControl) {
+      const preview = buildUrbanPreview(accumulatedFields, lib);
+      console.log(
+        "[ai-orchestrator] Urban report: after field correction → showing preview again with updated value",
+      );
+      return { response: createSseResponse(preview, lib.corsHeaders) };
+    }
   }
 
   const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
@@ -147,6 +268,12 @@ export async function handleDeterministicUrbanAutoCreate(
   }
 
   if (!askedPhotoChoice && !askedToAttach && !showedPreview && !showedSimilarReports) {
+    // Feedback à Câmara não anexa imagens: pula a pergunta de fotos e vai ao resumo.
+    if (String(accumulatedFields.category || "") === "feedback_camara") {
+      const preview = buildUrbanPreview(accumulatedFields, lib);
+      console.log("[ai-orchestrator] Feedback à Câmara: pulando etapa de fotos → preview direto");
+      return { response: createSseResponse(preview, lib.corsHeaders) };
+    }
     if (askedCorrectionField || userSentCorrectionLikeText) {
       const preview = buildUrbanPreview(accumulatedFields, lib);
       console.log(
@@ -198,7 +325,7 @@ export async function handleDeterministicUrbanAutoCreate(
   if (askedPhotoChoice && !userSaidNo) {
     const attachMsg = buildUrbanProgressContent(
       accumulatedFields,
-      "Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]",
+      "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]",
     );
     console.log("[ai-orchestrator] Urban report: user said yes or unclear → showing attach instructions");
     return { response: createSseResponse(attachMsg, lib.corsHeaders) };

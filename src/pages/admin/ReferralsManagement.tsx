@@ -1,16 +1,28 @@
-import { useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
-import { KPICard } from '@/components/analytics/KPICard';
+import { useState } from "react";
+import { AdminPageShell } from "@/components/admin/AdminPageShell";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { KPICard } from "@/components/analytics/KPICard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,16 +32,29 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { 
-  Search, Users, Clock, CheckCircle2, Send, Eye, MessageSquare, 
-  ChevronLeft, ChevronRight, Bus, MapPin, Star, RefreshCw, Trash2, AlertTriangle 
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { useReferralsAdmin } from '@/hooks/useReferralsAdmin';
+} from "@/components/ui/alert-dialog";
+import {
+  Search,
+  Users,
+  Clock,
+  CheckCircle2,
+  Send,
+  Eye,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  Bus,
+  MapPin,
+  Star,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useReferralsAdmin, type Referral } from "@/hooks/useReferralsAdmin";
 
-const ReferralsManagement = () => {
+const ReferralsManagement = ({ embedded }: { embedded?: boolean } = {}) => {
   const {
     referrals,
     loading,
@@ -51,44 +76,54 @@ const ReferralsManagement = () => {
     refetch,
   } = useReferralsAdmin();
 
-  const [selectedReferral, setSelectedReferral] = useState<Record<string, unknown> | null>(null);
+  const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [responseText, setResponseText] = useState('');
+  const [responseText, setResponseText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [referralToDelete, setReferralToDelete] = useState<Record<string, unknown> | null>(null);
+  const [referralToDelete, setReferralToDelete] = useState<Referral | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
-      case 'sent': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-      case 'acknowledged': return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
-      case 'resolved': return 'bg-green-500/10 text-green-600 border-green-500/20';
-      default: return 'bg-muted text-muted-foreground';
+      case "pending":
+        return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+      case "sent":
+        return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "acknowledged":
+        return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+      case "resolved":
+        return "bg-green-500/10 text-green-600 border-green-500/20";
+      default:
+        return "bg-muted text-muted-foreground";
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'pending': return 'Pendente';
-      case 'sent': return 'Enviado';
-      case 'acknowledged': return 'Recebido';
-      case 'resolved': return 'Resolvido';
-      default: return status;
+      case "pending":
+        return "Pendente";
+      case "sent":
+        return "Enviado";
+      case "acknowledged":
+        return "Recebido";
+      case "resolved":
+        return "Resolvido";
+      default:
+        return status;
     }
   };
 
-  const getReportType = (referral: Record<string, unknown>) => {
-    if (referral.transport_report_id) return { type: 'transport', label: 'Transporte', icon: Bus };
-    if (referral.urban_report_id) return { type: 'urban', label: 'Urbano', icon: MapPin };
-    if (referral.service_rating_id) return { type: 'service', label: 'Serviço', icon: Star };
-    return { type: 'unknown', label: 'Desconhecido', icon: MessageSquare };
+  const getReportType = (referral: Referral) => {
+    if (referral.transport_report_id) return { type: "transport", label: "Transporte", icon: Bus };
+    if (referral.urban_report_id) return { type: "urban", label: "Urbano", icon: MapPin };
+    if (referral.service_rating_id) return { type: "service", label: "Serviço", icon: Star };
+    return { type: "unknown", label: "Desconhecido", icon: MessageSquare };
   };
 
-  const handleViewDetails = (referral: Record<string, unknown>) => {
+  const handleViewDetails = (referral: Referral) => {
     setSelectedReferral(referral);
-    setResponseText(referral.response_text || '');
+    setResponseText(typeof referral.response_text === "string" ? referral.response_text : "");
     setDetailsOpen(true);
   };
 
@@ -101,7 +136,7 @@ const ReferralsManagement = () => {
   };
 
   const handleDeleteReferral = async () => {
-    if (!referralToDelete) return;
+    if (!referralToDelete || typeof referralToDelete.id !== "string") return;
     setDeleting(true);
     await deleteReferral(referralToDelete.id);
     setDeleting(false);
@@ -111,7 +146,7 @@ const ReferralsManagement = () => {
   };
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -135,10 +170,30 @@ const ReferralsManagement = () => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <KPICard title="Total" value={kpis.total} icon={Users} />
-            <KPICard title="Pendentes" value={kpis.pending} icon={Clock} className="border-yellow-500/20" />
-            <KPICard title="Enviados" value={kpis.sent} icon={Send} className="border-blue-500/20" />
-            <KPICard title="Recebidos" value={kpis.acknowledged} icon={Eye} className="border-purple-500/20" />
-            <KPICard title="Resolvidos" value={kpis.resolved} icon={CheckCircle2} className="border-green-500/20" />
+            <KPICard
+              title="Pendentes"
+              value={kpis.pending}
+              icon={Clock}
+              className="border-yellow-500/20"
+            />
+            <KPICard
+              title="Enviados"
+              value={kpis.sent}
+              icon={Send}
+              className="border-blue-500/20"
+            />
+            <KPICard
+              title="Recebidos"
+              value={kpis.acknowledged}
+              icon={Eye}
+              className="border-purple-500/20"
+            />
+            <KPICard
+              title="Resolvidos"
+              value={kpis.resolved}
+              icon={CheckCircle2}
+              className="border-green-500/20"
+            />
           </div>
         )}
 
@@ -194,16 +249,20 @@ const ReferralsManagement = () => {
             referrals.map((referral) => {
               const reportType = getReportType(referral);
               const ReportIcon = reportType.icon;
-              
+
               return (
                 <Card key={referral.id} className="p-4 hover:border-primary/50 transition-colors">
                   <div className="flex items-start gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-primary/10 text-primary">
-                        {referral.council_member_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                        {referral.council_member_name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .slice(0, 2)
+                          .join("")}
                       </AvatarFallback>
                     </Avatar>
-                    
+
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold">{referral.council_member_name}</h3>
@@ -234,7 +293,11 @@ const ReferralsManagement = () => {
                       )}
 
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{format(new Date(referral.created_at), "dd 'de' MMM, yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                        <span>
+                          {format(new Date(referral.created_at), "dd 'de' MMM, yyyy 'às' HH:mm", {
+                            locale: ptBR,
+                          })}
+                        </span>
                         {referral.match_reasons && referral.match_reasons.length > 0 && (
                           <span className="flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" />
@@ -246,7 +309,11 @@ const ReferralsManagement = () => {
 
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleViewDetails(referral)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewDetails(referral)}
+                        >
                           <Eye className="h-4 w-4 mr-1" />
                           Detalhes
                         </Button>
@@ -262,7 +329,7 @@ const ReferralsManagement = () => {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      {referral.status === 'pending' && (
+                      {referral.status === "pending" && (
                         <Select onValueChange={(value) => updateReferralStatus(referral.id, value)}>
                           <SelectTrigger className="w-32">
                             <SelectValue placeholder="Ações" />
@@ -287,13 +354,14 @@ const ReferralsManagement = () => {
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
-                Mostrando {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalCount)} de {totalCount}
+                Mostrando {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalCount)} de{" "}
+                {totalCount}
               </p>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
@@ -305,7 +373,7 @@ const ReferralsManagement = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                 >
                   Próxima
@@ -322,19 +390,29 @@ const ReferralsManagement = () => {
             <DialogHeader>
               <DialogTitle>Detalhes do Encaminhamento</DialogTitle>
             </DialogHeader>
-            
+
             {selectedReferral && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-14 w-14">
                     <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                      {selectedReferral.council_member_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                      {selectedReferral.council_member_name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .slice(0, 2)
+                        .join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-semibold text-lg">{selectedReferral.council_member_name}</h3>
-                    {selectedReferral.council_member_party && (
-                      <p className="text-sm text-muted-foreground">{selectedReferral.council_member_party}</p>
+                    <h3 className="font-semibold text-lg">
+                      {typeof selectedReferral.council_member_name === "string"
+                        ? selectedReferral.council_member_name
+                        : ""}
+                    </h3>
+                    {typeof selectedReferral.council_member_party === "string" && (
+                      <p className="text-sm text-muted-foreground">
+                        {selectedReferral.council_member_party}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -355,7 +433,9 @@ const ReferralsManagement = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Criado em</span>
                     <span className="text-sm">
-                      {format(new Date(selectedReferral.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      {format(new Date(selectedReferral.created_at), "dd/MM/yyyy 'às' HH:mm", {
+                        locale: ptBR,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -365,7 +445,10 @@ const ReferralsManagement = () => {
                     <span className="text-sm font-medium">Motivos do Match</span>
                     <ul className="space-y-1">
                       {selectedReferral.match_reasons.map((reason: string, i: number) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <li
+                          key={i}
+                          className="text-sm text-muted-foreground flex items-start gap-2"
+                        >
                           <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
                           {reason}
                         </li>
@@ -377,7 +460,9 @@ const ReferralsManagement = () => {
                 {selectedReferral.citizen_message && (
                   <div className="space-y-2">
                     <span className="text-sm font-medium">Mensagem do Cidadão</span>
-                    <p className="text-sm bg-muted p-3 rounded-lg">{selectedReferral.citizen_message}</p>
+                    <p className="text-sm bg-muted p-3 rounded-lg">
+                      {selectedReferral.citizen_message}
+                    </p>
                   </div>
                 )}
 
@@ -410,7 +495,7 @@ const ReferralsManagement = () => {
                 Fechar
               </Button>
               <Button onClick={handleSubmitResponse} disabled={submitting || !responseText.trim()}>
-                {submitting ? 'Salvando...' : 'Salvar Resposta'}
+                {submitting ? "Salvando..." : "Salvar Resposta"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -424,14 +509,17 @@ const ReferralsManagement = () => {
                 <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
                   <AlertTriangle className="h-6 w-6 text-destructive" />
                 </div>
-                <AlertDialogTitle className="text-xl">
-                  Excluir encaminhamento?
-                </AlertDialogTitle>
+                <AlertDialogTitle className="text-xl">Excluir encaminhamento?</AlertDialogTitle>
               </div>
               <AlertDialogDescription className="space-y-3">
                 <p>
-                  Esta ação não pode ser desfeita. O encaminhamento para{' '}
-                  <strong>{referralToDelete?.council_member_name}</strong> será excluído permanentemente.
+                  Esta ação não pode ser desfeita. O encaminhamento para{" "}
+                  <strong>
+                    {typeof referralToDelete?.council_member_name === "string"
+                      ? referralToDelete.council_member_name
+                      : ""}
+                  </strong>{" "}
+                  será excluído permanentemente.
                 </p>
                 {referralToDelete?.citizen_message && (
                   <div className="p-3 bg-muted rounded-md border">
@@ -449,13 +537,13 @@ const ReferralsManagement = () => {
                 disabled={deleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {deleting ? 'Excluindo...' : 'Excluir permanentemente'}
+                {deleting ? "Excluindo..." : "Excluir permanentemente"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </AdminLayout>
+    </AdminPageShell>
   );
 };
 

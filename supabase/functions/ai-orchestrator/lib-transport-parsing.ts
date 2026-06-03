@@ -43,10 +43,21 @@ export function normalizeTransportRecurrenceFrequency(input: string): string | n
   if (raw.includes("algumas vezes") || raw.includes("vezes/mes") || raw.includes("vezes por mes")) {
     return "algumas_vezes_mes";
   }
-  if (raw.includes("toda semana") || raw.includes("todas as semanas") || raw.includes("semanal")) {
+  if (
+    raw.includes("toda semana") ||
+    raw.includes("todas as semanas") ||
+    raw.includes("semanal") ||
+    /\btds?\s+semana\b/.test(raw)
+  ) {
     return "toda_semana";
   }
-  if (raw.includes("todos os dias") || raw.includes("todo dia") || raw.includes("diario") || raw.includes("diária")) {
+  if (
+    raw.includes("todos os dias") ||
+    raw.includes("todo dia") ||
+    raw.includes("diario") ||
+    raw.includes("diária") ||
+    /\btds?\s+dias?\b/.test(raw)
+  ) {
     return "todos_os_dias";
   }
   if (raw === "primeira_vez" || raw === "algumas_vezes_mes" || raw === "toda_semana" || raw === "todos_os_dias") {

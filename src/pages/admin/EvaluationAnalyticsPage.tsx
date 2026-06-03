@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AdminLayout } from "@/layouts/AdminLayout";
+import { PageShell } from "@/components/ui/PageShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,7 @@ import {
   type ServiceRatingDimensionKey,
 } from "@/lib/serviceRatingDimensions";
 import { SERVICE_TYPE_LABELS } from "@/components/icons/serviceTypeIcons";
-import { BarChart3, ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
+import { ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
 
 const LIMIT_OPTIONS = [10, 20, 50] as const;
 
@@ -47,21 +47,12 @@ export default function EvaluationAnalyticsPage() {
   });
 
   return (
-    <AdminLayout>
+    <PageShell
+      title="Avaliações por dimensão"
+      description="Rankings dos equipamentos com menores médias em cada dimensão (notas 1 a 5), considerando apenas avaliações publicadas com preenchimento multidimensional no período selecionado."
+    >
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <BarChart3 className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Avaliações por dimensão</h1>
-              <p className="text-sm text-muted-foreground max-w-2xl">
-                Rankings dos equipamentos com menores médias em cada dimensão (notas 1 a 5), considerando apenas
-                avaliações publicadas com preenchimento multidimensional no período selecionado.
-              </p>
-            </div>
-          </div>
+        <div className="flex justify-end">
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
@@ -207,6 +198,6 @@ export default function EvaluationAnalyticsPage() {
           ))}
         </Tabs>
       </div>
-    </AdminLayout>
+    </PageShell>
   );
 }

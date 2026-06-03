@@ -46,11 +46,7 @@ export interface UseCommissionReferralsResult {
   error: string | null;
   refresh: () => Promise<void>;
   submit: (input: SubmitReferralInput) => Promise<CommissionReferral>;
-  updateStatus: (
-    id: string,
-    status: ReferralStatus,
-    notes?: string,
-  ) => Promise<void>;
+  updateStatus: (id: string, status: ReferralStatus, notes?: string) => Promise<void>;
 }
 
 interface RawRow {
@@ -93,17 +89,13 @@ function toModel(row: RawRow): CommissionReferral {
   };
 }
 
-function sourceToTable(
-  source: ReportSource,
-): "urban_reports" | "transport_reports" {
+function sourceToTable(source: ReportSource): "urban_reports" | "transport_reports" {
   return source === "urban" ? "urban_reports" : "transport_reports";
 }
 
 export class JustificationTooShortError extends Error {
   constructor() {
-    super(
-      `A justificativa precisa ter pelo menos ${MIN_JUSTIFICATION} caracteres.`,
-    );
+    super(`A justificativa precisa ter pelo menos ${MIN_JUSTIFICATION} caracteres.`);
     this.name = "JustificationTooShortError";
   }
 }
@@ -225,10 +217,7 @@ export function useCommissionReferrals(
         ),
       );
       try {
-        const { error: upErr } = await supabase
-          .from(TABLE)
-          .update(patch)
-          .eq("id", id);
+        const { error: upErr } = await supabase.from(TABLE).update(patch).eq("id", id);
         if (upErr) throw upErr;
       } catch (err) {
         console.error("[useCommissionReferrals] updateStatus error", err);

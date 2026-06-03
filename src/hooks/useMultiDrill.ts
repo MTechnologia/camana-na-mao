@@ -162,7 +162,8 @@ function isCriticalSeverity(value: unknown): boolean {
 function normalizeStatus(value: unknown): string {
   const s = (value as string | null | undefined)?.toString().toLowerCase().trim() ?? "";
   if (!s) return "Pendente";
-  if (s === "resolved" || s === "resolvido" || s === "concluido" || s === "concluído") return "Resolvido";
+  if (s === "resolved" || s === "resolvido" || s === "concluido" || s === "concluído")
+    return "Resolvido";
   if (s === "rejected" || s === "rejeitado") return "Rejeitado";
   if (s.includes("andamento") || s === "in_progress") return "Em andamento";
   if (s === "pending" || s.includes("pendente")) return "Pendente";
@@ -232,7 +233,9 @@ async function fetchTransport(): Promise<RawReport[]> {
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const { data, error } = await supabase
       .from("transport_reports")
-      .select("id, report_type, sub_category, location, stop_location, status, severity, description, created_at")
+      .select(
+        "id, report_type, sub_category, location, stop_location, status, severity, description, created_at",
+      )
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) throw error;
@@ -325,7 +328,13 @@ async function fetchSubscriptions(): Promise<RawSubscription[]> {
   const audienciaIds = Array.from(audMap.keys());
 
   // 2) Carregar inscrições e participações
-  type Insc = { id: string; audiencia_id: string; user_id: string; status: string | null; created_at: string };
+  type Insc = {
+    id: string;
+    audiencia_id: string;
+    user_id: string;
+    status: string | null;
+    created_at: string;
+  };
   const insc: Insc[] = [];
 
   const CHUNK = 200;
@@ -351,27 +360,39 @@ async function fetchSubscriptions(): Promise<RawSubscription[]> {
   for (let i = 0; i < audienciaIds.length; i += CHUNK) {
     const slice = audienciaIds.slice(i, i + CHUNK);
     try {
-      const { data, error } = await (supabase as unknown as {
-        from: (n: string) => {
-          select: (cols: string) => {
-            in: (col: string, vals: string[]) => Promise<{ data: unknown[] | null; error: unknown }>;
+      const { data, error } = await (
+        supabase as unknown as {
+          from: (n: string) => {
+            select: (cols: string) => {
+              in: (
+                col: string,
+                vals: string[],
+              ) => Promise<{ data: unknown[] | null; error: unknown }>;
+            };
           };
-        };
-      })
+        }
+      )
         .from("audiencia_participacoes")
         .select("id, audiencia_id, user_id, tipo, created_at")
         .in("audiencia_id", slice);
       if (error) continue;
-      (data as Array<{ id: string; audiencia_id: string; user_id: string; tipo: string; created_at: string }> ?? []).forEach(
-        (r) =>
-          insc.push({
-            id: r.id,
-            audiencia_id: r.audiencia_id,
-            user_id: r.user_id,
-            // tratamos participações como "Presente" no contexto do drill (status efetivo)
-            status: "presente",
-            created_at: r.created_at,
-          }),
+      (
+        (data as Array<{
+          id: string;
+          audiencia_id: string;
+          user_id: string;
+          tipo: string;
+          created_at: string;
+        }>) ?? []
+      ).forEach((r) =>
+        insc.push({
+          id: r.id,
+          audiencia_id: r.audiencia_id,
+          user_id: r.user_id,
+          // tratamos participações como "Presente" no contexto do drill (status efetivo)
+          status: "presente",
+          created_at: r.created_at,
+        }),
       );
     } catch (e) {
       console.warn("[useMultiDrill] participações indisponíveis", e);
@@ -387,7 +408,9 @@ async function fetchSubscriptions(): Promise<RawSubscription[]> {
   for (let i = 0; i < userIds.length; i += CHUNK) {
     const slice = userIds.slice(i, i + CHUNK);
     const { data } = await supabase.from("profiles").select("id, full_name").in("id", slice);
-    (data ?? []).forEach((p) => profileById.set(p.id as string, (p.full_name as string) || "(sem nome)"));
+    (data ?? []).forEach((p) =>
+      profileById.set(p.id as string, (p.full_name as string) || "(sem nome)"),
+    );
   }
 
   // 4) Endereços primários (bairro)
@@ -485,7 +508,10 @@ function buildReportItems(
   level: 1 | 2 | 3 | 4,
 ): MultiDrillItem[] {
   if (level === 4) return [];
-  const groupMap = new Map<string, { count: number; resolved: number; critical: number; label: string }>();
+  const groupMap = new Map<
+    string,
+    { count: number; resolved: number; critical: number; label: string }
+  >();
   scoped.forEach((r) => {
     let key = "";
     let label = "";
@@ -551,10 +577,7 @@ function buildReportItems(
     .sort((a, b) => b.count - a.count);
 }
 
-function buildSubscriptionItems(
-  scoped: RawSubscription[],
-  level: 1 | 2 | 3 | 4,
-): MultiDrillItem[] {
+function buildSubscriptionItems(scoped: RawSubscription[], level: 1 | 2 | 3 | 4): MultiDrillItem[] {
   if (level === 4) return [];
   const groupMap = new Map<string, { count: number; label: string }>();
   scoped.forEach((s) => {
@@ -597,18 +620,16 @@ export function aggregate(
     const scoped = subscriptions.filter((s) => inScopeSubscription(s, pos));
     const total = scoped.length;
     const records: MultiDrillRecord[] = isLeaf
-      ? scoped
-          .slice(0, 200)
-          .map((s) => ({
-            kind: "subscription",
-            id: s.id,
-            audienciaTitle: s.audienciaTitle,
-            inscricaoStatus: s.inscricaoStatus,
-            bairro: s.bairro,
-            userName: s.userName,
-            userEmail: s.userEmail,
-            createdAt: s.createdAt,
-          }))
+      ? scoped.slice(0, 200).map((s) => ({
+          kind: "subscription",
+          id: s.id,
+          audienciaTitle: s.audienciaTitle,
+          inscricaoStatus: s.inscricaoStatus,
+          bairro: s.bairro,
+          userName: s.userName,
+          userEmail: s.userEmail,
+          createdAt: s.createdAt,
+        }))
       : [];
     return {
       currentLevel,
@@ -635,18 +656,16 @@ export function aggregate(
 
   const nextItems = buildReportItems(scoped, pos, currentLevel);
   const records: MultiDrillRecord[] = isLeaf
-    ? scoped
-        .slice(0, 200)
-        .map((r) => ({
-          kind: "report",
-          id: r.id,
-          source: r.source,
-          title: r.title,
-          subtitle: r.subtitle,
-          status: r.status,
-          severity: r.severity,
-          createdAt: r.createdAt,
-        }))
+    ? scoped.slice(0, 200).map((r) => ({
+        kind: "report",
+        id: r.id,
+        source: r.source,
+        title: r.title,
+        subtitle: r.subtitle,
+        status: r.status,
+        severity: r.severity,
+        createdAt: r.createdAt,
+      }))
     : [];
 
   return {
@@ -699,7 +718,8 @@ export function useMultiDrill(position: MultiDrillPosition) {
   }, [fetchAll]);
 
   const positionKey = useMemo(
-    () => `${position.dimension}|${position.level1 || ""}|${position.level2 || ""}|${position.level3 || ""}`,
+    () =>
+      `${position.dimension}|${position.level1 || ""}|${position.level2 || ""}|${position.level3 || ""}`,
     [position.dimension, position.level1, position.level2, position.level3],
   );
 

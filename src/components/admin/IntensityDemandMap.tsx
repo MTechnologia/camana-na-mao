@@ -5,17 +5,21 @@ import type { ZoneIntensity } from "@/hooks/useIntensityDemand";
 
 /**
  * HU-4.3 — Mapa com bolhas por zona, tamanho proporcional ao volume e cor
- * pelo tempo médio de espera (verde = rápido, vermelho = lento).
+ * pelo tempo médio composto (verde = rápido, vermelho = lento).
  *
  * Click em bolha dispara `onSelect`.
  */
 
 const SP_CENTER = { lat: -23.5505, lng: -46.6333 };
 
+export type IntensityMapColorBy = "wait" | "volume";
+
 interface Props {
   zones: ZoneIntensity[];
   /** Tempo (h) que define a fronteira do "vermelho saturado". */
   maxRedHours?: number;
+  /** Cor das bolhas: tempo de espera (padrão) ou volume de relatos. */
+  colorBy?: IntensityMapColorBy;
   onSelect: (z: ZoneIntensity) => void;
 }
 
@@ -41,7 +45,19 @@ export function radiusForCount(count: number): number {
   return Math.min(4500, Math.max(600, 600 + log * 1500));
 }
 
-export function IntensityDemandMap({ zones, maxRedHours = 168, onSelect }: Props) {
+/** Cor por volume relativo (mais relatos = mais vermelho). */
+export function colorForVolume(count: number, maxCount: number): string {
+  const ratio = maxCount > 0 ? Math.max(0, Math.min(1, count / maxCount)) : 0;
+  const hue = Math.round(120 * (1 - ratio));
+  return `hsl(${hue}, 75%, 45%)`;
+}
+
+export function IntensityDemandMap({
+  zones,
+  maxRedHours = 168,
+  colorBy = "wait",
+  onSelect,
+}: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const circlesRef = useRef<google.maps.Circle[]>([]);
@@ -58,18 +74,29 @@ export function IntensityDemandMap({ zones, maxRedHours = 168, onSelect }: Props
     setMapReady(false);
 
     const init = async () => {
-      let MapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+      let MapCtor:
+        | (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+        | null =
         typeof window.google?.maps?.Map === "function"
-          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          ? (window.google.maps.Map as new (
+              el: HTMLElement,
+              opts?: google.maps.MapOptions,
+            ) => google.maps.Map)
           : null;
 
       if (
         !MapCtor &&
-        typeof (window.google.maps as { importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }).importLibrary === "function"
+        typeof (
+          window.google.maps as {
+            importLibrary?: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+          }
+        ).importLibrary === "function"
       ) {
         try {
           const mapsLib = await (
-            window.google.maps as { importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }> }
+            window.google.maps as {
+              importLibrary: (n: string) => Promise<{ Map?: typeof google.maps.Map }>;
+            }
           ).importLibrary("maps");
           MapCtor = mapsLib?.Map ?? null;
         } catch (e) {
@@ -113,8 +140,13 @@ export function IntensityDemandMap({ zones, maxRedHours = 168, onSelect }: Props
 
     if (zones.length === 0) return;
 
+    const maxCount = Math.max(...zones.map((z) => z.count), 1);
+
     zones.forEach((z) => {
-      const color = colorForWait(z.avgWaitHours, maxRedHours);
+      const color =
+        colorBy === "volume"
+          ? colorForVolume(z.count, maxCount)
+          : colorForWait(z.avgWaitHours, maxRedHours);
       const radius = radiusForCount(z.count);
       const circle = new google.maps.Circle({
         map,
@@ -135,7 +167,7 @@ export function IntensityDemandMap({ zones, maxRedHours = 168, onSelect }: Props
             `<div style="font-family: system-ui, sans-serif; font-size: 12px; min-width:180px;">
               <div style="font-weight:600">${z.zone}</div>
               <div style="margin-top:4px">📋 ${z.count} relato${z.count === 1 ? "" : "s"}</div>
-              <div>⏱ ${z.avgWaitHours.toFixed(1)}h tempo médio de espera</div>
+              <div>⏱ ${z.avgWaitHours.toFixed(1)}h tempo médio composto</div>
               <div style="color:#666; font-size:10px; margin-top:2px">Score de prioridade: ${z.priorityScore}/100</div>
               <div style="color:#666; font-size:10px">${z.resolved} resolvidos · ${z.pending} pendentes${z.rejected > 0 ? ` · ${z.rejected} rejeitados` : ""}</div>
             </div>`,
@@ -146,7 +178,7 @@ export function IntensityDemandMap({ zones, maxRedHours = 168, onSelect }: Props
       });
       circlesRef.current.push(circle);
     });
-  }, [mapReady, zones, maxRedHours, onSelect]);
+  }, [mapReady, zones, maxRedHours, colorBy, onSelect]);
 
   if (!apiKey) {
     return (

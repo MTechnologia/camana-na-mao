@@ -16,7 +16,9 @@ export const useSearchHistory = () => {
 
   const fetchHistory = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -37,17 +39,17 @@ export const useSearchHistory = () => {
 
   const addToHistory = async (query: string, type: string = "general") => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from("search_history")
-        .insert({
-          user_id: user.id,
-          search_query: query,
-          search_type: type,
-          result_count: 0
-        });
+      const { error } = await supabase.from("search_history").insert({
+        user_id: user.id,
+        search_query: query,
+        search_type: type,
+        result_count: 0,
+      });
 
       if (error) throw error;
       await fetchHistory();
@@ -58,26 +60,25 @@ export const useSearchHistory = () => {
 
   const clearHistory = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from("search_history")
-        .delete()
-        .eq("user_id", user.id);
+      const { error } = await supabase.from("search_history").delete().eq("user_id", user.id);
 
       if (error) throw error;
       setHistory([]);
       toast({
         title: "Histórico limpo",
-        description: "Seu histórico de buscas foi removido."
+        description: "Seu histórico de buscas foi removido.",
       });
     } catch (error) {
       console.error("Error clearing history:", error);
       toast({
         title: "Erro",
         description: "Não foi possível limpar o histórico.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -91,6 +92,6 @@ export const useSearchHistory = () => {
     loading,
     addToHistory,
     clearHistory,
-    refreshHistory: fetchHistory
+    refreshHistory: fetchHistory,
   };
 };

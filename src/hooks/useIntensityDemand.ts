@@ -91,9 +91,7 @@ function diffHours(later: string | null, earlier: string | null): number | null 
  * Exportada para teste.
  */
 export function compositeWaitHours(r: RawReport): number | null {
-  const resolvedTime = isResolved(r.status)
-    ? diffHours(r.updatedAt, r.createdAt)
-    : null;
+  const resolvedTime = isResolved(r.status) ? diffHours(r.updatedAt, r.createdAt) : null;
   let firstRespTime: number | null = null;
   if (r.firstResponseSeconds !== null) {
     firstRespTime = r.firstResponseSeconds / 3600;
@@ -158,9 +156,12 @@ function parsePgInterval(value: unknown): number | null {
   return null;
 }
 
-async function fetchUrban(period: IntensityPeriod): Promise<RawReport[]> {
+async function fetchUrban(
+  period: IntensityPeriod,
+): Promise<{ reports: RawReport[]; truncated: boolean }> {
   const out: RawReport[] = [];
   const startAt = startDateFromPeriod(period);
+  let truncated = false;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     let q = supabase
       .from("urban_reports")
@@ -192,13 +193,17 @@ async function fetchUrban(period: IntensityPeriod): Promise<RawReport[]> {
       });
     });
     if (rows.length < PAGE_SIZE) break;
+    if (page === MAX_PAGES - 1) truncated = true;
   }
-  return out;
+  return { reports: out, truncated };
 }
 
-async function fetchTransport(period: IntensityPeriod): Promise<RawReport[]> {
+async function fetchTransport(
+  period: IntensityPeriod,
+): Promise<{ reports: RawReport[]; truncated: boolean }> {
   const out: RawReport[] = [];
   const startAt = startDateFromPeriod(period);
+  let truncated = false;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     let q = supabase
       .from("transport_reports")
@@ -234,8 +239,9 @@ async function fetchTransport(period: IntensityPeriod): Promise<RawReport[]> {
       });
     });
     if (rows.length < PAGE_SIZE) break;
+    if (page === MAX_PAGES - 1) truncated = true;
   }
-  return out;
+  return { reports: out, truncated };
 }
 
 /**
@@ -256,7 +262,15 @@ export function aggregateByZone(reports: RawReport[]): ZoneIntensity[] {
   reports.forEach((r) => {
     let b = buckets.get(r.zone);
     if (!b) {
-      b = { zone: r.zone, count: 0, waitSum: 0, waitCount: 0, resolved: 0, pending: 0, rejected: 0 };
+      b = {
+        zone: r.zone,
+        count: 0,
+        waitSum: 0,
+        waitCount: 0,
+        resolved: 0,
+        pending: 0,
+        rejected: 0,
+      };
       buckets.set(r.zone, b);
     }
     b.count += 1;
@@ -312,6 +326,7 @@ export interface UseIntensityDemandResult {
     totalReports: number;
     avgWaitHours: number;
     worstZone: ZoneIntensity | null;
+    truncated: boolean;
   };
 }
 
@@ -320,6 +335,7 @@ export function useIntensityDemand(params: {
   scope: IntensityScope;
 }): UseIntensityDemandResult {
   const [reports, setReports] = useState<RawReport[]>([]);
+  const [isTruncated, setIsTruncated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -330,16 +346,18 @@ export function useIntensityDemand(params: {
       const [urban, transport] = await Promise.all([
         params.scope === "all" || params.scope === "urban"
           ? fetchUrban(params.period)
-          : Promise.resolve([] as RawReport[]),
+          : Promise.resolve({ reports: [] as RawReport[], truncated: false }),
         params.scope === "all" || params.scope === "transport"
           ? fetchTransport(params.period)
-          : Promise.resolve([] as RawReport[]),
+          : Promise.resolve({ reports: [] as RawReport[], truncated: false }),
       ]);
-      setReports([...urban, ...transport]);
+      setReports([...urban.reports, ...transport.reports]);
+      setIsTruncated(urban.truncated || transport.truncated);
     } catch (e) {
       console.error("[useIntensityDemand]", e);
       setError(e instanceof Error ? e.message : "Erro ao carregar intensidade de demanda");
       setReports([]);
+      setIsTruncated(false);
     } finally {
       setIsLoading(false);
     }
@@ -359,8 +377,9 @@ export function useIntensityDemand(params: {
       totalReports,
       avgWaitHours,
       worstZone: zones[0] ?? null,
+      truncated: isTruncated,
     };
-  }, [zones]);
+  }, [zones, isTruncated]);
 
   return { zones, isLoading, error, refresh: fetchAll, summary };
 }

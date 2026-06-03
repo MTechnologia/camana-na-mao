@@ -53,7 +53,7 @@ A análise abaixo foi realizada antes da implementação e serviu como base para
    - ✅ Integração com APIs externas (SP LEG, SPLEGIS, SISGV)
    - ✅ Processamento de IA (orquestrador, embeddings, análise de sentimento)
    - ✅ Sistema de notificações
-   - ✅ Integração com serviços externos (Google Places, N8N)
+   - ✅ Integração com serviços externos (Google Places, automacao)
 
 3. **Padrões Técnicos**
    - ✅ TypeScript em todas as funções
@@ -104,9 +104,9 @@ A análise abaixo foi realizada antes da implementação e serviu como base para
 ✅ generate-embeddings      - Geração de embeddings (JWT: true)
 ✅ google-places-autocomplete - Autocomplete de endereços (JWT: false)
 ✅ google-places-details    - Detalhes de endereços (JWT: false)
-✅ n8n-callback             - Callback N8N (JWT: false)
-✅ n8n-webhook              - Webhook N8N (JWT: false)
-✅ notify-n8n               - Notificação N8N (JWT: true)
+✅ automacao-callback             - Callback automacao (JWT: false)
+✅ automacao-webhook              - Webhook automacao (JWT: false)
+✅ notify-automacao               - Notificação automacao (JWT: true)
 ✅ populate-knowledge-base  - População de base de conhecimento (JWT: true)
 ✅ recommend-services       - Recomendação de serviços (JWT: true)
 ✅ send-notification        - Envio de notificações (JWT: true)

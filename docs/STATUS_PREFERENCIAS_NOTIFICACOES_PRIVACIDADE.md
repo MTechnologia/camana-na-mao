@@ -165,7 +165,7 @@ A página de preferências (`/perfil/preferencias`) está **funcionalmente imple
 **Arquivos a criar/modificar:**
 - `supabase/functions/send-weekly-newsletter/index.ts` (nova Edge Function)
 - Template de newsletter (HTML)
-- Configuração de cron job (Supabase Cron ou n8n)
+- Configuração de cron job (Supabase Cron ou automacao)
 
 ### 5. **Sistema de Privacidade do Perfil**
 
@@ -238,7 +238,7 @@ A página de preferências (`/perfil/preferencias`) está **funcionalmente imple
 ## 💡 Recomendações
 
 1. **Começar com E-mail:** É a funcionalidade mais importante e relativamente simples de implementar
-2. **Usar n8n para Newsletter:** Pode ser configurado como workflow no n8n existente
+2. **Usar automacao para Newsletter:** Pode ser configurado como workflow no automacao existente
 3. **Implementar Privacidade:** Importante para LGPD e segurança dos dados
 4. **Push Notifications:** Pode ser implementado depois, pois requer configuração de service worker
 5. **SMS:** Implementar apenas se houver necessidade específica (custo por mensagem)

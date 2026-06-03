@@ -1,43 +1,68 @@
-import { BarChart3, PieChart, TrendingUp, Activity, Table2, Grid3x3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart3, PieChart, TrendingUp, Activity, Table2, Grid3x3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { useState } from 'react';
-import type { WidgetConfig } from './DashboardPreview';
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import type { WidgetConfig } from "./DashboardPreview";
 
 interface WidgetSelectorProps {
   onAddWidget: (widget: WidgetConfig) => void;
 }
 
 const widgetTypes = [
-  { value: 'kpi-card', label: 'KPI Card', icon: Activity, description: 'Exibe um valor único com ícone' },
-  { value: 'bar-chart', label: 'Gráfico de Barras', icon: BarChart3, description: 'Comparação entre categorias' },
-  { value: 'pie-chart', label: 'Gráfico de Pizza', icon: PieChart, description: 'Distribuição percentual' },
-  { value: 'line-chart', label: 'Gráfico de Linha', icon: TrendingUp, description: 'Evolução temporal' },
-  { value: 'heatmap', label: 'Mapa de Calor', icon: Grid3x3, description: 'Intensidade por região/período' },
-  { value: 'table', label: 'Tabela', icon: Table2, description: 'Dados tabulares detalhados' },
+  {
+    value: "kpi-card",
+    label: "KPI Card",
+    icon: Activity,
+    description: "Exibe um valor único com ícone",
+  },
+  {
+    value: "bar-chart",
+    label: "Gráfico de Barras",
+    icon: BarChart3,
+    description: "Comparação entre categorias",
+  },
+  {
+    value: "pie-chart",
+    label: "Gráfico de Pizza",
+    icon: PieChart,
+    description: "Distribuição percentual",
+  },
+  {
+    value: "line-chart",
+    label: "Gráfico de Linha",
+    icon: TrendingUp,
+    description: "Evolução temporal",
+  },
+  {
+    value: "heatmap",
+    label: "Mapa de Calor",
+    icon: Grid3x3,
+    description: "Intensidade por região/período",
+  },
+  { value: "table", label: "Tabela", icon: Table2, description: "Dados tabulares detalhados" },
 ];
 
 const dataSources = [
-  { value: 'urban_reports', label: 'Relatos Urbanos' },
-  { value: 'transport_reports', label: 'Relatos de Transporte' },
-  { value: 'service_ratings', label: 'Avaliações de Serviços' },
-  { value: 'audiencias', label: 'Audiências Públicas' },
+  { value: "urban_reports", label: "Relatos Urbanos" },
+  { value: "transport_reports", label: "Relatos de Transporte" },
+  { value: "service_ratings", label: "Avaliações de Serviços" },
+  { value: "audiencias", label: "Audiências Públicas" },
 ];
 
 export const WidgetSelector = ({ onAddWidget }: WidgetSelectorProps) => {
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [widgetTitle, setWidgetTitle] = useState('');
-  const [dataSource, setDataSource] = useState('');
-  const [dimension, setDimension] = useState('');
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [widgetTitle, setWidgetTitle] = useState("");
+  const [dataSource, setDataSource] = useState("");
+  const [dimension, setDimension] = useState("");
 
   const handleAddWidget = () => {
     if (!selectedType || !widgetTitle || !dataSource) {
@@ -46,23 +71,23 @@ export const WidgetSelector = ({ onAddWidget }: WidgetSelectorProps) => {
 
     const newWidget: WidgetConfig = {
       id: `widget-${Date.now()}`,
-      type: selectedType as 'kpi-card' | 'bar-chart' | 'pie-chart' | 'line-chart' | 'heatmap',
+      type: selectedType as "kpi-card" | "bar-chart" | "pie-chart" | "line-chart" | "heatmap",
       title: widgetTitle,
       dataSource: dataSource as string,
       dimension: dimension || undefined,
       position: {
         x: 0,
         y: 0,
-        w: selectedType === 'kpi-card' ? 3 : 6,
+        w: selectedType === "kpi-card" ? 3 : 6,
         h: 1,
       },
     };
 
     onAddWidget(newWidget);
-    
+
     // Reset form
-    setWidgetTitle('');
-    setDimension('');
+    setWidgetTitle("");
+    setDimension("");
   };
 
   return (
@@ -81,9 +106,7 @@ export const WidgetSelector = ({ onAddWidget }: WidgetSelectorProps) => {
                 key={type.value}
                 onClick={() => setSelectedType(type.value)}
                 className={`p-4 border rounded-lg transition-all hover:border-primary ${
-                  selectedType === type.value
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border'
+                  selectedType === type.value ? "border-primary bg-primary/5" : "border-border"
                 }`}
               >
                 <Icon className="w-6 h-6 mb-2 mx-auto text-primary" />
@@ -124,7 +147,7 @@ export const WidgetSelector = ({ onAddWidget }: WidgetSelectorProps) => {
             </div>
 
             {/* Dimension (optional for charts) */}
-            {selectedType !== 'kpi-card' && (
+            {selectedType !== "kpi-card" && (
               <div className="space-y-2">
                 <Label htmlFor="dimension">Dimensão (opcional)</Label>
                 <Input

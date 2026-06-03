@@ -25,11 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useWidgetTheme } from "@/hooks/useWidgetTheme";
-import {
-  WIDGET_THEMES,
-  type WidgetThemeId,
-  getTheme,
-} from "@/lib/widgetThemes";
+import { WIDGET_THEMES, type WidgetThemeId, getTheme } from "@/lib/widgetThemes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -88,38 +84,40 @@ export function ThemeSwitcher({ className, align = "end" }: ThemeSwitcherProps) 
           <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="w-72">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
+      <DropdownMenuContent align={align} className="w-[min(34rem,calc(100vw-1.5rem))] p-0">
+        <DropdownMenuLabel className="px-3 py-2 text-xs text-muted-foreground">
           Personalizar widgets por área
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {WIDGET_THEMES.map((t) => {
-          const Icon = THEME_ICONS[t.icon] ?? LayoutDashboard;
-          const isActive = t.id === theme;
-          return (
-            <DropdownMenuItem
-              key={t.id}
-              onSelect={() => setTheme(t.id as WidgetThemeId)}
-              className={cn(
-                "flex items-start gap-3 py-2.5 cursor-pointer",
-                isActive && "bg-accent",
-              )}
-            >
-              <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", t.accentClass)} aria-hidden="true" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{t.label}</span>
-                  {isActive && (
-                    <Check className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                  )}
+        <div className="grid grid-cols-2 gap-0.5 p-1" role="presentation">
+          {WIDGET_THEMES.map((t) => {
+            const Icon = THEME_ICONS[t.icon] ?? LayoutDashboard;
+            const isActive = t.id === theme;
+            return (
+              <DropdownMenuItem
+                key={t.id}
+                onSelect={() => setTheme(t.id as WidgetThemeId)}
+                className={cn(
+                  "flex cursor-pointer items-start gap-2.5 rounded-md py-2.5 pr-2",
+                  isActive && "bg-accent",
+                )}
+              >
+                <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", t.accentClass)} aria-hidden="true" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium leading-tight">{t.label}</span>
+                    {isActive && (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    {t.description}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                  {t.description}
-                </p>
-              </div>
-            </DropdownMenuItem>
-          );
-        })}
+              </DropdownMenuItem>
+            );
+          })}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

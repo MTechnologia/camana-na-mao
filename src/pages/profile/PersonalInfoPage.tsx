@@ -24,7 +24,7 @@ const PersonalInfoPage = () => {
     if (user) {
       loadData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData runs when user changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData runs when user changes
   }, [user]);
 
   const loadData = async () => {
@@ -32,9 +32,9 @@ const PersonalInfoPage = () => {
 
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
         .maybeSingle();
 
       if (error) {
@@ -59,12 +59,12 @@ const PersonalInfoPage = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({
           full_name: formData.fullName,
           phone: formData.phone,
         })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (error) throw error;
 
@@ -82,7 +82,7 @@ const PersonalInfoPage = () => {
       <PageHeader title="Informações Pessoais" backTo="/perfil" />
 
       <div className="p-4 space-y-4">
-        <ProfilePageHeader subtitle="Dados de contato" />
+        <ProfilePageHeader subtitle="Informações pessoais" />
 
         <Card>
           <CardHeader className="pb-4">
@@ -90,9 +90,7 @@ const PersonalInfoPage = () => {
               <User className="h-4 w-4 text-primary" />
               Dados de Contato
             </CardTitle>
-            <CardDescription>
-              Informações básicas para identificação
-            </CardDescription>
+            <CardDescription>Informações pessoais para identificação</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -103,7 +101,7 @@ const PersonalInfoPage = () => {
               <Input
                 type="text"
                 value={formData.fullName}
-                onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
                 className="h-11"
                 placeholder="Seu nome completo"
               />
@@ -114,15 +112,8 @@ const PersonalInfoPage = () => {
                 <Mail className="h-3.5 w-3.5" />
                 E-mail
               </label>
-              <Input
-                type="email"
-                value={user?.email || ""}
-                disabled
-                className="h-11 bg-muted"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                O e-mail não pode ser alterado
-              </p>
+              <Input type="email" value={user?.email || ""} disabled className="h-11 bg-muted" />
+              <p className="text-xs text-muted-foreground mt-1">O e-mail não pode ser alterado</p>
             </div>
 
             <div>
@@ -135,7 +126,7 @@ const PersonalInfoPage = () => {
                 value={formatPhone(formData.phone)}
                 onChange={(e) => {
                   const formatted = formatPhone(e.target.value);
-                  setFormData(prev => ({ ...prev, phone: unformatPhone(formatted) }));
+                  setFormData((prev) => ({ ...prev, phone: unformatPhone(formatted) }));
                 }}
                 className="h-11"
                 placeholder="(11) 99999-9999"
@@ -153,11 +144,7 @@ const PersonalInfoPage = () => {
           >
             Cancelar
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={loading}
-            className="flex-1 h-11"
-          >
+          <Button onClick={handleSave} disabled={loading} className="flex-1 h-11">
             {loading ? "Salvando..." : "Salvar"}
           </Button>
         </div>

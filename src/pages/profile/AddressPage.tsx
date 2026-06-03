@@ -3,10 +3,7 @@ import PageHeader from "@/components/ui/page-header";
 import AddressForm from "@/components/profile/AddressForm";
 import ProfilePageHeader from "@/components/profile/ProfilePageHeader";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  isInInviteSetupFlow,
-  nextInviteStep,
-} from "@/lib/inviteSetupFlow";
+import { isInInviteSetupFlow, nextInviteStep } from "@/lib/inviteSetupFlow";
 
 const AddressPage = () => {
   const { user } = useAuth();
@@ -28,7 +25,7 @@ const AddressPage = () => {
       <PageHeader title="Endereço" backTo={inInviteFlow ? undefined : "/perfil"} />
 
       <div className="p-4 space-y-4">
-        <ProfilePageHeader subtitle="Seu endereço" />
+        <ProfilePageHeader subtitle="CEP, rua e complemento" />
         {inInviteFlow && (
           <p className="text-xs text-muted-foreground">
             Etapa 3 de 4 — Após salvar, completaremos seus dados demográficos.

@@ -10,14 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  AlertCircle,
-  Calendar,
-  ChevronRight,
-  GripVertical,
-  Hash,
-  User2,
-} from "lucide-react";
+import { AlertCircle, Calendar, ChevronRight, Building2, GripVertical, Hash } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,9 +38,7 @@ interface TriageKanbanProps {
   onMoveTo: (item: KanbanItem, targetStatus: TriageStatus) => Promise<void>;
 }
 
-const SHOWN_STATUSES: TriageStatus[] = TRIAGE_STATUS_ORDER.filter(
-  (s) => s !== "closed",
-);
+const SHOWN_STATUSES: TriageStatus[] = TRIAGE_STATUS_ORDER.filter((s) => s !== "closed");
 
 function cardKey(item: KanbanItem): string {
   return `${item.source}|${item.reportId}`;
@@ -89,16 +80,14 @@ export function TriageKanban({ data, onMoveTo }: TriageKanbanProps) {
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveItem(null)}
     >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"
+        data-testid="triage-kanban-root"
+      >
         {SHOWN_STATUSES.map((status) => {
           const items = data.itemsByStatus[status] ?? [];
           return (
-            <KanbanColumn
-              key={status}
-              status={status}
-              items={items}
-              isAnyDragging={!!activeItem}
-            />
+            <KanbanColumn key={status} status={status} items={items} isAnyDragging={!!activeItem} />
           );
         })}
       </div>
@@ -137,9 +126,7 @@ function KanbanColumn({ status, items, isAnyDragging }: KanbanColumnProps) {
       <header className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold">{meta.label}</h3>
-          <p className="text-[10px] text-muted-foreground line-clamp-1">
-            {meta.description}
-          </p>
+          <p className="text-[10px] text-muted-foreground line-clamp-1">{meta.description}</p>
         </div>
         <Badge variant="outline" className="text-xs">
           {items.length}
@@ -152,9 +139,7 @@ function KanbanColumn({ status, items, isAnyDragging }: KanbanColumnProps) {
               {isAnyDragging ? "Solte aqui" : "Nenhum relato."}
             </p>
           ) : (
-            items.map((item) => (
-              <DraggableTriageCard key={cardKey(item)} item={item} />
-            ))
+            items.map((item) => <DraggableTriageCard key={cardKey(item)} item={item} />)
           )}
         </div>
       </ScrollArea>
@@ -173,11 +158,7 @@ function DraggableTriageCard({ item }: DraggableTriageCardProps) {
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{ opacity: isDragging ? 0 : 1 }}
-      {...attributes}
-    >
+    <div ref={setNodeRef} style={{ opacity: isDragging ? 0 : 1 }} {...attributes}>
       <TriageCard item={item} dragHandleProps={listeners} />
     </div>
   );
@@ -257,9 +238,12 @@ function TriageCard({ item, dragHandleProps, dragging }: TriageCardProps) {
           <p className="text-xs font-medium line-clamp-2 mb-1">{item.title}</p>
 
           <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1 truncate">
-              <User2 className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{item.assigneeName ?? "—"}</span>
+            <span
+              className="flex items-center gap-1 truncate"
+              title={item.commissionName ? `Comissão: ${item.commissionName}` : "Sem comissão"}
+            >
+              <Building2 className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{item.commissionName ?? "—"}</span>
             </span>
             <span
               className={cn(

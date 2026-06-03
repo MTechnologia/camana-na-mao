@@ -36,6 +36,7 @@ import {
 } from "@/lib/exportFields";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { ExportRole } from "@/lib/exportFields";
+import { effectiveExportRole } from "@/lib/exportStaffRole";
 import {
   RELATIVE_PERIOD_OPTIONS,
   formatPeriodPtBr,
@@ -67,14 +68,15 @@ const WEEKDAYS = [
   { id: 7, label: "Domingo" },
 ];
 
-export function ScheduleEditorDialog({
-  open,
-  onOpenChange,
-  target,
-}: ScheduleEditorDialogProps) {
+export function ScheduleEditorDialog({ open, onOpenChange, target }: ScheduleEditorDialogProps) {
   const { schedules, create, update } = useScheduledExports();
-  const { isAdmin, isGestor } = useUserRole();
-  const role: ExportRole | null = isAdmin ? "admin" : isGestor ? "gestor" : null;
+  const { isAdmin, isGestor, isAssessor, isVereador } = useUserRole();
+  const role: ExportRole | null = effectiveExportRole({
+    isAdmin,
+    isGestor,
+    isAssessor,
+    isVereador,
+  });
 
   const isEdit = target !== null;
   const [name, setName] = useState("");
@@ -261,9 +263,8 @@ export function ScheduleEditorDialog({
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                Novos agendamentos começam com os campos do preset "Básicos" do
-                dataset. Para selecionar campos específicos, abra um export
-                manual e use "Agendar" lá.
+                Novos agendamentos começam com os campos do preset "Básicos" do dataset. Para
+                selecionar campos específicos, abra um export manual e use "Agendar" lá.
               </p>
             </>
           )}
@@ -371,9 +372,7 @@ export function ScheduleEditorDialog({
                 <RadioGroupItem value="relative" id="ed-pk-rel" className="mt-0.5" />
                 <div className="flex-1">
                   <div className="text-sm font-medium">Dinâmico</div>
-                  <div className="text-xs text-muted-foreground">
-                    Recalcula a cada execução
-                  </div>
+                  <div className="text-xs text-muted-foreground">Recalcula a cada execução</div>
                 </div>
               </Label>
               <Label
@@ -383,9 +382,7 @@ export function ScheduleEditorDialog({
                 <RadioGroupItem value="fixed" id="ed-pk-fixed" className="mt-0.5" />
                 <div className="flex-1">
                   <div className="text-sm font-medium">Fixo</div>
-                  <div className="text-xs text-muted-foreground">
-                    Sem período (todo histórico)
-                  </div>
+                  <div className="text-xs text-muted-foreground">Sem período (todo histórico)</div>
                 </div>
               </Label>
             </RadioGroup>
@@ -426,9 +423,9 @@ export function ScheduleEditorDialog({
               onCheckedChange={(v) => setNotifyInApp(v === true)}
             />
             <span className="text-sm">
-              Receber notificação quando o arquivo estiver pronto
+              Receber e-mail e notificação no sino quando o arquivo estiver pronto
               <span className="block text-xs text-muted-foreground">
-                Avisa no sino da plataforma com link direto para download.
+                Envia o link de download por e-mail e exibe no sino da plataforma.
               </span>
             </span>
           </Label>

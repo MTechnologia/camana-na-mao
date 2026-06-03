@@ -5,11 +5,9 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
+
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
 
 vi.mock("sonner", () => ({
   toast: {
@@ -34,6 +32,8 @@ function createSelectChain(result: { data: unknown; error: unknown | null }) {
   self.gt = vi.fn(() => self);
   self.order = vi.fn(() => self);
   self.limit = vi.fn(() => self);
+  // closeServiceVisitWithDeparture carrega `departed_at` via .maybeSingle() antes do update.
+  self.maybeSingle = vi.fn(() => Promise.resolve(result));
   return self;
 }
 
@@ -42,7 +42,10 @@ describe("usePendingRatings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser as any, loading: false } as any);
+    vi.mocked(useAuth).mockReturnValue({
+      user: mockUser,
+      loading: false,
+    } as unknown as ReturnType<typeof useAuth>);
   });
 
   it("deve buscar avaliações pendentes com sucesso", async () => {
@@ -99,7 +102,9 @@ describe("usePendingRatings", () => {
   it("deve lidar com erro ao buscar avaliações", async () => {
     const errorMessage = "Fetch error";
     vi.mocked(supabase.from).mockReturnValue(
-      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<typeof supabase.from>,
+      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<
+        typeof supabase.from
+      >,
     );
 
     const { result } = renderHook(() => usePendingRatings());

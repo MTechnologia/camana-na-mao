@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 interface InlineRecurrenceFrequencyPickerProps {
   onSelect: (
     frequency: "primeira_vez" | "algumas_vezes_mes" | "toda_semana" | "todos_os_dias",
-    label: string
+    label: string,
   ) => void;
 }
 

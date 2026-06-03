@@ -10,7 +10,7 @@ const PreferencesPage = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader title="Configurações" backTo="/perfil" />
+      <PageHeader title="Preferências" backTo="/perfil" />
 
       <div className="p-4 space-y-4">
         <ProfilePageHeader subtitle="Notificações e privacidade" />

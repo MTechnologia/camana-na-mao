@@ -1,10 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { interestCategoriesToAudienciaTemas } from "../_shared/interest-audiencia-mapping.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const MAX_AGE_MINUTES = 30; // só aceitar conclusão de cadastro para usuário criado nos últimos 30 min
 
@@ -19,6 +17,7 @@ function mapIncomeToSocialClass(incomeRange: string): string | null {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -185,6 +184,17 @@ serve(async (req) => {
           JSON.stringify({ error: "Não foi possível salvar interesses", details: intErr.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      const alertTemas = interestCategoriesToAudienciaTemas(interests);
+      if (alertTemas.length > 0) {
+        const alertRows = alertTemas.map((tema) => ({ user_id: userId, tema }));
+        const { error: alertErr } = await admin
+          .from("audiencia_topic_alerts")
+          .upsert(alertRows, { onConflict: "user_id,tema" });
+        if (alertErr) {
+          console.error("complete-registration audiencia_topic_alerts:", alertErr);
+        }
       }
     }
 

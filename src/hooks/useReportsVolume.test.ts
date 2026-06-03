@@ -1,17 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+import { createSupabaseModuleMock } from "@/test/mocks/supabase";
 
-import {
-  __test__,
-  useReportsVolume,
-  type ReportsVolumeFilters,
-} from "./useReportsVolume";
+vi.mock("@/integrations/supabase/client", () => createSupabaseModuleMock());
+
+import { __test__, useReportsVolume, type ReportsVolumeFilters } from "./useReportsVolume";
 import { supabase } from "@/integrations/supabase/client";
 
 const { aggregate } = __test__;
@@ -35,10 +29,30 @@ describe("useReportsVolume / aggregate", () => {
 
   it("agrega total e contagens por tipo (urbano/transporte/avaliacao)", () => {
     const rows: RawReportInput[] = [
-      { source: "urbano", createdAt: "2026-05-01T10:00:00Z", category: "Iluminação", region: "Tatuapé" },
-      { source: "urbano", createdAt: "2026-05-01T11:00:00Z", category: "Iluminação", region: "Tatuapé" },
-      { source: "transporte", createdAt: "2026-05-02T09:00:00Z", category: "Linha de ônibus", region: "Sé" },
-      { source: "avaliacao", createdAt: "2026-05-03T14:00:00Z", category: "Saúde", region: "Pinheiros" },
+      {
+        source: "urbano",
+        createdAt: "2026-05-01T10:00:00Z",
+        category: "Iluminação",
+        region: "Tatuapé",
+      },
+      {
+        source: "urbano",
+        createdAt: "2026-05-01T11:00:00Z",
+        category: "Iluminação",
+        region: "Tatuapé",
+      },
+      {
+        source: "transporte",
+        createdAt: "2026-05-02T09:00:00Z",
+        category: "Linha de ônibus",
+        region: "Sé",
+      },
+      {
+        source: "avaliacao",
+        createdAt: "2026-05-03T14:00:00Z",
+        category: "Saúde",
+        region: "Pinheiros",
+      },
     ];
 
     const stats = aggregate(rows, {});
@@ -72,18 +86,26 @@ describe("useReportsVolume / aggregate", () => {
 
   it("filtra por categoria preservando o universo de categorias disponíveis", () => {
     const rows: RawReportInput[] = [
-      { source: "urbano", createdAt: "2026-05-01T10:00:00Z", category: "Iluminação", region: "Tatuapé" },
+      {
+        source: "urbano",
+        createdAt: "2026-05-01T10:00:00Z",
+        category: "Iluminação",
+        region: "Tatuapé",
+      },
       { source: "urbano", createdAt: "2026-05-01T10:00:00Z", category: "Buraco", region: "Sé" },
-      { source: "transporte", createdAt: "2026-05-01T10:00:00Z", category: "Linha de ônibus", region: "Sé" },
+      {
+        source: "transporte",
+        createdAt: "2026-05-01T10:00:00Z",
+        category: "Linha de ônibus",
+        region: "Sé",
+      },
     ];
 
     const filters: ReportsVolumeFilters = { categories: ["Iluminação"] };
     const stats = aggregate(rows, filters);
 
     expect(stats.total).toBe(1);
-    expect(stats.byCategory).toEqual([
-      { category: "Iluminação", count: 1, source: "urbano" },
-    ]);
+    expect(stats.byCategory).toEqual([{ category: "Iluminação", count: 1, source: "urbano" }]);
     expect(stats.availableCategories).toEqual(
       expect.arrayContaining(["Iluminação", "Buraco", "Linha de ônibus"]),
     );
@@ -123,7 +145,12 @@ describe("useReportsVolume / aggregate", () => {
 
   it("região 'Não informada' mapeia para zona 'Não informada'", () => {
     const rows: RawReportInput[] = [
-      { source: "urbano", createdAt: "2026-05-01T10:00:00Z", category: "A", region: "Não informada" },
+      {
+        source: "urbano",
+        createdAt: "2026-05-01T10:00:00Z",
+        category: "A",
+        region: "Não informada",
+      },
     ];
     const stats = aggregate(rows, {});
     expect(stats.byRegion[0].zone).toBe("Não informada");

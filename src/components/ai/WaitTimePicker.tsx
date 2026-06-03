@@ -55,7 +55,7 @@ export function WaitTimePicker({ onSelect }: WaitTimePickerProps) {
             variant="outline"
             size="sm"
             className={cn(
-              "min-h-[40px] flex-1 min-w-[140px] sm:min-w-[160px] justify-center text-center text-xs leading-snug px-2 whitespace-normal h-auto py-2"
+              "min-h-[40px] flex-1 min-w-[140px] sm:min-w-[160px] justify-center text-center text-xs leading-snug px-2 whitespace-normal h-auto py-2",
             )}
             onClick={() => handleClick(label, score)}
           >

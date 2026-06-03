@@ -1,0 +1,17 @@
+{
+  "journey": "history",
+  "description": "Histórico do cidadão",
+  "cases": [
+    { "id": "history_explicit", "input": "Quero ver meus relatos" },
+    { "id": "history_meus", "input": "meus relatos urbanos" },
+    { "id": "history_status", "input": "status do meu relato" },
+    { "id": "history_avaliacoes", "input": "minhas avaliacoes de servico" },
+    { "id": "history_typo", "input": "status do meu relato anterior" },
+    { "id": "history_denuncia", "input": "minha denuncia anterior" },
+    { "id": "history_chip", "input": "quero ver meus relatos" },
+    { "id": "history_transporte", "input": "meus relatos de transporte" },
+    { "id": "history_andamento", "input": "acompanhar andamento da minha denuncia" },
+    { "id": "history_protocolo", "input": "qual protocolo do meu relato" },
+    { "id": "history_resolvido", "input": "status do meu relato ja resolvido" }
+  ]
+}

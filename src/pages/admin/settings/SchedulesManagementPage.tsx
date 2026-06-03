@@ -1,14 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  CalendarClock,
-  Copy,
-  Edit2,
-  History,
-  Pause,
-  Play,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { CalendarClock, Copy, Edit2, History, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,10 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import {
-  useScheduledExports,
-  type ScheduledExport,
-} from "@/hooks/useScheduledExports";
+import { useScheduledExports, type ScheduledExport } from "@/hooks/useScheduledExports";
 import { ScheduleEditorDialog } from "@/components/admin/ScheduleEditorDialog";
 import { ScheduleExecutionsDialog } from "@/components/admin/ScheduleExecutionsDialog";
 import {
@@ -83,8 +71,7 @@ export default function SchedulesManagementPage() {
     let n = 2;
     while (
       schedules.find(
-        (other) =>
-          other.name.localeCompare(newName, "pt-BR", { sensitivity: "base" }) === 0,
+        (other) => other.name.localeCompare(newName, "pt-BR", { sensitivity: "base" }) === 0,
       )
     ) {
       newName = `${base} (cópia ${n})`;
@@ -128,8 +115,8 @@ export default function SchedulesManagementPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Agendamentos</h1>
             <p className="text-muted-foreground">
-              Exportações periódicas configuradas. O cron dispara cada uma na frequência
-              definida e os arquivos ficam disponíveis em "Minhas exportações".
+              Exportações periódicas configuradas. O cron dispara cada uma na frequência definida e
+              os arquivos ficam disponíveis em "Minhas exportações".
             </p>
           </div>
           <Button onClick={() => setCreateOpen(true)}>
@@ -144,8 +131,7 @@ export default function SchedulesManagementPage() {
           <Card className="p-12 text-center space-y-3">
             <CalendarClock className="h-10 w-10 text-muted-foreground mx-auto" />
             <p className="text-sm text-muted-foreground">
-              Você ainda não tem agendamentos. Crie um para receber exportações
-              periodicamente.
+              Você ainda não tem agendamentos. Crie um para receber exportações periodicamente.
             </p>
             <Button onClick={() => setCreateOpen(true)} variant="outline">
               <Plus className="h-4 w-4 mr-2" />
@@ -197,8 +183,7 @@ export default function SchedulesManagementPage() {
               <AlertDialogTitle>Excluir agendamento?</AlertDialogTitle>
               <AlertDialogDescription>
                 O agendamento <strong>"{confirmDelete?.name}"</strong> será removido
-                permanentemente. As execuções anteriores ficam preservadas em
-                "Minhas exportações".
+                permanentemente. As execuções anteriores ficam preservadas em "Minhas exportações".
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -262,7 +247,10 @@ function ScheduleRow({
               {datasetLabel}
             </Badge>
             {!schedule.enabled && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1 border-amber-500/50 text-amber-600">
+              <Badge
+                variant="outline"
+                className="text-[10px] h-4 px-1 border-amber-500/50 text-amber-600"
+              >
                 Pausado
               </Badge>
             )}
@@ -276,7 +264,8 @@ function ScheduleRow({
             {formatRecurrence(schedule)} · {schedule.fields.length} campos · {periodPreview}
           </div>
           <div className="text-[11px] text-muted-foreground/80">
-            Próx. execução: <span className="font-medium">{formatDateTime(schedule.nextRunAt)}</span>
+            Próx. execução:{" "}
+            <span className="font-medium">{formatDateTime(schedule.nextRunAt)}</span>
             {schedule.lastRunAt && (
               <>
                 {" · "}Última: {formatDateTime(schedule.lastRunAt)}
@@ -293,7 +282,11 @@ function ScheduleRow({
             onClick={onToggle}
             title={schedule.enabled ? "Pausar" : "Retomar"}
           >
-            {schedule.enabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {schedule.enabled ? (
+              <Pause className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -304,13 +297,7 @@ function ScheduleRow({
           >
             <History className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2"
-            onClick={onEdit}
-            title="Editar"
-          >
+          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onEdit} title="Editar">
             <Edit2 className="h-3.5 w-3.5" />
           </Button>
           <Button

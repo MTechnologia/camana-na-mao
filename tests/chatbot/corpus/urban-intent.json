@@ -1,0 +1,26 @@
+{
+  "journey": "urban_report",
+  "description": "Relato urbano — typos, gíria e descrições informais",
+  "cases": [
+    { "id": "urban_explicit_01", "input": "Quero abrir um relato de lixo acumulado na rua" },
+    { "id": "urban_typo_lixo", "input": "tem muito lixo na rua do lado de casa" },
+    { "id": "urban_buraco_giria", "input": "buraco gigante q quase derrubou meu carro" },
+    { "id": "urban_poste_apagado", "input": "poste apagado na minha rua faz 3 dias" },
+    { "id": "urban_esgoto", "input": "esgoto vazando na calcada" },
+    { "id": "urban_alagamento", "input": "ta alagando td na rua depois da chuva" },
+    { "id": "urban_arvore", "input": "arvore caida bloqueando a passagem" },
+    { "id": "urban_fedor", "input": "mto fedor de lixo no bairro" },
+    { "id": "urban_bueiro", "input": "bueiro entupido e agua nao desce" },
+    { "id": "urban_elogio", "input": "quero elogiar a limpeza da praca do bairro" },
+    { "id": "urban_sugestao", "input": "sugestao: colocar mais lixeira na esquina" },
+    { "id": "urban_chip_phrase", "input": "quero relatar um problema na cidade" },
+    { "id": "urban_incendio_typo", "input": "pegando fogo num terreno baldio" },
+    { "id": "urban_sem_acento", "input": "iluminacao da rua ta apagada" },
+    { "id": "urban_vago_problema", "input": "tem um problema aqui perto de casa, lixo e mau cheiro" },
+    { "id": "urban_pichacao", "input": "pichacao no muro da escola do bairro" },
+    { "id": "urban_barulho_obra", "input": "barulho de obra 6h da manha no predio ao lado" },
+    { "id": "urban_cachorro_solto", "input": "cachorro solto atacando na calcada" },
+    { "id": "urban_semaforo", "input": "semaforo quebrado no cruzamento da rua 7" },
+    { "id": "urban_obra_irregular", "input": "obra irregular sem tapume na esquina" }
+  ]
+}

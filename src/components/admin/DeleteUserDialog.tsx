@@ -7,8 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { AlertTriangle } from 'lucide-react';
+} from "@/components/ui/alert-dialog";
+import { AlertTriangle } from "lucide-react";
 
 interface DeleteUserDialogProps {
   open: boolean;
@@ -51,7 +51,7 @@ export const DeleteUserDialog = ({
             disabled={loading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {loading ? 'Excluindo...' : 'Excluir Usuário'}
+            {loading ? "Excluindo..." : "Excluir Usuário"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

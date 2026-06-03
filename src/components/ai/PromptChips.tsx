@@ -5,14 +5,15 @@ import {
   Star,
   MapPin,
   HelpCircle,
-  Landmark,
   LayoutList,
   Calendar,
-  CalendarCheck,
+  Mic2,
   Newspaper,
   ChevronDown,
   FileText,
+  Zap,
 } from "lucide-react";
+import { URBAN_QUICK_REPORT_CHIP_MESSAGE } from "@/lib/urbanQuickReport";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
-export type CollectionTypePreset = 'urban_report' | 'transport_report' | 'service_rating' | null;
+export type CollectionTypePreset = "urban_report" | "transport_report" | "service_rating" | null;
 
 interface PromptChip {
   id: string;
@@ -42,6 +43,13 @@ const chips: PromptChip[] = [
     label: "Relato Urbano",
     message: "Quero falar sobre a cidade",
     icon: Building2,
+    collectionType: "urban_report",
+  },
+  {
+    id: "urban_quick",
+    label: "Relato rápido",
+    message: URBAN_QUICK_REPORT_CHIP_MESSAGE,
+    icon: Zap,
     collectionType: "urban_report",
   },
   {
@@ -67,42 +75,42 @@ const chips: PromptChip[] = [
   },
   {
     id: "services",
-    label: "Serviços próximos",
+    label: "Perto de Você",
     message: "Buscar serviços perto de mim",
     icon: MapPin,
     collectionType: null,
   },
   {
     id: "estrutura",
-    label: "Conhecer a Câmara",
+    label: "Conheça a Câmara",
     message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
-    icon: Landmark,
+    icon: Building2,
     collectionType: null,
   },
   {
     id: "audiencias",
-    label: "Audiências públicas",
+    label: "Audiências Públicas",
     message: "Mostre as audiências públicas agendadas",
-    icon: CalendarCheck,
+    icon: Mic2,
     collectionType: null,
   },
   {
     id: "comissoes",
-    label: "Comissões e atribuições",
+    label: "Comissões",
     message: "Quais são as comissões da Câmara e o que cada uma faz?",
     icon: LayoutList,
     collectionType: null,
   },
   {
     id: "agenda",
-    label: "Ver agenda",
+    label: "Agenda da Câmara",
     message: "Quais são as próximas atividades da Câmara? O que tem na agenda?",
     icon: Calendar,
     collectionType: null,
   },
   {
     id: "noticias",
-    label: "Ver notícias",
+    label: "Notícias",
     message: "Quais as últimas notícias da Câmara?",
     icon: Newspaper,
     collectionType: null,
@@ -116,11 +124,19 @@ const chips: PromptChip[] = [
   },
 ];
 
-/** IDs dos chips principais exibidos sempre; o restante fica no dropdown "Ver todos" */
-const PRIMARY_CHIP_IDS = ["urban", "manual_report", "evaluate", "services", "audiencias", "estrutura"];
+/**
+ * Chips de destaque da Home — espelham as funcionalidades do onboarding (NREF008),
+ * na mesma ordem: Relatos Urbanos → Transporte Público → Audiências Públicas →
+ * Serviços Próximos. (A tela "Assistente IA" do onboarding é o próprio chat.)
+ * O restante fica no dropdown "Ver todos".
+ */
+const PRIMARY_CHIP_IDS = ["urban", "transport", "audiencias", "services"];
 
 const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
-  const primaryChips = chips.filter((c) => PRIMARY_CHIP_IDS.includes(c.id));
+  // Ordena os destaques conforme PRIMARY_CHIP_IDS (ordem do onboarding), não a ordem do array.
+  const primaryChips = PRIMARY_CHIP_IDS.map((id) => chips.find((c) => c.id === id)).filter(
+    (c): c is PromptChip => Boolean(c),
+  );
   const otherChips = chips.filter((c) => !PRIMARY_CHIP_IDS.includes(c.id));
 
   const renderChip = (chip: PromptChip, index: number) => {
@@ -173,7 +189,10 @@ const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
             );
           })}
           {onOpenDiscovery && (
-            <DropdownMenuItem onClick={onOpenDiscovery} className="gap-2 cursor-pointer border-t mt-1 pt-1">
+            <DropdownMenuItem
+              onClick={onOpenDiscovery}
+              className="gap-2 cursor-pointer border-t mt-1 pt-1"
+            >
               <span className="text-primary font-medium">Explorar mais opções</span>
             </DropdownMenuItem>
           )}

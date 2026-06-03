@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useMemo,
+  useCallback,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -56,11 +64,11 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       const { data, error } = await withPoolRetry(
         () =>
           supabase
-            .from('notifications')
-            .select('*')
-            .eq('user_id', user.id)
-            .is('discarded_at', null)
-            .order('created_at', { ascending: false })
+            .from("notifications")
+            .select("*")
+            .eq("user_id", user.id)
+            .is("discarded_at", null)
+            .order("created_at", { ascending: false })
             .limit(50),
         { retries: 1, baseDelayMs: 800 },
       );
@@ -72,52 +80,57 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
       setNotifications(visible);
       setUnreadCount(visible.filter((n) => !n.is_read).length);
     } catch (error) {
-      console.error('Erro ao buscar notificações:', error);
+      console.error("Erro ao buscar notificações:", error);
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
-  const markAsRead = useCallback(async (id: string) => {
-    if (!user) return;
+  const markAsRead = useCallback(
+    async (id: string) => {
+      if (!user) return;
 
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('user_id', user.id);
+      try {
+        const { error } = await supabase
+          .from("notifications")
+          .update({ is_read: true, read_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("user_id", user.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setNotifications(prev => 
-        prev.map(n => n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Erro ao marcar notificação como lida:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível marcar a notificação como lida",
-        variant: "destructive",
-      });
-    }
-  }, [user, toast]);
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n,
+          ),
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      } catch (error) {
+        console.error("Erro ao marcar notificação como lida:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível marcar a notificação como lida",
+          variant: "destructive",
+        });
+      }
+    },
+    [user, toast],
+  );
 
   const markAllAsRead = useCallback(async () => {
     if (!user) return;
 
     try {
       const { error } = await supabase
-        .from('notifications')
+        .from("notifications")
         .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('user_id', user.id)
-        .eq('is_read', false);
+        .eq("user_id", user.id)
+        .eq("is_read", false);
 
       if (error) throw error;
 
-      setNotifications(prev => 
-        prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() })),
       );
       setUnreadCount(0);
 
@@ -126,7 +139,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
         description: "Todas as notificações foram marcadas como lidas",
       });
     } catch (error) {
-      console.error('Erro ao marcar todas como lidas:', error);
+      console.error("Erro ao marcar todas como lidas:", error);
       toast({
         title: "Erro",
         description: "Não foi possível marcar todas as notificações",
@@ -135,34 +148,37 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     }
   }, [user, toast]);
 
-  const deleteNotification = useCallback(async (id: string) => {
-    if (!user) return;
+  const deleteNotification = useCallback(
+    async (id: string) => {
+      if (!user) return;
 
-    try {
-      const notification = notifications.find(n => n.id === id);
-      const wasUnread = notification && !notification.is_read;
+      try {
+        const notification = notifications.find((n) => n.id === id);
+        const wasUnread = notification && !notification.is_read;
 
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', user.id);
+        const { error } = await supabase
+          .from("notifications")
+          .delete()
+          .eq("id", id)
+          .eq("user_id", user.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      if (wasUnread) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+        if (wasUnread) {
+          setUnreadCount((prev) => Math.max(0, prev - 1));
+        }
+      } catch (error) {
+        console.error("Erro ao deletar notificação:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível deletar a notificação",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error('Erro ao deletar notificação:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível deletar a notificação",
-        variant: "destructive",
-      });
-    }
-  }, [user, notifications, toast]);
+    },
+    [user, notifications, toast],
+  );
 
   // Setup realtime subscription
   useEffect(() => {
@@ -171,13 +187,13 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     fetchNotifications();
 
     const channel = supabase
-      .channel('notifications')
+      .channel("notifications")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
@@ -195,19 +211,19 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
             title: newNotification.title,
             description: newNotification.message,
           });
-        }
+        },
       )
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           void fetchNotifications();
-        }
+        },
       )
       .subscribe();
 
@@ -216,29 +232,28 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     };
   }, [user, fetchNotifications, toast]);
 
-  const value = useMemo(() => ({
-    notifications,
-    unreadCount,
-    isLoading,
-    fetchNotifications,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-  }), [
-    notifications,
-    unreadCount,
-    isLoading,
-    fetchNotifications,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-  ]);
-
-  return (
-    <NotificationsContext.Provider value={value}>
-      {children}
-    </NotificationsContext.Provider>
+  const value = useMemo(
+    () => ({
+      notifications,
+      unreadCount,
+      isLoading,
+      fetchNotifications,
+      markAsRead,
+      markAllAsRead,
+      deleteNotification,
+    }),
+    [
+      notifications,
+      unreadCount,
+      isLoading,
+      fetchNotifications,
+      markAsRead,
+      markAllAsRead,
+      deleteNotification,
+    ],
   );
+
+  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook

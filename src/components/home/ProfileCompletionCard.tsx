@@ -19,13 +19,28 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
   if (status.percentage === 100) return null;
 
   const steps = [
-    { key: 'basic', label: 'Informações básicas', completed: status.basic, path: '/perfil/dados-pessoais' },
-    { key: 'interests', label: 'Interesses', completed: status.interests, path: '/perfil/interesses' },
-    { key: 'demographics', label: 'Dados demográficos', completed: status.demographics, path: '/perfil/dados-demograficos' },
-    { key: 'address', label: 'Endereço', completed: status.address, path: '/perfil/endereco' },
+    {
+      key: "basic",
+      label: "Informações Pessoais",
+      completed: status.basic,
+      path: "/perfil/dados-pessoais",
+    },
+    {
+      key: "interests",
+      label: "Interesses",
+      completed: status.interests,
+      path: "/perfil/interesses",
+    },
+    {
+      key: "demographics",
+      label: "Dados Demográficos",
+      completed: status.demographics,
+      path: "/perfil/dados-demograficos",
+    },
+    { key: "address", label: "Endereço", completed: status.address, path: "/perfil/endereco" },
   ];
 
-  const nextStep = steps.find(step => !step.completed);
+  const nextStep = steps.find((step) => !step.completed);
 
   return (
     <button
@@ -35,7 +50,7 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center">
         <UserCheck className="h-4 w-4 text-secondary" />
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
           <span className="text-xs font-medium text-foreground">Complete seu perfil</span>
@@ -43,7 +58,7 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
         </div>
         <Progress value={status.percentage} className="h-1" />
       </div>
-      
+
       <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
     </button>
   );
