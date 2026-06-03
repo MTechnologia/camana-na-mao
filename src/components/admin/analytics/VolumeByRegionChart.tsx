@@ -80,8 +80,8 @@ export function VolumeByRegionChart() {
         : "Detalhe por logradouro";
 
   const subtitle = isSentiment
-    ? "Positivo, neutro e negativo (%) · Clique em uma zona para drill-down"
-    : "Clique em uma barra para drill-down · Selecione e use drill-through";
+    ? "Positivo, neutro e negativo (%) · Clique em uma zona para ver o próximo nível"
+    : "Clique em uma barra para ver o próximo nível · Selecione para abrir os relatos";
 
   const handleSentimentClick = (item: RegionSentimentBreakdown) => {
     if (grain === "overview") drillDown(toDrillPoint(item, "region"));

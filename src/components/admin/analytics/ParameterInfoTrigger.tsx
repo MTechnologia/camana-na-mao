@@ -5,7 +5,7 @@ import {
   type PointerEvent,
 } from "react";
 import type { ParameterLegendItem } from "@/lib/analyticsParameterLegends";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 function ParameterInfoBody({ item }: { item: ParameterLegendItem }) {
@@ -65,8 +65,8 @@ export function ParameterInfoTrigger({
   };
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <InfoTriggerButton
           className={className}
           aria-label={`Parâmetros: ${item.term}`}
@@ -75,15 +75,16 @@ export function ParameterInfoTrigger({
         >
           ?
         </InfoTriggerButton>
-      </TooltipTrigger>
-      <TooltipContent
+      </PopoverTrigger>
+      <PopoverContent
         side="top"
         align="end"
-        className="max-w-[min(100vw-2rem,20rem)] space-y-1.5 border-border p-3 text-left text-xs shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+        className="w-auto max-w-[min(100vw-2rem,20rem)] space-y-1.5 border-border p-3 text-left text-xs shadow-lg"
       >
         <ParameterInfoBody item={item} />
-      </TooltipContent>
-    </Tooltip>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -103,16 +104,16 @@ export function ParameterInfoListTrigger({
   if (items.length === 0) return null;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <Popover>
+      <PopoverTrigger asChild>
         <InfoTriggerButton className={className} aria-label={ariaLabel}>
           ?
         </InfoTriggerButton>
-      </TooltipTrigger>
-      <TooltipContent
+      </PopoverTrigger>
+      <PopoverContent
         side="top"
         align="end"
-        className="max-w-[min(100vw-2rem,22rem)] border-border p-3 text-left text-xs shadow-lg"
+        className="w-auto max-w-[min(100vw-2rem,22rem)] border-border p-3 text-left text-xs shadow-lg"
       >
         <p className="mb-2 font-medium text-foreground">{tooltipTitle}</p>
         <div className="max-h-[min(50vh,16rem)] space-y-3 overflow-y-auto pr-1">
@@ -125,7 +126,7 @@ export function ParameterInfoListTrigger({
             </div>
           ))}
         </div>
-      </TooltipContent>
-    </Tooltip>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -209,7 +209,7 @@ export function MultiDrillTab() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Compass className="h-4 w-4" />
-            Dimensão de drill-down
+            Dimensão para detalhar
           </CardTitle>
         </CardHeader>
         <CardContent>

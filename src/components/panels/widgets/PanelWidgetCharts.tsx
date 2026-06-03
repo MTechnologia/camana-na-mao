@@ -165,7 +165,7 @@ export function WidgetBarDrill({ widget }: { widget: PanelWidget }) {
       </MiniChart>
       {enableDrill ? (
         <p className="text-[11px] text-muted-foreground">
-          Clique nas barras para drill-down no território.
+          Clique nas barras para ver o próximo nível do território.
         </p>
       ) : null}
     </div>

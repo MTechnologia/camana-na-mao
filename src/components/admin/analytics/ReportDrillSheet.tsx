@@ -50,7 +50,7 @@ export function ReportDrillSheet() {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <h2 id="drill-through-title" className="text-sm font-semibold text-foreground">
-              Drill-through — relatos
+              Detalhes — Relatos
             </h2>
             <p className="text-xs text-muted-foreground">Recorte: {selectedBar.label}</p>
             {!throughLoading && throughTotal > 0 ? (
