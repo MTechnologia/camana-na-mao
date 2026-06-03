@@ -24,6 +24,7 @@ import {
   parseSimilarTransportReportsB64,
 } from "./SimilarTransportReportsInChat";
 import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
+import { withStructuredListLineBreaks } from "@/lib/chatLineBreaks";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -841,9 +842,16 @@ const ChatMessageBubble = ({
     return text.replace(/\n/g, "  \n");
   };
 
+  /** Segmento (audiências/previews): steps + diagramação de listas (NREF006). */
+  const formatAssistantSegment = (text: string): string =>
+    withStructuredListLineBreaks(withStepLineBreaks(text));
+
   const assistantMarkdown = useMemo(() => {
     const base = withStepLineBreaks(cleanContent);
-    return isRegisteredReportSuccessMessage ? withRegisteredReportLineBreaks(base) : base;
+    if (isRegisteredReportSuccessMessage) return withRegisteredReportLineBreaks(base);
+    // NREF006 — diagramação: listas/tópicos (paradas, audiências, serviços…) renderizam
+    // um item por linha em vez de bloco corrido (mobile-first).
+    return withStructuredListLineBreaks(base);
   }, [cleanContent, isRegisteredReportSuccessMessage]);
 
   // Split para colocar Documentos e Convidados acima de "Quer saber mais sobre alguma ou inscrever-se?"
@@ -1323,8 +1331,8 @@ const ChatMessageBubble = ({
                       }}
                     >
                       {audienciaContentSplit.contentAfter === null
-                        ? withStepLineBreaks(markdownAfterTransportCard)
-                        : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                        ? formatAssistantSegment(markdownAfterTransportCard)
+                        : formatAssistantSegment(audienciaContentSplit.contentBefore)}
                     </ReactMarkdown>
                   </div>
                 </>
@@ -1386,8 +1394,8 @@ const ChatMessageBubble = ({
                       }}
                     >
                       {audienciaContentSplit.contentAfter === null
-                        ? withStepLineBreaks(markdownAfterRatingSubmitPreview)
-                        : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                        ? formatAssistantSegment(markdownAfterRatingSubmitPreview)
+                        : formatAssistantSegment(audienciaContentSplit.contentBefore)}
                     </ReactMarkdown>
                   </div>
                 </>
@@ -1448,7 +1456,7 @@ const ChatMessageBubble = ({
                   >
                     {audienciaContentSplit.contentAfter === null
                       ? assistantMarkdown
-                      : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                      : formatAssistantSegment(audienciaContentSplit.contentBefore)}
                   </ReactMarkdown>
                 </div>
               )}
@@ -1691,7 +1699,7 @@ const ChatMessageBubble = ({
                       ),
                     }}
                   >
-                    {withStepLineBreaks(audienciaContentSplit.contentAfter)}
+                    {formatAssistantSegment(audienciaContentSplit.contentAfter)}
                   </ReactMarkdown>
                 </div>
               )}
