@@ -3,7 +3,27 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildVertexPublisherModelId } from "../_shared/ai-provider.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
+import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
 import { isVertexRagEnabled } from "./lib-vertex-rag.ts";
+
+/**
+ * "Onde fica a UBS Vila Maria?" feita como *dúvida* urbana NÃO é pergunta para a
+ * base de conhecimento da Câmara — é busca de localização de um serviço público,
+ * cujo endereço o app conhece (public_services / find_nearby_services). Sem isto,
+ * o turno caía na base da Câmara, não achava nada e respondia genericamente
+ * ("a base da Câmara não tem o endereço — procure a Prefeitura/156/Busca Saúde").
+ *
+ * Retorna o service_type inferido quando a dúvida é, na verdade, uma pergunta de
+ * localização de serviço; caso contrário, null.
+ */
+export function detectServiceLocationDuvida(description: string): string | null {
+  const text = (description || "").trim();
+  if (!text) return null;
+  const asksLocation =
+    /(\bonde\b|\bfica\b|\bficam\b|localiza|endere[cç]o|\bperto\b|pr[oó]xim|como\s+che(?:go|gar))/i.test(text);
+  if (!asksLocation) return null;
+  return inferServiceTypeFromText(text);
+}
 
 type PromptContextArgs = {
   accumulatedFields: Record<string, unknown>;
@@ -117,33 +137,46 @@ export async function buildPromptContextAndTools(
     !lib.isCamaraFuncionamentoInternoQuery(urbanDuvidaDescription);
 
   if (isUrbanDuvidaLlmTurn) {
-    try {
-      const kb = await lib.searchKnowledgeBaseForUrbanDuvida(supabase, urbanDuvidaDescription);
-      if (kb.hasRelevantHits && kb.text.trim()) {
-        dynamicSystemPrompt = dynamicSystemPrompt +
-          "\n\n[Contexto da base (dúvida urbana)]:\n" +
-          kb.text.trim() +
-          "\n\nInstrução: Responda **primeiro** à pergunta do cidadão usando apenas trechos acima que forem pertinentes. Não liste estrutura genérica da Câmara (portal, presidência, vereadores, transparência) se não for o tema da pergunta.";
-        console.log(
-          "[ai-orchestrator] Injected Supabase KB for urban duvida, chars:",
-          kb.text.length,
-        );
-      } else {
-        const excerpt = urbanDuvidaDescription.slice(0, 220);
-        dynamicSystemPrompt = dynamicSystemPrompt +
-          `\n\n[Contexto dúvida urbana — sem trecho na base]: A base da Câmara não trouxe trecho específico sobre: "${excerpt}".\n\nInstrução: Responda **diretamente** à pergunta com honestidade. Explique o papel da Câmara Municipal no tema (fiscalização, leis, audiências) sem inventar etapas operacionais do Executivo. Indique canais oficiais adequados (Prefeitura 156, PM 190, portais municipais). **Proibido** listar portal, presidência, vereadores, transparência ou biblioteca da Câmara nesta resposta.`;
-        // [rag-underuse] Guarda desviou do Vertex RAG e a KB Supabase não trouxe trecho:
-        // sinaliza turno onde o RAG poderia ter ajudado (decision RAG subutilizado, Option C).
-        console.log(
-          "[rag-underuse] urban_duvida: KB Supabase sem trecho relevante — Vertex RAG poderia ajudar:",
-          urbanDuvidaDescription.slice(0, 120),
+    const duvidaServiceType = detectServiceLocationDuvida(urbanDuvidaDescription);
+    if (duvidaServiceType) {
+      // Pergunta de localização de serviço público (ex.: "Onde fica a UBS Vila
+      // Maria?"). Orienta o modelo a usar find_nearby_services (que tem endereço)
+      // em vez de buscar na base da Câmara e deflectir para Prefeitura/156.
+      dynamicSystemPrompt = dynamicSystemPrompt +
+        `\n\n[Dúvida sobre localização de serviço público]: O cidadão quer saber onde fica / como chegar a um equipamento público (tipo: ${duvidaServiceType}). Use a ferramenta **find_nearby_services** com service_type="${duvidaServiceType}" e, se ele citar um bairro/região (ex.: "Vila Maria"), passe-o em district, para responder com o **endereço** da unidade. NÃO diga que a base da Câmara não possui o endereço, nem encaminhe para Prefeitura/156/Busca Saúde, antes de tentar a busca de serviços do próprio app.`;
+      console.log(
+        "[ai-orchestrator] Urban duvida é pergunta de localização de serviço → orientando find_nearby_services:",
+        duvidaServiceType,
+      );
+    } else {
+      try {
+        const kb = await lib.searchKnowledgeBaseForUrbanDuvida(supabase, urbanDuvidaDescription);
+        if (kb.hasRelevantHits && kb.text.trim()) {
+          dynamicSystemPrompt = dynamicSystemPrompt +
+            "\n\n[Contexto da base (dúvida urbana)]:\n" +
+            kb.text.trim() +
+            "\n\nInstrução: Responda **primeiro** à pergunta do cidadão usando apenas trechos acima que forem pertinentes. Não liste estrutura genérica da Câmara (portal, presidência, vereadores, transparência) se não for o tema da pergunta.";
+          console.log(
+            "[ai-orchestrator] Injected Supabase KB for urban duvida, chars:",
+            kb.text.length,
+          );
+        } else {
+          const excerpt = urbanDuvidaDescription.slice(0, 220);
+          dynamicSystemPrompt = dynamicSystemPrompt +
+            `\n\n[Contexto dúvida urbana — sem trecho na base]: A base da Câmara não trouxe trecho específico sobre: "${excerpt}".\n\nInstrução: Responda **diretamente** à pergunta com honestidade. Explique o papel da Câmara Municipal no tema (fiscalização, leis, audiências) sem inventar etapas operacionais do Executivo. Indique canais oficiais adequados (Prefeitura 156, PM 190, portais municipais). **Proibido** listar portal, presidência, vereadores, transparência ou biblioteca da Câmara nesta resposta.`;
+          // [rag-underuse] Guarda desviou do Vertex RAG e a KB Supabase não trouxe trecho:
+          // sinaliza turno onde o RAG poderia ter ajudado (decision RAG subutilizado, Option C).
+          console.log(
+            "[rag-underuse] urban_duvida: KB Supabase sem trecho relevante — Vertex RAG poderia ajudar:",
+            urbanDuvidaDescription.slice(0, 120),
+          );
+        }
+      } catch (e) {
+        console.warn(
+          "[ai-orchestrator] Pré-busca searchKnowledgeBaseForUrbanDuvida falhou:",
+          (e as Error).message,
         );
       }
-    } catch (e) {
-      console.warn(
-        "[ai-orchestrator] Pré-busca searchKnowledgeBaseForUrbanDuvida falhou:",
-        (e as Error).message,
-      );
     }
   }
 
