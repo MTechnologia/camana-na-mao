@@ -106,28 +106,28 @@ function TreemapCell({
             <rect x={x} y={y} width={width} height={height} rx={6} />
           </clipPath>
           <text
-            x={x + 8}
-            y={y + 18}
+            x={x + 6}
+            y={y + 14}
             fill="#ffffff"
-            fontSize={12}
+            fontSize={10}
             fontWeight={600}
             clipPath={`url(#${clipId})`}
             className="select-none"
             style={LABEL_HALO}
           >
-            {fitLabel(cell.label, width)}
+            {fitLabel(cell.label, width, 5.7)}
           </text>
-          {height > 40 ? (
+          {height > 32 ? (
             <text
-              x={x + 8}
-              y={y + 34}
+              x={x + 6}
+              y={y + 27}
               fill="#ffffff"
-              fontSize={11}
+              fontSize={9}
               clipPath={`url(#${clipId})`}
               className="select-none"
               style={LABEL_HALO}
             >
-              {fitLabel(countText, width)}
+              {fitLabel(countText, width, 5.1)}
             </text>
           ) : null}
         </>
@@ -135,14 +135,14 @@ function TreemapCell({
         // Girado -90°: lê de baixo para cima, usando a altura da coluna fina.
         // O comprimento é limitado pela altura (fitLabel), então não vaza a célula.
         <text
-          transform={`translate(${x + width / 2 + 5}, ${y + height - 8}) rotate(-90)`}
+          transform={`translate(${x + width / 2 + 4}, ${y + height - 6}) rotate(-90)`}
           fill="#ffffff"
-          fontSize={12}
+          fontSize={10}
           fontWeight={600}
           className="select-none"
           style={LABEL_HALO}
         >
-          {fitLabel(`${cell.label} · ${countText}`, height - 8)}
+          {fitLabel(`${cell.label} · ${countText}`, height - 6, 5.7)}
         </text>
       ) : null}
     </g>
@@ -167,7 +167,9 @@ export function SentimentTreemap({ cells, selectedId, onSelect }: SentimentTreem
 
   return (
     <div className="space-y-2">
-      <div className="h-[280px] w-full">
+      {/* Mais alto no celular: dá área vertical às colunas finas (zonas de baixo
+          volume) sem alterar as proporções; volta ao normal no desktop. */}
+      <div className="h-[360px] w-full sm:h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
             data={cells}

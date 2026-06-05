@@ -14,7 +14,7 @@ describe("treemapLabelMode", () => {
   });
 
   it("não rotula células pequenas demais (resta só o tooltip nativo)", () => {
-    expect(treemapLabelMode(20, 120)).toBe("none"); // estreita demais
+    expect(treemapLabelMode(20, 120)).toBe("none"); // estreita demais (< 22)
     expect(treemapLabelMode(44, 40)).toBe("none"); // baixa demais p/ vertical e estreita p/ horizontal
   });
 });
@@ -31,6 +31,13 @@ describe("fitLabel", () => {
   });
 
   it("retorna vazio quando não cabe nem um caractere", () => {
-    expect(fitLabel("Zona Leste", 18)).toBe("");
+    expect(fitLabel("Zona Leste", 14)).toBe("");
+  });
+
+  it("com fonte menor (charPx menor) cabe mais texto na mesma largura", () => {
+    const w = 60;
+    const grande = fitLabel("Zona Leste", w, 6.8); // ~12px
+    const pequena = fitLabel("Zona Leste", w, 5.7); // ~10px
+    expect(pequena.length).toBeGreaterThanOrEqual(grande.length);
   });
 });
