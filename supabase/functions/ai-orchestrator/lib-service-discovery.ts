@@ -115,17 +115,22 @@ export function formatServicesWithContext(
       ? `Encontrei ${withAddress.length} ${typeName} perto de ${ref}:`
       : `Encontrei ${withAddress.length} ${typeName}:`;
 
+  // IMPORTANTE: usar só "\n" SIMPLES como separador (sem "\n\n" nem espaços de
+  // indentação). O sanitizeMessageContent do app colapsa qualquer sequência de
+  // 2+ espaços/quebras num único espaço; apenas o "\n" simples sobrevive, e a
+  // diagramação do chat (withStructuredListLineBreaks) o converte em quebra dura
+  // antes de cada item numerado / linha com emoji → um item por linha.
   const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : "";
     const rating = s.average_rating ? ` ⭐ ${Number(s.average_rating).toFixed(1)}` : "";
-    return `${i + 1}. ${s.name}${districtInfo}\n   📍 ${s.address}${rating}`;
-  }).join("\n\n");
+    return `${i + 1}. ${s.name}${districtInfo}\n📍 ${s.address}${rating}`;
+  }).join("\n");
 
   const footer = isExpanded
-    ? "\n\n💡 Quer que eu calcule a rota para alguma delas?\n\nPara mais informações, [clique aqui](/servicos-proximos)."
+    ? "\n💡 Quer que eu calcule a rota para alguma delas?\nPara mais informações, [clique aqui](/servicos-proximos)."
     : "";
 
-  return `${header}\n\n${list}${footer}`;
+  return `${header}\n${list}${footer}`;
 }
 
 export function buildGoogleMapsDirectionsUrl(originLat: number, originLon: number, destinationAddress: string): string {
@@ -268,6 +273,8 @@ function formatStationsWithContext(
       ? `Aqui estão as ${typeName} mais próximas de ${ref}:`
       : `Aqui estão as ${typeName} mais próximas de você:`
     : `Aqui estão ${typeName} em São Paulo:`;
+  // "\n" SIMPLES (ver nota em formatServicesWithContext): só ele sobrevive ao
+  // sanitize do app; a diagramação do chat o converte em quebra dura por item.
   const list = stations
     .map((s, i) => {
       const d = hasDistances && Number.isFinite(s._distance as number)
@@ -276,8 +283,8 @@ function formatStationsWithContext(
       return `${i + 1}. Estação ${titleCaseStationName(String(s.name))}${d}`;
     })
     .join("\n");
-  const footer = "\n\n💡 Quer que eu calcule a rota até alguma delas?\n\nPara mais informações, [clique aqui](/servicos-proximos).";
-  return `${header}\n\n${list}${footer}`;
+  const footer = "\n💡 Quer que eu calcule a rota até alguma delas?\nPara mais informações, [clique aqui](/servicos-proximos).";
+  return `${header}\n${list}${footer}`;
 }
 
 // Busca dedicada para estações de trem/metrô. A camada inteira é pequena (~100 linhas),

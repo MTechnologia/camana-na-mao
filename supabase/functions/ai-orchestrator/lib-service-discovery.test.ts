@@ -3,6 +3,7 @@ import {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsDirectionsUrlFromAddresses,
   findNearbyServices,
+  formatServicesWithContext,
   getServiceAddressByName,
   getServiceTypeName,
   inferServiceTypeFromText,
@@ -75,6 +76,27 @@ Deno.test("findNearbyServices: estação de trem filtra source_layer e ordena po
   assertStringIncludes(out, "estações de trem (CPTM)");
   assertStringIncludes(out, "Estação Brás");
   assertEquals(out.includes("Endereço não informado"), false);
+});
+
+Deno.test("formatServicesWithContext: usa só \\n simples (sobrevive ao sanitize do app)", () => {
+  const out = formatServicesWithContext(
+    [
+      { name: "Ponto A", district: "Centro", address: "Rua 1, 10" },
+      { name: "Ponto B", district: "Centro", address: "Rua 2, 20" },
+    ],
+    "transit_station",
+    null,
+    true,
+    "Av. Exemplo, 100",
+  );
+  // O sanitize do app colapsa 2+ espaços/quebras num espaço; só "\n" simples
+  // sobrevive. O 📍 vem em linha própria (sem indentação) e o próximo item
+  // numerado também — para a diagramação do chat quebrar um por linha.
+  assertStringIncludes(out, "\n📍 Rua 1, 10");
+  assertStringIncludes(out, "\n2. Ponto B");
+  // Não pode haver "\n\n" nem indentação (seriam destruídos pelo sanitize).
+  assertEquals(/\n\n/.test(out), false);
+  assertEquals(/\n[ \t]/.test(out), false);
 });
 
 Deno.test("getServiceAddressByName usa full-text (search_tsv), não ILIKE, e prefere melhor match", async () => {

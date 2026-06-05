@@ -718,7 +718,7 @@ export function detectCollectionIntent(
   // de problema. Antes caía no relato de transporte ("qual detalhe descreve o
   // problema?"). Roteamos como serviço próximo (find_nearby), salvo se houver
   // sinal de PROBLEMA (lotado, atrasou, não consegui embarcar, etc.).
-  const transitEntity = /\b(esta[cç][aã]o|estac[aã]o|metr[oô]|trem|cptm|terminal|parada|ponto\s+de\s+[oô]nibus)\b/i;
+  const transitEntity = /\b(esta[cç][aã]o|estac[aã]o|metr[oô]|trem|cptm|terminal|terminais|parada[s]?|ponto[s]?\s+de\s+[oô]nibus)\b/i;
   const transitLocationIntent =
     /mais\s+pr[oó]xim|mais\s+perto|perto\s+de|perto\s+daqui|onde\s+fica|onde\s+tem|cad[eê]\b|como\s+chego|pr[oó]xim[ao]\b/i;
   const transitProblem =

@@ -276,6 +276,28 @@ Deno.test("detectCollectionIntent: 'onde fica a estação da Luz' → services (
   );
 });
 
+Deno.test("detectCollectionIntent: 'pontos de ônibus mais próximos' (plural) → services, não relato", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "Quais os pontos de ônibus mais próximos?",
+      [{ role: "user", content: "Quais os pontos de ônibus mais próximos?" }],
+      baseDeps,
+    )?.type,
+    "services",
+  );
+});
+
+Deno.test("detectCollectionIntent: 'paradas de ônibus mais próximas' → services", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "onde ficam as paradas de ônibus mais próximas?",
+      [{ role: "user", content: "onde ficam as paradas de ônibus mais próximas?" }],
+      baseDeps,
+    )?.type,
+    "services",
+  );
+});
+
 Deno.test("detectCollectionIntent: PROBLEMA no transporte continua transport_report", () => {
   assertEquals(
     detectCollectionIntent(
