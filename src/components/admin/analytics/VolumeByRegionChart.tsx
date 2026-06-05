@@ -68,7 +68,7 @@ export function VolumeByRegionChart() {
         : "Detalhe por logradouro";
 
   const subtitle = isSentiment
-    ? "Tamanho = volume · cor = sentimento médio · clique para ver o próximo nível"
+    ? "Tamanho reflete o volume · cor = sentimento médio · clique para ver o próximo nível"
     : "Clique em uma barra para ver o próximo nível · Selecione para abrir os relatos";
 
   const handleSentimentSelect = (cell: SentimentTreemapCell) => {

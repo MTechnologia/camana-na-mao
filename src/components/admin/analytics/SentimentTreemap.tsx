@@ -3,9 +3,10 @@ import type { SentimentTreemapCell } from "@/types/analyticsDrill";
 import { fitLabel, treemapLabelMode } from "./sentimentTreemapLabels";
 
 /**
- * Treemap de sentimento por território: tamanho = volume real de relatos,
- * cor = sentimento médio real (verde/neutro/vermelho); cinza quando não há
- * amostra real de sentimento. Clicar drila para o próximo nível (volume real).
+ * Treemap de sentimento por território: tamanho reflete o volume de relatos
+ * (área = raiz quadrada do volume, p/ não gerar caixas "exageradas" nem zonas
+ * ilegíveis), cor = sentimento médio real (verde/neutro/vermelho); cinza quando
+ * não há amostra real de sentimento. Clicar drila para o próximo nível.
  */
 
 type SentimentTreemapProps = {
@@ -165,15 +166,21 @@ export function SentimentTreemap({ cells, selectedId, onSelect }: SentimentTreem
     );
   }
 
+  // Área comprimida (raiz quadrada do volume): zonas com muitos relatos não viram
+  // caixas "exageradas" e as de baixo volume ganham área suficiente para o nome
+  // caber. A ordem por volume é preservada (monotônica); o número real de relatos
+  // segue no rótulo e no tooltip. dataKey passa a ser "area" (não "volume").
+  const sized = cells.map((c) => ({ ...c, area: Math.sqrt(Math.max(0, c.volume)) }));
+
   return (
     <div className="space-y-2">
       {/* Mais alto no celular: dá área vertical às colunas finas (zonas de baixo
-          volume) sem alterar as proporções; volta ao normal no desktop. */}
+          volume); volta ao normal no desktop. */}
       <div className="h-[360px] w-full sm:h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
-            data={cells}
-            dataKey="volume"
+            data={sized}
+            dataKey="area"
             isAnimationActive={false}
             stroke="hsl(var(--card))"
             content={<TreemapCell selectedId={selectedId} onSelect={onSelect} />}
@@ -190,7 +197,7 @@ export function SentimentTreemap({ cells, selectedId, onSelect }: SentimentTreem
             {l.label}
           </span>
         ))}
-        <span className="text-muted-foreground/70">· tamanho = volume · clique para detalhar</span>
+        <span className="text-muted-foreground/70">· tamanho reflete o volume · clique para detalhar</span>
       </div>
     </div>
   );
