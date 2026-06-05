@@ -13,6 +13,12 @@ const SERVICE_QUERY_STOPWORDS = new Set([
   "qual", "quais", "gostaria", "quero", "saber", "favor", "por", "me", "dizer", "tem", "ha", "existe",
   "uma", "um", "a", "o", "os", "as", "de", "da", "do", "das", "dos", "na", "no", "nas", "nos", "em", "pra", "para",
   "mim", "aqui", "regiao", "minha", "meu", "sua", "voce", "vc", "e",
+  // palavras de "contato/horário" também são ruído na busca pelo NOME do serviço
+  "telefone", "fone", "ramal", "contato", "email", "e-mail", "horario", "horarios",
+  "funcionamento", "funciona", "aberto", "abre", "atende", "atendimento", "que", "horas",
+  // referências temporais comuns em perguntas de horário
+  "hoje", "amanha", "agora", "sabado", "sabados", "domingo", "domingos",
+  "feriado", "feriados", "fim", "semana", "aos",
 ]);
 
 /**
@@ -42,13 +48,17 @@ const NON_LOCATION_CONTEXT =
 // específico) — vão pelo fluxo de proximidade (pede CEP/bairro), não por aqui.
 const PROXIMITY_CONTEXT = /\bperto\b|pr[oó]xim|de\s+mim|minha\s+regi[aã]o/i;
 
-// Sinais de que a pergunta é sobre ONDE FICA / qual é o serviço nomeado (inclui o
-// follow-up "E a UBS X?" / "E o hospital Y?"). NÃO inclui "perto/próximo" (é
-// proximidade) nem "como chegar" (é ROTA) — tratados em outros fluxos.
+// Sinais de que a pergunta é sobre ONDE FICA / contato / horário de um serviço
+// nomeado (inclui o follow-up "E a UBS X?" e "qual o telefone/horário da UBS X?").
+// NÃO inclui "perto/próximo" (proximidade) nem "como chegar" (rota).
 const LOCATION_OR_IDENTITY_INTENT =
-  /\bonde\b|\bfica\b|\bficam\b|endere[cç]o|localiza|^\s*e\s+[ao]?\b/i;
+  /\bonde\b|\bfica\b|\bficam\b|endere[cç]o|localiza|\btelefone\b|\bfone\b|\bcontato\b|\bramal\b|e-?mail|hor[áa]rio|funciona|\baberto\b|\babre\b|\batende\b|^\s*e\s+[ao]?\b/i;
 
-export type NamedServiceLocationQuery = { serviceType: string; term: string };
+// Pergunta sobre HORÁRIO/funcionamento — o public_services não tem esse dado,
+// então respondemos com honestidade (sem inventar) em vez do endereço.
+const HOURS_INTENT = /hor[áa]rio|funciona(?:mento)?|\baberto\b|\babre\b|que\s+horas|at[ée]\s+que\s+horas/i;
+
+export type NamedServiceLocationQuery = { serviceType: string; term: string; wantsHours: boolean };
 
 /**
  * Detecta pergunta sobre a localização de um serviço público NOMEADO. Só dispara
@@ -68,7 +78,7 @@ export function detectNamedServiceLocationQuery(message: string): NamedServiceLo
   const term = extractServiceSearchTerm(text);
   const tokens = term.split(/\s+/).filter(Boolean);
   if (tokens.length < 2) return null; // precisa de um NOME além do tipo do serviço
-  return { serviceType, term };
+  return { serviceType, term, wantsHours: HOURS_INTENT.test(text) };
 }
 
 const SERVICE_ACRONYMS = new Set([

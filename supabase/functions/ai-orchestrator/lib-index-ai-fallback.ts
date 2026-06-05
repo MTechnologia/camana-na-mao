@@ -4,6 +4,7 @@ import {
   buildContextualEmptyFallbackMessage,
   extractLastFieldRequestFromHistory,
 } from "./lib-contextual-fallback.ts";
+import { sanitizeUngroundedFactualAnswer } from "./lib-factual-guard.ts";
 import { handleAiToolCall } from "./lib-index-ai-stream.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import type { NextFieldInfo } from "./lib-next-missing-field.ts";
@@ -14,6 +15,9 @@ type StreamFallbackArgs = {
   chatMessages: Array<{ role: string; content: string }>;
   collectionIntent: CollectionIntent | null;
   fullContent: string;
+  /** Houve contexto/RAG injetado no prompt deste turno? Se não, o verificador
+   * anti-alucinação é mais rígido com dados factuais na resposta livre da LLM. */
+  groundingInjected?: boolean;
   lastUserMsg: string;
   lightJourneyMarker?: string;
   nextFieldInfo: NextFieldInfo;
@@ -26,6 +30,7 @@ type NonStreamAiArgs = {
   accumulatedFields: Record<string, unknown>;
   attachmentUrls: string[];
   collectionIntent: CollectionIntent | null;
+  groundingInjected?: boolean;
   lastAssistantLower: string;
   requestStartTime: number;
   response: Response;
@@ -92,6 +97,7 @@ export async function handleAiStreamFallback(
     chatMessages,
     collectionIntent,
     fullContent,
+    groundingInjected = false,
     lastUserMsg,
     lightJourneyMarker,
     nextFieldInfo,
@@ -111,6 +117,13 @@ export async function handleAiStreamFallback(
       supabase,
       lib,
     );
+  } else {
+    // Fase 4: verificador anti-alucinação na resposta LIVRE da LLM.
+    const guard = sanitizeUngroundedFactualAnswer(responseContent, { groundingInjected });
+    if (guard.redacted) {
+      console.warn("[ai-orchestrator] Resposta livre com dado factual não ancorado → substituída (anti-alucinação)");
+      responseContent = guard.text;
+    }
   }
 
   if (lightJourneyMarker && !responseContent.includes("[LIGHT_JOURNEY:")) {
@@ -152,6 +165,7 @@ export async function handleAiNonStreamResponse(
     accumulatedFields,
     attachmentUrls,
     collectionIntent,
+    groundingInjected = false,
     lastAssistantLower,
     requestStartTime,
     response,
@@ -198,6 +212,13 @@ export async function handleAiNonStreamResponse(
   }
 
   let content = choice.message?.content || "";
+  if (content.trim() !== "") {
+    const guard = sanitizeUngroundedFactualAnswer(content, { groundingInjected });
+    if (guard.redacted) {
+      console.warn("[ai-orchestrator] Resposta livre (non-stream) com dado factual não ancorado → substituída");
+      content = guard.text;
+    }
+  }
   if (collectionIntent && !content.includes("[COLLECTION_PROGRESS:")) {
     const fieldsJson = JSON.stringify(accumulatedFields);
     content = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${content}`;

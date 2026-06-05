@@ -115,6 +115,10 @@ export async function runAiPipeline(args: AiPipelineArgs): Promise<Response> {
   if (promptContext.shortCircuitResponse) {
     return promptContext.shortCircuitResponse;
   }
+  // Fase 4: houve contexto/RAG injetado neste turno? (buildPromptContextAndTools
+  // aumenta o systemPrompt quando injeta KB/RAG/notícias/dados). Usado pelo
+  // verificador anti-alucinação para ser mais rígido em respostas SEM ancoragem.
+  const groundingInjected = promptContext.dynamicSystemPrompt !== dynamicSystemPrompt;
 
   const aiApiResult = await callAiChatCompletionImpl({
     aiChatModel,
@@ -193,6 +197,7 @@ export async function runAiPipeline(args: AiPipelineArgs): Promise<Response> {
       chatMessages: normalizedChatMessages,
       collectionIntent,
       fullContent,
+      groundingInjected,
       lastUserMsg,
       lightJourneyMarker,
       nextFieldInfo,
@@ -206,6 +211,7 @@ export async function runAiPipeline(args: AiPipelineArgs): Promise<Response> {
     accumulatedFields,
     attachmentUrls,
     collectionIntent,
+    groundingInjected,
     lastAssistantLower,
     requestStartTime,
     response,
