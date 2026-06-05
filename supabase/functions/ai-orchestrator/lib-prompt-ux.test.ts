@@ -22,6 +22,18 @@ Deno.test("compactFieldPrompt reduz corpo para até duas frases", () => {
   assertEquals(compact.includes("Terceira frase longa"), false);
 });
 
+Deno.test("compactFieldPrompt NÃO corta endereço em abreviações (Av., Eng., R.)", () => {
+  // Regressão NREF003: confirmação cortava em "...Av. Eng." porque o ponto das
+  // abreviações era tratado como fim de frase.
+  const prompt =
+    "[FIELD_REQUEST:service_address_confirmed]O serviço fica em CEU Butantã – Av. Eng. Heitor Antônio Eiras Garcia, 1870 - Jardim Esmeralda. Está correto? [SERVICE_ADDRESS_CONFIRM:x]";
+  const compact = compactFieldPrompt(prompt);
+  assertEquals(compact.includes("Av. Eng. Heitor Antônio Eiras Garcia, 1870"), true);
+  assertEquals(compact.includes("Jardim Esmeralda"), true);
+  assertEquals(compact.includes("Está correto?"), true);
+  assertEquals(compact.includes("[FIELD_REQUEST:service_address_confirmed]"), true);
+});
+
 Deno.test("prompts urbanos de risco e escopo incluem chips QUICK_REPLY", () => {
   assertEquals(URBAN_RISK_LEVEL_FIELD_PROMPT.includes("[QUICK_REPLY:critical,moderate,low,none]"), true);
   assertEquals(
