@@ -2,6 +2,7 @@ import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.168.
 import {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsDirectionsUrlFromAddresses,
+  findNearbyServices,
   getServiceAddressByName,
   getServiceTypeName,
   inferServiceTypeFromText,
@@ -12,7 +13,7 @@ import {
 function makeSupabaseMock(rows: any[]) {
   const calls: { method: string; args: unknown[] }[] = [];
   const builder: Record<string, unknown> = {};
-  for (const m of ["select", "textSearch", "ilike", "limit"]) {
+  for (const m of ["select", "textSearch", "ilike", "eq", "gte", "lte", "limit"]) {
     builder[m] = (...args: unknown[]) => {
       calls.push({ method: m, args });
       return builder;
@@ -33,11 +34,47 @@ Deno.test("inferServiceTypeFromText: reconhece tipos de serviço comuns", () => 
   assertEquals(inferServiceTypeFromText("Onde fica o mercado municipal?"), "city_market");
 });
 
-Deno.test("inferServiceTypeFromText: estação/trem/metrô/CPTM → transit_station", () => {
-  assertEquals(inferServiceTypeFromText("Qual a estação de trem mais próxima?"), "transit_station");
-  assertEquals(inferServiceTypeFromText("estação de metrô perto de mim"), "transit_station");
-  assertEquals(inferServiceTypeFromText("onde fica a estação da Luz"), "transit_station");
+Deno.test("inferServiceTypeFromText: trem/CPTM → train_station, metrô → metro_station, ônibus → transit_station", () => {
+  // Trem / CPTM têm camada própria (estacao_trem) — não podem virar ponto de ônibus.
+  assertEquals(inferServiceTypeFromText("Qual a estação de trem mais próxima?"), "train_station");
+  assertEquals(inferServiceTypeFromText("estação da CPTM perto de mim"), "train_station");
+  // Metrô tem camada própria (estacao_metro).
+  assertEquals(inferServiceTypeFromText("estação de metrô perto de mim"), "metro_station");
+  assertEquals(inferServiceTypeFromText("onde fica o metrô mais próximo"), "metro_station");
+  // Ônibus / terminal / estação genérica → transit_station (paradas de ônibus GeoSampa).
   assertEquals(inferServiceTypeFromText("terminal de ônibus próximo"), "transit_station");
+  assertEquals(inferServiceTypeFromText("ponto de ônibus mais perto"), "transit_station");
+  assertEquals(inferServiceTypeFromText("onde fica a estação mais próxima"), "transit_station");
+});
+
+Deno.test("findNearbyServices: estação de trem filtra source_layer e ordena por distância (sem exigir endereço)", async () => {
+  // Estações reais têm address="Endereço não informado" mas nome + coordenadas.
+  const rows = [
+    { name: "BRÁS", district: "São Paulo", latitude: -23.5247, longitude: -46.6147 },
+    { name: "LUZ", district: "São Paulo", latitude: -23.5350, longitude: -46.6356 },
+  ];
+  const { calls, client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any,
+    "train_station",
+    undefined,
+    5,
+    -23.5247, // perto da BRÁS
+    -46.6147,
+    2000,
+    0,
+    null,
+    "Centro",
+  );
+  // Filtrou pela camada de trem (não devolveu ponto de ônibus).
+  const eqCalls = calls.filter((c) => c.method === "eq");
+  assertEquals(eqCalls.some((c) => c.args[0] === "service_type" && c.args[1] === "transit_station"), true);
+  assertEquals(eqCalls.some((c) => c.args[0] === "source_layer" && c.args[1] === "estacao_trem"), true);
+  // Exibe a estação pelo nome (título), com distância, e não "Endereço não informado".
+  assertStringIncludes(out, "estações de trem (CPTM)");
+  assertStringIncludes(out, "Estação Brás");
+  assertEquals(out.includes("Endereço não informado"), false);
 });
 
 Deno.test("getServiceAddressByName usa full-text (search_tsv), não ILIKE, e prefere melhor match", async () => {

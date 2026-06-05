@@ -304,8 +304,8 @@ export const tools = [
         properties: {
           service_type: {
             type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "park", "street_market", "community_center", "daycare", "market", "city_market", "theater", "museum", "social_assistance", "transit_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"],
-            description: "Tipo do equipamento: ubs, school, ceu, hospital, library, sports_center, park (parques), street_market (feiras), community_center, daycare (creches), market, city_market, theater, museum, social_assistance, transit_station (ônibus/transporte), police_station, cemetery, accessibility, recycling_point, fire_station, other"
+            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "park", "street_market", "community_center", "daycare", "market", "city_market", "theater", "museum", "social_assistance", "transit_station", "train_station", "metro_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"],
+            description: "Tipo do equipamento: ubs, school, ceu, hospital, library, sports_center, park (parques), street_market (feiras), community_center, daycare (creches), market, city_market, theater, museum, social_assistance, transit_station (ponto/parada de ônibus), train_station (estação de trem/CPTM), metro_station (estação de metrô), police_station, cemetery, accessibility, recycling_point, fire_station, other"
           },
           district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
           limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
