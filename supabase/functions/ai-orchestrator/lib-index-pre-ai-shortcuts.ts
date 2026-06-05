@@ -376,6 +376,18 @@ export async function handlePreAiShortcuts(
     try {
       const grounded = await lib.getServiceAddressByName(supabase, namedServiceQuery.term);
       if (grounded) {
+        if (namedServiceQuery.wantsHours) {
+          // Endereço/telefone vêm da base; horário NÃO existe no public_services →
+          // honesto, sem inventar.
+          console.log("[ai-orchestrator] Service hours (determinístico): sem horário na base de", namedServiceQuery.term);
+          return {
+            response: createSseResponse(
+              `${grounded}\n\nℹ️ Não tenho o **horário de funcionamento** dessa unidade por aqui — ` +
+                "confirme pela Saúde SP (saude.prefeitura.sp.gov.br) ou pela central 156. Posso ajudar em mais alguma coisa?",
+              lib.corsHeaders,
+            ),
+          };
+        }
         console.log("[ai-orchestrator] Service location (determinístico): endereço real de", namedServiceQuery.term);
         return {
           response: createSseResponse(

@@ -27,6 +27,21 @@ Deno.test("detectNamedServiceLocationQuery: ignora 'mais perto' sem nome (vai pe
   assertEquals(detectNamedServiceLocationQuery("onde tem hospital perto"), null);
 });
 
+Deno.test("detectNamedServiceLocationQuery: pega telefone de serviço nomeado (wantsHours=false)", () => {
+  const r = detectNamedServiceLocationQuery("qual o telefone da UBS Vila Maria?");
+  assertEquals(r?.term, "ubs vila maria");
+  assertEquals(r?.wantsHours, false);
+});
+
+Deno.test("detectNamedServiceLocationQuery: marca wantsHours e limpa termo em perguntas de horário", () => {
+  assertEquals(detectNamedServiceLocationQuery("qual o horário da UBS Vila Maria?")?.wantsHours, true);
+  assertEquals(detectNamedServiceLocationQuery("que horas a UBS Vila Maria abre?")?.wantsHours, true);
+  // termo continua limpo mesmo com referência temporal ("aos sábados")
+  const fim = detectNamedServiceLocationQuery("a UBS Vila Maria funciona aos sábados?");
+  assertEquals(fim?.term, "ubs vila maria");
+  assertEquals(fim?.wantsHours, true);
+});
+
 Deno.test("detectNamedServiceLocationQuery: não intercepta contexto de relato/avaliação/ocupação/rota", () => {
   assertEquals(detectNamedServiceLocationQuery("tem um buraco na frente da UBS Vila Maria"), null);
   assertEquals(detectNamedServiceLocationQuery("quero avaliar a UBS Vila Maria"), null);
