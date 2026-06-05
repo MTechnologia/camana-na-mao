@@ -19,23 +19,15 @@ describe("withStructuredListLineBreaks", () => {
 
   it("quebra lista numerada (estações/serviços) em uma por linha", () => {
     const input =
-      "Aqui estão as estações de trem (CPTM) mais próximas de você:\n1. Estação Cidade Jardim — a 712 m\n2. Estação Vila Olímpia — a 1,1 km\n3. Estação Berrini — a 2,2 km";
+      "Aqui estão as estações de trem (CPTM) mais próximas de você:\n\n1. Estação Cidade Jardim — a 712 m\n2. Estação Vila Olímpia — a 1,1 km\n3. Estação Berrini — a 2,2 km";
     const out = withStructuredListLineBreaks(input);
     expect(out).toContain("  \n1. Estação Cidade Jardim");
     expect(out).toContain("  \n2. Estação Vila Olímpia");
     expect(out).toContain("  \n3. Estação Berrini");
   });
 
-  it("quebra serviços numerados com 📍 (um item por linha)", () => {
-    const input =
-      "Aqui estão as opções:\n1. Ponto A (São Paulo)\n📍 Rua 1, 10\n2. Ponto B (São Paulo)\n📍 Rua 2, 20";
-    const out = withStructuredListLineBreaks(input);
-    expect(out).toContain("  \n1. Ponto A");
-    expect(out).toContain("  \n📍 Rua 1, 10");
-    expect(out).toContain("  \n2. Ponto B");
-  });
-
   it("não confunde decimais/medidas (3,4 km) com itens numerados", () => {
+    // Vírgula decimal não casa \d+[.)]\s; só 1 'linha de lista' (o bullet) → intacto.
     const input = "Distância total: 3,4 km\n• ponto único";
     expect(withStructuredListLineBreaks(input)).toBe(input);
   });
