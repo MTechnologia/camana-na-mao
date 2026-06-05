@@ -73,7 +73,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
     {
       id: 2.2,
-      label: "Perto de Você",
+      label: "Serviços Próximos",
       icon: MapPin,
       route: "/servicos-proximos",
     },
@@ -101,7 +101,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       : []),
     {
       id: 2.5,
-      label: "Relatos",
+      label: "Relatos Urbanos",
       icon: FileText,
       route: "/relatos",
     },

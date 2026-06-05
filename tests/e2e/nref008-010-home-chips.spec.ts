@@ -5,8 +5,8 @@ import { ensureChatReady } from "./_helpers/chatOrchestratorMock";
 /**
  * NREF008 + NREF010 — Alinhamento Onboarding/Home + Unificação da nomenclatura.
  * Os chips de destaque da Home espelham as funcionalidades do onboarding
- * (Relato Urbano → Transporte → Audiências Públicas → Perto de Você) e usam a
- * MESMA nomenclatura/ícones do menu sanduíche e do "Explorar".
+ * (Relatos Urbanos → Transporte Público → Audiências Públicas → Serviços Próximos)
+ * e usam a MESMA nomenclatura/ícones do menu sanduíche e do "Explorar".
  */
 
 async function closeOnboardingIfVisible(page: import("@playwright/test").Page) {
@@ -29,10 +29,10 @@ test.describe("NREF008/010 — Chips da Home alinhados (onboarding + menu)", () 
     test.setTimeout(60000);
 
     // 4 destaques na ordem do onboarding, nomenclatura canônica
-    await expect(page.getByRole("button", { name: "Relato Urbano" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Transporte" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Relatos Urbanos" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Transporte Público" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Audiências Públicas" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Perto de Você" }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Serviços Próximos" }).first()).toBeVisible();
 
     await page.waitForTimeout(300);
     await page.screenshot({

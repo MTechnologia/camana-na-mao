@@ -84,7 +84,7 @@ const categories: CapabilityCategory[] = [
       {
         id: "nearby",
         icon: MapPin,
-        title: "Perto de Você",
+        title: "Serviços Próximos",
         description: "UBS, escolas, parques próximos",
         message: "Quais serviços públicos ficam perto de mim?",
       },
