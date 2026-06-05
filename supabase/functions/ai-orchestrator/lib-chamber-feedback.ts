@@ -59,12 +59,15 @@ export function extractChamberFields(context: string): Record<string, unknown> {
     category: "feedback_camara",
   };
 
+  // A natureza vai em `report_nature` (campo que o fluxo de coleta consome) — assim
+  // "Quero elogiar/reclamar/sugerir a um vereador" NÃO pergunta o tipo de novo.
   if (
     context.includes("elogiar") ||
     context.includes("elogio") ||
     context.includes("agradecer") ||
     context.includes("parabenizar")
   ) {
+    fields.report_nature = "elogio";
     fields.subcategory = "elogio";
   } else if (
     context.includes("reclamar") ||
@@ -73,8 +76,10 @@ export function extractChamberFields(context: string): Record<string, unknown> {
     context.includes("denunciar") ||
     context.includes("denúncia")
   ) {
+    fields.report_nature = "reclamacao";
     fields.subcategory = "reclamacao";
   } else if (context.includes("sugestão") || context.includes("sugestao") || context.includes("sugerir")) {
+    fields.report_nature = "sugestao";
     fields.subcategory = "sugestao";
   }
 

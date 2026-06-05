@@ -22,6 +22,19 @@ export async function getNextMissingField(
   lib: typeof import("./lib.ts"),
 ): Promise<NextFieldInfo> {
   if (collectionType === "urban_report") {
+    // Feedback à Câmara: pergunta PRIMEIRO o vereador (seletor oficial), antes de
+    // natureza/mensagem — alinhado ao fluxo "Sobre qual vereador você quer falar?".
+    if (
+      String(fields.category ?? "") === "feedback_camara" &&
+      !String(fields.council_member_name ?? "").trim()
+    ) {
+      return {
+        field: "council_member_name",
+        picker: "[VEREADOR_PICKER]",
+        prompt: "[FIELD_REQUEST:council_member_name]Sobre qual vereador você quer falar?[VEREADOR_PICKER]",
+      };
+    }
+
     const natureRaw = fields.report_nature;
     const natureStr = natureRaw != null ? String(natureRaw).trim() : "";
     const natureOk = (lib.URBAN_REPORT_NATURE_VALUES as readonly string[]).includes(natureStr);
