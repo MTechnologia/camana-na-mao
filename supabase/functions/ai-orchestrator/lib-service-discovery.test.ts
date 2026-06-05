@@ -78,7 +78,7 @@ Deno.test("findNearbyServices: estação de trem filtra source_layer e ordena po
   assertEquals(out.includes("Endereço não informado"), false);
 });
 
-Deno.test("formatServicesWithContext: cada item em uma linha (quebra hard do Markdown)", () => {
+Deno.test("formatServicesWithContext: usa só \\n simples (sobrevive ao sanitize do app)", () => {
   const out = formatServicesWithContext(
     [
       { name: "Ponto A", district: "Centro", address: "Rua 1, 10" },
@@ -89,12 +89,14 @@ Deno.test("formatServicesWithContext: cada item em uma linha (quebra hard do Mar
     true,
     "Av. Exemplo, 100",
   );
-  // Quebra "hard" (dois espaços + \n) antes do 📍 e entre os itens, para não
-  // renderizar como bloco corrido no chat.
-  assertStringIncludes(out, "  \n   📍 Rua 1, 10");
-  assertStringIncludes(out, "  \n2. Ponto B");
-  // Não usa mais a junção por linha simples "\n\n" entre itens.
-  assertEquals(out.includes("Rua 1, 10\n\n2."), false);
+  // O sanitize do app colapsa 2+ espaços/quebras num espaço; só "\n" simples
+  // sobrevive. O 📍 vem em linha própria (sem indentação) e o próximo item
+  // numerado também — para a diagramação do chat quebrar um por linha.
+  assertStringIncludes(out, "\n📍 Rua 1, 10");
+  assertStringIncludes(out, "\n2. Ponto B");
+  // Não pode haver "\n\n" nem indentação (seriam destruídos pelo sanitize).
+  assertEquals(/\n\n/.test(out), false);
+  assertEquals(/\n[ \t]/.test(out), false);
 });
 
 Deno.test("getServiceAddressByName usa full-text (search_tsv), não ILIKE, e prefere melhor match", async () => {
