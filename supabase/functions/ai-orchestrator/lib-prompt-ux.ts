@@ -1,16 +1,26 @@
 const MARKER_PATTERN = /\[[A-Z_]+(?::[^\]]*)?\]/g;
 
+// Abreviações comuns (logradouros/títulos) cujo "." NÃO é fim de frase. Sem isto,
+// um endereço como "Av. Eng. Heitor ..." era cortado em "Av. Eng." pelo divisor.
+const ABBREVIATION_DOT =
+  /\b(av|r|pç|pc|dr|dra|sr|sra|eng|prof|profa|jd|pq|al|alm|trav|tv|rod|km|ap|apto|bl|no|nº)\.(?=\s)/gi;
+const DOT_PLACEHOLDER = String.fromCharCode(1);
+
 function compactPlainText(text: string): string {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return clean;
-  const sentences = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+  // Mascara os pontos de abreviação para o divisor de sentenças não cortar endereços.
+  const masked = clean.replace(ABBREVIATION_DOT, (_m, abbr) => `${abbr}${DOT_PLACEHOLDER}`);
+  const unmask = (s: string) => s.split(DOT_PLACEHOLDER).join(".");
+  const sentences = masked.split(/(?<=[.!?])\s+/).filter(Boolean);
   if (sentences.length >= 2) {
-    return `${sentences[0]} ${sentences[1]}`.trim();
+    return unmask(`${sentences[0]} ${sentences[1]}`).trim();
   }
-  if (clean.length > 180) {
-    return `${clean.slice(0, 177).trimEnd()}...`;
+  const single = unmask(sentences[0] ?? masked);
+  if (single.length > 180) {
+    return `${single.slice(0, 177).trimEnd()}...`;
   }
-  return clean;
+  return single;
 }
 
 /** CHB-028: perguntas curtas com chips para risco e escopo (acessível a idosos). */

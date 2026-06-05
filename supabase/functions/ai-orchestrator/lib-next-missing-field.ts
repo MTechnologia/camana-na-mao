@@ -708,8 +708,9 @@ export async function getNextMissingField(
       const nameStr = String(fields.service_name ?? "");
       const neighForAddr = String(fields.service_neighborhood || "").trim() || effectiveNeighborhood;
       const nameHasNeigh = neighForAddr && nameStr.toLowerCase().includes(neighForAddr.toLowerCase());
-      const address = fields.service_address ||
+      const rawAddress = fields.service_address ||
         (nameStr ? (nameHasNeigh ? nameStr : neighForAddr ? `${nameStr} - ${neighForAddr}` : nameStr) : null);
+      const address = rawAddress ? lib.cleanServiceAddress(String(rawAddress)) : "";
 
       if (address) {
         return {

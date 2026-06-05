@@ -1,5 +1,6 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { buildVisitCloseUpdate } from "../_shared/close-service-visit-departure.ts";
+import { cleanServiceAddress } from "./lib-service-address-format.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
 
@@ -179,13 +180,14 @@ export async function handleCreateServiceRating(
       accumulatedFields?.service_address_confirmed ||
       accumulatedFields?._address_reconfirmed;
     if (!addressConfirmed) {
-      const address =
+      const rawAddress =
         args.service_address ||
         accumulatedFields?.service_address ||
         (accumulatedFields?.service_neighborhood
           ? `${args.service_name} - ${accumulatedFields.service_neighborhood}`
           : null) ||
         "Endereço não informado";
+      const address = cleanServiceAddress(String(rawAddress)) || "Endereço não informado";
       return {
         success: false,
         message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`,

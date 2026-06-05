@@ -64,6 +64,7 @@ export {
   isVisitRatingWindowClosed,
 } from "../_shared/service-visit-rating-deadline.ts";
 export { formatAudienciaStatus, localParaZona, searchAudiencias } from "./lib-audiencias-search.ts";
+export { cleanServiceAddress } from "./lib-service-address-format.ts";
 export {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsDirectionsUrlFromAddresses,
