@@ -40,7 +40,7 @@ interface PromptChipsProps {
 const chips: PromptChip[] = [
   {
     id: "urban",
-    label: "Relato Urbano",
+    label: "Relatos Urbanos",
     message: "Quero falar sobre a cidade",
     icon: Building2,
     collectionType: "urban_report",
@@ -61,7 +61,7 @@ const chips: PromptChip[] = [
   },
   {
     id: "transport",
-    label: "Transporte",
+    label: "Transporte Público",
     message: "Quero relatar um problema no transporte público",
     icon: Bus,
     collectionType: "transport_report",
@@ -75,7 +75,7 @@ const chips: PromptChip[] = [
   },
   {
     id: "services",
-    label: "Perto de Você",
+    label: "Serviços Próximos",
     message: "Buscar serviços perto de mim",
     icon: MapPin,
     collectionType: null,

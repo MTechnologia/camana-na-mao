@@ -540,7 +540,7 @@ export default function NearbyServicesPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Perto de Você" backTo="/" />
+      <PageHeader title="Serviços Próximos" backTo="/" />
 
       <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
         {!isOnline && (
