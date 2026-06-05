@@ -33,6 +33,8 @@ export function getServiceTypeName(type: string): string {
     "library": "bibliotecas",
     "sports_center": "centros esportivos",
     "transit_station": "pontos de ônibus e transporte",
+    "train_station": "estações de trem (CPTM)",
+    "metro_station": "estações de metrô",
     "park": "parques",
     "street_market": "feiras",
     "community_center": "centros comunitários",
@@ -71,7 +73,12 @@ export function inferServiceTypeFromText(text: string): string | null {
   if (/\bteatro[s]?\b|cinema[s]?\b/.test(t)) return "theater";
   if (/\bmuseu[s]?\b/.test(t)) return "museum";
   if (/\bassist[eê]n[cç]ia[s]?\s+social(is)?|\bassist[eê]n[cç]ia[s]?\s+sociais\b|cr[aá]s?\b|social/.test(t)) return "social_assistance";
-  if (/\btransporte[s]?\b|\btrem\b|\bmetr[oô]\b|\bcptm\b|\besta[cç][aã]o\b|\bterminal\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+(?:trem|metr[oô]|[oô]nibus))\b/.test(t)) return "transit_station";
+  // Trem (CPTM) e metrô são camadas próprias do GeoSampa (estacao_trem / estacao_metro):
+  // precisam ser distinguidos do ponto de ônibus, senão a busca devolve paradas de ônibus
+  // em vez da estação pedida. Trem/CPTM antes de metrô; ambos antes do transporte genérico.
+  if (/\btrem\b|\bcptm\b|esta[cç][aã]o\s+de\s+trem|trem\s+metropolitano/.test(t)) return "train_station";
+  if (/\bmetr[oô](?![a-zçáàâãéêíóôõúü])|esta[cç][aã]o\s+de\s+metr[oô]/.test(t)) return "metro_station";
+  if (/\btransporte[s]?\b|\besta[cç][aã]o\b|\bterminal\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return "transit_station";
   if (/\bdelegacia[s]?\b|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return "police_station";
   if (/\bcemit[eé]rio[s]?\b/.test(t)) return "cemetery";
   if (/\bacessibilidade|acess[ií]vel/.test(t)) return "accessibility";
@@ -221,6 +228,113 @@ function normalizeForDedup(value: unknown): string {
     .trim();
 }
 
+// Tipos lógicos (trem/metrô) → camada GeoSampa correspondente em public_services.
+// As linhas dessas camadas têm service_type="transit_station" mas address="Endereço
+// não informado": são localizadas por nome + coordenadas, não por endereço de rua.
+const STATION_SOURCE_LAYER: Record<string, string> = {
+  train_station: "estacao_trem",
+  metro_station: "estacao_metro",
+};
+
+function titleCaseStationName(name: string): string {
+  const lower = name.toLowerCase().trim();
+  const small = new Set(["de", "da", "do", "das", "dos", "e"]);
+  return lower
+    .split(/(\s+|-|\/)/)
+    .map((part) => {
+      if (/^(\s+|-|\/)$/.test(part)) return part;
+      if (small.has(part)) return part;
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join("");
+}
+
+function formatDistanceMeters(meters: number): string {
+  if (!Number.isFinite(meters)) return "";
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1).replace(".", ",")} km`;
+}
+
+function formatStationsWithContext(
+  stations: Record<string, unknown>[],
+  serviceType: string,
+  referenceLocationText: string | null | undefined,
+  hasDistances: boolean,
+): string {
+  const typeName = getServiceTypeName(serviceType);
+  const ref = (referenceLocationText || "").trim();
+  const header = hasDistances
+    ? ref
+      ? `Aqui estão as ${typeName} mais próximas de ${ref}:`
+      : `Aqui estão as ${typeName} mais próximas de você:`
+    : `Aqui estão ${typeName} em São Paulo:`;
+  const list = stations
+    .map((s, i) => {
+      const d = hasDistances && Number.isFinite(s._distance as number)
+        ? ` — a ${formatDistanceMeters(s._distance as number)}`
+        : "";
+      return `${i + 1}. Estação ${titleCaseStationName(String(s.name))}${d}`;
+    })
+    .join("\n");
+  const footer = "\n\n💡 Quer que eu calcule a rota até alguma delas?\n\nPara mais informações, [clique aqui](/servicos-proximos).";
+  return `${header}\n\n${list}${footer}`;
+}
+
+// Busca dedicada para estações de trem/metrô. A camada inteira é pequena (~100 linhas),
+// então buscamos todas e ordenamos por distância em memória — mais preciso que bbox e
+// sem o filtro de endereço (estações têm "Endereço não informado", só nome + coordenadas).
+async function findNearbyStations(
+  supabase: SupabaseClient,
+  serviceType: string,
+  sourceLayer: string,
+  limit: number,
+  userLat?: number | null,
+  userLon?: number | null,
+  referenceLocationText?: string | null,
+): Promise<string> {
+  const typeName = getServiceTypeName(serviceType);
+  const hasCoords = userLat != null && userLon != null && !Number.isNaN(userLat) && !Number.isNaN(userLon);
+
+  const { data, error } = await supabase
+    .from("public_services")
+    .select("name, district, latitude, longitude")
+    .eq("service_type", "transit_station")
+    .eq("source_layer", sourceLayer)
+    .limit(500);
+
+  if (error || !data?.length) {
+    return `No momento não tenho ${typeName} cadastradas na minha base. Você pode consultar a rede em cptm.sp.gov.br ou metro.sp.gov.br.`;
+  }
+
+  const seen = new Set<string>();
+  let rows = (data as unknown as Record<string, unknown>[]).filter((s) => {
+    const name = String(s.name ?? "").trim();
+    if (!name) return false;
+    const key = normalizeForDedup(name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (rows.length === 0) {
+    return `No momento não tenho ${typeName} cadastradas na minha base. Você pode consultar a rede em cptm.sp.gov.br ou metro.sp.gov.br.`;
+  }
+
+  if (hasCoords) {
+    rows = rows
+      .filter((s) => s.latitude != null && s.longitude != null)
+      .map((s) => ({ ...s, _distance: distanceMeters(userLat!, userLon!, Number(s.latitude), Number(s.longitude)) }))
+      .sort((a, b) => (a._distance as number) - (b._distance as number))
+      .slice(0, Math.max(1, limit));
+    if (rows.length === 0) {
+      return `No momento não tenho ${typeName} com localização cadastrada na minha base.`;
+    }
+    return formatStationsWithContext(rows, serviceType, referenceLocationText, true);
+  }
+
+  rows = rows.slice(0, Math.max(1, limit));
+  return formatStationsWithContext(rows, serviceType, referenceLocationText, false);
+}
+
 export async function findNearbyServices(
   supabase: SupabaseClient,
   serviceType: string,
@@ -233,6 +347,21 @@ export async function findNearbyServices(
   searchQuery?: string | null,
   referenceLocationText?: string | null,
 ): Promise<string> {
+  // Trem/metrô têm camada própria (estacao_trem/estacao_metro) e endereço não informado:
+  // desviam para a busca dedicada por nome + coordenadas, evitando devolver pontos de ônibus.
+  const stationSourceLayer = STATION_SOURCE_LAYER[serviceType];
+  if (stationSourceLayer) {
+    return await findNearbyStations(
+      supabase,
+      serviceType,
+      stationSourceLayer,
+      limit,
+      userLat,
+      userLon,
+      referenceLocationText,
+    );
+  }
+
   const typeName = getServiceTypeName(serviceType);
   const limitWithBuffer = Math.max(limit * 3, 15);
   const hasCoords = userLat != null && userLon != null && !Number.isNaN(userLat) && !Number.isNaN(userLon);
