@@ -9,6 +9,7 @@ import {
   CITIZEN_EQUIPMENT_SERVICE_TYPES,
 } from "@/lib/publicServiceType";
 import { getSaoPauloServiceRatingDayUtcBounds } from "@/lib/serviceRatingDayBounds";
+import { decodeHtmlEntities } from "@/lib/htmlEntities";
 import { rankServiceMatches } from "./serviceMatchRanking";
 
 interface PublicService {
@@ -403,8 +404,16 @@ export const InlineServicePicker = ({
           }
         }
 
+        // Decodifica entidades HTML do cadastro (ex.: "&#8211;" → "–") para a lista,
+        // a bolha de seleção e a confirmação ficarem legíveis.
+        const decoded = rows.map((r) => ({
+          ...r,
+          name: decodeHtmlEntities(r.name),
+          district: decodeHtmlEntities(r.district),
+          address: decodeHtmlEntities(r.address),
+        }));
         setAllInListRatedToday(dedupEmptyBootstrap);
-        setServices(rankServiceMatches(rows, bootstrap ? districtSafe : trimmed));
+        setServices(rankServiceMatches(decoded, bootstrap ? districtSafe : trimmed));
       } catch (error) {
         console.error("Error searching services:", error);
         setServices([]);
