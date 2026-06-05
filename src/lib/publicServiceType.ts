@@ -60,6 +60,35 @@ export function normalizeServiceTypeToDbEnum(raw: string | undefined): string | 
   return LABEL_OR_SLUG_TO_ENUM[k] ?? k;
 }
 
+/** Rótulo amigável (PT) do tipo de equipamento, para mensagens ao cidadão. */
+const ENUM_TO_FRIENDLY_LABEL: Record<string, string> = {
+  ubs: "UBS",
+  hospital: "hospital",
+  school: "escola",
+  ceu: "CEU",
+  library: "biblioteca",
+  daycare: "creche",
+  park: "parque",
+  sports_center: "centro esportivo",
+  community_center: "centro comunitário",
+  social_assistance: "equipamento de assistência social",
+  police_station: "delegacia",
+  fire_station: "posto de bombeiros",
+  market: "mercado",
+  city_market: "mercado municipal",
+  street_market: "feira",
+  theater: "teatro/cinema",
+  museum: "museu",
+  cemetery: "cemitério",
+  transit_station: "ponto/terminal",
+};
+
+/** "ceu" → "CEU", "school" → "escola"; sem tipo conhecido → "serviço". */
+export function serviceTypeFriendlyLabel(raw: string | undefined): string {
+  const enumVal = normalizeServiceTypeToDbEnum(raw);
+  return (enumVal && ENUM_TO_FRIENDLY_LABEL[enumVal]) || "serviço";
+}
+
 /**
  * Equipamentos públicos relevantes ao munícipe (UBS, hospitais, escolas,
  * bibliotecas, etc.). Usado quando o picker busca SEM um tipo específico — para

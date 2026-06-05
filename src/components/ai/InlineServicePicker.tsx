@@ -5,9 +5,11 @@ import { Building2, Search, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   normalizeServiceTypeToDbEnum,
+  serviceTypeFriendlyLabel,
   CITIZEN_EQUIPMENT_SERVICE_TYPES,
 } from "@/lib/publicServiceType";
 import { getSaoPauloServiceRatingDayUtcBounds } from "@/lib/serviceRatingDayBounds";
+import { rankServiceMatches } from "./serviceMatchRanking";
 
 interface PublicService {
   id: string;
@@ -277,31 +279,37 @@ export const InlineServicePicker = ({
 
         let rows: PublicService[] = [];
 
+        // UNIÃO de todas as variantes (não para na 1ª que retorna): o cadastro tem o
+        // mesmo equipamento com/sem acento (ex.: "BUTANTA" e "CEU Butantã …"). Parar
+        // na 1ª variante mostrava só um subconjunto — agora reunimos todas as opções.
+        const MERGE_CAP = 80;
         const runPrimary = async (term: string, strictType: boolean) => {
           const attempts = buildFuzzySearchVariants(term);
+          const merged = new Map<string, PublicService>();
           for (const t of attempts) {
             let q = applyType(baseSelect(), strictType);
             q = bootstrap ? q.or(orNeighborhood(t)) : q.or(orRefine(t));
             const { data, error: e1 } = await q;
             if (e1) throw e1;
-            const chunk = (data || []) as PublicService[];
-            if (chunk.length > 0) return chunk;
+            for (const row of (data || []) as PublicService[]) merged.set(row.id, row);
+            if (merged.size >= MERGE_CAP) break;
           }
-          return [];
+          return [...merged.values()];
         };
 
         /** Busca só na coluna `name` — mais próximo do filtro por texto do Perto de você */
         const runNameOnly = async (term: string, strictType: boolean) => {
           const attempts = buildFuzzySearchVariants(term);
+          const merged = new Map<string, PublicService>();
           for (const t of attempts) {
             let q = applyType(baseSelect(), strictType);
             q = q.ilike("name", `%${t}%`);
             const { data, error: e2 } = await q;
             if (e2) throw e2;
-            const chunk = (data || []) as PublicService[];
-            if (chunk.length > 0) return chunk;
+            for (const row of (data || []) as PublicService[]) merged.set(row.id, row);
+            if (merged.size >= MERGE_CAP) break;
           }
-          return [];
+          return [...merged.values()];
         };
 
         // 1) Busca principal (tipo alinhado ao fluxo de avaliação)
@@ -396,7 +404,7 @@ export const InlineServicePicker = ({
         }
 
         setAllInListRatedToday(dedupEmptyBootstrap);
-        setServices(rows);
+        setServices(rankServiceMatches(rows, bootstrap ? districtSafe : trimmed));
       } catch (error) {
         console.error("Error searching services:", error);
         setServices([]);
@@ -461,6 +469,9 @@ export const InlineServicePicker = ({
 
   const hasPreloadContext = Boolean(district && normalizedServiceType);
   const showListPanel = hasPreloadContext || query.length >= 2;
+  const equipmentLabel = serviceTypeFriendlyLabel(serviceType);
+  // Sem resultados: usado para a mensagem amigável e para destacar a caixa de busca.
+  const noResults = showListPanel && !isLoading && services.length === 0;
 
   const listPanel = showListPanel && (
     <div className={`rounded-md border bg-popover ${hasPreloadContext ? "mb-2" : "mt-2"}`}>
@@ -491,7 +502,12 @@ export const InlineServicePicker = ({
         </ScrollArea>
       ) : !isLoading ? (
         <div className="p-3">
-          <p className="text-sm text-muted-foreground mb-2">Serviço não encontrado</p>
+          <p className="text-sm text-foreground">
+            Não encontramos um <strong>{equipmentLabel}</strong> com este nome.
+          </p>
+          <p className="text-xs text-muted-foreground mb-2">
+            Digite novamente o nome na caixa de busca destacada e selecione o {equipmentLabel} na lista.
+          </p>
           {manualEntryBlock && (
             <p className="text-sm text-amber-700 dark:text-amber-500 mb-2" role="alert">
               {manualEntryBlock}
@@ -547,7 +563,9 @@ export const InlineServicePicker = ({
         }
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="pl-9 pr-8"
+        className={`pl-9 pr-8 ${
+          noResults ? "border-amber-500 ring-1 ring-amber-300 focus-visible:ring-amber-400" : ""
+        }`}
       />
       {isLoading && (
         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
