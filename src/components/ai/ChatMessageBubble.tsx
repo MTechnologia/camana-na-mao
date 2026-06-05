@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
+import { toMarkdownHardBreaks } from "@/lib/markdownLineBreaks";
 import { UserChatBubbleText } from "./UserChatBubbleText";
 import {
   parseUrbanReportPreview,
@@ -836,19 +837,16 @@ const ChatMessageBubble = ({
     return text;
   };
 
-  /** Resumo pós-registro (urbano/transporte/avaliação): uma linha por campo no Markdown. */
-  const withRegisteredReportLineBreaks = (text: string): string => {
-    if (!/\[(REPORT|TRANSPORT|RATING)_CREATED:/i.test(text)) return text;
-    return text.replace(/\n/g, "  \n");
-  };
-
   /** Segmento (audiências/previews): steps + diagramação de listas (NREF006). */
   const formatAssistantSegment = (text: string): string =>
     withStructuredListLineBreaks(withStepLineBreaks(text));
 
   const assistantMarkdown = useMemo(() => {
     const base = withStepLineBreaks(cleanContent);
-    if (isRegisteredReportSuccessMessage) return withRegisteredReportLineBreaks(base);
+    // Resumo pós-registro (ex.: "Avaliação registrada!"): uma linha por campo. O
+    // marcador [..._CREATED] já foi removido de cleanContent, por isso convertemos
+    // direto (o gate já é o isRegisteredReportSuccessMessage, na content crua).
+    if (isRegisteredReportSuccessMessage) return toMarkdownHardBreaks(base);
     // NREF006 — diagramação: listas/tópicos (paradas, audiências, serviços…) renderizam
     // um item por linha em vez de bloco corrido (mobile-first).
     return withStructuredListLineBreaks(base);
