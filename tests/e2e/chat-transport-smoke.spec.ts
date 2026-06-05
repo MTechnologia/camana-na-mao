@@ -11,12 +11,17 @@ test.describe("Chat transporte — smoke", () => {
     test.setTimeout(60000);
     await page.goto("/");
 
-    const transportBtn = page.getByRole("button", { name: /Transporte/i }).first();
+    // "Transporte Público" é um chip primário da Home (NREF008), não fica mais no
+    // dropdown "Ver todos". Nome exato evita casar com itens do histórico de conversas
+    // na barra lateral (ex.: "Quero relatar um problema no transporte público").
+    const transportBtn = page
+      .getByRole("button", { name: "Transporte Público", exact: true })
+      .first();
     if (await transportBtn.isVisible().catch(() => false)) {
       await transportBtn.click();
     } else {
-      await page.getByRole("button", { name: /Ver todos/i }).click();
-      await page.getByRole("menuitem", { name: /Transporte/i }).click();
+      await page.fill("textarea", "Quero relatar um problema no transporte público");
+      await page.getByTestId("chat-send").click();
     }
 
     await expect(
