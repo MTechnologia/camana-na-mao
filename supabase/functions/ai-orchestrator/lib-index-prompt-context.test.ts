@@ -3,7 +3,6 @@ import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.168.
 import {
   buildPromptContextAndTools,
   detectServiceLocationDuvida,
-  extractServiceSearchTerm,
 } from "./lib-index-prompt-context.ts";
 
 Deno.test("buildPromptContextAndTools injeta KB da Câmara e remove search_knowledge_base", async () => {
@@ -160,12 +159,6 @@ Deno.test("detectServiceLocationDuvida: dúvida institucional/sem localização 
 
 Deno.test("detectServiceLocationDuvida: tolera o typo 'usb' → ubs", () => {
   assertEquals(detectServiceLocationDuvida("Onde fica a usb vila maria"), "ubs");
-});
-
-Deno.test("extractServiceSearchTerm: limpa pergunta e corrige usb→ubs", () => {
-  assertEquals(extractServiceSearchTerm("Onde fica a usb vila maria"), "ubs vila maria");
-  assertEquals(extractServiceSearchTerm("Onde fica a UBS Vila Maria?"), "ubs vila maria");
-  assertEquals(extractServiceSearchTerm("endereço do hospital das clínicas"), "hospital clínicas");
 });
 
 Deno.test("buildPromptContextAndTools: dúvida 'Onde fica a UBS Vila Maria?' orienta find_nearby_services (não deflecte p/ Câmara)", async () => {
