@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
+import { detectNamedServiceLocationQuery, prettyServiceName } from "./lib-service-location-query.ts";
 
 type PreAiShortcutsArgs = {
   accumulatedFields: Record<string, unknown>;
@@ -356,6 +357,47 @@ export async function handlePreAiShortcuts(
     const withMarker = `${lightJourneyMarker || ""}[COLLECTION_PROGRESS:services:${JSON.stringify(progressPayload)}]${askCepMsg}`;
     console.log("[ai-orchestrator] Services: ask CEP first (tipo já na pergunta):", inferredServiceTypeEarly);
     return { response: createSseResponse(withMarker, lib.corsHeaders) };
+  }
+
+  // GUARDA ANTI-ALUCINAÇÃO (qualquer intent/turno, inclusive follow-ups "E a UBS X?"):
+  // localização de serviço público NOMEADO é respondida de forma DETERMINÍSTICA a
+  // partir do public_services — ou com um "não encontrei" honesto (ex.: serviço de
+  // outro município, como uma UBS de Guarulhos). A LLM nunca responde isto, pois
+  // estava inventando nome, endereço e telefone.
+  const namedServiceQuery = detectNamedServiceLocationQuery(lastUserMessage);
+  if (namedServiceQuery) {
+    try {
+      const grounded = await lib.getServiceAddressByName(supabase, namedServiceQuery.term);
+      if (grounded) {
+        console.log("[ai-orchestrator] Service location (determinístico): endereço real de", namedServiceQuery.term);
+        return {
+          response: createSseResponse(
+            `Encontrei na base de serviços públicos de São Paulo:\n\n${grounded}\n\nPosso ajudar em mais alguma coisa?`,
+            lib.corsHeaders,
+          ),
+        };
+      }
+      const pretty = prettyServiceName(namedServiceQuery.term);
+      console.log("[ai-orchestrator] Service location (determinístico): não encontrado em SP →", namedServiceQuery.term);
+      return {
+        response: createSseResponse(
+          `Não encontrei **${pretty}** na base de serviços públicos da cidade de São Paulo. ` +
+            `Ela pode pertencer a outro município (eu só tenho dados de São Paulo) ou ainda não estar cadastrada. ` +
+            `Você pode confirmar pela central **156** ou no portal SP156. Posso ajudar em mais alguma coisa?`,
+          lib.corsHeaders,
+        ),
+      };
+    } catch (error) {
+      console.error("[ai-orchestrator] Service location shortcut failed:", error);
+      // Em erro NÃO caímos na LLM para localização (evita alucinação): resposta honesta.
+      return {
+        response: createSseResponse(
+          "Não consegui consultar a base de serviços agora. Tente novamente em instantes ou confirme pela central 156. " +
+            "Posso ajudar em mais alguma coisa?",
+          lib.corsHeaders,
+        ),
+      };
+    }
   }
 
   return {};

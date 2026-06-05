@@ -95,6 +95,70 @@ Deno.test("handlePreAiShortcuts pede CEP cedo para busca próxima de serviço", 
   assertEquals(text.includes("Qual é o CEP da sua região?"), true);
 });
 
+Deno.test("handlePreAiShortcuts: 'E a UBS Continental?' fora de SP → não inventa, responde honesto (anti-alucinação)", async () => {
+  let askedTerm = "";
+  const result = await handlePreAiShortcuts({
+    accumulatedFields: { report_nature: "duvida" },
+    chatMessages: [{ role: "user", content: "E a UBS Continental?" }],
+    collectionIntent: { type: "urban_report", fields: {} },
+    lastAssistantMessage: "",
+    lastUserMessage: "E a UBS Continental?",
+    lightJourneyMarker: "",
+    msgLower: "e a ubs continental?",
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      getServiceAddressByName: async (_s: unknown, term: string) => {
+        askedTerm = term;
+        return null; // não existe em São Paulo (é de Guarulhos)
+      },
+      inferServiceTypeFromText: () => "ubs",
+      isBusInformationalQuery: () => false,
+    } as any,
+  });
+
+  assertExists(result.response);
+  assertEquals(askedTerm, "ubs continental");
+  const text = await result.response!.text();
+  assertEquals(text.includes("Não encontrei"), true);
+  assertEquals(text.includes("São Paulo"), true);
+  assertEquals(text.includes("156"), true);
+  // NÃO pode inventar endereço/telefone:
+  assertEquals(/\d{4,5}-?\d{4}/.test(text), false); // sem telefone inventado
+  assertEquals(/rua|avenida|av\./i.test(text), false); // sem endereço inventado
+});
+
+Deno.test("handlePreAiShortcuts: 'Onde fica a UBS Vila Maria?' → endereço REAL do public_services", async () => {
+  const real = "UBS Vila Maria - Dr. Luiz Paulo Gnecco\n📍 R. André da Fonseca, 70, Vila Munhoz\n📞 3475-5203";
+  const result = await handlePreAiShortcuts({
+    accumulatedFields: {},
+    chatMessages: [{ role: "user", content: "Onde fica a UBS Vila Maria?" }],
+    collectionIntent: null,
+    lastAssistantMessage: "",
+    lastUserMessage: "Onde fica a UBS Vila Maria?",
+    lightJourneyMarker: "",
+    msgLower: "onde fica a ubs vila maria?",
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      getServiceAddressByName: async () => real,
+      inferServiceTypeFromText: () => "ubs",
+      isBusInformationalQuery: () => false,
+    } as any,
+  });
+
+  assertExists(result.response);
+  const text = await result.response!.text();
+  assertEquals(text.includes("R. André da Fonseca, 70"), true);
+  assertEquals(text.includes("base de serviços públicos de São Paulo"), true);
+});
+
 Deno.test("handlePreAiShortcuts monta rota após lista de serviços usando coordenadas acumuladas", async () => {
   const result = await handlePreAiShortcuts({
     accumulatedFields: { user_lat: -23.5, user_lon: -46.6 },

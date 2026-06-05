@@ -4,6 +4,7 @@ import { buildVertexPublisherModelId } from "../_shared/ai-provider.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
+import { extractServiceSearchTerm } from "./lib-service-location-query.ts";
 import { isVertexRagEnabled } from "./lib-vertex-rag.ts";
 
 /**
@@ -23,31 +24,6 @@ export function detectServiceLocationDuvida(description: string): string | null 
     /(\bonde\b|\bfica\b|\bficam\b|localiza|endere[cç]o|\bperto\b|pr[oó]xim|como\s+che(?:go|gar))/i.test(text);
   if (!asksLocation) return null;
   return inferServiceTypeFromText(text);
-}
-
-const SERVICE_QUERY_STOPWORDS = new Set([
-  "onde", "fica", "ficam", "localizacao", "localiza", "localizada", "localizado", "endereco",
-  "perto", "proximo", "proxima", "proximos", "proximas", "mais", "como", "chego", "chegar",
-  "qual", "quais", "gostaria", "quero", "saber", "favor", "por", "me", "dizer", "tem", "ha", "existe",
-  "uma", "um", "a", "o", "os", "as", "de", "da", "do", "das", "dos", "na", "no", "nas", "nos", "em", "pra", "para",
-]);
-
-/**
- * Extrai o termo de busca de um pedido de localização ("Onde fica a usb vila
- * maria" → "ubs vila maria"): corrige o typo usb→ubs e remove palavras de
- * pergunta/localização, para casar com getServiceAddressByName (full-text).
- */
-export function extractServiceSearchTerm(description: string): string {
-  const normalized = (description || "")
-    .toLowerCase()
-    .replace(/\busb\b/g, "ubs")
-    .replace(/[?!.,;:]/g, " ");
-  const kept = normalized
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter((tok) => !SERVICE_QUERY_STOPWORDS.has(tok.normalize("NFD").replace(/\p{M}/gu, "")));
-  const term = kept.join(" ").trim();
-  return term.length >= 3 ? term : (description || "").trim();
 }
 
 type PromptContextArgs = {
