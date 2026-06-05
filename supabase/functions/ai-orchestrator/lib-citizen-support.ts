@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { VereadorRecord } from "./lib-vereador-contact-query.ts";
+
 export function isCamaraFuncionamentoInternoQuery(contextText: string): boolean {
   const ctx = contextText.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
   const estruturaOuApresentacao =
@@ -398,6 +400,39 @@ export async function getUltimasNoticias(supabase: SupabaseClient, limit = 5): P
     return `${i + 1}. **${title}**\n   ${desc}${desc.length >= 200 ? "..." : ""}\n   Data: ${date} | Link: ${r.link || ""}`;
   });
   return "[Últimas notícias da Câmara (use este bloco para listar as 5 últimas no chat)]\n\n" + lines.join("\n\n");
+}
+
+/**
+ * Busca a lista oficial de vereadores (fetch-vereadores / CMSP) com os dados de
+ * CONTATO (telefone do ramal, e-mail, sala, andar, áreas). Usada para responder
+ * pedidos de contato de forma determinística, sem a LLM inventar. Retorna [] se
+ * não conseguir carregar (o chamador trata como "não consegui consultar agora").
+ */
+export async function fetchVereadorRecords(): Promise<VereadorRecord[]> {
+  const baseUrl = typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_URL") : undefined;
+  const anonKey = typeof Deno !== "undefined" ? Deno.env.get("SUPABASE_ANON_KEY") : undefined;
+  if (!baseUrl || !anonKey) return [];
+  try {
+    const res = await fetch(`${baseUrl}/functions/v1/fetch-vereadores`, {
+      headers: { Authorization: `Bearer ${anonKey}` },
+    });
+    if (!res.ok) return [];
+    const json = await res.json() as { vereadores?: Array<Record<string, unknown>> };
+    return (json.vereadores ?? []).map((v) => ({
+      name: String(v.name ?? ""),
+      party: String(v.party ?? ""),
+      phone: v.phone ? String(v.phone) : undefined,
+      email: v.email ? String(v.email) : undefined,
+      sala: v.sala ? String(v.sala) : undefined,
+      andar: v.andar ? String(v.andar) : undefined,
+      areasDeAtuacao: Array.isArray(v.areasDeAtuacao) ? (v.areasDeAtuacao as unknown[]).map(String) : undefined,
+      isSubstitute: Boolean(v.isSubstitute),
+      isOnLeave: Boolean(v.isOnLeave),
+    }));
+  } catch (e) {
+    console.warn("[fetchVereadorRecords] fetch-vereadores failed:", (e as Error).message);
+    return [];
+  }
 }
 
 export async function suggestCouncilMember(issueType: string, _description: string, _district?: string): Promise<string> {

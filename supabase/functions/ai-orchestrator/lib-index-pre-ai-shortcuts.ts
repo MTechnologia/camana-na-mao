@@ -3,6 +3,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import { detectNamedServiceLocationQuery, prettyServiceName } from "./lib-service-location-query.ts";
+import {
+  detectVereadorContactQuery,
+  formatVereadorContactReply,
+  matchVereador,
+  vereadorContactNoNameReply,
+  vereadorNotFoundReply,
+} from "./lib-vereador-contact-query.ts";
 
 type PreAiShortcutsArgs = {
   accumulatedFields: Record<string, unknown>;
@@ -394,6 +401,48 @@ export async function handlePreAiShortcuts(
         response: createSseResponse(
           "Não consegui consultar a base de serviços agora. Tente novamente em instantes ou confirme pela central 156. " +
             "Posso ajudar em mais alguma coisa?",
+          lib.corsHeaders,
+        ),
+      };
+    }
+  }
+
+  // GUARDA ANTI-ALUCINAÇÃO: contato de vereador (telefone/e-mail/gabinete/sala) é
+  // respondido de forma DETERMINÍSTICA a partir da lista oficial (fetch-vereadores /
+  // CMSP); campo ausente → canal oficial; vereador inexistente/erro → resposta
+  // honesta. A LLM nunca responde contato de vereador (inventava nome/tel/e-mail).
+  const vereadorContactQuery = detectVereadorContactQuery(lastUserMessage);
+  if (vereadorContactQuery) {
+    if (!vereadorContactQuery.name) {
+      console.log("[ai-orchestrator] Vereador contato (determinístico): sem nome específico → canal oficial");
+      return { response: createSseResponse(vereadorContactNoNameReply(), lib.corsHeaders) };
+    }
+    try {
+      const vereadores = await lib.fetchVereadorRecords();
+      if (vereadores.length === 0) {
+        return {
+          response: createSseResponse(
+            "Não consegui carregar a lista de vereadores agora. Você pode consultar os contatos em " +
+              "[/institucional/vereadores](/institucional/vereadores) ou ligar 156. Posso ajudar em mais alguma coisa?",
+            lib.corsHeaders,
+          ),
+        };
+      }
+      const match = matchVereador(vereadorContactQuery.name, vereadores);
+      if (match) {
+        console.log("[ai-orchestrator] Vereador contato (determinístico): dado real de", match.name);
+        return { response: createSseResponse(formatVereadorContactReply(match), lib.corsHeaders) };
+      }
+      console.log("[ai-orchestrator] Vereador contato (determinístico): não encontrado →", vereadorContactQuery.name);
+      return {
+        response: createSseResponse(vereadorNotFoundReply(vereadorContactQuery.name), lib.corsHeaders),
+      };
+    } catch (error) {
+      console.error("[ai-orchestrator] Vereador contact shortcut failed:", error);
+      return {
+        response: createSseResponse(
+          "Não consegui consultar a lista de vereadores agora. Veja os contatos em " +
+            "[/institucional/vereadores](/institucional/vereadores) ou ligue 156. Posso ajudar em mais alguma coisa?",
           lib.corsHeaders,
         ),
       };
