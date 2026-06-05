@@ -101,7 +101,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       : []),
     {
       id: 2.5,
-      label: "Relatos",
+      label: "Relatos Urbanos",
       icon: FileText,
       route: "/relatos",
     },
