@@ -75,6 +75,7 @@ export {
   inferServiceTypeFromText,
 } from "./lib-service-discovery.ts";
 export {
+  fetchVereadorRecords,
   getCitizenHistory,
   getServiceOccupancyStatusByName,
   getServiceOccupancyStatusByServiceId,
