@@ -3,6 +3,7 @@ import {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsDirectionsUrlFromAddresses,
   findNearbyServices,
+  formatServicesWithContext,
   getServiceAddressByName,
   getServiceTypeName,
   inferServiceTypeFromText,
@@ -75,6 +76,25 @@ Deno.test("findNearbyServices: estação de trem filtra source_layer e ordena po
   assertStringIncludes(out, "estações de trem (CPTM)");
   assertStringIncludes(out, "Estação Brás");
   assertEquals(out.includes("Endereço não informado"), false);
+});
+
+Deno.test("formatServicesWithContext: cada item em uma linha (quebra hard do Markdown)", () => {
+  const out = formatServicesWithContext(
+    [
+      { name: "Ponto A", district: "Centro", address: "Rua 1, 10" },
+      { name: "Ponto B", district: "Centro", address: "Rua 2, 20" },
+    ],
+    "transit_station",
+    null,
+    true,
+    "Av. Exemplo, 100",
+  );
+  // Quebra "hard" (dois espaços + \n) antes do 📍 e entre os itens, para não
+  // renderizar como bloco corrido no chat.
+  assertStringIncludes(out, "  \n   📍 Rua 1, 10");
+  assertStringIncludes(out, "  \n2. Ponto B");
+  // Não usa mais a junção por linha simples "\n\n" entre itens.
+  assertEquals(out.includes("Rua 1, 10\n\n2."), false);
 });
 
 Deno.test("getServiceAddressByName usa full-text (search_tsv), não ILIKE, e prefere melhor match", async () => {
