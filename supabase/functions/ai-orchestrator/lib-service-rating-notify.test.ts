@@ -29,7 +29,10 @@ function buildMockSupabase(options: { publicationStatus?: string; visitId?: stri
             }),
           }),
           update: () => ({
-            eq: async () => ({ error: null }),
+            // a implementação escopa por id E user_id: .update().eq("id").eq("user_id")
+            eq: () => ({
+              eq: async () => ({ error: null }),
+            }),
           }),
         };
       }
