@@ -159,6 +159,66 @@ Deno.test("handlePreAiShortcuts: 'Onde fica a UBS Vila Maria?' → endereço REA
   assertEquals(text.includes("base de serviços públicos de São Paulo"), true);
 });
 
+Deno.test("handlePreAiShortcuts: telefone de vereador → dado REAL da lista oficial (anti-alucinação)", async () => {
+  const result = await handlePreAiShortcuts({
+    accumulatedFields: {},
+    chatMessages: [{ role: "user", content: "qual o telefone do vereador Eduardo Suplicy?" }],
+    collectionIntent: null,
+    lastAssistantMessage: "",
+    lastUserMessage: "qual o telefone do vereador Eduardo Suplicy?",
+    lightJourneyMarker: "",
+    msgLower: "qual o telefone do vereador eduardo suplicy?",
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      fetchVereadorRecords: async () => [
+        { name: "Eduardo Suplicy", party: "PT", phone: "(11) 3396-4000" },
+        { name: "Erika Hilton", party: "PSOL", phone: "(11) 3396-4321" },
+      ],
+      inferServiceTypeFromText: () => null,
+      isBusInformationalQuery: () => false,
+    } as any,
+  });
+
+  assertExists(result.response);
+  const text = await result.response!.text();
+  assertEquals(text.includes("Eduardo Suplicy"), true);
+  assertEquals(text.includes("(11) 3396-4000"), true);
+});
+
+Deno.test("handlePreAiShortcuts: vereador inexistente → honesto, sem inventar contato", async () => {
+  const result = await handlePreAiShortcuts({
+    accumulatedFields: {},
+    chatMessages: [{ role: "user", content: "qual o e-mail do vereador Fulano de Tal?" }],
+    collectionIntent: null,
+    lastAssistantMessage: "",
+    lastUserMessage: "qual o e-mail do vereador Fulano de Tal?",
+    lightJourneyMarker: "",
+    msgLower: "qual o e-mail do vereador fulano de tal?",
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      fetchVereadorRecords: async () => [{ name: "Eduardo Suplicy", party: "PT", phone: "(11) 3396-4000" }],
+      inferServiceTypeFromText: () => null,
+      isBusInformationalQuery: () => false,
+    } as any,
+  });
+
+  assertExists(result.response);
+  const text = await result.response!.text();
+  assertEquals(text.includes("Não encontrei"), true);
+  assertEquals(text.includes("/institucional/vereadores"), true);
+  // nada de e-mail/telefone inventado:
+  assertEquals(text.includes("@"), false);
+  assertEquals(/\(11\)\s*\d{4}-?\d{4}/.test(text), false);
+});
+
 Deno.test("handlePreAiShortcuts monta rota após lista de serviços usando coordenadas acumuladas", async () => {
   const result = await handlePreAiShortcuts({
     accumulatedFields: { user_lat: -23.5, user_lon: -46.6 },
