@@ -17,6 +17,21 @@ describe("withStructuredListLineBreaks", () => {
     expect(out).toContain("  \n🕐 Horário:");
   });
 
+  it("quebra lista numerada (estações/serviços) em uma por linha", () => {
+    const input =
+      "Aqui estão as estações de trem (CPTM) mais próximas de você:\n\n1. Estação Cidade Jardim — a 712 m\n2. Estação Vila Olímpia — a 1,1 km\n3. Estação Berrini — a 2,2 km";
+    const out = withStructuredListLineBreaks(input);
+    expect(out).toContain("  \n1. Estação Cidade Jardim");
+    expect(out).toContain("  \n2. Estação Vila Olímpia");
+    expect(out).toContain("  \n3. Estação Berrini");
+  });
+
+  it("não confunde decimais/medidas (3,4 km) com itens numerados", () => {
+    // Vírgula decimal não casa \d+[.)]\s; só 1 'linha de lista' (o bullet) → intacto.
+    const input = "Distância total: 3,4 km\n• ponto único";
+    expect(withStructuredListLineBreaks(input)).toBe(input);
+  });
+
   it("não altera prosa comum (sem marcadores)", () => {
     const input = "Olá! Como posso ajudar?\nPosso registrar um relato urbano ou de transporte.";
     expect(withStructuredListLineBreaks(input)).toBe(input);
