@@ -253,7 +253,9 @@ Deno.test("create_transport_report: persiste relato e mantém resumo final", asy
 
   assertEquals(result.success, true);
   assertEquals(result.message.includes("[TRANSPORT_CREATED:new-id]"), true);
-  assertEquals(result.message.includes("**Linha:** 875A-10"), true);
+  // O resumo de transporte usa rótulos com emoji ("🚌 Linha:"), não markdown em
+  // negrito — diferente do relato urbano ("**Categoria:**").
+  assertEquals(result.message.includes("🚌 Linha: 875A-10"), true);
 });
 
 Deno.test("create_service_rating: persiste avaliação e mantém resumo final", async () => {
