@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -270,11 +270,15 @@ Ao utilizar a plataforma Câmara na Mão, você declara ter lido, compreendido e
 `;
 
 export default function PrivacyPolicyPage() {
-  const navigate = useNavigate();
+  const location = useLocation();
+  // Volta para a origem quando ela é informada (ex.: /perfil/consentimentos,
+  // /perfil/direitos ou /register passam state.from); senão, home. Evita o
+  // destino fixo "/" que tirava o usuário do fluxo de onde veio.
+  const backTo = (location.state as { from?: string } | null)?.from || "/";
 
   return (
     <div className="min-h-screen bg-background">
-      <PageHeader title="Política de Privacidade" backTo="/" />
+      <PageHeader title="Política de Privacidade" backTo={backTo} />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="mb-6">

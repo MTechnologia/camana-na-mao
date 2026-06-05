@@ -47,7 +47,7 @@ const NoticiaDetailPage = () => {
 
   if (isLoading) {
     return (
-      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/">
+      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/institucional/noticias">
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Skeleton className="w-12 h-12 rounded-full" />
@@ -71,7 +71,7 @@ const NoticiaDetailPage = () => {
 
   if (error || !noticia) {
     return (
-      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/">
+      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/institucional/noticias">
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">Notícia não encontrada</p>
           <Button onClick={() => navigate("/institucional/noticias")}>Ver todas as notícias</Button>
@@ -95,7 +95,7 @@ const NoticiaDetailPage = () => {
   };
 
   return (
-    <InstitutionalLayout title="Notícia" category={categoryStyle.label} backTo="/">
+    <InstitutionalLayout title="Notícia" category={categoryStyle.label} backTo="/institucional/noticias">
       <article className="space-y-6">
         {/* Header com categoria e badge NOVO */}
         <div className="flex items-center justify-between">

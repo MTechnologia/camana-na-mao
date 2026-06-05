@@ -80,7 +80,7 @@ const VereadorDetailPage = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
         <div className="flex items-center justify-between px-4 h-14">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/institucional/vereadores")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="font-medium text-sm truncate max-w-[200px]">{displayVereador.name}</h1>

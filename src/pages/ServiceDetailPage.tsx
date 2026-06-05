@@ -407,7 +407,7 @@ export default function ServiceDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Carregando..." />
+        <PageHeader title="Carregando..." backTo="/servicos-proximos" />
         <div className="p-4 space-y-4">
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-32 w-full" />
@@ -420,14 +420,14 @@ export default function ServiceDetailPage() {
   if (!service) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Serviço não encontrado" />
+        <PageHeader title="Serviço não encontrado" backTo="/servicos-proximos" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title={service.name} />
+      <PageHeader title={service.name} backTo="/servicos-proximos" />
 
       <div className="p-4 space-y-4">
         {/* Info Card */}
