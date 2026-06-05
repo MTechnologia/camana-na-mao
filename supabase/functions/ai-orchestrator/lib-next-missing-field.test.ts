@@ -35,10 +35,29 @@ Deno.test("getNextMissingField pede natureza no relato urbano", async () => {
   assertEquals(result.field, "report_nature");
 });
 
-Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (sem 'duvida') e tom de vereador", async () => {
+Deno.test("getNextMissingField: feedback_camara pergunta PRIMEIRO o vereador (seletor oficial)", async () => {
   const result = await getNextMissingField(
     "urban_report",
     { category: "feedback_camara" },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "council_member_name");
+  assertEquals(result.prompt?.includes("[VEREADOR_PICKER]"), true);
+});
+
+Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (sem 'duvida') após o vereador", async () => {
+  const result = await getNextMissingField(
+    "urban_report",
+    { category: "feedback_camara", council_member_name: "Eduardo Suplicy" },
     // deno-lint-ignore no-explicit-any
     mockSupabase as any,
     // deno-lint-ignore no-explicit-any
@@ -54,6 +73,30 @@ Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (se
   assertEquals(result.prompt?.includes("[QUICK_REPLY:reclamacao,sugestao,elogio]"), true);
   assertEquals(result.prompt?.includes("duvida"), false);
   assertEquals(result.prompt?.toLowerCase().includes("vereador"), true);
+});
+
+Deno.test("getNextMissingField: 'elogiar vereador' com natureza já preenchida NÃO pergunta o tipo de novo", async () => {
+  // report_nature vem de extractChamberFields ("elogiar" → elogio); com o vereador
+  // escolhido, o fluxo deve pular a pergunta de tipo e ir para a mensagem.
+  const result = await getNextMissingField(
+    "urban_report",
+    { category: "feedback_camara", council_member_name: "Eduardo Suplicy", report_nature: "elogio" },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      isBareUrbanReportNatureReply: () => false,
+      isValidUrbanReportDescription: () => false,
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "description"); // pede a mensagem, NÃO o tipo
+  assertEquals(result.prompt?.includes("[QUICK_REPLY:reclamacao"), false);
+  assertEquals(result.prompt?.toLowerCase().includes("elogiar"), true);
 });
 
 Deno.test("getNextMissingField: feedback_camara não pede localização (pula CEP/endereço) e conclui", async () => {
