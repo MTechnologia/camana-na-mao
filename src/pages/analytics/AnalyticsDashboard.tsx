@@ -173,7 +173,7 @@ const AnalyticsDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PageHeader title="Análise de Dados" />
+      <PageHeader title="Análise de Dados" backTo="/" />
 
       <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6 animate-fade-in">
         {/* Filter Bar */}
