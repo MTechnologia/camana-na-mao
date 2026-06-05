@@ -1,10 +1,12 @@
 import { ResponsiveContainer, Treemap } from "recharts";
 import type { SentimentTreemapCell } from "@/types/analyticsDrill";
+import { fitLabel, treemapLabelMode, wrapLabel } from "./sentimentTreemapLabels";
 
 /**
- * Treemap de sentimento por território: tamanho = volume real de relatos,
- * cor = sentimento médio real (verde/neutro/vermelho); cinza quando não há
- * amostra real de sentimento. Clicar drila para o próximo nível (volume real).
+ * Treemap de sentimento por território: tamanho reflete o volume de relatos
+ * (área = raiz quadrada do volume, p/ não gerar caixas "exageradas" nem zonas
+ * ilegíveis), cor = sentimento médio real (verde/neutro/vermelho); cinza quando
+ * não há amostra real de sentimento. Clicar drila para o próximo nível.
  */
 
 type SentimentTreemapProps = {
@@ -13,13 +15,14 @@ type SentimentTreemapProps = {
   onSelect?: (cell: SentimentTreemapCell) => void;
 };
 
-type CellStyle = { fill: string; darkText: boolean; tone: string };
+type CellStyle = { fill: string; tone: string };
 
 function styleForScore(score: number | null): CellStyle {
-  if (score == null) return { fill: "hsl(215 16% 60%)", darkText: false, tone: "Sem amostra" };
-  if (score >= 55) return { fill: "hsl(var(--chart-1))", darkText: false, tone: "Positivo" };
-  if (score <= 45) return { fill: "hsl(var(--chart-5))", darkText: false, tone: "Negativo" };
-  return { fill: "hsl(var(--chart-3))", darkText: true, tone: "Neutro" };
+  // Texto sempre branco com halo escuro (LABEL_HALO) — legível em qualquer cor.
+  if (score == null) return { fill: "hsl(215 16% 60%)", tone: "Sem amostra" };
+  if (score >= 55) return { fill: "hsl(var(--chart-1))", tone: "Positivo" };
+  if (score <= 45) return { fill: "hsl(var(--chart-5))", tone: "Negativo" };
+  return { fill: "hsl(var(--chart-3))", tone: "Neutro" };
 }
 
 /**
@@ -40,13 +43,14 @@ type TreemapNodeProps = Partial<SentimentTreemapCell> & {
   onSelect?: (cell: SentimentTreemapCell) => void;
 };
 
-/** Trunca o rótulo ao que cabe na largura da caixa (≈ 6.8px/char em 12px/600). */
-function fitLabel(label: string, width: number): string {
-  const max = Math.max(0, Math.floor((width - 16) / 6.8));
-  if (label.length <= max) return label;
-  if (max <= 1) return "";
-  return `${label.slice(0, max - 1)}…`;
-}
+/** Halo escuro atrás do texto branco: legível sobre qualquer cor (verde/laranja/
+ * vermelho/cinza) e elimina o "estouro" do branco sobre o laranja claro. */
+const LABEL_HALO = {
+  paintOrder: "stroke" as const,
+  stroke: "rgba(0,0,0,0.6)",
+  strokeWidth: 3,
+  strokeLinejoin: "round" as const,
+};
 
 function TreemapCell({
   x = 0,
@@ -75,14 +79,16 @@ function TreemapCell({
     filterValue: filterValue ?? id,
   };
 
-  const { fill, darkText } = styleForScore(sentimentScore);
-  const textColor = darkText ? "hsl(var(--foreground))" : "#ffffff";
+  const { fill, tone } = styleForScore(sentimentScore);
   const selected = selectedId === id;
-  const showLabel = width > 64 && height > 38;
+  const mode = treemapLabelMode(width, height);
   const clipId = `tm-clip-${index}-${Math.round(x)}-${Math.round(y)}`;
+  const countText = `${volume} relato${volume === 1 ? "" : "s"}`;
 
   return (
     <g style={{ cursor: onSelect ? "pointer" : "default" }} onClick={() => onSelect?.(cell)}>
+      {/* Tooltip nativo: garante o nome completo mesmo quando o rótulo é truncado. */}
+      <title>{`${cell.label} — ${countText}${tone ? ` · ${tone}` : ""}`}</title>
       <rect
         x={x}
         y={y}
@@ -95,33 +101,64 @@ function TreemapCell({
           strokeWidth: selected ? 3 : 2,
         }}
       />
-      {showLabel ? (
-        <>
-          <clipPath id={clipId}>
-            <rect x={x} y={y} width={width} height={height} rx={6} />
-          </clipPath>
-          <text
-            x={x + 8}
-            y={y + 20}
-            fill={textColor}
-            fontSize={12}
-            fontWeight={600}
-            clipPath={`url(#${clipId})`}
-            className="select-none"
-          >
-            {fitLabel(cell.label, width)}
-          </text>
-          <text
-            x={x + 8}
-            y={y + 36}
-            fill={textColor}
-            fontSize={11}
-            clipPath={`url(#${clipId})`}
-            className="select-none"
-          >
-            {volume} relato{volume === 1 ? "" : "s"}
-          </text>
-        </>
+      {mode === "horizontal" ? (
+        (() => {
+          // Nomes longos (bairros) quebram em até 2 linhas em células com altura;
+          // assim "Vila Andrade"/"Jardim Esmeralda" não cortam tudo numa linha só.
+          const lineH = 12;
+          const nameLines = wrapLabel(cell.label, width, 5.7, height >= 50 ? 2 : 1);
+          const showCount = height > 30;
+          const countY = y + 14 + (nameLines.length - 1) * lineH + 13;
+          return (
+            <>
+              <clipPath id={clipId}>
+                <rect x={x} y={y} width={width} height={height} rx={6} />
+              </clipPath>
+              <text
+                x={x + 6}
+                y={y + 14}
+                fill="#ffffff"
+                fontSize={10}
+                fontWeight={600}
+                clipPath={`url(#${clipId})`}
+                className="select-none"
+                style={LABEL_HALO}
+              >
+                {nameLines.map((ln, i) => (
+                  <tspan key={i} x={x + 6} dy={i === 0 ? 0 : lineH}>
+                    {ln}
+                  </tspan>
+                ))}
+              </text>
+              {showCount ? (
+                <text
+                  x={x + 6}
+                  y={countY}
+                  fill="#ffffff"
+                  fontSize={9}
+                  clipPath={`url(#${clipId})`}
+                  className="select-none"
+                  style={LABEL_HALO}
+                >
+                  {fitLabel(countText, width, 5.1)}
+                </text>
+              ) : null}
+            </>
+          );
+        })()
+      ) : mode === "vertical" ? (
+        // Girado -90°: lê de baixo para cima, usando a altura da coluna fina.
+        // O comprimento é limitado pela altura (fitLabel), então não vaza a célula.
+        <text
+          transform={`translate(${x + width / 2 + 4}, ${y + height - 6}) rotate(-90)`}
+          fill="#ffffff"
+          fontSize={10}
+          fontWeight={600}
+          className="select-none"
+          style={LABEL_HALO}
+        >
+          {fitLabel(`${cell.label} · ${countText}`, height - 6, 5.7)}
+        </text>
       ) : null}
     </g>
   );
@@ -143,13 +180,21 @@ export function SentimentTreemap({ cells, selectedId, onSelect }: SentimentTreem
     );
   }
 
+  // Área comprimida (raiz quadrada do volume): zonas com muitos relatos não viram
+  // caixas "exageradas" e as de baixo volume ganham área suficiente para o nome
+  // caber. A ordem por volume é preservada (monotônica); o número real de relatos
+  // segue no rótulo e no tooltip. dataKey passa a ser "area" (não "volume").
+  const sized = cells.map((c) => ({ ...c, area: Math.sqrt(Math.max(0, c.volume)) }));
+
   return (
     <div className="space-y-2">
-      <div className="h-[280px] w-full">
+      {/* Mais alto no celular: dá área vertical às colunas finas (zonas de baixo
+          volume); volta ao normal no desktop. */}
+      <div className="h-[360px] w-full sm:h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
-            data={cells}
-            dataKey="volume"
+            data={sized}
+            dataKey="area"
             isAnimationActive={false}
             stroke="hsl(var(--card))"
             content={<TreemapCell selectedId={selectedId} onSelect={onSelect} />}
@@ -166,7 +211,7 @@ export function SentimentTreemap({ cells, selectedId, onSelect }: SentimentTreem
             {l.label}
           </span>
         ))}
-        <span className="text-muted-foreground/70">· tamanho = volume · clique para detalhar</span>
+        <span className="text-muted-foreground/70">· tamanho reflete o volume · clique para detalhar</span>
       </div>
     </div>
   );
