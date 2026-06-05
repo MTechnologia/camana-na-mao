@@ -255,3 +255,34 @@ Deno.test("detectCollectionIntent: relato urbano que cita o vereador continua ur
   // urbano (há problema concreto), não o de feedback à Câmara.
   assertEquals(fieldCategory(result), "lixo");
 });
+
+Deno.test("detectCollectionIntent: 'estação de trem mais próxima' → services (não relato de transporte)", () => {
+  const result = detectCollectionIntent(
+    "Qual a estação de trem mais próxima?",
+    [{ role: "user", content: "Qual a estação de trem mais próxima?" }],
+    baseDeps,
+  );
+  assertEquals(result?.type, "services");
+});
+
+Deno.test("detectCollectionIntent: 'onde fica a estação da Luz' → services (localização de transporte)", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "onde fica a estação da Luz",
+      [{ role: "user", content: "onde fica a estação da Luz" }],
+      baseDeps,
+    )?.type,
+    "services",
+  );
+});
+
+Deno.test("detectCollectionIntent: PROBLEMA no transporte continua transport_report", () => {
+  assertEquals(
+    detectCollectionIntent(
+      "o trem está sempre lotado e atrasado",
+      [{ role: "user", content: "o trem está sempre lotado e atrasado" }],
+      baseDeps,
+    )?.type,
+    "transport_report",
+  );
+});

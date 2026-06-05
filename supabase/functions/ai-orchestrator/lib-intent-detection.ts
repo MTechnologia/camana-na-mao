@@ -713,8 +713,23 @@ export function detectCollectionIntent(
     "lotado", "lotação", "lotacao", "atraso", "atrasou", "atrasando", "atrasada",
     "demora", "demorando", "demorou", "não passou", "nao passou", "quebrou", "freada", "freou", "sujo", "fedendo",
   ];
+  // "Qual a estação de trem/metrô mais próxima?", "onde fica a estação" → é busca
+  // de LOCALIZAÇÃO de um equipamento de transporte (transit_station), NÃO um relato
+  // de problema. Antes caía no relato de transporte ("qual detalhe descreve o
+  // problema?"). Roteamos como serviço próximo (find_nearby), salvo se houver
+  // sinal de PROBLEMA (lotado, atrasou, não consegui embarcar, etc.).
+  const transitEntity = /\b(esta[cç][aã]o|estac[aã]o|metr[oô]|trem|cptm|terminal|parada|ponto\s+de\s+[oô]nibus)\b/i;
+  const transitLocationIntent =
+    /mais\s+pr[oó]xim|mais\s+perto|perto\s+de|perto\s+daqui|onde\s+fica|onde\s+tem|cad[eê]\b|como\s+chego|pr[oó]xim[ao]\b/i;
+  const transitProblem =
+    /lotad|lota[cç]|atras|demora|n[aã]o\s+passou|quebr|fread|\bsujo\b|fedend|\bfila\b|superlotad|embarcar|ar[- ]?condicionado|ass[ée]dio|reclam|denunci|\bproblema\b/i;
+  const isTransitLocationQuery = !busInfoQuery &&
+    transitEntity.test(fullUserContext) &&
+    transitLocationIntent.test(fullUserContext) &&
+    !transitProblem.test(fullUserContext);
+
   let transportScore = 0;
-  if (!busInfoQuery) {
+  if (!busInfoQuery && !isTransitLocationQuery) {
     transportDomain.forEach((kw) => {
       if (contextIncludes(fullUserContext,kw)) transportScore += 4;
     });
@@ -729,6 +744,10 @@ export function detectCollectionIntent(
   }
   if (transportScore > 0) {
     scores.push({ type: "transport_report", score: transportScore, fields: extractTransportFields(fullUserContext) });
+  }
+  if (isTransitLocationQuery) {
+    scores.push({ type: "services", score: 12, fields: {} });
+    console.log("[detectCollectionIntent] Transit location/proximity query → services (find nearby transit_station)");
   }
 
   // Consulta institucional/estrutural sobre a Câmara (ex.: "conhecer a estrutura
