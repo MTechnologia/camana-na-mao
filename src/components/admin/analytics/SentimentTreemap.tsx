@@ -1,6 +1,6 @@
 import { ResponsiveContainer, Treemap } from "recharts";
 import type { SentimentTreemapCell } from "@/types/analyticsDrill";
-import { fitLabel, treemapLabelMode } from "./sentimentTreemapLabels";
+import { fitLabel, treemapLabelMode, wrapLabel } from "./sentimentTreemapLabels";
 
 /**
  * Treemap de sentimento por território: tamanho reflete o volume de relatos
@@ -102,36 +102,50 @@ function TreemapCell({
         }}
       />
       {mode === "horizontal" ? (
-        <>
-          <clipPath id={clipId}>
-            <rect x={x} y={y} width={width} height={height} rx={6} />
-          </clipPath>
-          <text
-            x={x + 6}
-            y={y + 14}
-            fill="#ffffff"
-            fontSize={10}
-            fontWeight={600}
-            clipPath={`url(#${clipId})`}
-            className="select-none"
-            style={LABEL_HALO}
-          >
-            {fitLabel(cell.label, width, 5.7)}
-          </text>
-          {height > 32 ? (
-            <text
-              x={x + 6}
-              y={y + 27}
-              fill="#ffffff"
-              fontSize={9}
-              clipPath={`url(#${clipId})`}
-              className="select-none"
-              style={LABEL_HALO}
-            >
-              {fitLabel(countText, width, 5.1)}
-            </text>
-          ) : null}
-        </>
+        (() => {
+          // Nomes longos (bairros) quebram em até 2 linhas em células com altura;
+          // assim "Vila Andrade"/"Jardim Esmeralda" não cortam tudo numa linha só.
+          const lineH = 12;
+          const nameLines = wrapLabel(cell.label, width, 5.7, height >= 50 ? 2 : 1);
+          const showCount = height > 30;
+          const countY = y + 14 + (nameLines.length - 1) * lineH + 13;
+          return (
+            <>
+              <clipPath id={clipId}>
+                <rect x={x} y={y} width={width} height={height} rx={6} />
+              </clipPath>
+              <text
+                x={x + 6}
+                y={y + 14}
+                fill="#ffffff"
+                fontSize={10}
+                fontWeight={600}
+                clipPath={`url(#${clipId})`}
+                className="select-none"
+                style={LABEL_HALO}
+              >
+                {nameLines.map((ln, i) => (
+                  <tspan key={i} x={x + 6} dy={i === 0 ? 0 : lineH}>
+                    {ln}
+                  </tspan>
+                ))}
+              </text>
+              {showCount ? (
+                <text
+                  x={x + 6}
+                  y={countY}
+                  fill="#ffffff"
+                  fontSize={9}
+                  clipPath={`url(#${clipId})`}
+                  className="select-none"
+                  style={LABEL_HALO}
+                >
+                  {fitLabel(countText, width, 5.1)}
+                </text>
+              ) : null}
+            </>
+          );
+        })()
       ) : mode === "vertical" ? (
         // Girado -90°: lê de baixo para cima, usando a altura da coluna fina.
         // O comprimento é limitado pela altura (fitLabel), então não vaza a célula.

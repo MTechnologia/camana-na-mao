@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitLabel, treemapLabelMode } from "./sentimentTreemapLabels";
+import { fitLabel, treemapLabelMode, wrapLabel } from "./sentimentTreemapLabels";
 
 describe("treemapLabelMode", () => {
   it("usa rótulo horizontal em células largas", () => {
@@ -39,5 +39,29 @@ describe("fitLabel", () => {
     const grande = fitLabel("Zona Leste", w, 6.8); // ~12px
     const pequena = fitLabel("Zona Leste", w, 5.7); // ~10px
     expect(pequena.length).toBeGreaterThanOrEqual(grande.length);
+  });
+});
+
+describe("wrapLabel", () => {
+  it("quebra nome de bairro em 2 linhas numa célula estreita (sem cortar tudo)", () => {
+    // Regressão distrito: "Vila Andrade"/"Jardim Esmeralda" cortavam em 1 linha.
+    expect(wrapLabel("Vila Andrade", 55, 5.7, 2)).toEqual(["Vila", "Andrade"]);
+    const jardim = wrapLabel("Jardim Esmeralda", 55, 5.7, 2);
+    expect(jardim[0]).toBe("Jardim");
+    expect(jardim).toHaveLength(2);
+  });
+
+  it("mantém em 1 linha quando o nome cabe", () => {
+    expect(wrapLabel("Brooklin Paulista", 130, 5.7, 2)).toEqual(["Brooklin Paulista"]);
+  });
+
+  it("com maxLines=1 cai no truncamento simples", () => {
+    const out = wrapLabel("Jardim Esmeralda", 55, 5.7, 1);
+    expect(out).toHaveLength(1);
+    expect(out[0].endsWith("…")).toBe(true);
+  });
+
+  it("retorna vazio para rótulo vazio", () => {
+    expect(wrapLabel("", 100)).toEqual([]);
   });
 });
