@@ -72,6 +72,15 @@ const ROUTE_TITLES: Record<string, string> = {
   "/institucional/noticias": "Notícias",
 };
 
+// Destino fixo do "Voltar" por rota (NREF007). Quando ausente, mantém o
+// comportamento padrão (histórico do browser, navigate(-1)). Páginas de topo
+// como Conversas e Favoritos têm header só pelo AppLayout — aqui damos um
+// destino previsível em vez de depender de como o usuário chegou.
+const ROUTE_BACK_TO: Record<string, string> = {
+  "/conversas": "/",
+  "/servicos/favoritos": "/perfil",
+};
+
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -118,7 +127,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <>
-      {!isHeaderlessRoute && <PageHeader title={getTitle()} onBack={() => navigate(-1)} />}
+      {!isHeaderlessRoute && (
+        (() => {
+          const fixedBackTo = ROUTE_BACK_TO[location.pathname];
+          return (
+            <PageHeader
+              title={getTitle()}
+              backTo={fixedBackTo}
+              onBack={fixedBackTo ? undefined : () => navigate(-1)}
+            />
+          );
+        })()
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div
