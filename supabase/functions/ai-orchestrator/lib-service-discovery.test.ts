@@ -33,6 +33,13 @@ Deno.test("inferServiceTypeFromText: reconhece tipos de serviço comuns", () => 
   assertEquals(inferServiceTypeFromText("Onde fica o mercado municipal?"), "city_market");
 });
 
+Deno.test("inferServiceTypeFromText: estação/trem/metrô/CPTM → transit_station", () => {
+  assertEquals(inferServiceTypeFromText("Qual a estação de trem mais próxima?"), "transit_station");
+  assertEquals(inferServiceTypeFromText("estação de metrô perto de mim"), "transit_station");
+  assertEquals(inferServiceTypeFromText("onde fica a estação da Luz"), "transit_station");
+  assertEquals(inferServiceTypeFromText("terminal de ônibus próximo"), "transit_station");
+});
+
 Deno.test("getServiceAddressByName usa full-text (search_tsv), não ILIKE, e prefere melhor match", async () => {
   const { calls, client } = makeSupabaseMock([
     { name: "UBS Jardim Lmisboa", address: "Rua A, 1", district: "Brasilândia", phone: null },

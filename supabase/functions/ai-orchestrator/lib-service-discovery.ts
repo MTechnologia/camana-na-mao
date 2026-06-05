@@ -71,7 +71,7 @@ export function inferServiceTypeFromText(text: string): string | null {
   if (/\bteatro[s]?\b|cinema[s]?\b/.test(t)) return "theater";
   if (/\bmuseu[s]?\b/.test(t)) return "museum";
   if (/\bassist[eê]n[cç]ia[s]?\s+social(is)?|\bassist[eê]n[cç]ia[s]?\s+sociais\b|cr[aá]s?\b|social/.test(t)) return "social_assistance";
-  if (/\btransporte[s]?\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return "transit_station";
+  if (/\btransporte[s]?\b|\btrem\b|\bmetr[oô]\b|\bcptm\b|\besta[cç][aã]o\b|\bterminal\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+(?:trem|metr[oô]|[oô]nibus))\b/.test(t)) return "transit_station";
   if (/\bdelegacia[s]?\b|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return "police_station";
   if (/\bcemit[eé]rio[s]?\b/.test(t)) return "cemetery";
   if (/\bacessibilidade|acess[ií]vel/.test(t)) return "accessibility";
