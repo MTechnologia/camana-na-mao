@@ -259,24 +259,30 @@ function extractDemandDescriptionFromChat(
       continue;
     }
     if (/^(sim|n[aã]o|nao|ok|\d+)$/i.test(text)) continue;
+    // Não confundir a mensagem de SELEÇÃO do vereador com a demanda do cidadão:
+    // "Nome (PARTIDO)" ou "encaminhar/enviar para <nome>" não são a demanda.
+    if (/\([^)]+\)\s*$/.test(text)) continue;
+    if (/\b(encaminh|enviar|mandar|escolho|prefiro)\b/i.test(text)) continue;
     if (!best || text.length > best.length) best = text;
   }
   return best;
 }
+
+type ResolvedReferralReport = { id: string | null; autoCreatedNature: "sugestao" | null };
 
 async function resolveUrbanReportIdForReferral(
   chatMessages: Array<Record<string, unknown>>,
   supabase: SupabaseClient,
   userId: string,
   lib: typeof import("./lib.ts"),
-): Promise<string | null> {
+): Promise<ResolvedReferralReport> {
   const { urbanReportId } = extractLatestCreatedReportIds(chatMessages);
-  if (urbanReportId) return urbanReportId;
+  if (urbanReportId) return { id: urbanReportId, autoCreatedNature: null };
 
-  if (typeof lib.executeTool !== "function") return null;
+  if (typeof lib.executeTool !== "function") return { id: null, autoCreatedNature: null };
 
   const description = extractDemandDescriptionFromChat(chatMessages);
-  if (!description) return null;
+  if (!description) return { id: null, autoCreatedNature: null };
 
   try {
     const toolResult = await lib.executeTool(
@@ -302,14 +308,16 @@ async function resolveUrbanReportIdForReferral(
         "[ai-orchestrator] Auto urban report for council referral failed:",
         toolResult.message?.slice(0, 200),
       );
-      return null;
+      return { id: null, autoCreatedNature: null };
     }
 
     const createdMatch = toolResult.message.match(/\[REPORT_CREATED:([0-9a-f-]{36})\]/i);
-    return createdMatch?.[1] ?? null;
+    // Relato auto-criado a partir de texto livre é tratado como sugestão
+    // (report_nature: "sugestao" acima) — usado no encerramento humanizado.
+    return { id: createdMatch?.[1] ?? null, autoCreatedNature: createdMatch?.[1] ? "sugestao" : null };
   } catch (error) {
     console.warn("[ai-orchestrator] resolveUrbanReportIdForReferral error:", error);
-    return null;
+    return { id: null, autoCreatedNature: null };
   }
 }
 
@@ -369,7 +377,8 @@ export async function handleCouncilShortcuts(
   if (botJustShowedCouncilList && parsedSelection && chatMessages.length > 0) {
     const { councilName, councilParty } = parsedSelection;
     const { transportReportId } = extractLatestCreatedReportIds(chatMessages);
-    const urbanReportId = await resolveUrbanReportIdForReferral(chatMessages, supabase, userId, lib);
+    const resolvedReport = await resolveUrbanReportIdForReferral(chatMessages, supabase, userId, lib);
+    const urbanReportId = resolvedReport.id;
 
     const demandDescription = extractDemandDescriptionFromChat(chatMessages);
     const councilId = councilName.toLowerCase()
@@ -389,7 +398,9 @@ export async function handleCouncilShortcuts(
     if (urbanReportId) referralRow.urban_report_id = urbanReportId;
     else if (transportReportId) referralRow.transport_report_id = transportReportId;
 
-    const reportNature = extractReportNatureFromChat(chatMessages);
+    // Nature do encerramento: o marcador de coleta tem prioridade; se o relato foi
+    // auto-criado a partir de texto livre, refletimos a "sugestao" usada na criação.
+    const reportNature = extractReportNatureFromChat(chatMessages) ?? resolvedReport.autoCreatedNature;
     if (urbanReportId || transportReportId) {
       const { error: refError } = await supabase.from("council_member_referrals").insert(referralRow);
       if (!refError) {
