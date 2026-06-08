@@ -371,7 +371,19 @@ export async function handlePreAiShortcuts(
   // partir do public_services — ou com um "não encontrei" honesto (ex.: serviço de
   // outro município, como uma UBS de Guarulhos). A LLM nunca responde isto, pois
   // estava inventando nome, endereço e telefone.
-  const namedServiceQuery = detectNamedServiceLocationQuery(lastUserMessage);
+  //
+  // EXCEÇÃO: dentro do fluxo de Avaliação de Serviço (service_rating) a UBS já foi
+  // escolhida numa lista e a bolha de seleção carrega [SERVICE_ID:<uuid>]. Esse caso
+  // deve ser resolvido pelo service_id pelo fluxo de coleta — NÃO por busca textual de
+  // nome. Sem essa exceção, a guarda concatena nome+bairro+endereço+marcador num termo
+  // que não casa no full-text e responde "não encontrei" para um serviço que existe.
+  // (Mesmo princípio do picker de ocupação acima, que resolve por service_id.)
+  // Ver bug-2026-06-08-avaliacao-de-servico-ubs-selecionada-na-lista-retorna-nao-encontrei.
+  const isExplicitServicePick = /\[SERVICE_ID:[a-f0-9-]{36}\]/i.test(lastUserMessage);
+  const inServiceRatingFlow = collectionIntent?.type === "service_rating";
+  const namedServiceQuery = (isExplicitServicePick || inServiceRatingFlow)
+    ? null
+    : detectNamedServiceLocationQuery(lastUserMessage);
   if (namedServiceQuery) {
     try {
       const grounded = await lib.getServiceAddressByName(supabase, namedServiceQuery.term);
