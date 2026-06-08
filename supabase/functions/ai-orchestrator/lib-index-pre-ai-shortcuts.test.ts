@@ -131,6 +131,44 @@ Deno.test("handlePreAiShortcuts: 'E a UBS Continental?' fora de SP → não inve
   assertEquals(/rua|avenida|av\./i.test(text), false); // sem endereço inventado
 });
 
+Deno.test("handlePreAiShortcuts: seleção de UBS no fluxo de avaliação NÃO é sequestrada pela guarda de serviço nomeado", async () => {
+  let calledNameLookup = false;
+  // Bolha enviada ao escolher na lista do passo "Qual UBS você visitou?": carrega
+  // [SERVICE_ID:<uuid>] e deve ser resolvida pelo service_id, não por busca textual.
+  // Regressão de bug-2026-06-08-avaliacao-de-servico-ubs-selecionada-na-lista-retorna-nao-encontrei.
+  const pick =
+    "Serviço: UBS BUTANTÃ - VL GOMES Endereço: R. CABRAL DE MENEZES, 51 [SERVICE_ID:1c27b05d-4c83-461b-954d-43cefbae5492]";
+  const result = await handlePreAiShortcuts({
+    accumulatedFields: { service_type: "ubs" },
+    chatMessages: [
+      { role: "assistant", content: "Qual UBS você visitou em Butantã? Selecione na lista abaixo. [SERVICE_PICKER]" },
+      { role: "user", content: pick },
+    ],
+    collectionIntent: { type: "service_rating", fields: { service_type: "ubs" } },
+    lastAssistantMessage: "Qual UBS você visitou em Butantã? Selecione na lista abaixo. [SERVICE_PICKER]",
+    lastUserMessage: pick,
+    lightJourneyMarker: "",
+    msgLower: pick.toLowerCase(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      getServiceAddressByName: async () => {
+        calledNameLookup = true;
+        return null;
+      },
+      inferServiceTypeFromText: () => "ubs",
+      isBusInformationalQuery: () => false,
+    } as any,
+  });
+
+  // A guarda de serviço nomeado NÃO deve rodar (nem por nome) → segue o fluxo de coleta.
+  assertEquals(calledNameLookup, false);
+  assertEquals(result.response, undefined);
+});
+
 Deno.test("handlePreAiShortcuts: 'Onde fica a UBS Vila Maria?' → endereço REAL do public_services", async () => {
   const real = "UBS Vila Maria - Dr. Luiz Paulo Gnecco\n📍 R. André da Fonseca, 70, Vila Munhoz\n📞 3475-5203";
   const result = await handlePreAiShortcuts({
