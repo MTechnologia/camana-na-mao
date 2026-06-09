@@ -852,6 +852,25 @@ export function detectCollectionIntent(
       if (contextIncludes(fullUserContext,kw)) chamberScore += 4;
     });
   }
+  // Intenção explícita de DAR FEEDBACK a um vereador, mesmo sem citar a natureza
+  // ("quero falar sobre um vereador", "feedback sobre o vereador"). Sem este boost,
+  // só "vereador" (=5) ficava abaixo do threshold (9) e o LLM assumia o turno,
+  // pulando o seletor oficial; com ele a coleta determinística abre o [VEREADOR_PICKER]
+  // já na primeira mensagem (vereador → tipo → mensagem).
+  const explicitChamberFeedbackPhrases = [
+    "falar sobre um vereador", "falar sobre o vereador", "falar sobre a vereadora", "falar sobre uma vereadora",
+    "falar de um vereador", "falar do vereador", "falar sobre vereador", "falar de vereador",
+    "feedback sobre um vereador", "feedback sobre o vereador", "feedback sobre vereador",
+    "feedback de um vereador", "feedback para um vereador", "feedback a um vereador",
+    "dar um feedback sobre vereador", "dar feedback sobre vereador",
+    "comentar sobre um vereador", "comentar sobre o vereador",
+    "falar sobre um parlamentar", "falar de um parlamentar", "feedback sobre um parlamentar",
+  ];
+  const hasExplicitChamberFeedbackIntent = chamberAnchored &&
+    explicitChamberFeedbackPhrases.some((p) => contextIncludes(fullUserContext, p));
+  if (hasExplicitChamberFeedbackIntent) {
+    chamberScore += 5;
+  }
   const isContactQuestionAboutChamberEarly = isInformationalQuestionAboutContact(userMessage);
   if (
     chamberAnchored &&

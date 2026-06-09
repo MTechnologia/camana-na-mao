@@ -54,6 +54,27 @@ Deno.test("getNextMissingField: feedback_camara pergunta PRIMEIRO o vereador (se
   assertEquals(result.prompt?.includes("[VEREADOR_PICKER]"), true);
 });
 
+Deno.test("getNextMissingField: feedback_camara REABRE o picker quando o nome do vereador não é validado", async () => {
+  // Regressão: a natureza ("elogio") era capturada por engano como council_member_name;
+  // como não existe na lista oficial, deve reabrir o [VEREADOR_PICKER] e NÃO seguir adiante.
+  const result = await getNextMissingField(
+    "urban_report",
+    { category: "feedback_camara", report_nature: "elogio", council_member_name: "elogio" },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "council_member_name");
+  assertEquals(result.prompt?.includes("[VEREADOR_PICKER]"), true);
+});
+
 Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (sem 'duvida') após o vereador", async () => {
   const result = await getNextMissingField(
     "urban_report",

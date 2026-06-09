@@ -111,21 +111,21 @@ export function extractChamberFields(context: string): Record<string, unknown> {
     /(?:ao|à|a)\s+(?:vereador|vereadora)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s+por|\s+pelo|\s*,|$)/i,
   ];
 
+  // Só preenche council_member_name quando o trecho capturado corresponde a UM
+  // vereador real da lista oficial. Caso contrário NÃO seta o campo: o trecho após
+  // "vereador" pode ser a própria natureza ("...sobre um vereador elogio") ou um nome
+  // inexistente. Um valor não validado aqui suprimia o [VEREADOR_PICKER] na coleta
+  // (getNextMissingField só checa se o campo está vazio) e o relato saía sem vereador.
   for (const pattern of namePatterns) {
     const match = context.match(pattern);
     if (match && match[1] && match[1].trim().length > 2) {
-      const rawName = match[1].trim();
-      const validation = findCouncilMemberMatches(rawName);
-
+      const validation = findCouncilMemberMatches(match[1].trim());
       if (validation.found && validation.matches.length === 1) {
         fields.council_member_name = validation.matches[0].name;
         fields.council_member_party = validation.matches[0].party;
-      } else {
-        fields.council_member_name = rawName;
-        fields._ambiguous_name = true;
-        fields._possible_matches = validation.matches.map((m) => `${m.name} (${m.party})`);
+        break;
       }
-      break;
+      // Capturou algo que não é um vereador real → segue sem setar (o picker pedirá a seleção).
     }
   }
 
