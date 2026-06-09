@@ -2,12 +2,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Home, Pencil, Loader2 } from "lucide-react";
 import { reverseGeocodeLatLngClient } from "@/lib/reverseGeocodeLatLngClient";
-import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
+import { isGpsAccuracyAcceptable, MAX_GPS_ACCURACY_METERS } from "@/lib/gpsAccuracy";
 
 export type LocationMethod = "gps" | "registered_address" | "manual";
 
 interface InlineLocationMethodPickerProps {
   onSelect: (method: LocationMethod, messageToSend: string) => void;
+  /**
+   * Teto de `coords.accuracy` em metros. Padrão 15 (RN04, relato crítico). Jornadas
+   * não-críticas (buscar serviços próximos / "perto de você") devem passar um valor
+   * permissivo (ex.: MAX_GPS_ACCURACY_NEARBY_UI_METERS) — no celular 30–60 m é comum.
+   */
+  maxAccuracyMeters?: number;
 }
 
 const OPTIONS: { id: LocationMethod; label: string; description: string; icon: typeof MapPin }[] = [
@@ -32,7 +38,10 @@ const OPTIONS: { id: LocationMethod; label: string; description: string; icon: t
   },
 ];
 
-export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPickerProps) => {
+export const InlineLocationMethodPicker = ({
+  onSelect,
+  maxAccuracyMeters = MAX_GPS_ACCURACY_METERS,
+}: InlineLocationMethodPickerProps) => {
   const [selected, setSelected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,11 +59,11 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
         const lon = position.coords.longitude;
         const accuracy = position.coords.accuracy;
 
-        if (!isGpsAccuracyAcceptable(accuracy)) {
+        if (!isGpsAccuracyAcceptable(accuracy, maxAccuracyMeters)) {
           setLoading(false);
           setError(
             accuracy != null
-              ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou use CEP.`
+              ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤${maxAccuracyMeters}m. Tente em área aberta ou use CEP.`
               : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço.",
           );
           return;

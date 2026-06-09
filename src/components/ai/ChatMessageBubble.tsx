@@ -67,6 +67,7 @@ import InlineRatingPicker from "./InlineRatingPicker";
 import MultiDimensionRatingPicker from "./MultiDimensionRatingPicker";
 import type { ServiceRatingDimensions } from "@/lib/serviceRatingDimensions";
 import { WaitTimePicker } from "./WaitTimePicker";
+import { maxGpsAccuracyForLocationPrompt } from "@/lib/gpsAccuracy";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
@@ -740,6 +741,12 @@ const ChatMessageBubble = ({
     isLastAssistantMessage,
     treatCepQuestionAsUrbanLocationStep,
   ]);
+
+  // Busca de serviços próximos usa teto de precisão permissivo; relato crítico mantém ≤15 m.
+  const locationMethodMaxAccuracyMeters = useMemo(
+    () => maxGpsAccuracyForLocationPrompt(message.content),
+    [message.content],
+  );
 
   useEffect(() => {
     setRatingCommentDisplayOverride(null);
@@ -1783,7 +1790,10 @@ const ChatMessageBubble = ({
         {(hasLocationMethodPicker || isAskingForLocationMethod) &&
           !locationMethodSelected &&
           isLastAssistantMessage && (
-            <InlineLocationMethodPicker onSelect={handleLocationMethodSelected} />
+            <InlineLocationMethodPicker
+              onSelect={handleLocationMethodSelected}
+              maxAccuracyMeters={locationMethodMaxAccuracyMeters}
+            />
           )}
 
         {/* Inline Line Picker */}

@@ -3,6 +3,7 @@ import {
   MAX_GPS_ACCURACY_METERS,
   MAX_GPS_ACCURACY_NEARBY_UI_METERS,
   isGpsAccuracyAcceptable,
+  maxGpsAccuracyForLocationPrompt,
 } from "./gpsAccuracy";
 
 describe("isGpsAccuracyAcceptable", () => {
@@ -21,5 +22,34 @@ describe("isGpsAccuracyAcceptable", () => {
   it("permite limite customizado para a UI de servicos proximos", () => {
     expect(isGpsAccuracyAcceptable(500, MAX_GPS_ACCURACY_NEARBY_UI_METERS)).toBe(true);
     expect(isGpsAccuracyAcceptable(2000, MAX_GPS_ACCURACY_NEARBY_UI_METERS)).toBe(false);
+  });
+});
+
+describe("maxGpsAccuracyForLocationPrompt", () => {
+  it("usa o teto permissivo na busca de servicos proximos", () => {
+    expect(
+      maxGpsAccuracyForLocationPrompt(
+        "Como você quer informar sua localização para buscar serviços próximos?",
+      ),
+    ).toBe(MAX_GPS_ACCURACY_NEARBY_UI_METERS);
+    // regressao do print: 43m deve ser aceito nesse fluxo
+    expect(
+      isGpsAccuracyAcceptable(
+        43,
+        maxGpsAccuracyForLocationPrompt("informar sua localização para buscar serviços próximos"),
+      ),
+    ).toBe(true);
+  });
+
+  it("mantem o teto estrito (RN04) no relato urbano/critico", () => {
+    expect(
+      maxGpsAccuracyForLocationPrompt("Como você quer informar onde fica o problema?"),
+    ).toBe(MAX_GPS_ACCURACY_METERS);
+    expect(
+      isGpsAccuracyAcceptable(
+        43,
+        maxGpsAccuracyForLocationPrompt("Como você quer informar onde fica o problema?"),
+      ),
+    ).toBe(false);
   });
 });

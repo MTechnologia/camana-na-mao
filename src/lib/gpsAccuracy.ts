@@ -24,3 +24,22 @@ export function isGpsAccuracyAcceptable(
   if (accuracy == null) return false;
   return Number.isFinite(accuracy) && accuracy <= maxMeters;
 }
+
+/**
+ * Escolhe o teto de precisão para o seletor de localização do chat conforme a jornada.
+ *
+ * Busca de serviços próximos ("perto de você") NÃO é relato crítico: não exige a
+ * precisão RN04 (≤15 m) — no celular 30–60 m é comum (indoor / 1º fix) e basta para
+ * listar serviços num raio de km. Relatos urbanos/transporte continuam no teto estrito.
+ *
+ * @param promptContent texto da mensagem do assistente que acompanha o [LOCATION_METHOD_PICKER].
+ */
+export function maxGpsAccuracyForLocationPrompt(promptContent: string): number {
+  const content = (promptContent ?? "").toLowerCase();
+  const isNearbyServicesPrompt =
+    content.includes("buscar serviços próximos") ||
+    content.includes("buscar servicos proximos") ||
+    content.includes("informar sua localização para buscar") ||
+    content.includes("informar sua localizacao para buscar");
+  return isNearbyServicesPrompt ? MAX_GPS_ACCURACY_NEARBY_UI_METERS : MAX_GPS_ACCURACY_METERS;
+}
