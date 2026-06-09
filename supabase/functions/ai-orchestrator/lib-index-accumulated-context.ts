@@ -59,9 +59,27 @@ export async function buildAccumulatedContext(
           }
         }
       }
+      // NREF005 — Alucinação/bug: ao trocar para Diagnóstico de Transporte, preserva a
+      // descrição que o cidadão JÁ deu antes do switch (ex.: "Todo dia o motorista passa
+      // e não para no ponto") para NÃO re-perguntar "Ok! O que aconteceu?". Pega a última
+      // mensagem do usuário que é uma descrição válida de transporte, ignorando a própria
+      // confirmação do switch ([JOURNEY_SWITCHED:...]) e frases genéricas de intenção.
+      if (collectionIntent.type === "transport_report" && !accumulatedFields.description) {
+        for (let i = chatHistoryTyped.length - 1; i >= 0; i--) {
+          if (chatHistoryTyped[i].role !== "user") continue;
+          const text = String(chatHistoryTyped[i].content ?? "").trim();
+          if (!text || /\[JOURNEY_SWITCHED:/i.test(text)) continue;
+          if (lib.isGenericIntentText(text)) continue;
+          if (lib.isValidDomainDescription(text, "transport")) {
+            accumulatedFields.description = text;
+            break;
+          }
+        }
+      }
       console.log(
         "[ai-orchestrator] Journey switched, starting with fresh fields",
         accumulatedFields.service_type ? `(service_type=${accumulatedFields.service_type})` : "",
+        accumulatedFields.description ? "(description preserved)" : "",
       );
     } else {
       accumulatedFields = lib.accumulateFieldsFromHistory(chatHistoryTyped, collectionIntent.type);
