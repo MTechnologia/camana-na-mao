@@ -19,6 +19,7 @@ on:
     paths:
       - "supabase/functions/ai-orchestrator/**"
       - "supabase/functions/_shared/**"
+      - "supabase/config.toml"
       - ".github/workflows/deploy-edge-function.yml"
   workflow_dispatch:
     inputs:
@@ -70,17 +71,17 @@ jobs:
             echo "function_name=${{ inputs.function_name }}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Push: se `_shared/**` mudou (é bundlado em todas as functions), redeploya TODAS;
-          # senão, redeploya apenas a ai-orchestrator. Em qualquer dúvida sobre o diff,
-          # cai no lado seguro (TODAS).
+          # Push: se `_shared/**` (bundlado em todas as functions) ou `config.toml`
+          # (lista de functions / verify_jwt) mudou, redeploya TODAS; senão, redeploya
+          # apenas a ai-orchestrator. Em qualquer dúvida sobre o diff, cai no lado seguro (TODAS).
           BEFORE="${{ github.event.before }}"
           if [ -n "${BEFORE}" ] && [ "${BEFORE}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${BEFORE}" 2>/dev/null; then
             CHANGED="$(git diff --name-only "${BEFORE}" "${{ github.sha }}")"
           else
             CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo 'supabase/functions/_shared/')"
           fi
-          if echo "${CHANGED}" | grep -q '^supabase/functions/_shared/'; then
-            echo "Shared module changed -> deploying ALL functions"
+          if echo "${CHANGED}" | grep -qE '^supabase/functions/_shared/|^supabase/config\.toml$'; then
+            echo "Shared module or config.toml changed -> deploying ALL functions"
             echo "mode=all" >> "$GITHUB_OUTPUT"
             echo "function_name=" >> "$GITHUB_OUTPUT"
           else
