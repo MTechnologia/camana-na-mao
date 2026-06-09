@@ -57,6 +57,10 @@ SELECT id, canonical_id
 FROM ranked
 WHERE rn > 1 AND canonical_id <> id;
 
+-- Tabela interna de backup: tranca acesso via API (anon/authenticated). Sem políticas =
+-- nenhum cliente lê; a migration e as edge functions (service role) fazem bypass de RLS.
+ALTER TABLE public_services_dedup_mark_bkp_20260609 ENABLE ROW LEVEL SECURITY;
+
 -- Marca os duplicados (aponta para o canônico). Só linhas ainda NULL (idempotente).
 UPDATE public_services p
 SET duplicate_of = b.canonical_id,
