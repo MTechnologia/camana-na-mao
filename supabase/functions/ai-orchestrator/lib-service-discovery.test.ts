@@ -14,7 +14,7 @@ import {
 function makeSupabaseMock(rows: any[]) {
   const calls: { method: string; args: unknown[] }[] = [];
   const builder: Record<string, unknown> = {};
-  for (const m of ["select", "textSearch", "ilike", "eq", "gte", "lte", "limit"]) {
+  for (const m of ["select", "textSearch", "ilike", "eq", "is", "gte", "lte", "limit"]) {
     builder[m] = (...args: unknown[]) => {
       calls.push({ method: m, args });
       return builder;
@@ -125,6 +125,35 @@ Deno.test("findNearbyServices: nenhuma estação no raio → mostra as mais pró
   );
   assertStringIncludes(out, "Não há estações de trem (CPTM) num raio de 100 m");
   assertStringIncludes(out, "Estação Proxima"); // ainda mostra a(s) mais próxima(s)
+});
+
+Deno.test("findNearbyServices: colapsa unidades co-localizadas (mesmo CEU) numa só opção, com o nome mais descritivo", async () => {
+  // Regressão (NREF — duplicados): EMEF/EMEI/CEI + variações de caixa do mesmo CEU,
+  // todos no mesmo endereço/coordenada, vinham como ~8 itens. Devem virar 1, mantendo
+  // o nome mais completo ("CEU Paraisópolis – Professora Marisa Motta").
+  const rows = [
+    { name: "PARAISOPOLIS", address: "DOUTOR JOSE AUGUSTO DE SOUZA E SILVA, S/N", district: "Paraisópolis", latitude: -23.6190, longitude: -46.7220, average_rating: 0, service_type: "ceu" },
+    { name: "CEU EMEI PARAISOPOLIS", address: "DOUTOR JOSE AUGUSTO DE SOUZA E SILVA, S/N", district: "Paraisópolis", latitude: -23.6190, longitude: -46.7220, average_rating: 0, service_type: "ceu" },
+    { name: "CEU Paraisópolis – Professora Marisa Motta", address: "DOUTOR JOSE AUGUSTO DE SOUZA E SILVA, S/N", district: "Paraisópolis", latitude: -23.6190, longitude: -46.7220, average_rating: 3.7, service_type: "ceu" },
+  ];
+  const { client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any,
+    "ceu",
+    undefined,
+    10,
+    -23.6190,
+    -46.7220,
+    2000,
+    0,
+    null,
+    "Jardim Everest",
+  );
+  // Uma única opção, com o nome mais descritivo.
+  assertStringIncludes(out, "CEU Paraisópolis – Professora Marisa Motta");
+  assertEquals(out.includes("EMEI"), false);
+  assertEquals(out.includes("2."), false); // não há um segundo item
 });
 
 Deno.test("formatServicesWithContext: usa só \\n simples (sobrevive ao sanitize do app)", () => {
