@@ -39,6 +39,39 @@ Deno.test("buildAccumulatedContext: NREF004 — ao trocar p/ service_rating pres
   assertEquals(result.accumulatedFields.service_type, "ceu");
 });
 
+Deno.test("buildAccumulatedContext: NREF005 — ao trocar p/ transporte preserva a descrição já dada (não re-pergunta 'o que aconteceu')", async () => {
+  const result = await buildAccumulatedContext({
+    chatHistoryTyped: [
+      { role: "user", content: "Quero falar sobre a cidade" },
+      { role: "user", content: "Reclamação" },
+      { role: "user", content: "Todo dia o motorista passa e não para no ponto" },
+      {
+        role: "user",
+        content:
+          "Sim, quero iniciar Diagnóstico de Transporte. [JOURNEY_SWITCHED:transport_report]",
+      },
+    ],
+    chatMessages: [],
+    collectionIntent: { type: "transport_report", fields: {} },
+    evaluationContext: null,
+    journeyDeclined: false,
+    journeySwitched: true,
+    lastUserMsg: "Sim, quero iniciar Diagnóstico de Transporte. [JOURNEY_SWITCHED:transport_report]",
+    // deno-lint-ignore no-explicit-any
+    lib: createLibMock({
+      // valida como descrição de transporte tanto "motorista..." quanto a confirmação
+      // ("...Transporte") — provando que a confirmação é IGNORADA pelo marcador, não pela validação.
+      isValidDomainDescription: (t: string) => /motorista|transporte/i.test(t),
+      isGenericIntentText: (t: string) => /quero falar/i.test(t),
+    }) as any,
+  });
+
+  assertEquals(
+    result.accumulatedFields.description,
+    "Todo dia o motorista passa e não para no ponto",
+  );
+});
+
 Deno.test("buildAccumulatedContext: troca sem tipo mencionado não inventa service_type", async () => {
   const result = await buildAccumulatedContext({
     chatHistoryTyped: [
