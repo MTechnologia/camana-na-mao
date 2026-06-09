@@ -244,6 +244,19 @@ Deno.test("detectCollectionIntent: 'Quero reclamar de um vereador' → feedback 
   assertEquals(fieldCategory(result), "feedback_camara");
 });
 
+Deno.test("detectCollectionIntent: 'Quero falar sobre um vereador' (sem natureza) → feedback à Câmara já no 1º turno", () => {
+  // Regressão: só "vereador" (=5) ficava abaixo do threshold (9) e o LLM assumia,
+  // pulando o seletor. A frase explícita de feedback deve disparar chamber_feedback
+  // para a coleta determinística abrir o [VEREADOR_PICKER] na primeira mensagem.
+  const result = detectCollectionIntent(
+    "Quero falar sobre um vereador",
+    [{ role: "user", content: "Quero falar sobre um vereador" }],
+    camaraDeps,
+  );
+  assertEquals(result?.type, "urban_report");
+  assertEquals(fieldCategory(result), "feedback_camara");
+});
+
 Deno.test("detectCollectionIntent: relato urbano que cita o vereador continua urban_report (buraco perto do gabinete)", () => {
   const result = detectCollectionIntent(
     "Tem um buraco enorme na rua perto do gabinete do vereador",

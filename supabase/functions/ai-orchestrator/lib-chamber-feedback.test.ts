@@ -56,3 +56,20 @@ Deno.test("extractChamberFields: mapeia verbo → report_nature (reclamar/sugeri
   // sem verbo de natureza, não força report_nature (o tipo será perguntado)
   assertEquals(extractChamberFields("Quero dar um feedback sobre um vereador").report_nature, undefined);
 });
+
+Deno.test("extractChamberFields: NÃO captura a natureza ('elogio') como nome do vereador (mantém o picker)", () => {
+  // Regressão: o fullUserContext "...vereador elogio" fazia o regex capturar "elogio"
+  // como council_member_name, suprimindo o [VEREADOR_PICKER] e gerando relato sem vereador.
+  for (const word of ["elogio", "reclamação", "sugestao"]) {
+    const result = extractChamberFields(`quero falar sobre um vereador ${word}`);
+    assertEquals(result.council_member_name, undefined, `não deveria capturar "${word}" como nome`);
+    assertEquals(result._ambiguous_name, undefined);
+    assertEquals(result._possible_matches, undefined);
+  }
+});
+
+Deno.test("extractChamberFields: nome inexistente NÃO é setado como vereador (picker pedirá a seleção)", () => {
+  const result = extractChamberFields("Quero elogiar o vereador Fulano de Tal");
+  assertEquals(result.council_member_name, undefined);
+  assertEquals(result.report_nature, "elogio");
+});
