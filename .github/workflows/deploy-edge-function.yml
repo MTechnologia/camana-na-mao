@@ -6,7 +6,9 @@
 # - SUPABASE_PROJECT_ID
 #
 # Fluxos:
-# 1) Push em `dev` / `hml` / `main` com mudanças na ai-orchestrator ou em `_shared`
+# 1) Push em `dev` / `hml` / `main`:
+#    - mudança em `_shared/**` (bundlado em TODAS as functions) -> redeploya TODAS
+#    - mudança só na ai-orchestrator -> redeploya apenas a ai-orchestrator
 # 2) Execução manual (`workflow_dispatch`) para redeploy de qualquer função
 
 name: Deploy Edge Function
@@ -44,17 +46,47 @@ jobs:
       contents: read
 
     env:
-      FUNCTION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.function_name || 'ai-orchestrator' }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_CAMARA }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Histórico completo para diffar quais paths mudaram no push.
+          fetch-depth: 0
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
+
+      - name: Determine deploy scope
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=single" >> "$GITHUB_OUTPUT"
+            echo "function_name=${{ inputs.function_name }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Push: se `_shared/**` mudou (é bundlado em todas as functions), redeploya TODAS;
+          # senão, redeploya apenas a ai-orchestrator. Em qualquer dúvida sobre o diff,
+          # cai no lado seguro (TODAS).
+          BEFORE="${{ github.event.before }}"
+          if [ -n "${BEFORE}" ] && [ "${BEFORE}" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${BEFORE}" 2>/dev/null; then
+            CHANGED="$(git diff --name-only "${BEFORE}" "${{ github.sha }}")"
+          else
+            CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo 'supabase/functions/_shared/')"
+          fi
+          if echo "${CHANGED}" | grep -q '^supabase/functions/_shared/'; then
+            echo "Shared module changed -> deploying ALL functions"
+            echo "mode=all" >> "$GITHUB_OUTPUT"
+            echo "function_name=" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=single" >> "$GITHUB_OUTPUT"
+            echo "function_name=ai-orchestrator" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Validate workflow inputs and secrets
         shell: bash
@@ -62,21 +94,34 @@ jobs:
           set -euo pipefail
           test -n "${SUPABASE_ACCESS_TOKEN}" || { echo "Missing secret: SUPABASE_ACCESS_TOKEN_CAMARA"; exit 1; }
           test -n "${SUPABASE_PROJECT_ID}" || { echo "Missing secret: SUPABASE_PROJECT_ID"; exit 1; }
-          test -d "supabase/functions/${FUNCTION_NAME}" || { echo "Function folder not found: supabase/functions/${FUNCTION_NAME}"; exit 1; }
+          if [ "${{ steps.scope.outputs.mode }}" = "single" ]; then
+            FN="${{ steps.scope.outputs.function_name }}"
+            test -d "supabase/functions/${FN}" || { echo "Function folder not found: supabase/functions/${FN}"; exit 1; }
+          fi
 
       - name: Deploy Edge Function
         shell: bash
         run: |
           set -euo pipefail
-          echo "Deploying ${FUNCTION_NAME} to project ${SUPABASE_PROJECT_ID}"
-          supabase functions deploy "${FUNCTION_NAME}" --project-ref "${SUPABASE_PROJECT_ID}"
+          if [ "${{ steps.scope.outputs.mode }}" = "all" ]; then
+            echo "Deploying ALL functions to project ${SUPABASE_PROJECT_ID}"
+            supabase functions deploy --project-ref "${SUPABASE_PROJECT_ID}"
+          else
+            FN="${{ steps.scope.outputs.function_name }}"
+            echo "Deploying ${FN} to project ${SUPABASE_PROJECT_ID}"
+            supabase functions deploy "${FN}" --project-ref "${SUPABASE_PROJECT_ID}"
+          fi
 
       - name: Deployment summary
         shell: bash
         run: |
           {
             echo "## Edge Function deploy"
-            echo "- Function: \`${FUNCTION_NAME}\`"
+            if [ "${{ steps.scope.outputs.mode }}" = "all" ]; then
+              echo "- Scope: \`ALL functions\` (mudança em _shared/**)"
+            else
+              echo "- Function: \`${{ steps.scope.outputs.function_name }}\`"
+            fi
             echo "- Environment: \`${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'main' && 'production' || github.ref_name) }}\`"
             echo "- Project ref: \`${SUPABASE_PROJECT_ID}\`"
             echo "- Trigger: \`${{ github.event_name }}\`"

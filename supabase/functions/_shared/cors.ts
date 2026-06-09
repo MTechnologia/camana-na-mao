@@ -1,6 +1,22 @@
 // CORS com allowlist: reflete a origem da requisição quando permitida
-// (APP_URL, SITE_URL e localhost em dev). Evita o `Access-Control-Allow-Origin: *`.
+// (APP_URL, SITE_URL, APP_URL_* e localhost em dev). Evita o `Access-Control-Allow-Origin: *`.
 // Leitura de env é preguiçosa (por chamada) para ser testável e robusta em runtime.
+
+/** Frontends Cloud Run conhecidos (fallback quando secrets não listam todos os ambientes). */
+const DEFAULT_CLOUD_RUN_ORIGINS = [
+  "https://camana-na-mao-767943602990.southamerica-east1.run.app",
+  "https://camana-na-mao-hml-767943602990.southamerica-east1.run.app",
+  "https://camana-na-mao-dev-767943602990.southamerica-east1.run.app",
+  "https://camana-na-mao-beta-767943602990.southamerica-east1.run.app",
+] as const;
+
+const ENV_ORIGIN_KEYS = [
+  "APP_URL",
+  "SITE_URL",
+  "APP_URL_HML",
+  "APP_URL_DEV",
+  "APP_URL_BETA",
+] as const;
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
@@ -15,13 +31,21 @@ function safeEnvGet(key: string): string | undefined {
   }
 }
 
-/** Origens estáticas permitidas, vindas dos secrets APP_URL e SITE_URL. */
+function parseCsvOrigins(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return raw.split(",").map((v) => stripTrailingSlash(v.trim())).filter(Boolean);
+}
+
+/** Origens estáticas permitidas (secrets + CORS_ALLOWED_ORIGINS + Cloud Run conhecidos). */
 export function staticAllowedOrigins(
   envGet: (key: string) => string | undefined = safeEnvGet,
 ): string[] {
-  return [envGet("APP_URL"), envGet("SITE_URL")]
+  const fromEnv = ENV_ORIGIN_KEYS
+    .map((key) => envGet(key))
     .filter((v): v is string => !!v && v.trim().length > 0)
     .map((v) => stripTrailingSlash(v.trim()));
+  const fromCsv = parseCsvOrigins(envGet("CORS_ALLOWED_ORIGINS"));
+  return [...new Set([...fromCsv, ...fromEnv, ...DEFAULT_CLOUD_RUN_ORIGINS])];
 }
 
 function isLocalhostOrigin(origin: string): boolean {

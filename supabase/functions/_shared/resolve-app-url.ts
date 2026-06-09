@@ -4,29 +4,33 @@
  * Prioridade:
  * 1. Origem explícita (payload ou filters.__app_origin)
  * 2. Heurística pelo nome do agendamento (ex.: "... hml", "... dev")
- * 3. Secrets APP_URL_HML / APP_URL_DEV / APP_URL
+ * 3. Secrets APP_URL_HML / APP_URL_DEV / APP_URL_BETA / APP_URL
  */
 
 const DEFAULT_APP_URLS = {
   prod: "https://camana-na-mao-767943602990.southamerica-east1.run.app",
   hml: "https://camana-na-mao-hml-767943602990.southamerica-east1.run.app",
   dev: "https://camana-na-mao-dev-767943602990.southamerica-east1.run.app",
+  beta: "https://camana-na-mao-beta-767943602990.southamerica-east1.run.app",
 } as const;
 
 function normalizeOrigin(url: string): string {
   return url.trim().replace(/\/$/, "");
 }
 
-function envUrl(key: "APP_URL" | "APP_URL_HML" | "APP_URL_DEV"): string {
+function envUrl(key: "APP_URL" | "APP_URL_HML" | "APP_URL_DEV" | "APP_URL_BETA"): string {
   return normalizeOrigin(Deno.env.get(key) ?? "");
 }
 
-/** Detecta dev/hml pelo nome do agendamento (fallback quando filters não têm __app_origin). */
+/** Detecta dev/hml/beta pelo nome do agendamento (fallback quando filters não têm __app_origin). */
 export function inferAppUrlFromScheduleName(scheduleName?: string | null): string | null {
   if (!scheduleName?.trim()) return null;
   const n = scheduleName.toLowerCase();
   if (/\bhml\b|[-_]hml(?:\b|[-_])|(?:^|[-_])hml(?:\b|[-_])/.test(n)) {
     return envUrl("APP_URL_HML") || DEFAULT_APP_URLS.hml;
+  }
+  if (/\bbeta\b|[-_]beta(?:\b|[-_])|(?:^|[-_])beta(?:\b|[-_])/.test(n)) {
+    return envUrl("APP_URL_BETA") || DEFAULT_APP_URLS.beta;
   }
   if (/\bdev\b|[-_]dev(?:\b|[-_])|(?:^|[-_])dev(?:\b|[-_])/.test(n)) {
     return envUrl("APP_URL_DEV") || DEFAULT_APP_URLS.dev;

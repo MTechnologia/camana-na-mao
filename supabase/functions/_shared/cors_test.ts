@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 
-import { buildCorsHeaders, resolveAllowedOrigin } from "./cors.ts";
+import { buildCorsHeaders, resolveAllowedOrigin, staticAllowedOrigins } from "./cors.ts";
 
 const env = (map: Record<string, string>) => (k: string) => map[k];
 
@@ -41,5 +41,22 @@ Deno.test("buildCorsHeaders cai para '*' quando nada configurado", () => {
     { headers: { get: () => null } },
     env({}),
   );
-  assertEquals(headers["Access-Control-Allow-Origin"], "*");
+  // Fallback Cloud Run conhecido (prod) quando secrets vazios
+  assertEquals(
+    headers["Access-Control-Allow-Origin"],
+    "https://camana-na-mao-767943602990.southamerica-east1.run.app",
+  );
+});
+
+Deno.test("resolveAllowedOrigin permite beta Cloud Run mesmo sem secrets", () => {
+  const BETA = "https://camana-na-mao-beta-767943602990.southamerica-east1.run.app";
+  assertEquals(resolveAllowedOrigin(BETA, env({})), BETA);
+});
+
+Deno.test("staticAllowedOrigins inclui CORS_ALLOWED_ORIGINS csv", () => {
+  const allowed = staticAllowedOrigins(
+    env({ CORS_ALLOWED_ORIGINS: "https://extra.example,https://other.example/" }),
+  );
+  assertEquals(allowed.includes("https://extra.example"), true);
+  assertEquals(allowed.includes("https://other.example"), true);
 });
