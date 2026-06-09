@@ -135,6 +135,11 @@ export function isUrbanNonComplaintReadyForLlmTurn(
   );
   if (!nature || !URBAN_NON_COMPLAINT_NATURES.includes(nature)) return false;
   if (!fields.category) return false;
+  // Feedback à Câmara sobre um vereador (elogio/sugestão) é REGISTRO formal
+  // (feedback_camara), não conversa — assim o fluxo segue para o auto-registro e o
+  // fechamento oferece a avaliação do canal (estrelas). Exceção: dúvida sobre a Câmara
+  // permanece conversacional, pois é pergunta a ser respondida, não feedback a registrar.
+  if (String(fields.category) === "feedback_camara" && nature !== "duvida") return false;
   const desc = String(fields.description ?? "").trim();
   if (!desc) return false;
   return isValidUrbanReportDescription(desc, nature);

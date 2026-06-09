@@ -64,6 +64,44 @@ Deno.test("isUrbanNonComplaintReadyForLlmTurn: elogio com descrição + categori
   );
 });
 
+Deno.test("isUrbanNonComplaintReadyForLlmTurn: elogio a vereador (feedback_camara) NÃO é conversacional → registra", () => {
+  // Feedback à Câmara sobre vereador deve virar registro formal (e ofertar estrelas),
+  // não turno conversacional. Caso contrário a IA só agradece e nunca registra/avalia.
+  assertEquals(
+    isUrbanNonComplaintReadyForLlmTurn({
+      report_nature: "elogio",
+      description: "Vereador muito bom, atuação excelente",
+      category: "feedback_camara",
+      council_member_name: "Milton Leite",
+    }),
+    false,
+  );
+});
+
+Deno.test("isUrbanNonComplaintReadyForLlmTurn: sugestão a vereador (feedback_camara) NÃO é conversacional → registra", () => {
+  assertEquals(
+    isUrbanNonComplaintReadyForLlmTurn({
+      report_nature: "sugestao",
+      description: "Sugiro que o vereador proponha mais ciclovias",
+      category: "feedback_camara",
+      council_member_name: "Erika Hilton",
+    }),
+    false,
+  );
+});
+
+Deno.test("isUrbanNonComplaintReadyForLlmTurn: dúvida sobre a Câmara (feedback_camara) permanece conversacional", () => {
+  // Dúvida é pergunta a ser respondida, não feedback a registrar — mesmo com category feedback_camara.
+  assertEquals(
+    isUrbanNonComplaintReadyForLlmTurn({
+      report_nature: "duvida",
+      description: "Como funciona o processo legislativo na Câmara?",
+      category: "feedback_camara",
+    }),
+    true,
+  );
+});
+
 Deno.test("isUrbanDuvidaReadyForAnswer: descrição + categoria", () => {
   assertEquals(
     isUrbanDuvidaReadyForAnswer({
