@@ -18,6 +18,12 @@ verify_jwt = true
 [functions.send-web-push]
 verify_jwt = false
 
+# Auth Hook "Send Email": chamado pelo GoTrue com assinatura HMAC (standardwebhooks,
+# SEND_EMAIL_HOOK_SECRET), NÃO com JWT Supabase. Precisa de verify_jwt=false senão o
+# gateway barra o hook ("500: Hook requires authorization token") e quebra signup/recovery.
+[functions.send-email]
+verify_jwt = false
+
 [functions.analyze-sentiment]
 verify_jwt = true
 
