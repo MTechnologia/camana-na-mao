@@ -165,7 +165,9 @@ export {
   COUNCIL_MEMBERS,
   extractChamberFields,
   findCouncilMemberMatches,
+  isChamberIntentOrSelectionText,
 } from "./lib-chamber-feedback.ts";
+import { isChamberIntentOrSelectionText as isChamberIntentOrSelectionTextImpl } from "./lib-chamber-feedback.ts";
 export {
   MESSAGE_OUTSIDE_SAO_PAULO,
   SAO_PAULO_TRANSPORT_MAP_BOUNDS,
@@ -350,17 +352,15 @@ export function accumulateFieldsFromHistory(
       }
     }
 
-    if (chamberSelected) {
-      // A frase de intenção ("quero dar um feedback sobre um vereador") e a própria
-      // seleção do picker NÃO são a descrição do feedback. Sem isso, o bot achava
-      // que já tinha a descrição e pulava direto para a conclusão sem o cidadão
-      // contar o que quer reclamar/sugerir/elogiar.
-      const desc = String(accumulated.description ?? '').toLowerCase().trim();
-      const looksLikeIntentOrSelection =
-        desc.length < 12 ||
-        /feedback\s+sobre\s+(um|o|a)?\s*vereador/.test(desc) ||
-        /^vereador(?:\(a\)|a)?\s*:/.test(desc);
-      if (looksLikeIntentOrSelection) {
+    // A frase de intenção ("quero falar sobre um vereador") e a própria seleção do picker
+    // NÃO são a descrição do feedback. Sem isso, o bot achava que já tinha a descrição e
+    // pulava direto para a conclusão sem o cidadão contar o que quer reclamar/sugerir/elogiar.
+    // Roda para QUALQUER feedback_camara (não só quando o vereador veio do picker), pois a
+    // categoria também é definida pela classificação da intenção.
+    const isChamberFeedback = chamberSelected ||
+      String(accumulated.category ?? '') === 'feedback_camara';
+    if (isChamberFeedback && accumulated.description != null) {
+      if (isChamberIntentOrSelectionTextImpl(String(accumulated.description))) {
         delete accumulated.description;
       }
     }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isChamberIntentOrSelectionText } from "./lib-chamber-feedback.ts";
 import { hasTransportAccessibilityDetails } from "./lib-index-transport-preview.ts";
 import { URBAN_AFFECTED_SCOPE_FIELD_PROMPT } from "./lib-prompt-ux.ts";
 import {
@@ -58,7 +59,12 @@ export async function getNextMissingField(
 
     const description = String(fields.description ?? "");
     const isBareNature = lib.isBareUrbanReportNatureReply(String(description));
-    const descToCheck = isBareNature ? "" : description;
+    // Feedback à Câmara: a frase-gatilho/seleção ("quero falar sobre um vereador",
+    // "Vereador(a): Nome (PARTIDO)") NÃO é a mensagem do feedback — exige o conteúdo real
+    // antes de seguir para o preview/registro. Sem isso o relato era criado vazio.
+    const isChamberIntentDesc = String(fields.category ?? "") === "feedback_camara" &&
+      isChamberIntentOrSelectionText(description);
+    const descToCheck = (isBareNature || isChamberIntentDesc) ? "" : description;
     const isValidDesc = lib.isValidUrbanReportDescription(descToCheck, natureStr);
 
     console.log("[getNextMissingField] Urban description check:", {

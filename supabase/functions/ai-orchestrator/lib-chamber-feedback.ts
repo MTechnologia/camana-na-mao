@@ -54,6 +54,29 @@ export function findCouncilMemberMatches(
   return { found: false, matches: [], suggestion: undefined };
 }
 
+/**
+ * Detecta se um texto é apenas a FRASE DE INTENÇÃO/SELEÇÃO do fluxo de feedback à Câmara
+ * ("quero falar sobre um vereador", "feedback sobre o vereador", "Vereador(a): Nome (PARTIDO)"),
+ * e NÃO a mensagem real do feedback. Usado para não aceitar a frase-gatilho como descrição —
+ * o cidadão ainda precisa contar o que quer elogiar/reclamar/sugerir.
+ *
+ * Falso-positivo aqui é barato (o bot só repete "o que você quer elogiar?"); falso-negativo
+ * é caro (registra um relato sem conteúdo). Por isso o limiar de tamanho é conservador.
+ */
+export function isChamberIntentOrSelectionText(description: string): boolean {
+  const d = (description ?? "").toLowerCase().trim();
+  if (d.length < 12) return true; // curto demais para ser um feedback real
+  if (/^vereador(?:\(a\)|a)?\s*:/.test(d)) return true; // marcador de seleção do picker
+  const mentionsVereador = /\bvereador/.test(d);
+  const startsWithIntent =
+    /^(quero|preciso|gostaria|gostara|vou|vim|desejo|pretendo)\b/.test(d) ||
+    /^(falar|feedback|dar\s+feedback|deixar\s+feedback)\b/.test(d);
+  // Frase curta de intenção mencionando "vereador" sem conteúdo do feedback.
+  if (mentionsVereador && startsWithIntent && d.length < 45) return true;
+  if (/^feedback\s+sobre\s+(um|o|a)?\s*vereador/.test(d)) return true;
+  return false;
+}
+
 export function extractChamberFields(context: string): Record<string, unknown> {
   const fields: Record<string, unknown> = {
     category: "feedback_camara",
