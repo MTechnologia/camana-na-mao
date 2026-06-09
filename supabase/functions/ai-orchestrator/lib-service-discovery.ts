@@ -265,14 +265,16 @@ function formatStationsWithContext(
   serviceType: string,
   referenceLocationText: string | null | undefined,
   hasDistances: boolean,
+  headerOverride?: string,
 ): string {
   const typeName = getServiceTypeName(serviceType);
   const ref = (referenceLocationText || "").trim();
-  const header = hasDistances
-    ? ref
-      ? `Aqui estão as ${typeName} mais próximas de ${ref}:`
-      : `Aqui estão as ${typeName} mais próximas de você:`
-    : `Aqui estão ${typeName} em São Paulo:`;
+  const header = headerOverride ??
+    (hasDistances
+      ? ref
+        ? `Aqui estão as ${typeName} mais próximas de ${ref}:`
+        : `Aqui estão as ${typeName} mais próximas de você:`
+      : `Aqui estão ${typeName} em São Paulo:`);
   // "\n" SIMPLES (ver nota em formatServicesWithContext): só ele sobrevive ao
   // sanitize do app; a diagramação do chat o converte em quebra dura por item.
   const list = stations
@@ -298,6 +300,7 @@ async function findNearbyStations(
   userLat?: number | null,
   userLon?: number | null,
   referenceLocationText?: string | null,
+  radiusMeters: number = 2000,
 ): Promise<string> {
   const typeName = getServiceTypeName(serviceType);
   const hasCoords = userLat != null && userLon != null && !Number.isNaN(userLat) && !Number.isNaN(userLon);
@@ -327,15 +330,29 @@ async function findNearbyStations(
   }
 
   if (hasCoords) {
-    rows = rows
+    const byDistance = rows
       .filter((s) => s.latitude != null && s.longitude != null)
       .map((s) => ({ ...s, _distance: distanceMeters(userLat!, userLon!, Number(s.latitude), Number(s.longitude)) }))
-      .sort((a, b) => (a._distance as number) - (b._distance as number))
-      .slice(0, Math.max(1, limit));
-    if (rows.length === 0) {
+      .sort((a, b) => (a._distance as number) - (b._distance as number));
+    if (byDistance.length === 0) {
       return `No momento não tenho ${typeName} com localização cadastrada na minha base.`;
     }
-    return formatStationsWithContext(rows, serviceType, referenceLocationText, true);
+
+    // Aplica o raio escolhido pelo cidadão. Estações são infra esparsa: é comum não
+    // haver nenhuma dentro de raios curtos (a mais próxima pode passar de 500 m). Nesse
+    // caso, em vez de devolver vazio (ou ignorar o raio, como antes), mostramos as mais
+    // próximas com um aviso explícito — espelhando o fallback da busca de serviços comuns.
+    const withinRadius = byDistance.filter((s) => (s._distance as number) <= radiusMeters);
+    if (withinRadius.length > 0) {
+      return formatStationsWithContext(withinRadius.slice(0, Math.max(1, limit)), serviceType, referenceLocationText, true);
+    }
+
+    const ref = (referenceLocationText || "").trim();
+    const where = ref ? ` de ${ref}` : " de você";
+    const radiusLabel = formatDistanceMeters(radiusMeters);
+    const nearest = byDistance.slice(0, Math.max(1, limit));
+    const headerOverride = `Não há ${typeName} num raio de ${radiusLabel}${where}. Aqui estão as mais próximas:`;
+    return formatStationsWithContext(nearest, serviceType, referenceLocationText, true, headerOverride);
   }
 
   rows = rows.slice(0, Math.max(1, limit));
@@ -366,6 +383,7 @@ export async function findNearbyServices(
       userLat,
       userLon,
       referenceLocationText,
+      radiusMeters,
     );
   }
 

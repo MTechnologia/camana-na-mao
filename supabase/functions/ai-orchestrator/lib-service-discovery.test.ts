@@ -78,6 +78,55 @@ Deno.test("findNearbyServices: estação de trem filtra source_layer e ordena po
   assertEquals(out.includes("Endereço não informado"), false);
 });
 
+Deno.test("findNearbyServices: estação de trem RESPEITA o raio (exclui as fora do raio)", async () => {
+  // Regressão: antes o raio era ignorado para trem/metrô (sempre as N mais próximas).
+  const rows = [
+    { name: "PROXIMA", district: "São Paulo", latitude: -23.5220, longitude: -46.6147 }, // ~300 m
+    { name: "DISTANTE", district: "São Paulo", latitude: -23.5700, longitude: -46.6600 }, // ~6,8 km
+  ];
+  const { client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any,
+    "train_station",
+    undefined,
+    10,
+    -23.5247,
+    -46.6147,
+    500, // raio 500 m
+    0,
+    null,
+    "Centro",
+  );
+  assertStringIncludes(out, "Estação Proxima");
+  assertEquals(out.includes("Estação Distante"), false);
+  // Como há estação dentro do raio, NÃO usa o aviso de fallback.
+  assertEquals(out.includes("Não há"), false);
+});
+
+Deno.test("findNearbyServices: nenhuma estação no raio → mostra as mais próximas com aviso", async () => {
+  const rows = [
+    { name: "PROXIMA", district: "São Paulo", latitude: -23.5220, longitude: -46.6147 }, // ~300 m
+    { name: "DISTANTE", district: "São Paulo", latitude: -23.5700, longitude: -46.6600 },
+  ];
+  const { client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any,
+    "train_station",
+    undefined,
+    10,
+    -23.5247,
+    -46.6147,
+    100, // raio 100 m: a mais próxima (~300 m) já fica fora
+    0,
+    null,
+    "Centro",
+  );
+  assertStringIncludes(out, "Não há estações de trem (CPTM) num raio de 100 m");
+  assertStringIncludes(out, "Estação Proxima"); // ainda mostra a(s) mais próxima(s)
+});
+
 Deno.test("formatServicesWithContext: usa só \\n simples (sobrevive ao sanitize do app)", () => {
   const out = formatServicesWithContext(
     [
