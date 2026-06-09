@@ -99,6 +99,86 @@ Deno.test("getNextMissingField: 'elogiar vereador' com natureza já preenchida N
   assertEquals(result.prompt?.toLowerCase().includes("elogiar"), true);
 });
 
+Deno.test("getNextMissingField: feedback_camara pede o vereador PRIMEIRO mesmo com a frase-gatilho como descrição", async () => {
+  // Cenário do bug: usuário digita "Quero falar sobre um vereador" (frase-gatilho).
+  // Não deve concluir/pré-visualizar: precisa do vereador antes de tudo.
+  const result = await getNextMissingField(
+    "urban_report",
+    { category: "feedback_camara", report_nature: "elogio", description: "Quero falar sobre um vereador" },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "council_member_name");
+  assertEquals(result.prompt?.includes("[VEREADOR_PICKER]"), true);
+});
+
+Deno.test("getNextMissingField: feedback_camara NÃO aceita frase-gatilho como mensagem → pede a mensagem real", async () => {
+  // Vereador já escolhido, tipo definido, mas a 'descrição' ainda é a frase-gatilho.
+  // O gate deve invalidar a frase-gatilho e pedir o conteúdo real (NÃO ir ao preview),
+  // mesmo que a validação genérica de descrição considerasse o texto "válido".
+  const result = await getNextMissingField(
+    "urban_report",
+    {
+      category: "feedback_camara",
+      council_member_name: "Milton Leite",
+      report_nature: "elogio",
+      description: "Quero falar sobre um vereador",
+    },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      isBareUrbanReportNatureReply: () => false,
+      isValidUrbanReportDescription: (d: string) => d.trim().length > 0,
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "description");
+  assertEquals(result.prompt?.toLowerCase().includes("elogiar"), true);
+});
+
+Deno.test("getNextMissingField: feedback_camara com vereador + mensagem REAL conclui (pronto p/ registro)", async () => {
+  const result = await getNextMissingField(
+    "urban_report",
+    {
+      category: "feedback_camara",
+      subcategory: "Feedback: Milton Leite",
+      council_member_name: "Milton Leite",
+      council_member_party: "UNIÃO",
+      report_nature: "elogio",
+      description: "Excelente atuação na área da saúde, sempre presente no bairro e atento às demandas dos moradores.",
+    },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      isBareUrbanReportNatureReply: () => false,
+      isValidUrbanReportDescription: () => true,
+      applyUrbanNatureCategoryDefaults: () => {},
+      generateLabelFromDescription: (d: string) => d,
+      urbanNatureSkipsLocationCollection: () => true,
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, null);
+});
+
 Deno.test("getNextMissingField: feedback_camara não pede localização (pula CEP/endereço) e conclui", async () => {
   const accumulated: Record<string, unknown> = {
     report_nature: "reclamacao",
