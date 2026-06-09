@@ -65,9 +65,14 @@ export default defineConfig(() => ({
       registerType: "autoUpdate",
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        navigateFallbackDenylist: [/\/functions\/v1\//],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            urlPattern: /^https:\/\/.*\.supabase\.co\/(?:.*\/)?functions\/v1\/.*/i,
+            handler: "NetworkOnly",
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/(?!(?:.*\/)?functions\/v1\/).*/i,
             handler: "NetworkFirst",
             options: {
               cacheName: "supabase-api",
