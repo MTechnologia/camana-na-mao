@@ -25,15 +25,21 @@ export async function getNextMissingField(
   if (collectionType === "urban_report") {
     // Feedback à Câmara: pergunta PRIMEIRO o vereador (seletor oficial), antes de
     // natureza/mensagem — alinhado ao fluxo "Sobre qual vereador você quer falar?".
-    // Só pula o picker com um vereador VALIDADO (existe na lista oficial). Um nome vazio
-    // OU não validado (ex.: a natureza "elogio" capturada por engano como nome) reabre o
-    // seletor — assim o relato nunca segue sem um parlamentar real selecionado.
+    // Só pula o picker com um vereador VALIDADO. Um nome vazio OU não validado
+    // (ex.: a natureza "elogio" capturada por engano como nome) reabre o seletor —
+    // assim o relato nunca segue sem um parlamentar real selecionado.
+    // IMPORTANTE: a seleção do picker oficial (council_member_from_picker) é
+    // autoritativa — vem do fetch-vereadores/CMSP, que é a lista completa. NÃO a
+    // revalidamos contra COUNCIL_MEMBERS (subconjunto estático), senão vereadores
+    // reais fora dessa lista (ex.: Dheison Silva) reabririam o picker em loop.
     const councilNameRaw = String(fields.council_member_name ?? "").trim();
+    const councilFromPicker = fields._council_member_from_picker === true;
     const councilValidated = councilNameRaw.length > 0 &&
-      (() => {
-        const v = findCouncilMemberMatches(councilNameRaw);
-        return v.found && v.matches.length === 1;
-      })();
+      (councilFromPicker ||
+        (() => {
+          const v = findCouncilMemberMatches(councilNameRaw);
+          return v.found && v.matches.length === 1;
+        })());
     if (String(fields.category ?? "") === "feedback_camara" && !councilValidated) {
       return {
         field: "council_member_name",

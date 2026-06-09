@@ -75,6 +75,35 @@ Deno.test("getNextMissingField: feedback_camara REABRE o picker quando o nome do
   assertEquals(result.prompt?.includes("[VEREADOR_PICKER]"), true);
 });
 
+Deno.test("getNextMissingField: vereador escolhido no picker (fora da lista estática) NÃO reabre o picker", async () => {
+  // Regressão (loop infinito): a lista COUNCIL_MEMBERS é um subconjunto estático e não
+  // inclui vários vereadores reais (ex.: "Dheison Silva"), que o picker oficial oferece
+  // (fetch-vereadores/CMSP). A seleção do picker é autoritativa: _council_member_from_picker
+  // deve pular a revalidação contra a lista estática e seguir para a natureza.
+  const result = await getNextMissingField(
+    "urban_report",
+    {
+      category: "feedback_camara",
+      council_member_name: "Dheison Silva",
+      council_member_party: "PT",
+      _council_member_from_picker: true,
+    },
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    // deno-lint-ignore no-explicit-any
+    mockSupabase as any,
+    "user-1",
+    {
+      URBAN_REPORT_NATURE_VALUES: ["reclamacao", "duvida", "sugestao", "elogio"],
+      // deno-lint-ignore no-explicit-any
+    } as any,
+  );
+
+  assertEquals(result.field, "report_nature");
+  assertEquals(result.prompt?.includes("[VEREADOR_PICKER]"), false);
+  assertEquals(result.prompt?.includes("[QUICK_REPLY:reclamacao,sugestao,elogio]"), true);
+});
+
 Deno.test("getNextMissingField: feedback_camara pede natureza com 3 opções (sem 'duvida') após o vereador", async () => {
   const result = await getNextMissingField(
     "urban_report",

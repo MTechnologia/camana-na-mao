@@ -346,6 +346,12 @@ export function accumulateFieldsFromHistory(
         accumulated.category = 'feedback_camara';
         accumulated.council_member_name = sel[1].trim();
         accumulated.council_member_party = sel[2].trim();
+        // O picker oficial (InlineVereadorPicker → fetch-vereadores/CMSP) é a fonte
+        // de verdade da lista de vereadores. Uma seleção nesse formato é autoritativa
+        // e NÃO deve ser revalidada contra a lista estática COUNCIL_MEMBERS (que é um
+        // subconjunto desatualizado) — senão vereadores reais fora dela (ex.: Dheison
+        // Silva) reabrem o picker em loop. Marca a origem para a coleta confiar.
+        accumulated._council_member_from_picker = true;
         if (!accumulated.subcategory) {
           accumulated.subcategory = `Feedback: ${sel[1].trim()}`;
         }
