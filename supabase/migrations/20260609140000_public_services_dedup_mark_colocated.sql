@@ -4,72 +4,75 @@
 -- diferentes (ex.: "CEU EMEF PARAISOPOLIS" vs "Ceu Emef Paraisopolis"), que apareciam
 -- repetidas na busca de serviços do chatbot.
 --
+-- ⚠️ ESCALA: public_services tem ~4,3M linhas. Por isso:
+--   - restringimos aos service_type pesquisáveis (subconjunto ~634k);
+--   - o backup guarda APENAS as linhas que mudam (não copia a tabela toda);
+--   - SET statement_timeout = 0 (operação administrativa).
+-- Recomendado rodar via psql/CLI (`supabase db push` ou conexão direta), NÃO pelo
+-- SQL Editor — o editor tem timeout HTTP curto e pode devolver "Failed to fetch"
+-- mesmo com a query ainda rodando no servidor.
+--
 -- Critério CONSERVADOR (não funde unidades distintas):
 --   mesma service_type
 --   + mesma coordenada arredondada a 4 casas (~11 m)
 --   + nome normalizado IDÊNTICO (unaccent + minúsculo + espaços colapsados)
--- Assim, EMEF vs EMEI vs CEI (nomes diferentes) NÃO são fundidos — só cópias do mesmo nome.
+-- EMEF vs EMEI vs CEI (nomes diferentes) NÃO são fundidos — só cópias do mesmo nome.
 --
--- NÃO apaga linhas: marca as não-canônicas com duplicate_of = id da canônica
--- (as RPCs/consulta de serviços já filtram `duplicate_of IS NULL`). Idempotente
--- (só toca linhas com duplicate_of NULL). Reversível via tabela de backup criada abaixo.
+-- NÃO apaga linhas. Idempotente (só toca duplicate_of NULL). Reversível via backup.
 
-create extension if not exists unaccent;
+SET statement_timeout = 0;
 
-begin;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
+BEGIN;
 
 -- Evita corrida com o sync do GeoSampa enquanto marcamos os duplicados.
-select pg_advisory_xact_lock(hashtext('public_services_dedup_mark_colocated'));
+SELECT pg_advisory_xact_lock(hashtext('public_services_dedup_mark_colocated'));
 
--- Backup para reversibilidade (Migration safety): guarda o estado de duplicate_of
--- das linhas que estavam canônicas antes desta marcação.
-create table if not exists public_services_dedup_mark_bkp_20260609 as
-  select id, duplicate_of
-  from public_services
-  where duplicate_of is null;
-
--- PREVIEW (rode isto ANTES, em staging, para conferir quantas linhas serão marcadas):
---   with k as (
---     select id, row_number() over (
---       partition by service_type, round(latitude, 4), round(longitude, 4),
---         lower(btrim(regexp_replace(unaccent(coalesce(name, '')), '\s+', ' ', 'g')))
---       order by total_ratings desc nulls last, updated_at desc nulls last, id
---     ) rn
---     from public_services
---     where duplicate_of is null and latitude is not null and longitude is not null
---   )
---   select count(*) as linhas_a_marcar from k where rn > 1;
-
-with ranked as (
-  select
+-- Backup SÓ das linhas que serão marcadas (id + duplicate_of antigo = NULL),
+-- já com o canônico calculado. Leve e suficiente para o rollback.
+CREATE TABLE IF NOT EXISTS public_services_dedup_mark_bkp_20260609 AS
+WITH ranked AS (
+  SELECT
     id,
-    first_value(id) over w as canonical_id,
-    row_number() over w as rn
-  from public_services
-  where duplicate_of is null
-    and latitude is not null
-    and longitude is not null
-  window w as (
-    partition by service_type, round(latitude, 4), round(longitude, 4),
+    first_value(id) OVER w AS canonical_id,
+    row_number() OVER w AS rn
+  FROM public_services
+  WHERE duplicate_of IS NULL
+    AND latitude IS NOT NULL
+    AND longitude IS NOT NULL
+    AND service_type IN (
+      'ubs','hospital','school','ceu','library','daycare','park','sports_center',
+      'community_center','social_assistance','police_station','fire_station',
+      'subprefeitura','market','city_market','street_market','theater','museum',
+      'cemetery','transit_station'
+    )
+  WINDOW w AS (
+    PARTITION BY service_type, round(latitude, 4), round(longitude, 4),
       lower(btrim(regexp_replace(unaccent(coalesce(name, '')), '\s+', ' ', 'g')))
-    order by total_ratings desc nulls last, updated_at desc nulls last, id
+    ORDER BY total_ratings DESC NULLS LAST, updated_at DESC NULLS LAST, id
   )
 )
-update public_services p
-set duplicate_of = r.canonical_id,
+SELECT id, canonical_id
+FROM ranked
+WHERE rn > 1 AND canonical_id <> id;
+
+-- Marca os duplicados (aponta para o canônico). Só linhas ainda NULL (idempotente).
+UPDATE public_services p
+SET duplicate_of = b.canonical_id,
     updated_at = now()
-from ranked r
-where p.id = r.id
-  and r.rn > 1
-  and r.canonical_id <> p.id
-  and p.duplicate_of is null;
+FROM public_services_dedup_mark_bkp_20260609 b
+WHERE p.id = b.id
+  AND p.duplicate_of IS NULL;
 
-commit;
+COMMIT;
 
--- ROLLBACK (reversível) — para desfazer ESTA marcação, restaure do backup:
---   update public_services p
---   set duplicate_of = b.duplicate_of
---   from public_services_dedup_mark_bkp_20260609 b
---   where p.id = b.id;
--- Depois de validado, o backup pode ser removido:
---   drop table if exists public_services_dedup_mark_bkp_20260609;
+-- PREVIEW (opcional, rodar antes em staging): nº de linhas que serão marcadas =
+--   SELECT count(*) FROM public_services_dedup_mark_bkp_20260609;
+--
+-- ROLLBACK (reversível) — desfaz ESTA marcação:
+--   UPDATE public_services p SET duplicate_of = NULL
+--   FROM public_services_dedup_mark_bkp_20260609 b
+--   WHERE p.id = b.id AND p.duplicate_of = b.canonical_id;
+-- Depois de validado, remova o backup:
+--   DROP TABLE IF EXISTS public_services_dedup_mark_bkp_20260609;
