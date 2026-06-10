@@ -41,7 +41,7 @@ const steps = [
     icon: Bus,
     title: "Transporte Público",
     description:
-      "Avalie e relate problemas nas linhas de ônibus da SPTrans. Ajude a melhorar o transporte na cidade.",
+      "Avalie e relate problemas nas linhas de ônibus. Ajude a melhorar o transporte na cidade.",
     color: "from-green-500 to-emerald-500",
     useImage: false,
   },
