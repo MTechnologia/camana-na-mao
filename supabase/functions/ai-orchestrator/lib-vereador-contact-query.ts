@@ -107,7 +107,7 @@ export function formatVereadorContactReply(v: VereadorRecord): string {
   body += "\n\n_Dados da lista oficial da Câmara Municipal de São Paulo._";
   if (faltando.length) {
     body += ` Não tenho ${faltando.join(", ")} desse vereador por aqui — consulte a lista oficial em ` +
-      `[/institucional/vereadores](/institucional/vereadores) ou ligue 156.`;
+      `[/institucional/vereadores](/institucional/vereadores).`;
   }
   return `${body}\n\nPosso ajudar em mais alguma coisa?`;
 }

@@ -90,7 +90,7 @@ export function buildConversationToneInstruction(analysis: ConversationToneAnaly
   if (analysis.kind === "urgent_risk") {
     return [
       "=== TOM: RISCO IMEDIATO ===",
-      "A mensagem pode envolver risco imediato. Oriente de forma breve a acionar o canal emergencial adequado (190, 192 ou 193, conforme o caso) e o 156 para serviço municipal quando aplicável.",
+      "A mensagem pode envolver risco imediato. Oriente de forma breve a acionar o canal emergencial adequado (190, 192 ou 193, conforme o caso).",
       "Depois continue a coleta do relato com apenas o próximo campo necessário. Não trate risco imediato como reclamação comum.",
     ].join("\n");
   }
