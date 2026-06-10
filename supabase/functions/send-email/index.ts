@@ -178,8 +178,6 @@ function getSubjectAndBody(
             <p style="margin:0 0 18px;">Recebemos seu cadastro no <strong>Câmara na Mão</strong>, o app da Câmara Municipal de São Paulo.</p>
             <p style="margin:0 0 6px;">Clique no botão abaixo para confirmar seu e-mail e ativar sua conta:</p>
             ${buildActionButton("Confirmar cadastro", confirmationUrl)}
-            <p style="margin:0 0 8px;font-size:14px;color:#666666;">Se preferir, use este código de confirmação:</p>
-            <p style="margin:0 0 20px;font-size:20px;color:#111111;font-weight:700;letter-spacing:1px;">${escapeHtml(token)}</p>
             <p style="margin:0;font-size:14px;color:#666666;">Se o botão não funcionar, copie e cole este link no navegador:</p>
             <p style="margin:6px 0 0;word-break:break-all;font-size:12px;color:#666666;">
               <a href="${escapeHtml(confirmationUrl)}" style="color:#9b0000;">${escapeHtml(confirmationUrl)}</a>
