@@ -3,7 +3,7 @@ import { E2E_TEST_EMAIL, E2E_TEST_PASSWORD } from './test-user';
 import { e2eLogin } from './helpers';
 
 test.describe('Autenticação', () => {
-  test('deve permitir registro de novo usuário', async ({ page }) => {
+  test('deve permitir registro de novo usuário (avança para o onboarding)', async ({ page }) => {
     const uniqueEmail = `e2e-reg-${Date.now()}@gmail.com`;
     await page.goto('/register');
 
@@ -17,19 +17,22 @@ test.describe('Autenticação', () => {
     await page.locator("#privacy").check();
     await page.getByRole('button', { name: /Criar conta/i }).click();
 
-    let redirected = false;
+    // Após criar a conta, o fluxo segue para o onboarding (dados demográficos →
+    // endereço → interesses) ANTES da confirmação de e-mail — não pula mais direto.
+    let advanced = false;
     try {
-      await page.waitForURL(/\/(confirmar-email|login)/, { timeout: 25_000 });
-      redirected = true;
+      await expect(page.getByText(/Conta criada/i)).toBeVisible({ timeout: 25_000 });
+      advanced = true;
     } catch {
-      redirected = false;
+      advanced = false;
     }
     test.skip(
-      !redirected,
-      "Cadastro não redirecionou (Supabase Auth, confirmação de e-mail ou política do projeto). " +
+      !advanced,
+      "Cadastro não avançou (Supabase Auth, confirmação de e-mail ou política do projeto). " +
         "Ajuste o ambiente ou ignore este cenário em CI sem signup.",
     );
-    await expect(page).toHaveURL(/\/(confirmar-email|login)/);
+    // Garante que NÃO foi direto para a tela de confirmação de e-mail.
+    await expect(page).not.toHaveURL(/\/confirmar-email/);
   });
 
   test('deve permitir login com credenciais válidas', async ({ page }) => {
