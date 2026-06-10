@@ -394,8 +394,7 @@ export async function handlePreAiShortcuts(
           console.log("[ai-orchestrator] Service hours (determinístico): sem horário na base de", namedServiceQuery.term);
           return {
             response: createSseResponse(
-              `${grounded}\n\nℹ️ Não tenho o **horário de funcionamento** dessa unidade por aqui — ` +
-                "confirme pela Saúde SP (saude.prefeitura.sp.gov.br) ou pela central 156. Posso ajudar em mais alguma coisa?",
+              `${grounded}\n\nℹ️ Não tenho o **horário de funcionamento** dessa unidade por aqui. Posso ajudar em mais alguma coisa?`,
               lib.corsHeaders,
             ),
           };
@@ -414,7 +413,7 @@ export async function handlePreAiShortcuts(
         response: createSseResponse(
           `Não encontrei **${pretty}** na base de serviços públicos da cidade de São Paulo. ` +
             `Ela pode pertencer a outro município (eu só tenho dados de São Paulo) ou ainda não estar cadastrada. ` +
-            `Você pode confirmar pela central **156** ou no portal SP156. Posso ajudar em mais alguma coisa?`,
+            `Posso ajudar em mais alguma coisa?`,
           lib.corsHeaders,
         ),
       };
@@ -423,7 +422,7 @@ export async function handlePreAiShortcuts(
       // Em erro NÃO caímos na LLM para localização (evita alucinação): resposta honesta.
       return {
         response: createSseResponse(
-          "Não consegui consultar a base de serviços agora. Tente novamente em instantes ou confirme pela central 156. " +
+          "Não consegui consultar a base de serviços agora. Tente novamente em instantes. " +
             "Posso ajudar em mais alguma coisa?",
           lib.corsHeaders,
         ),
@@ -447,7 +446,7 @@ export async function handlePreAiShortcuts(
         return {
           response: createSseResponse(
             "Não consegui carregar a lista de vereadores agora. Você pode consultar os contatos em " +
-              "[/institucional/vereadores](/institucional/vereadores) ou ligar 156. Posso ajudar em mais alguma coisa?",
+              "[/institucional/vereadores](/institucional/vereadores). Posso ajudar em mais alguma coisa?",
             lib.corsHeaders,
           ),
         };
@@ -466,7 +465,7 @@ export async function handlePreAiShortcuts(
       return {
         response: createSseResponse(
           "Não consegui consultar a lista de vereadores agora. Veja os contatos em " +
-            "[/institucional/vereadores](/institucional/vereadores) ou ligue 156. Posso ajudar em mais alguma coisa?",
+            "[/institucional/vereadores](/institucional/vereadores). Posso ajudar em mais alguma coisa?",
           lib.corsHeaders,
         ),
       };

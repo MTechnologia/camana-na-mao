@@ -125,7 +125,7 @@ Deno.test("handlePreAiShortcuts: 'E a UBS Continental?' fora de SP → não inve
   const text = await result.response!.text();
   assertEquals(text.includes("Não encontrei"), true);
   assertEquals(text.includes("São Paulo"), true);
-  assertEquals(text.includes("156"), true);
+  assertEquals(text.includes("156"), false); // NREF018: não encaminha para o 156/Prefeitura
   // NÃO pode inventar endereço/telefone:
   assertEquals(/\d{4,5}-?\d{4}/.test(text), false); // sem telefone inventado
   assertEquals(/rua|avenida|av\./i.test(text), false); // sem endereço inventado
@@ -283,7 +283,7 @@ Deno.test("handlePreAiShortcuts: horário de serviço → endereço real + hones
   const text = await result.response!.text();
   assertEquals(text.includes("R. André da Fonseca, 70"), true); // endereço real (não inventado)
   assertEquals(text.includes("horário de funcionamento"), true); // honesto sobre não ter
-  assertEquals(text.includes("156"), true);
+  assertEquals(text.includes("156"), false); // NREF018: não encaminha para o 156/Saúde SP
 });
 
 Deno.test("handlePreAiShortcuts monta rota após lista de serviços usando coordenadas acumuladas", async () => {

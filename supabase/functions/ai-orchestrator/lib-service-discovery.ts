@@ -634,7 +634,7 @@ export async function findNearbyServices(
     return `No momento não tenho ${typeName} com endereço cadastrado na sua região. Posso te ajudar a encontrar:\n\n${typeNames.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nQual desses te interessa?`;
   }
 
-  return `Estou atualizando minha base de serviços. Por enquanto, você pode buscar ${typeName} em sp156.prefeitura.sp.gov.br`;
+  return `Estou atualizando minha base de ${typeName}. Tente novamente em instantes.`;
 }
 
 export async function getServiceAddressByName(supabase: SupabaseClient, serviceName: string): Promise<string | null> {

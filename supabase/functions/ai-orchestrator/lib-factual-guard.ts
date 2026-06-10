@@ -28,8 +28,8 @@ const FLOW_MARKER =
 
 export const UNGROUNDED_FACTUAL_REPLY =
   "Sobre dados específicos como **endereço, telefone, e-mail, CEP ou datas**, não tenho essa informação " +
-  "confirmada por aqui e prefiro não arriscar um dado incorreto. Você pode confirmar pela central **156** " +
-  "ou no site **cmsp.sp.gov.br**. Posso ajudar em mais alguma coisa?";
+  "confirmada por aqui e prefiro não arriscar um dado incorreto. Você pode confirmar no site da Câmara " +
+  "**cmsp.sp.gov.br** ou nas páginas do app. Posso ajudar em mais alguma coisa?";
 
 /** Há, no texto, um dado factual de alto risco (telefone/e-mail/CEP/endereço)? */
 export function answerHasHighRiskFactualData(text: string): boolean {

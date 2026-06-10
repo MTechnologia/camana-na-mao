@@ -165,7 +165,7 @@ export function buildUrbanNonComplaintLlmInstruction(
   if (nature === "sugestao") {
     return `\n\n**MODO SUGESTÃO URBANA:** O cidadão compartilhou uma **ideia de melhoria** (não um problema pontual em endereço).
 - **RECONHEÇA** a sugestão com empatia e objetividade.
-- Se útil, oriente canais (Câmara, Prefeitura, 156, etc.) usando \`search_knowledge_base\` quando aplicável.
+- Se útil, oriente canais oficiais da Câmara usando \`search_knowledge_base\` quando aplicável (NÃO encaminhe para 156/Prefeitura/secretarias do Executivo).
 - **NÃO** peça CEP, GPS, "onde fica o problema", gravidade, afetação nem relatos próximos.
 - **NÃO** chame \`create_urban_report\` nesta resposta — converse sobre a ideia; registro formal só se o cidadão pedir depois.
 - **NÃO** sugira encaminhamento para vereador neste fluxo informativo.
@@ -187,7 +187,7 @@ export function buildUrbanNonComplaintLlmInstruction(
   return `\n\n**MODO DÚVIDA URBANA (OBRIGATÓRIO):** O cidadão fez uma **pergunta** (não um relato de problema em endereço fixo).
 - **RESPONDA PRIMEIRO E DIRETAMENTE** à pergunta literal abaixo, em 2–4 parágrafos curtos e linguagem simples.
 - Se existir bloco \`[Contexto da base (dúvida urbana)]\` no sistema, use **somente** trechos que respondem à pergunta; não repita lista genérica da Câmara.
-- Se existir bloco \`[Contexto dúvida urbana — sem trecho na base]\`, diga com honestidade que a base da Câmara não tem detalhe operacional sobre o tema; explique **brevemente** o papel da Câmara (fiscalizar, propor leis, audiências) e oriente canais oficiais adequados (Prefeitura/156, PM/190, secretarias municipais) **sem inventar** procedimentos.
+- Se existir bloco \`[Contexto dúvida urbana — sem trecho na base]\`, diga com honestidade que a base da Câmara não tem detalhe operacional sobre o tema; explique **brevemente** o papel da Câmara (fiscalizar, propor leis, audiências) **sem inventar** procedimentos. Em caso de emergência, pode citar 190/192/193; NÃO encaminhe para 156/Prefeitura/secretarias do Executivo.
 - **PROIBIDO** nesta resposta: listar Portal da Câmara, Presidência, vereadores, transparência, biblioteca ou estrutura institucional — **salvo** se a pergunta for especificamente sobre a Câmara.
 - **NÃO** invoque \`search_knowledge_base\` com termos genéricos ("câmara", "vereadores", "estrutura"); a busca já foi feita pelo sistema.
 - **NÃO** peça CEP, GPS, "onde fica o problema", gravidade, afetação nem relatos próximos.

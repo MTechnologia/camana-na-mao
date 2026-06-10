@@ -12,7 +12,7 @@ export const URBAN_REPORT_TRAMITE_AFTER_REGISTRATION = `
 - **Para onde pode ir:** conforme o tema, pode ser encaminhado a **comissões temáticas** da Câmara e/ou a **órgãos do Executivo municipal** (Prefeitura e secretarias), que costumam ser os responsáveis pela execução na rua (iluminação, limpeza, vias, esgoto etc.).
 - **Prazos:** **não há um prazo único** para todas as demandas — dependem da complexidade, da área competente e da prioridade. Acompanhe o **status** em **Meus relatos** no app.
 
-_Em caso de **risco imediato** na rua, use também os canais de emergência e o **156** da Prefeitura._
+_Em caso de **risco imediato** na rua, use também os canais de emergência (190/192/193)._
 `.trim();
 
 /** Resumo após create_transport_report (Markdown). */
@@ -27,6 +27,6 @@ export const URBAN_REPORT_TRAMITE_FOR_SYSTEM_PROMPT = `
 Quando o cidadão perguntar como funciona o **trâmite**, **para onde vai** o relato, **quem analisa**, **prazos** ou **o que acontece depois** de registrar um problema na cidade:
 - Explique em linguagem simples: registro na plataforma → triagem (Câmara / processos internos) → possível encaminhamento a comissões da Câmara e/ou Prefeitura (execução na rua).
 - Deixe claro que **não existe um prazo fixo único** para todas as demandas; o acompanhamento é pelo status em **Meus relatos**.
-- Em **risco imediato**, mencione canais de emergência e o **156** da Prefeitura.
+- Em **risco imediato**, mencione os canais de emergência (190/192/193).
 - Não invente prazos legais garantidos (ex. "em 5 dias") nem compromissos que não estejam acima.
 `.trim();
