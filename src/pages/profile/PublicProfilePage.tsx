@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { usePublicProfile } from "@/hooks/usePublicProfile";
 import PageHeader from "@/components/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,12 +14,17 @@ import { getInitials } from "@/lib/utils";
 const PublicProfilePage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile, loading, error } = usePublicProfile(userId || null);
+  // NREF007: ao ver o perfil PÚBLICO de outra pessoa, "Voltar" não deve cair no SEU
+  // perfil. Respeita a origem (state.from) quando informada; sem origem (ex.: link
+  // compartilhado/acesso direto), volta para a Home — destino previsível e neutro.
+  const backTo = (location.state as { from?: string } | null)?.from || "/";
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background pt-[60px]">
-        <PageHeader title="Perfil" backTo="/perfil" />
+        <PageHeader title="Perfil" backTo={backTo} />
         <div className="p-4 space-y-4">
           <Card>
             <CardContent className="p-6">
@@ -40,7 +45,7 @@ const PublicProfilePage = () => {
   if (error || !profile) {
     return (
       <div className="min-h-screen bg-background pt-[60px]">
-        <PageHeader title="Perfil" backTo="/perfil" />
+        <PageHeader title="Perfil" backTo={backTo} />
         <div className="p-4">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -61,7 +66,7 @@ const PublicProfilePage = () => {
     <div className="min-h-screen bg-background pt-[60px]">
       <PageHeader
         title={profile.is_own_profile ? "Meu Perfil" : "Perfil Público"}
-        backTo="/perfil"
+        backTo={profile.is_own_profile ? "/perfil" : backTo}
       />
 
       <div className="p-4 space-y-4">
