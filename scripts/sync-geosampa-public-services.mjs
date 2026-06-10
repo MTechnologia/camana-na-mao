@@ -15,6 +15,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
@@ -299,23 +300,56 @@ function extractPoint(feature) {
   return null;
 }
 
-/** Gera external_id estável para o feature (GeoSampa costuma ter id ou fid em properties). */
-function getExternalId(feature, fallbackIndex) {
+/**
+ * O GeoServer (WFS) gera fids VOLÁTEIS por requisição quando a camada não tem PK —
+ * ex.: "equipamento_..._rede_publica.fid--6995ea22_19e076980af_-7aa5". Esses ids MUDAM
+ * a cada fetch, então NÃO servem como chave de upsert: o `onConflict (source_layer,
+ * external_id)` nunca casa e cada execução do sync REINSERE tudo (a base re-incha).
+ */
+function isVolatileGeoserverFid(value) {
+  return /\.fid-|fid--/i.test(String(value ?? ""));
+}
+
+/** Id bruto ESTÁVEL da feature (feature.id ou properties), descartando fids voláteis. */
+function getStableRawId(feature) {
   const id = feature?.id ?? getProp(feature?.properties, "id", "fid", "OBJECTID", "gid");
-  if (id != null) return String(id);
-  return `feature_${fallbackIndex}`;
+  if (id == null) return null;
+  const s = String(id);
+  return isVolatileGeoserverFid(s) ? null : s;
+}
+
+/**
+ * external_id ESTÁVEL entre execuções (idempotência do sync). Usa o id estável da feature
+ * quando existe; senão, deriva de CONTEÚDO — nome normalizado + coordenada arredondada —
+ * o que não depende da ordem do GeoJSON nem do fid volátil do GeoServer. Inclui o nome na
+ * chave para NÃO fundir unidades distintas co-localizadas (ex.: EMEF e EMEI no mesmo ponto).
+ */
+function getStableExternalId(stableRawId, name, point) {
+  if (stableRawId != null) return stableRawId;
+  const normName = String(name ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  const lat = Number(point?.lat);
+  const lng = Number(point?.lng);
+  const base = `${normName}|${Number.isFinite(lat) ? lat.toFixed(6) : ""}|${Number.isFinite(lng) ? lng.toFixed(6) : ""}`;
+  return "geo_" + createHash("sha1").update(base).digest("hex").slice(0, 32);
 }
 
 /** Converte um feature GeoJSON em linha para public_services. */
-function featureToRow(feature, layerConfig, index) {
+function featureToRow(feature, layerConfig) {
   const point = extractPoint(feature);
   if (!point) return null;
 
   const props = feature?.properties ?? {};
+  const stableRawId = getStableRawId(feature);
   const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip", "nm_area",
     "nm_estabelecimento", "nm_central_intermediacao_libra", "nm_local", "nm_ecoponto", "nm_ponto_onibus",
     "nm_estacao_transbordo", "nm_cooperativa", "nm_estacao_metro_trem", "nm_terminal", "nm_aterro_sanitario",
-    "nm_servico", "nm_entidade", "nm_shopping_center", "nm_sede", "nm_subprefeitura", "ds_subprefeitura") ?? getExternalId(feature, index);
+    "nm_servico", "nm_entidade", "nm_shopping_center", "nm_sede", "nm_subprefeitura", "ds_subprefeitura") ??
+    stableRawId ?? "Equipamento sem nome";
   const address = getProp(
     props,
     "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c",
@@ -428,7 +462,7 @@ function featureToRow(feature, layerConfig, index) {
     latitude: point.lat,
     longitude: point.lng,
     source_layer: layerConfig.source_layer,
-    external_id: getExternalId(feature, index),
+    external_id: getStableExternalId(stableRawId, name, point),
   };
   if (phone != null) row.phone = phone.slice(0, 50);
   if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
@@ -531,7 +565,7 @@ async function main() {
     const features = geojson?.features ?? [];
     let rows = [];
     for (let i = 0; i < features.length; i++) {
-      const row = featureToRow(features[i], { service_type: effectiveServiceType, source_layer }, i);
+      const row = featureToRow(features[i], { service_type: effectiveServiceType, source_layer });
       if (row) rows.push(row);
     }
 
