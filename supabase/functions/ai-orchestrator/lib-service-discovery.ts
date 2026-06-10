@@ -233,6 +233,39 @@ function normalizeForDedup(value: unknown): string {
     .trim();
 }
 
+/**
+ * Colapsa serviços CO-LOCALIZADOS do mesmo tipo (ex.: EMEF/EMEI/CEI de um mesmo CEU,
+ * ou cópias com caixa/acentos/sufixos diferentes no mesmo endereço) em UMA opção para
+ * exibição — o cidadão quer ver "um CEU", não 8 variações. Só afeta a APRESENTAÇÃO no
+ * chat (não toca a base; a limpeza persistente é feita via `duplicate_of`).
+ *
+ * Agrupa por coordenada arredondada (~11 m, 4 casas). Mantém a menor distância do grupo,
+ * o nome mais descritivo (mais longo) e a melhor nota. Linhas sem coordenada não são
+ * agrupadas (caem em chave própria por nome+endereço).
+ */
+function collapseColocatedByCoord<T extends Record<string, unknown> & { _distance: number }>(
+  rows: T[],
+): T[] {
+  const groups = new Map<string, T>();
+  for (const s of rows) {
+    const lat = Number(s.latitude);
+    const lon = Number(s.longitude);
+    const key = Number.isFinite(lat) && Number.isFinite(lon)
+      ? `${lat.toFixed(4)},${lon.toFixed(4)}`
+      : `__nocoord__:${normalizeForDedup(s.name)}|${normalizeForDedup(s.address)}`;
+    const cur = groups.get(key);
+    if (!cur) {
+      groups.set(key, { ...s });
+      continue;
+    }
+    cur._distance = Math.min(cur._distance, s._distance);
+    if (String(s.name ?? "").trim().length > String(cur.name ?? "").trim().length) cur.name = s.name;
+    if ((Number(s.average_rating) || 0) > (Number(cur.average_rating) || 0)) cur.average_rating = s.average_rating;
+    if (!hasValidAddress(cur) && hasValidAddress(s)) cur.address = s.address;
+  }
+  return [...groups.values()].sort((a, b) => a._distance - b._distance);
+}
+
 // Tipos lógicos (trem/metrô) → camada GeoSampa correspondente em public_services.
 // As linhas dessas camadas têm service_type="transit_station" mas address="Endereço
 // não informado": são localizadas por nome + coordenadas, não por endereço de rua.
@@ -310,6 +343,7 @@ async function findNearbyStations(
     .select("name, district, latitude, longitude")
     .eq("service_type", "transit_station")
     .eq("source_layer", sourceLayer)
+    .is("duplicate_of", null)
     .limit(500);
 
   if (error || !data?.length) {
@@ -425,7 +459,7 @@ export async function findNearbyServices(
 
     let ordered = withAddress;
     if (hasCoords && withAddress.some((s: Record<string, unknown>) => s.latitude != null && s.longitude != null)) {
-      ordered = [...withAddress]
+      const withDistance = [...withAddress]
         .map((s: Record<string, unknown>) => ({
           ...s,
           _distance: (s.latitude != null && s.longitude != null)
@@ -437,7 +471,10 @@ export async function findNearbyServices(
           return (Number.isFinite(d) && d <= radius) || d === Infinity;
         })
         .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
-        .sort((a, b) => (a._distance as number) - (b._distance as number))
+        .sort((a, b) => (a._distance as number) - (b._distance as number));
+      // Colapsa unidades co-localizadas do mesmo tipo (ex.: EMEF/EMEI/CEI de um CEU no
+      // mesmo endereço, ou cópias com caixa/acentos diferentes) ANTES de cortar em `limit`.
+      ordered = collapseColocatedByCoord(withDistance)
         .slice(0, limit)
         .map(({ _distance, ...rest }) => rest) as Record<string, unknown>[];
     } else {
@@ -472,6 +509,7 @@ export async function findNearbyServices(
         .from("public_services")
         .select(selectFields)
         .eq("service_type", serviceType)
+        .is("duplicate_of", null)
         .gte("latitude", box.minLat)
         .lte("latitude", box.maxLat)
         .gte("longitude", box.minLng)
@@ -508,6 +546,7 @@ export async function findNearbyServices(
       .from("public_services")
       .select(selectFields)
       .eq("service_type", serviceType)
+      .is("duplicate_of", null)
       .limit(2000);
     if (!cityWideErr && cityWide?.length) {
       const out = sortAndFormat(cityWide as unknown as Record<string, unknown>[], !district, 1e9);
@@ -523,6 +562,7 @@ export async function findNearbyServices(
       .from("public_services")
       .select(selectFields)
       .eq("service_type", serviceType)
+      .is("duplicate_of", null)
       .ilike("district", `%${district}%`)
       .limit(limitWithBuffer);
 
@@ -535,6 +575,7 @@ export async function findNearbyServices(
       .from("public_services")
       .select(selectFields)
       .eq("service_type", serviceType)
+      .is("duplicate_of", null)
       .limit(limitWithBuffer);
 
     if (!cityError && cityWide?.length) {
@@ -546,6 +587,7 @@ export async function findNearbyServices(
       .from("public_services")
       .select(selectFields)
       .eq("service_type", serviceType)
+      .is("duplicate_of", null)
       .limit(limitWithBuffer);
 
     if (!error && data?.length) {
