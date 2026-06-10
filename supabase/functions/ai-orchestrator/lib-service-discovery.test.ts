@@ -156,6 +156,36 @@ Deno.test("findNearbyServices: colapsa unidades co-localizadas (mesmo CEU) numa 
   assertEquals(out.includes("2."), false); // não há um segundo item
 });
 
+Deno.test("findNearbyServices: colapsa o mesmo complexo mesmo com coordenadas espalhadas (~100 m) e endereço sujo", async () => {
+  // Caso real: o ~11 m de antes não pegava os pontos do CEU espalhados pelo complexo
+  // (EMEF/EMEI/etc. com coords levemente diferentes e endereço sujo). Proximidade
+  // (~150 m) OU endereço normalizado devem fundir tudo em 1.
+  const rows = [
+    { name: "CEU EMEF PARAISOPOLIS", address: "DOUTOR JOSE AUGUSTO DE SOUZA E SILVA, S/N", district: "Paraisópolis", latitude: -23.6160, longitude: -46.7220, average_rating: 0, service_type: "ceu" },
+    { name: "CEU EMEI PARAISOPOLIS", address: "DOUTOR JOSE AUGUSTO DE SOUZA E SILVA, S/N", district: "Paraisópolis", latitude: -23.6165, longitude: -46.7222, average_rating: 0, service_type: "ceu" },
+    { name: "PARAISOPOLIS", address: "Rua DOUTOR JOSÉ AUGUSTO DE SOUZA E SILVA, S/N", district: "Paraisópolis", latitude: -23.6168, longitude: -46.7218, average_rating: 0, service_type: "ceu" },
+    { name: "CEU Paraisópolis – Professora Marisa Motta", address: "CEU Paraisópolis – Professora Marisa Motta Rua Doutor Jose Augusto de Souza e Silva , S/N - Jardim Parque Morumbi", district: "Paraisópolis", latitude: -23.6162, longitude: -46.7225, average_rating: 3.7, service_type: "ceu" },
+  ];
+  const { client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any,
+    "ceu",
+    undefined,
+    10,
+    -23.6160,
+    -46.7220,
+    2000,
+    0,
+    null,
+    "Jardim Everest",
+  );
+  assertStringIncludes(out, "CEU Paraisópolis – Professora Marisa Motta"); // nome mais descritivo
+  assertEquals(out.includes("EMEF"), false);
+  assertEquals(out.includes("EMEI"), false);
+  assertEquals(out.includes("2."), false); // 1 só item
+});
+
 Deno.test("formatServicesWithContext: usa só \\n simples (sobrevive ao sanitize do app)", () => {
   const out = formatServicesWithContext(
     [

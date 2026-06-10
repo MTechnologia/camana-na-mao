@@ -234,36 +234,61 @@ function normalizeForDedup(value: unknown): string {
 }
 
 /**
- * Colapsa serviços CO-LOCALIZADOS do mesmo tipo (ex.: EMEF/EMEI/CEI de um mesmo CEU,
- * ou cópias com caixa/acentos/sufixos diferentes no mesmo endereço) em UMA opção para
- * exibição — o cidadão quer ver "um CEU", não 8 variações. Só afeta a APRESENTAÇÃO no
- * chat (não toca a base; a limpeza persistente é feita via `duplicate_of`).
- *
- * Agrupa por coordenada arredondada (~11 m, 4 casas). Mantém a menor distância do grupo,
- * o nome mais descritivo (mais longo) e a melhor nota. Linhas sem coordenada não são
- * agrupadas (caem em chave própria por nome+endereço).
+ * Núcleo do endereço para comparar "mesmo logradouro" tolerando lixo (acentos,
+ * "Rua/Av.", nome do serviço grudado no campo, bairro no fim). Mantém só letras/dígitos.
  */
-function collapseColocatedByCoord<T extends Record<string, unknown> & { _distance: number }>(
+function addressCoreKey(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\b(rua|r|avenida|av|alameda|al|travessa|tv|praca|pca|estrada|estr|rodovia|rod|viaduto|largo)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Colapsa serviços do MESMO tipo que são o "mesmo lugar físico" (ex.: EMEF/EMEI/CEI de
+ * um CEU, ou cópias com nome/coordenada/endereço variando) em UMA opção para exibição.
+ * Só afeta a APRESENTAÇÃO no chat (não toca a base; a limpeza persistente é via `duplicate_of`).
+ *
+ * Dois registros são o "mesmo lugar" se estão a <= ~150 m um do outro OU têm o MESMO núcleo
+ * de endereço. Combinar os dois sinais cobre os duplicados mesmo com coordenadas espalhadas
+ * pelo complexo (o ~11 m de antes não pegava) ou endereço sujo. Processa em ordem de distância
+ * (greedy) e mantém, por grupo: menor distância, nome mais descritivo (mais longo) e melhor nota.
+ */
+function collapseColocated<T extends Record<string, unknown> & { _distance: number }>(
   rows: T[],
+  proximityMeters = 150,
 ): T[] {
-  const groups = new Map<string, T>();
+  type Cluster = { rep: T; lat: number; lon: number; addrKey: string };
+  const clusters: Cluster[] = [];
   for (const s of rows) {
     const lat = Number(s.latitude);
     const lon = Number(s.longitude);
-    const key = Number.isFinite(lat) && Number.isFinite(lon)
-      ? `${lat.toFixed(4)},${lon.toFixed(4)}`
-      : `__nocoord__:${normalizeForDedup(s.name)}|${normalizeForDedup(s.address)}`;
-    const cur = groups.get(key);
-    if (!cur) {
-      groups.set(key, { ...s });
+    const addrKey = hasValidAddress(s) ? addressCoreKey(s.address) : "";
+    let target: Cluster | undefined;
+    for (const c of clusters) {
+      const sameAddr = addrKey.length > 0 && addrKey === c.addrKey;
+      const closeCoord = Number.isFinite(lat) && Number.isFinite(lon) &&
+        Number.isFinite(c.lat) && Number.isFinite(c.lon) &&
+        distanceMeters(lat, lon, c.lat, c.lon) <= proximityMeters;
+      if (sameAddr || closeCoord) {
+        target = c;
+        break;
+      }
+    }
+    if (!target) {
+      clusters.push({ rep: { ...s }, lat, lon, addrKey });
       continue;
     }
-    cur._distance = Math.min(cur._distance, s._distance);
-    if (String(s.name ?? "").trim().length > String(cur.name ?? "").trim().length) cur.name = s.name;
-    if ((Number(s.average_rating) || 0) > (Number(cur.average_rating) || 0)) cur.average_rating = s.average_rating;
-    if (!hasValidAddress(cur) && hasValidAddress(s)) cur.address = s.address;
+    const rep = target.rep;
+    rep._distance = Math.min(rep._distance, s._distance);
+    if (String(s.name ?? "").trim().length > String(rep.name ?? "").trim().length) rep.name = s.name;
+    if ((Number(s.average_rating) || 0) > (Number(rep.average_rating) || 0)) rep.average_rating = s.average_rating;
+    if (!hasValidAddress(rep) && hasValidAddress(s)) rep.address = s.address;
   }
-  return [...groups.values()].sort((a, b) => a._distance - b._distance);
+  return clusters.map((c) => c.rep).sort((a, b) => a._distance - b._distance);
 }
 
 // Tipos lógicos (trem/metrô) → camada GeoSampa correspondente em public_services.
@@ -472,9 +497,10 @@ export async function findNearbyServices(
         })
         .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
         .sort((a, b) => (a._distance as number) - (b._distance as number));
-      // Colapsa unidades co-localizadas do mesmo tipo (ex.: EMEF/EMEI/CEI de um CEU no
-      // mesmo endereço, ou cópias com caixa/acentos diferentes) ANTES de cortar em `limit`.
-      ordered = collapseColocatedByCoord(withDistance)
+      // Colapsa unidades do mesmo tipo no mesmo lugar (proximidade ~150 m OU mesmo
+      // endereço) — ex.: EMEF/EMEI/CEI de um CEU, cópias com nome/coordenada/endereço
+      // variando — ANTES de cortar em `limit`.
+      ordered = collapseColocated(withDistance)
         .slice(0, limit)
         .map(({ _distance, ...rest }) => rest) as Record<string, unknown>[];
     } else {
