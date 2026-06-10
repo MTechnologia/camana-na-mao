@@ -57,7 +57,7 @@ const steps = [
     icon: Navigation,
     title: "Serviços Próximos",
     description:
-      "Encontre UBS, escolas, hospitais e outros serviços públicos perto de você com facilidade.",
+      "Encontre UBSs, escolas, hospitais e outros serviços públicos perto de você com facilidade.",
     color: "from-blue-500 to-cyan-500",
     useImage: false,
   },
