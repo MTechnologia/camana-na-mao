@@ -127,6 +127,13 @@ const Register = () => {
         return;
       }
 
+      // Conta já criada (usuário voltou a esta etapa e avançou de novo): só avança,
+      // sem tentar recriar (evita erro "e-mail já cadastrado").
+      if (userId) {
+        setCurrentStep(2);
+        return;
+      }
+
       setLoading(true);
       const { data, error } = await signUp(
         formData.email,
@@ -136,11 +143,10 @@ const Register = () => {
       );
 
       if (!error && data?.user) {
-        await supabase.auth.signOut().catch(() => undefined);
-        navigate("/confirmar-email", {
-          replace: true,
-          state: { email: formData.email.trim() },
-        });
+        // Conta criada. Segue para o onboarding (dados demográficos, endereço,
+        // interesses) ANTES de mandar o usuário para a tela de confirmação de e-mail.
+        setUserId(data.user.id);
+        setCurrentStep(2);
         return;
       }
     } catch (error: unknown) {
@@ -265,9 +271,12 @@ const Register = () => {
         return;
       }
 
-      toast.success("Cadastro concluído! Faça login para acessar o app.");
+      toast.success("Cadastro concluído! Confirme seu e-mail para acessar o app.");
       await signOut();
-      navigate("/login", { replace: true });
+      navigate("/confirmar-email", {
+        replace: true,
+        state: { email: formData.email.trim() },
+      });
     } catch (error: unknown) {
       toast.error(error.message || "Erro ao salvar dados");
     } finally {
