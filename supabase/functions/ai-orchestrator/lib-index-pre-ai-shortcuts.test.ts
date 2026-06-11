@@ -68,7 +68,7 @@ Deno.test("handlePreAiShortcuts encaminha avaliação para vereador", async () =
   assertEquals(text.includes("Vereador Exemplo"), true);
 });
 
-Deno.test("handlePreAiShortcuts pede CEP cedo para busca próxima de serviço", async () => {
+Deno.test("handlePreAiShortcuts oferece seletor de localização (não só CEP) para busca próxima de serviço", async () => {
   const result = await handlePreAiShortcuts({
     accumulatedFields: {},
     chatMessages: [{ role: "user", content: "qual UBS mais perto de mim?" }],
@@ -92,7 +92,10 @@ Deno.test("handlePreAiShortcuts pede CEP cedo para busca próxima de serviço", 
   assertExists(result.response);
   const text = await result.response!.text();
   assertEquals(text.includes("[COLLECTION_PROGRESS:services:"), true);
-  assertEquals(text.includes("Qual é o CEP da sua região?"), true);
+  assertEquals(text.includes("[FIELD_REQUEST:location_method]"), true);
+  assertEquals(text.includes("[LOCATION_METHOD_PICKER]"), true);
+  assertEquals(text.includes("Como você quer informar sua localização?"), true);
+  assertEquals(text.includes("Qual é o CEP da sua região?"), false);
 });
 
 Deno.test("handlePreAiShortcuts: 'E a UBS Continental?' fora de SP → não inventa, responde honesto (anti-alucinação)", async () => {

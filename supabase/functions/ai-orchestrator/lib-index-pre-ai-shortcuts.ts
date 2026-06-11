@@ -358,11 +358,16 @@ export async function handlePreAiShortcuts(
     lastUserMessage.length < 120 &&
     (!collectionIntent || collectionIntent.type === "general")
   ) {
-    const askCepMsg =
-      `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceTypeEarly)} próximas a você. Qual é o CEP da sua região? (Se não souber, pode informar o bairro.)`;
+    // Oferecer o seletor de MÉTODO de localização (GPS / endereço cadastrado / digitar
+    // CEP ou endereço) — NUNCA pedir só o CEP. Sem isto, o app mostrava apenas a busca de
+    // endereço por texto e, sem coordenadas, a busca acabava caindo no endereço do perfil.
+    const askLocationMsg =
+      `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceTypeEarly)} próximas a você. Como você quer informar sua localização?`;
     const progressPayload = { service_type: inferredServiceTypeEarly };
-    const withMarker = `${lightJourneyMarker || ""}[COLLECTION_PROGRESS:services:${JSON.stringify(progressPayload)}]${askCepMsg}`;
-    console.log("[ai-orchestrator] Services: ask CEP first (tipo já na pergunta):", inferredServiceTypeEarly);
+    const withMarker =
+      `${lightJourneyMarker || ""}[COLLECTION_PROGRESS:services:${JSON.stringify(progressPayload)}]` +
+      `[FIELD_REQUEST:location_method]${askLocationMsg}\n\n[LOCATION_METHOD_PICKER]`;
+    console.log("[ai-orchestrator] Services: ask location_method (tipo já na pergunta):", inferredServiceTypeEarly);
     return { response: createSseResponse(withMarker, lib.corsHeaders) };
   }
 
