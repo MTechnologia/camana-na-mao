@@ -104,10 +104,12 @@ Deno.test("findNearbyServices: estação de trem RESPEITA o raio (exclui as fora
   assertEquals(out.includes("Não há"), false);
 });
 
-Deno.test("findNearbyServices: nenhuma estação no raio → mostra as mais próximas com aviso", async () => {
+Deno.test("findNearbyServices: nenhuma estação na faixa em anel → mostra as mais próximas com aviso", async () => {
+  // Faixa 2 km = anel 1,1-2 km. A mais próxima (~300 m) fica ABAIXO do mínimo da faixa,
+  // a distante (~6,8 km) fica acima do máximo → faixa vazia → fallback "mais próximas".
   const rows = [
     { name: "PROXIMA", district: "São Paulo", latitude: -23.5220, longitude: -46.6147 }, // ~300 m
-    { name: "DISTANTE", district: "São Paulo", latitude: -23.5700, longitude: -46.6600 },
+    { name: "DISTANTE", district: "São Paulo", latitude: -23.5700, longitude: -46.6600 }, // ~6,8 km
   ];
   const { client } = makeSupabaseMock(rows);
   // deno-lint-ignore no-explicit-any
@@ -118,13 +120,43 @@ Deno.test("findNearbyServices: nenhuma estação no raio → mostra as mais pró
     10,
     -23.5247,
     -46.6147,
-    100, // raio 100 m: a mais próxima (~300 m) já fica fora
+    2000, // anel 1,1-2 km: nenhuma estação cai dentro
     0,
     null,
     "Centro",
   );
-  assertStringIncludes(out, "Não há estações de trem (CPTM) num raio de 100 m");
+  assertStringIncludes(out, "Não há estações de trem (CPTM) entre 1,1 km e 2 km");
   assertStringIncludes(out, "Estação Proxima"); // ainda mostra a(s) mais próxima(s)
+});
+
+Deno.test("findNearbyServices: faixa em anel 2 km (1,1-2 km) exclui os mais próximos que o mínimo", async () => {
+  // Regressão (parques): o chat devolvia o DISCO 0..raio; deve devolver a FAIXA EM ANEL
+  // do preset, igual ao módulo "Perto de você". 2 km → só o que está entre 1,1 e 2 km.
+  const rows = [
+    { name: "PARQUE PERTO", address: "Rua A, 10", district: "Centro", latitude: -23.5229, longitude: -46.6147, average_rating: 0, service_type: "park" }, // ~200 m
+    { name: "PARQUE ANEL", address: "Rua B, 20", district: "Centro", latitude: -23.5112, longitude: -46.6147, average_rating: 0, service_type: "park" }, // ~1,5 km
+  ];
+  const { client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any, "park", undefined, 10, -23.5247, -46.6147, 2000, 0, null, "Centro",
+  );
+  assertStringIncludes(out, "PARQUE ANEL");
+  assertEquals(out.includes("PARQUE PERTO"), false);
+});
+
+Deno.test("findNearbyServices: faixa em anel 500 m (0-500 m) mostra os mais próximos", async () => {
+  const rows = [
+    { name: "PARQUE PERTO", address: "Rua A, 10", district: "Centro", latitude: -23.5229, longitude: -46.6147, average_rating: 0, service_type: "park" }, // ~200 m
+    { name: "PARQUE ANEL", address: "Rua B, 20", district: "Centro", latitude: -23.5112, longitude: -46.6147, average_rating: 0, service_type: "park" }, // ~1,5 km
+  ];
+  const { client } = makeSupabaseMock(rows);
+  // deno-lint-ignore no-explicit-any
+  const out = await findNearbyServices(
+    client as any, "park", undefined, 10, -23.5247, -46.6147, 500, 0, null, "Centro",
+  );
+  assertStringIncludes(out, "PARQUE PERTO");
+  assertEquals(out.includes("PARQUE ANEL"), false);
 });
 
 Deno.test("findNearbyServices: colapsa unidades co-localizadas (mesmo CEU) numa só opção, com o nome mais descritivo", async () => {
