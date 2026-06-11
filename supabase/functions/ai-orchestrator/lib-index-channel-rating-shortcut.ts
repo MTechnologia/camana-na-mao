@@ -12,6 +12,70 @@ import {
   userFarewellWithoutRating,
 } from "./lib-conversation-closing.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
+import { getContentText } from "./lib-index-bootstrap.ts";
+import { fetchNearestUrbanReportsForSimilarity } from "./lib-location-and-similarity.ts";
+
+/** Raio (m) para sugerir relatos urbanos semelhantes "na região". Alinhado ao Perto de você. */
+const SIMILAR_URBAN_RADIUS_METERS = 500;
+const REPORT_CREATED_RE = /\[REPORT_CREATED:([0-9a-f-]{36})\]/i;
+
+/**
+ * Após a avaliação do canal, se a conversa registrou um RELATO URBANO, monta o convite para
+ * apoiar relatos semelhantes na região (raio 500 m). Retorna null quando não há relato urbano
+ * na conversa, sem coordenada/categoria, ou quando não há semelhantes no raio. Movido para cá
+ * para NÃO interromper a jornada do relato (antes aparecia entre a coleta e as fotos).
+ */
+async function buildUrbanSimilarSupportBlock(
+  supabase: SupabaseClient,
+  chatMessages: Array<Record<string, unknown>>,
+  userId: string,
+): Promise<string | null> {
+  let reportId: string | null = null;
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    const match = REPORT_CREATED_RE.exec(getContentText(chatMessages[i].content));
+    if (match) {
+      reportId = match[1];
+      break;
+    }
+  }
+  if (!reportId) return null;
+
+  const { data: report, error } = await supabase
+    .from("urban_reports")
+    .select("category, latitude, longitude")
+    .eq("id", reportId)
+    .maybeSingle();
+  if (error || !report) return null;
+
+  const category = String(report.category || "");
+  const lat = report.latitude != null ? Number(report.latitude) : null;
+  const lon = report.longitude != null ? Number(report.longitude) : null;
+  if (
+    !category || category === "feedback_camara" ||
+    lat == null || lon == null || Number.isNaN(lat) || Number.isNaN(lon)
+  ) {
+    return null;
+  }
+
+  const near = await fetchNearestUrbanReportsForSimilarity(
+    supabase,
+    lat,
+    lon,
+    category,
+    userId,
+    10,
+    SIMILAR_URBAN_RADIUS_METERS,
+  );
+  if (near.length === 0) return null;
+
+  const payload = { reports: near, center: { lat, lon } };
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const intro =
+    "Muito obrigado por sua contribuição! O seu relato foi cadastrado com sucesso. " +
+    "Aproveitando, você gostaria de descobrir e apoiar **relatos semelhantes na região**? " +
+    "Seu apoio pode ajudar a ampliar a voz da sua comunidade!";
+  return `${intro}\n\n[SIMILAR_URBAN_REPORTS_B64:${b64}]`;
+}
 
 type ChannelRatingShortcutArgs = {
   chatMessages?: Array<Record<string, unknown>>;
@@ -64,10 +128,19 @@ export async function handleChannelRatingShortcut(
     }
 
     const starDisplay = "★".repeat(stars) + "☆".repeat(5 - stars);
-    const reply =
-      `⭐ **Muito obrigado pela avaliação!** Você registrou **${stars} estrela${stars > 1 ? "s" : ""}** (${starDisplay}) para o atendimento no Câmara na Mão. Seu feedback nos ajuda a evoluir.\n\nTenha um ótimo dia!`;
+    const ratingAck =
+      `⭐ **Muito obrigado pela avaliação!** Você registrou **${stars} estrela${stars > 1 ? "s" : ""}** (${starDisplay}) para o atendimento no Câmara na Mão. Seu feedback nos ajuda a evoluir.`;
+
+    // Ao final do relato urbano (após a avaliação do canal), convida a apoiar relatos
+    // semelhantes na região — sem interromper a jornada do relato.
+    const similarSupport = await buildUrbanSimilarSupportBlock(supabase, chatMessages, userId);
+    if (similarSupport) {
+      console.log("[ai-orchestrator] Channel rating recorded + offering nearby similar urban reports:", stars);
+      return { response: createSseResponse(`${ratingAck}\n\n${similarSupport}`, corsHeaders) };
+    }
+
     console.log("[ai-orchestrator] Channel rating recorded:", stars);
-    return { response: createSseResponse(reply, corsHeaders) };
+    return { response: createSseResponse(`${ratingAck}\n\nTenha um ótimo dia!`, corsHeaders) };
   }
 
   if (userDeclinedChannelRating(lastUserTextEarly) || userFarewellWithoutRating(lastUserTextEarly)) {
