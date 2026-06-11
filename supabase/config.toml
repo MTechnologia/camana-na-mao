@@ -3,6 +3,9 @@ project_id = "vjzkzsczlbtmrzewffdx"
 [functions.ai-orchestrator]
 verify_jwt = false
 
+[functions.moderate-image]
+verify_jwt = true
+
 [functions.populate-knowledge-base]
 verify_jwt = true
 

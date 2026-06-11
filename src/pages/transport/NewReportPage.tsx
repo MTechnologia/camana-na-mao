@@ -29,10 +29,11 @@ import { TransportLineFollowButton } from "@/components/transport/TransportLineF
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const MAX_PHOTOS = 3;
-const MAX_PHOTO_MB = 50;
+const MAX_PHOTO_MB = 15;
 const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
 
 export default function NewReportPage() {
@@ -256,6 +257,12 @@ export default function NewReportPage() {
       if (error) {
         console.error("Erro ao fazer upload da foto:", error);
         throw error;
+      }
+      // Moderação de conteúdo: se reprovada, o servidor já removeu o objeto; pula a foto.
+      const moderation = await moderateUploadedImage("urban-reports", fileName);
+      if (moderation.blocked) {
+        toast({ title: `"${file.name}": ${IMAGE_MODERATION_BLOCKED_MESSAGE}`, variant: "destructive" });
+        continue;
       }
       const {
         data: { publicUrl },

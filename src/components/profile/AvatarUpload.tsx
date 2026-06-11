@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import Cropper from "react-easy-crop";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
 import { readFile, validateImageFile, createCroppedImage } from "@/lib/imageUtils";
 
 interface AvatarUploadProps {
@@ -99,6 +100,10 @@ const AvatarUpload = ({
         });
 
       if (uploadError) throw uploadError;
+
+      // Moderação de conteúdo: se reprovada, o servidor já removeu o objeto.
+      const moderation = await moderateUploadedImage("avatars", filePath);
+      if (moderation.blocked) throw new Error(IMAGE_MODERATION_BLOCKED_MESSAGE);
 
       // Obter URL pública
       const {

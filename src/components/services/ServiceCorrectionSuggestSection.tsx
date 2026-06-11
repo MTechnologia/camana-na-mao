@@ -14,6 +14,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
 import { Camera, PencilLine, X } from "lucide-react";
 import {
   SERVICE_CORRECTION_TYPES,
@@ -109,6 +110,13 @@ export function ServiceCorrectionSuggestSection({
       upsert: false,
     });
     if (error) throw error;
+
+    // Moderação de conteúdo: se reprovada, o servidor já removeu o objeto; segue sem a foto.
+    const moderation = await moderateUploadedImage("service-corrections", path);
+    if (moderation.blocked) {
+      toast.error(IMAGE_MODERATION_BLOCKED_MESSAGE);
+      return null;
+    }
 
     const {
       data: { publicUrl },
