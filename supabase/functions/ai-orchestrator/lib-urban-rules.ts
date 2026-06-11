@@ -389,20 +389,42 @@ export function autoClassifyCategory(description: string): {
     { keywords: /problema|situa[çc][ãa]o|reclamar|reclama[çc][ãa]o|denunciar|den[úu]ncia|irregular|ilegal|abandonad|invad|invaz|invasão/i, category: "outro", weight: 2 },
   ];
 
-  let bestMatch: { category: string; score: number } | null = null;
-  for (const pattern of patterns) {
-    const match = desc.match(pattern.keywords);
-    if (match) {
-      const score = pattern.weight;
-      if (!bestMatch || score > bestMatch.score) {
-        bestMatch = { category: pattern.category, score };
+  // Scoring ACUMULATIVO por categoria (em vez de 1-match-vence). Para cada categoria:
+  //   baseWeight = maior peso entre os padrões que bateram (define a confiança, como antes)
+  //   signals    = quantos padrões distintos bateram (força da evidência)
+  // Seleção: maior baseWeight; empate → mais sinais; empate → ordem do array (mais específico
+  // primeiro). Isso troca o desempate arbitrário por ordem por um critério de evidência, sem
+  // nunca sobrepor uma diferença real de peso (peso continua sendo o critério primário).
+  const perCategory = new Map<string, { baseWeight: number; signals: number; firstIndex: number }>();
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
+    if (desc.match(pattern.keywords)) {
+      const agg = perCategory.get(pattern.category);
+      if (!agg) {
+        perCategory.set(pattern.category, { baseWeight: pattern.weight, signals: 1, firstIndex: i });
+      } else {
+        agg.baseWeight = Math.max(agg.baseWeight, pattern.weight);
+        agg.signals += 1;
       }
     }
   }
 
-  if (bestMatch) {
-    const confidence = Math.min(bestMatch.score / 10, 1);
-    return { category: bestMatch.category, confidence, suggestedLabel };
+  let bestCategory: string | null = null;
+  let best: { baseWeight: number; signals: number; firstIndex: number } | null = null;
+  for (const [category, agg] of perCategory) {
+    const wins = !best ||
+      agg.baseWeight > best.baseWeight ||
+      (agg.baseWeight === best.baseWeight && agg.signals > best.signals) ||
+      (agg.baseWeight === best.baseWeight && agg.signals === best.signals && agg.firstIndex < best.firstIndex);
+    if (wins) {
+      best = agg;
+      bestCategory = category;
+    }
+  }
+
+  if (bestCategory && best) {
+    const confidence = Math.min(best.baseWeight / 10, 1);
+    return { category: bestCategory, confidence, suggestedLabel };
   }
 
   return { category: null, confidence: 0, suggestedLabel };

@@ -466,3 +466,21 @@ Deno.test("N2: normalizeUrbanCategoryAlias mantém categorias canônicas e desco
   assertEquals(normalizeUrbanCategoryAlias("via_publica"), "via_publica");
   assertEquals(normalizeUrbanCategoryAlias("inexistente"), "inexistente");
 });
+
+// ─────────────────────────────────────────────────────────
+// (B) Scoring acumulativo: desempate por nº de sinais
+// ─────────────────────────────────────────────────────────
+
+Deno.test("O1: empate de peso 7 desempata por sinais — 'fumaça tóxica e barulho e fedor' → poluicao (2 sinais) sobre higiene (1)", () => {
+  // poluicao bate 2 padrões weight 7 (atmosférica 'fumaça/tóxico' + ruído 'barulho');
+  // higiene bate 1 (fedor). Antes vencia higiene (ordem do array); agora vence poluicao (mais sinais).
+  const r = autoClassifyCategory("fumaça tóxica e barulho e fedor");
+  assertEquals(r.category, "poluicao");
+  assertEquals(r.confidence, 0.7);
+});
+
+Deno.test("O2: empate de peso e de sinais mantém ordem do array — 'rua com lixo e fedor' → lixo", () => {
+  const r = autoClassifyCategory("rua com lixo e fedor");
+  assertEquals(r.category, "lixo");
+  assertEquals(r.confidence, 0.7);
+});
