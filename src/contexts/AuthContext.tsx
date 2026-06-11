@@ -133,9 +133,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           !error && data?.user && (data.user.identities?.length ?? 0) === 0;
         if (emailAlreadyExists) {
           const msg = "Este e-mail já está cadastrado.";
-          toast.error(msg);
-          toast.info(
-            "Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.",
+          toast.error(
+            "Este e-mail já está cadastrado. Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.",
           );
           return { data: null, error: new Error(msg) };
         }
