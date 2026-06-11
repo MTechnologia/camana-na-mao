@@ -2,7 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { findCouncilMemberMatches, isChamberIntentOrSelectionText } from "./lib-chamber-feedback.ts";
 import { hasTransportAccessibilityDetails } from "./lib-index-transport-preview.ts";
-import { URBAN_AFFECTED_SCOPE_FIELD_PROMPT } from "./lib-prompt-ux.ts";
+import {
+  URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+  URBAN_AFFECTED_SCOPE_FIELD_PROMPT_EMERGENCY,
+} from "./lib-prompt-ux.ts";
+import { descriptionLooksLikeEmergency } from "./lib-urban-rules.ts";
 import {
   applyUrbanQuickModeDefaults,
   shouldSkipUrbanRiskScopeQuestions,
@@ -404,10 +408,16 @@ export async function getNextMissingField(
           }
         }
         if (!fields.affected_scope) {
+          // Em emergência (risco crítico ou descrição com sinais de risco à vida), o passo de
+          // risco orienta deterministicamente a acionar 193/192/190 antes de continuar.
+          const emergencyContext = fields.risk_level === "critical" ||
+            descriptionLooksLikeEmergency(`${fields.description ?? ""} ${fields.subcategory ?? ""}`);
           return {
             field: "affected_scope",
             picker: null,
-            prompt: URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
+            prompt: emergencyContext
+              ? URBAN_AFFECTED_SCOPE_FIELD_PROMPT_EMERGENCY
+              : URBAN_AFFECTED_SCOPE_FIELD_PROMPT,
           };
         }
       }
