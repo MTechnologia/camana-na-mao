@@ -212,5 +212,31 @@ export function accumulateServiceSearchFieldsFromHistory(
     }
   }
 
+  // Troca de tipo na MESMA conversa: o tipo de serviço explícito MAIS RECENTE vence
+  // sobre o acumulado. O service_type acumulado vem dos marcadores de progresso da
+  // busca anterior (ex.: jornada de "pontos de ônibus" deixa service_type=transit_station,
+  // e o marcador final vazio "{}" não o limpa); as inferências acima só rodam quando o
+  // tipo ainda está vazio. Sem isto, pedir "UBSs mais próximas" logo após uma busca de
+  // ônibus continuava devolvendo ônibus. Varre do mais novo p/ o mais antigo.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== "user") continue;
+    const latestType = deps.inferServiceTypeFromText(getHistoryMessageText(messages[i]));
+    if (!latestType) continue;
+    if (latestType !== acc.service_type) {
+      acc.service_type = latestType;
+      // Raio/avaliação/busca pertenciam à busca do tipo ANTERIOR — zera para uma busca
+      // limpa do novo tipo, a menos que o usuário tenha refinado DEPOIS de trocar.
+      const refinedAfterSwitch = messages.slice(i + 1).some((m) =>
+        m.role === "user" &&
+        /\braio\s*:\s*\d|avalia[cç][aã]o\s*m[ií]nima|busca\s*:/i.test(getHistoryMessageText(m)));
+      if (!refinedAfterSwitch) {
+        delete acc.radius_meters;
+        delete acc.min_rating;
+        delete acc.search_query;
+      }
+    }
+    break;
+  }
+
   return acc;
 }
