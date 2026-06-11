@@ -138,6 +138,14 @@ export async function handleDeterministicServicesFlow(
         }
       }
 
+      // Defensivo: com coordenadas (GPS / endereço geocodificado / cadastrado), a busca é por
+      // RAIO a partir do ponto. NÃO restringir por `district` (derivado do bairro) — senão a
+      // re-busca por filtro (ex.: "Raio: 5km") pode desviar para o caminho por distrito do
+      // find_nearby, que não calcula distância nem aplica o raio (traz "os primeiros N").
+      if (toolArgs.user_lat != null && toolArgs.user_lon != null) {
+        toolArgs.district = undefined;
+      }
+
       let toolResult: ExecuteToolResult | null = null;
       try {
         toolResult = await lib.executeTool(

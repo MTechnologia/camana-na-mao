@@ -63,7 +63,11 @@ Deno.test("handleDeterministicServicesFlow executa find_nearby_services quando l
 
   assertEquals(calledToolName, "find_nearby_services");
   assertExists(calledArgs);
-  assertEquals(calledArgs!.district, "Centro");
+  // Com coordenadas presentes, a busca é por raio: `district` (derivado do bairro) é limpo
+  // para não desviar a re-busca para o caminho por distrito (sem distância nem raio).
+  assertEquals(calledArgs!.district, undefined);
+  assertEquals(calledArgs!.user_lat, -23.55);
+  assertEquals(calledArgs!.user_lon, -46.63);
   assertEquals(calledArgs!.radius_meters, 2000);
   assertExists(result.response);
   const text = await result.response!.text();
