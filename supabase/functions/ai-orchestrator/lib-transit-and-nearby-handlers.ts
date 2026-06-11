@@ -86,6 +86,36 @@ export async function handleFindNearbyServices(
     userLat = Number(accumulatedFields.user_lat);
     userLon = Number(accumulatedFields.user_lon);
   }
+  // Endereço informado/selecionado pelo usuário no chat tem prioridade sobre o endereço do
+  // perfil. Só não sobrepõe quando o método escolhido foi explicitamente "endereço cadastrado".
+  // Sem isto, ao selecionar um endereço sem coordenadas, a busca caía no endereço primário do perfil.
+  if (userLat == null || userLon == null) {
+    const method = typeof accumulatedFields?.location_method === "string" ? accumulatedFields.location_method : "";
+    const accStreet = typeof accumulatedFields?.street === "string" ? accumulatedFields.street.trim() : "";
+    const accNeighborhood = typeof accumulatedFields?.neighborhood === "string" ? accumulatedFields.neighborhood.trim() : "";
+    const accNumber = typeof accumulatedFields?.street_number === "string" ? accumulatedFields.street_number.trim() : "";
+    const accCep = typeof accumulatedFields?.cep === "string" ? accumulatedFields.cep.trim() : "";
+    const accCity =
+      typeof accumulatedFields?.city === "string" && accumulatedFields.city.trim()
+        ? accumulatedFields.city.trim()
+        : "São Paulo";
+    const hasSelectedAddress = (!!accStreet && !!accNeighborhood) || accCep.replace(/\D/g, "").length === 8;
+    if (method !== "registered_address" && hasSelectedAddress) {
+      const addrArg = {
+        street: accStreet,
+        street_number: accNumber,
+        neighborhood: accNeighborhood,
+        cep: accCep,
+        city: accCity,
+      };
+      let coords = await deps.geocodeAddressWithGoogle(supabase, addrArg);
+      if (!coords) coords = await deps.geocodeAddressToCoord(addrArg);
+      if (coords) {
+        userLat = coords.lat;
+        userLon = coords.lon;
+      }
+    }
+  }
   if (userLat == null || userLon == null) {
     const { data: addr } = await supabase
       .from("user_addresses")
