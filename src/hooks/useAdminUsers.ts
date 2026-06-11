@@ -253,7 +253,7 @@ export const useAdminUsers = () => {
         throw new Error(data.error);
       }
 
-      // user_roles e profiles já são apagados pela Edge Function delete-user
+      // user_roles e profiles são removidos em cascade ao excluir o auth.users na Edge Function
 
       // Register audit log
       const {
