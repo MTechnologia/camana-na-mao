@@ -40,6 +40,21 @@ Deno.test("detectCollectionIntent: pergunta informacional de linha vira general,
   assertEquals(result?.type, "general");
 });
 
+Deno.test("detectCollectionIntent: refinamento de filtro 'Raio: 2km. Avaliação mínima: todas' → services (re-dispara busca, não cai na LLM)", () => {
+  const result = detectCollectionIntent(
+    "Raio: 2km. Avaliação mínima: todas",
+    [
+      { role: "user", content: "Quais são os parques mais próximos da minha localização?" },
+      {
+        role: "assistant",
+        content: "[LIGHT_JOURNEY:services][COLLECTION_PROGRESS:services:{}]Encontrei 10 parques perto de você:",
+      },
+    ],
+    baseDeps,
+  );
+  assertEquals(result?.type, "services");
+});
+
 Deno.test("detectExistingJourney: encontra marcador de coleta mais recente", () => {
   const result = detectExistingJourney([
     { role: "assistant", content: "texto livre" },

@@ -908,6 +908,16 @@ export function detectCollectionIntent(
     scores.push({ type: "services", score: servicesScore, fields: {} });
   }
 
+  // Refinamento de filtros após uma busca de serviços (chip "Raio: Xkm. Avaliação mínima: ...").
+  // É continuação explícita da busca por proximidade e deve RE-DISPARAR find_nearby_services —
+  // nunca cair na LLM (que apenas "explica" a frase) nem ser confundido com Avaliação de Serviço
+  // (apesar de conter "avaliação"). Por isso sobrepõe o guard isEvaluating e usa score alto.
+  // "Raio:" é exclusivo desse chip de filtro de proximidade.
+  if (/\braio\s*:\s*\d/i.test(userMessage)) {
+    scores.push({ type: "services", score: 16, fields: {} });
+    console.log("[detectCollectionIntent] Services filter refinement (Raio/Avaliação mínima) → re-run nearby");
+  }
+
   const audienciasDomain = ["audiência", "audiencia", "consulta pública", "consulta publica", "participar", "inscrever", "próxima reunião", "proxima reuniao"];
   const audienciasTerms = ["quando", "próxima", "proxima", "tema", "assunto", "sobre"];
   let audienciasScore = 0;
