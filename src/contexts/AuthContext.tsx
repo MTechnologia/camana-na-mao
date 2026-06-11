@@ -27,6 +27,9 @@ import {
 import { withTimeout } from "@/lib/promiseTimeout";
 
 const AUTH_INIT_TIMEOUT_MS = 8_000;
+// Login/logout toleram mais latência (rede móvel lenta, cold start do Auth) que a
+// restauração de sessão na inicialização — evita falso "timeout" no login.
+const AUTH_SIGNIN_TIMEOUT_MS = 20_000;
 
 interface AuthContextType {
   user: User | null;
@@ -183,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({ email, password }),
-        AUTH_INIT_TIMEOUT_MS,
+        AUTH_SIGNIN_TIMEOUT_MS,
         "AUTH_SIGNIN_TIMEOUT",
       );
 
@@ -232,7 +235,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         await withTimeout(
           supabase.auth.signOut({ scope: "global" }),
-          AUTH_INIT_TIMEOUT_MS,
+          AUTH_SIGNIN_TIMEOUT_MS,
           "AUTH_SIGNOUT_TIMEOUT",
         );
       } catch {

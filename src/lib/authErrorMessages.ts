@@ -61,6 +61,13 @@ export function translateAuthError(message: string, code?: string): string {
     return "Não foi possível enviar o e-mail de recuperação (serviço de envio indisponível ou remetente não validado). Tente de novo em alguns minutos ou fale com o suporte.";
   }
   if (
+    lower.includes("auth_signin_timeout") ||
+    lower.includes("auth_signout_timeout") ||
+    lower.includes("auth_init_timeout")
+  ) {
+    return "A conexão está lenta e o login demorou mais do que o esperado. Verifique sua internet e tente novamente.";
+  }
+  if (
     lower.includes("failed to fetch") ||
     lower.includes("network error") ||
     lower.includes("load failed") ||
