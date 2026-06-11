@@ -92,6 +92,10 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
   );
 }
 
+// Menu de correção do resumo do relato. Inclui "imagens" (anexar/corrigir fotos a partir daqui).
+const URBAN_CORRECTION_MENU_MESSAGE =
+  "Certo. O que você gostaria de corrigir no resumo do relato?\n\nSelecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza,imagens]";
+
 export async function handleDeterministicUrbanAutoCreate(
   args: UrbanAutoArgs,
 ): Promise<UrbanAutoResult> {
@@ -166,6 +170,11 @@ export async function handleDeterministicUrbanAutoCreate(
         accumulatedFields,
         "[FIELD_REQUEST:report_nature]Qual a **natureza** correta do relato?[QUICK_REPLY:reclamacao,duvida,sugestao,elogio]",
       );
+    } else if (/^(imag|foto)/.test(pickNorm)) {
+      correctionReply = buildUrbanProgressContent(
+        accumulatedFields,
+        "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]",
+      );
     }
 
     if (correctionReply) {
@@ -175,7 +184,7 @@ export async function handleDeterministicUrbanAutoCreate(
 
     const reaskMenu = buildUrbanProgressContent(
       accumulatedFields,
-      "Não reconheci essa opção. **O que você gostaria de corrigir** no resumo do relato?\n\nSelecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza]",
+      "Não reconheci essa opção. **O que você gostaria de corrigir** no resumo do relato?\n\nSelecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza,imagens]",
     );
     console.log("[ai-orchestrator] Urban report: correction menu — pick não reconhecido, reexibindo opções");
     return { response: createSseResponse(reaskMenu, lib.corsHeaders) };
@@ -214,6 +223,10 @@ export async function handleDeterministicUrbanAutoCreate(
       "afetacao",
       "cep",
       "natureza",
+      "imagens",
+      "imagem",
+      "foto",
+      "fotos",
     ]);
     const userText = msgLower.trim();
     const isMenuPick = correctionMenuTokens.has(userText);
@@ -246,6 +259,19 @@ export async function handleDeterministicUrbanAutoCreate(
     );
   const userSentCorrectionLikeText =
     /\b(n[aã]o\s+[ée]|n[aã]o\s+est[aá]|est[aá]\s+errad|corrig|deveria\s+ser)\b/i.test(msgLower);
+
+  // "Corrigir" deve abrir as OPÇÕES de correção sempre que a thread já exibiu um preview/menu —
+  // mesmo que a última mensagem não seja detectada como preview (card estruturado/intermediária).
+  // Antes, nesse caso, caía na pergunta de foto (branch abaixo) e só o 2º "Corrigir" funcionava.
+  if (userWantsCorrection && threadHadUrbanPreviewOrCorrection) {
+    console.log("[ai-orchestrator] Urban report: 'Corrigir' → correction options (early, pré-foto)");
+    return {
+      response: createSseResponse(
+        buildUrbanProgressContent(accumulatedFields, URBAN_CORRECTION_MENU_MESSAGE),
+        lib.corsHeaders,
+      ),
+    };
+  }
 
   if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
     // Feedback à Câmara não anexa imagens: pula a pergunta de fotos e vai ao resumo.
@@ -290,7 +316,7 @@ export async function handleDeterministicUrbanAutoCreate(
   if (showedPreview && userWantsCorrection) {
     const correctionOptions = buildUrbanProgressContent(
       accumulatedFields,
-      "Certo. O que você gostaria de corrigir no resumo do relato?\n\nSelecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza]",
+      URBAN_CORRECTION_MENU_MESSAGE,
     );
     console.log("[ai-orchestrator] Urban report: user requested correction → showing correction options");
     return { response: createSseResponse(correctionOptions, lib.corsHeaders) };
