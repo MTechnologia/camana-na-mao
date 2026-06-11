@@ -7,6 +7,7 @@ import Cropper from "react-easy-crop";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
+import { convertHeicToJpegIfNeeded } from "@/lib/heicConvert";
 import { readFile, validateImageFile, createCroppedImage } from "@/lib/imageUtils";
 
 interface AvatarUploadProps {
@@ -54,9 +55,10 @@ const AvatarUpload = ({
   );
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const rawFile = event.target.files?.[0];
+    if (!rawFile) return;
 
+    const file = await convertHeicToJpegIfNeeded(rawFile); // HEIC (iPhone) → JPEG p/ o crop
     const validation = validateImageFile(file);
     if (!validation.valid) {
       toast.error(validation.error);

@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
+import { convertHeicToJpegIfNeeded } from "@/lib/heicConvert";
 import { Camera, PencilLine, X } from "lucide-react";
 import {
   SERVICE_CORRECTION_TYPES,
@@ -78,9 +79,10 @@ export function ServiceCorrectionSuggestSection({
     if (next) resetForm();
   };
 
-  const onPickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.files?.[0];
+    if (!raw) return;
+    const file = await convertHeicToJpegIfNeeded(raw); // HEIC (iPhone) → JPEG
     if (!ALLOWED_MIME.has(file.type)) {
       toast.error("Use uma imagem JPG, PNG ou WebP.");
       e.target.value = "";

@@ -23,6 +23,7 @@ import { MapPin, Send, Mic, MicOff, Camera, X, Image as ImageIcon } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
+import { convertHeicToJpegIfNeeded } from "@/lib/heicConvert";
 import { useAuth } from "@/contexts/AuthContext";
 import { logManualClassificationPrediction } from "@/lib/classificationPredictionLog";
 import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
@@ -167,24 +168,26 @@ export default function ManualReportPage() {
     }
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const files = input.files ? Array.from(input.files) : [];
     if (!files.length) return;
 
     const remaining = MAX_PHOTOS - photoFiles.length;
     if (remaining <= 0) {
       toast.error(`Máximo de ${MAX_PHOTOS} fotos. Remova uma para adicionar outra.`);
-      e.target.value = "";
+      input.value = "";
       return;
     }
 
     const toAdd: File[] = [];
     for (let i = 0; i < files.length && toAdd.length < remaining; i++) {
-      if (files[i].size > MAX_PHOTO_BYTES) {
-        toast.error(`"${files[i].name}" é muito grande. Máximo ${MAX_PHOTO_MB}MB por imagem.`);
+      const file = await convertHeicToJpegIfNeeded(files[i]); // HEIC (iPhone) → JPEG
+      if (file.size > MAX_PHOTO_BYTES) {
+        toast.error(`"${file.name}" é muito grande. Máximo ${MAX_PHOTO_MB}MB por imagem.`);
         continue;
       }
-      toAdd.push(files[i]);
+      toAdd.push(file);
     }
 
     if (toAdd.length) {
@@ -193,7 +196,7 @@ export default function ManualReportPage() {
         [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS),
       );
     }
-    e.target.value = "";
+    input.value = "";
   };
 
   const removePhoto = (index: number) => {
