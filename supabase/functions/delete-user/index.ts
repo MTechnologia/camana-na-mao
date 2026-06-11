@@ -98,19 +98,13 @@ serve(async (req) => {
 
     console.log(`Admin ${requestingUser.id} deleting user ${userId}`);
 
-    // Remove dados em public primeiro para evitar FK bloqueando auth.admin.deleteUser
-    const { error: rolesErr } = await supabaseAdmin
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
-    if (rolesErr) console.warn('delete-user: user_roles delete warning', rolesErr.message);
-
-    const { error: profileErr } = await supabaseAdmin
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
-    if (profileErr) console.warn('delete-user: profiles delete warning', profileErr.message);
-
+    // Exclusão ATÔMICA: NÃO apagamos profile/user_roles antes. Todas as FKs que referenciam
+    // auth.users são ON DELETE CASCADE/SET NULL, então auth.admin.deleteUser remove o usuário
+    // e tudo que depende dele (profiles, user_roles, etc.) numa única transação do banco —
+    // igual ao delete-own-account. Apagar o profile antes quebrava a atomicidade: se o delete
+    // do auth falhasse, sobrava um órfão (profile sumido, auth presente) que bloqueava o e-mail
+    // e nem aparecia no painel admin. (Para limpezas manuais via Dashboard, use a RPC
+    // prepare_auth_user_deletion antes do delete; aqui o cascade já cobre tudo.)
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
