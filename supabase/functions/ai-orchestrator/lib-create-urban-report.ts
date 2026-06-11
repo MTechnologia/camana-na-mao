@@ -5,6 +5,7 @@ import {
   URBAN_RISK_LEVEL_FIELD_PROMPT,
 } from "./lib-prompt-ux.ts";
 import { URBAN_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts";
+import { normalizeUrbanCategoryAlias } from "./lib-urban-rules.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
 
@@ -310,6 +311,12 @@ export async function handleCreateUrbanReport(
     Object.entries(rawArgs).filter(([, value]) => value !== undefined),
   ) as Record<string, unknown>;
   const eff: Record<string, unknown> = { ...acc, ...argsSanitized };
+
+  // Normaliza apelidos/variantes para a categoria canônica (ex.: "verde" → "area_verde")
+  // antes de validar — blinda contra categoria inválida persistir no banco.
+  if (eff.category != null && eff.category !== "") {
+    eff.category = normalizeUrbanCategoryAlias(String(eff.category));
+  }
 
   const restoreEmptyFromAcc = (key: "risk_level" | "affected_scope" | "urgency_reason") => {
     const value = eff[key];

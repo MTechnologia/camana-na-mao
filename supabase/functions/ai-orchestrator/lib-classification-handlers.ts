@@ -1,3 +1,5 @@
+import { normalizeUrbanCategoryAlias } from "./lib-urban-rules.ts";
+
 type ToolResult = { success: boolean; message: string; data?: unknown };
 
 const URBAN_CATEGORY_LABELS: Record<string, string> = {
@@ -31,7 +33,9 @@ export function handleClassifyReportCategory(
   args: Record<string, unknown>,
   validUrbanCategories: readonly string[],
 ): ToolResult {
-  const category = String(args.category ?? "");
+  // Normaliza apelidos/variantes (ex.: "verde" → "area_verde") antes de validar, para não
+  // rejeitar uma categoria quase-certa nem persistir uma fora da lista canônica.
+  const category = normalizeUrbanCategoryAlias(String(args.category ?? ""));
   if (!(validUrbanCategories as readonly string[]).includes(category)) {
     console.error("[classify_report_category] Invalid category:", args.category);
     return {

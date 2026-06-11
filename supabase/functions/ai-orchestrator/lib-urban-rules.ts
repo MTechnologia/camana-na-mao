@@ -7,6 +7,33 @@ export const VALID_URBAN_CATEGORIES = [
   "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro",
 ] as const;
 
+/**
+ * Apelidos comuns (LLM/parser) que devem mapear para a categoria canônica — evita REJEITAR
+ * (ou persistir) uma categoria quase-certa como inválida. Ex.: a LLM às vezes responde "verde"
+ * em vez de "area_verde", ou devolve a variante acentuada ("iluminação", "poluição").
+ */
+const URBAN_CATEGORY_ALIASES: Record<string, string> = {
+  "verde": "area_verde",
+  "área verde": "area_verde",
+  "area verde": "area_verde",
+  "áreas verdes": "area_verde",
+  "areas verdes": "area_verde",
+  "iluminação": "iluminacao",
+  "sinalização": "sinalizacao",
+  "poluição": "poluicao",
+  "pavimentação": "pavimentacao",
+  "calçada": "calcada",
+  "câmara": "feedback_camara",
+  "feedback câmara": "feedback_camara",
+  "feedback camara": "feedback_camara",
+};
+
+/** Normaliza apelidos/variantes para a categoria canônica; mantém o valor (em minúsculas) se não houver apelido. */
+export function normalizeUrbanCategoryAlias(category: string | null | undefined): string {
+  const c = String(category ?? "").trim().toLowerCase();
+  return URBAN_CATEGORY_ALIASES[c] ?? c;
+}
+
 export const URBAN_RISK_COLLECTION_CATEGORIES: readonly string[] = [
   "via_publica",
   "pavimentacao",
@@ -344,7 +371,7 @@ export function autoClassifyCategory(description: string): {
   const patterns: Array<{ keywords: RegExp; category: string; weight: number }> = [
     { keywords: /inc[eê]ndio|incendio|pegando\s*fogo|em\s*chamas|queimando|pr[eé]dio\s*(abandonad\w*\s*)?(em\s*)?(chamas|fogo|inc[eê]ndio)|fogo\s*(no|na|em)\s*pr[eé]dio/i, category: "outro", weight: 9.5 },
     { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando|aberto|tampa)|esgoto|córrego|valeta|enchente|inundad?[oa]?|transbord/i, category: "esgoto", weight: 10 },
-    { keywords: /poste\s*(apagad|sem\s*luz|queimad|ca[íi]d|quebrad|danificad|torto|pendend|inclinad)|luz\s*(apagad|queimad)|ilumina[çc][ãa]o|sem\s*luz|escuro|escurid[ãa]o|l[âa]mpada\s*(queimad|apagad|quebrad)/i, category: "iluminacao", weight: 9 },
+    { keywords: /poste\s*(apagad|sem\s*luz|queimad|ca[íi]d|quebrad|danificad|torto|pendend|inclinad)|luz\s*(apagad|queimad)|ilumina[çc][ãa]o|sem\s*luz|escuro|escurid[ãa]o|l[âa]mpada\s*(queimad|apagad|quebrad)|falta\s*de\s*(luz|energia)|sem\s*energia|queda\s*de\s*energia|apag[ãa]o/i, category: "iluminacao", weight: 9 },
     { keywords: /polui[çc][ãa]o\s*(sonora|ac[uú]stica)|polui[çc][ãa]o\s+(causada\s+)?(por|pelo|de)\s*(barulho|som|ru[ií]do)|som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturba[cç][aã]o\s*sonora|perturbacao\s*sonora|perturba[cç][aã]o\s+ac[uú]stica|madrugada.*barulho|barulho.*madrugada/i, category: "poluicao", weight: 9 },
     { keywords: /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem|cbuq|obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|restaura[çc][ãa]o\s*asf[áa]ltica|revestimento\s*asf[áa]ltico/i, category: "pavimentacao", weight: 8.6 },
     { keywords: /sem[áa]foro|sinaliza[çc][ãa]o\s*(vertical|horizontal)?|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?|demarca[çc][ãa]o|repintura|zebr(?:a)?/i, category: "sinalizacao", weight: 8.5 },

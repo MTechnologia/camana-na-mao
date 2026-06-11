@@ -9,6 +9,7 @@ import {
   assertStringIncludes,
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { autoClassifyCategory, executeTool } from "./lib.ts";
+import { normalizeUrbanCategoryAlias } from "./lib-urban-rules.ts";
 
 // ─────────────────────────────────────────────────────────
 // Helpers
@@ -432,4 +433,36 @@ Deno.test("K1: animais confidence 0.4, alternative_categories vazio → confirma
   assertStringIncludes(r.message, "Animais");
   const data = r.data as Record<string, unknown>;
   assertEquals(data.needs_confirmation, undefined);
+});
+
+// ─────────────────────────────────────────────────────────
+// (A) Otimização de regras: cobertura de "falta de energia" + normalização de apelidos
+// ─────────────────────────────────────────────────────────
+
+Deno.test("M1: 'falta de energia na minha rua' → iluminacao", () => {
+  const r = autoClassifyCategory("falta de energia na minha rua");
+  assertEquals(r.category, "iluminacao");
+});
+
+Deno.test("M2: 'estou sem energia há 12 horas' → iluminacao", () => {
+  const r = autoClassifyCategory("estou sem energia há 12 horas");
+  assertEquals(r.category, "iluminacao");
+});
+
+Deno.test("M3: 'apagão no bairro inteiro' → iluminacao", () => {
+  const r = autoClassifyCategory("apagão no bairro inteiro");
+  assertEquals(r.category, "iluminacao");
+});
+
+Deno.test("N1: normalizeUrbanCategoryAlias mapeia apelidos para canônico", () => {
+  assertEquals(normalizeUrbanCategoryAlias("verde"), "area_verde");
+  assertEquals(normalizeUrbanCategoryAlias("Área Verde"), "area_verde");
+  assertEquals(normalizeUrbanCategoryAlias("iluminação"), "iluminacao");
+  assertEquals(normalizeUrbanCategoryAlias("poluição"), "poluicao");
+});
+
+Deno.test("N2: normalizeUrbanCategoryAlias mantém categorias canônicas e desconhecidas", () => {
+  assertEquals(normalizeUrbanCategoryAlias("area_verde"), "area_verde");
+  assertEquals(normalizeUrbanCategoryAlias("via_publica"), "via_publica");
+  assertEquals(normalizeUrbanCategoryAlias("inexistente"), "inexistente");
 });
