@@ -153,6 +153,21 @@ export async function resolveCollectionIntent(
   const journeySwitched = !!journeySwitchMatch;
   const journeyDeclined = !!journeyDeclinedMatch;
 
+  // Refinamento de filtros de uma busca de serviços ("Raio: Xkm. Avaliação mínima: ...").
+  // Continuação inequívoca da busca por proximidade — força `services` ANTES de qualquer ramo
+  // baseado em `frontendCollectionType`. Os ramos de light-journey confiam no collectionType
+  // enviado pelo app (que pode ter revertido para general/null após os resultados) e NÃO
+  // consultam detectCollectionIntent; sem isto a mensagem caía na LLM, que só "explicava" a
+  // frase. "Raio:" é exclusivo do chip de filtro de proximidade. Não dispara em troca de jornada.
+  if (!journeySwitched && /\braio\s*:\s*\d/i.test(lastUserMsg)) {
+    console.log("[ai-orchestrator] Services filter refinement (Raio/Avaliação) → forçando intent services");
+    return {
+      collectionIntent: { type: "services", fields: {} },
+      journeyDeclined,
+      journeySwitched,
+    };
+  }
+
   let collectionIntent: CollectionIntent | null = null;
 
   if (journeySwitchMatch) {
