@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { isReportSummaryConfirmation } from "@/lib/reportSummaryMarkers";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
@@ -95,6 +96,9 @@ const AgentChatArea = () => {
 
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Ref na última mensagem renderizada — usado para rolar até o INÍCIO dela quando for o
+  // resumo de um relato (em vez de jogar o usuário no fim da mensagem grande).
+  const lastMessageRef = useRef<HTMLDivElement>(null);
   const clearMessagesRef = useRef(clearMessages);
   clearMessagesRef.current = clearMessages;
   const chatSessionResetRef = useRef({
@@ -203,6 +207,14 @@ const AgentChatArea = () => {
   }, [activeConversationId, isHistoryLoaded, isLoading, sendMessage]);
 
   useEffect(() => {
+    // No resumo de um relato (mensagem grande para confirmar/corrigir), o scroll automático
+    // para o FIM jogava o usuário no final e ele perdia o contexto. Nesse caso, rolamos até o
+    // INÍCIO da mensagem para ele ler do começo; nos demais casos, mantemos o scroll ao fim.
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === "assistant" && isReportSummaryConfirmation(lastMessage.content)) {
+      lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, createdReport]);
 
@@ -468,6 +480,7 @@ const AgentChatArea = () => {
                   return (
                     <motion.div
                       key={msg.id}
+                      ref={index === messages.length - 1 ? lastMessageRef : undefined}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05, duration: 0.2 }}
