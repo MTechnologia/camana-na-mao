@@ -1033,13 +1033,17 @@ const ChatMessageBubble = ({
     !showRatingSubmitPreviewCard &&
     !isRegisteredReportSuccessMessage;
 
-  // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
+  // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros).
+  // Os resultados vêm em dois formatos: "Aqui estão as opções mais próximas..." (+ rodapé
+  // "Quer que eu calcule a rota") OU "Encontrei N <serviços> perto de ..." (formato compacto,
+  // sem rodapé). Reconhecemos ambos para os filtros não sumirem no formato compacto.
   const shouldShowNearbyFilters =
     !isUser &&
     isLastAssistantMessage &&
     onApplyNearbyFilters &&
     (message.content.includes("opções mais próximas") ||
-      message.content.includes("Quer que eu calcule a rota"));
+      message.content.includes("Quer que eu calcule a rota") ||
+      /\bEncontrei\s+\d+\s+/i.test(message.content));
 
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
