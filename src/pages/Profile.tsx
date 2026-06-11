@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
 import PageHeader from "@/components/ui/page-header";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -129,6 +130,10 @@ const Profile = () => {
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
+
+      // Moderação de conteúdo: se reprovada, o servidor já removeu o objeto.
+      const moderation = await moderateUploadedImage("avatars", filePath);
+      if (moderation.blocked) throw new Error(IMAGE_MODERATION_BLOCKED_MESSAGE);
 
       // Obter URL pública
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
