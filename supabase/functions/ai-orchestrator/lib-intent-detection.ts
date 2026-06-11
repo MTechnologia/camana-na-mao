@@ -426,6 +426,17 @@ export function detectCollectionIntent(
   const msgLower = userMessage.toLowerCase();
   const existingJourney = detectExistingJourney(conversationHistory);
 
+  // Refinamento de filtros após uma busca de serviços (chip "Raio: Xkm. Avaliação mínima: ...").
+  // Tratado ANTES do gate de INTENT_KEYWORDS e de todo o scoring: a frase do chip não tem
+  // palavra-chave de intenção (cairia em "sem intent" → LLM, que só "explica" a frase) e contém
+  // "avaliação" (seria confundida com Avaliação de Serviço). "Raio:" é exclusivo desse chip de
+  // proximidade — é continuação inequívoca da busca de serviços e deve re-disparar find_nearby.
+  // Campos (tipo/localização/raio/avaliação) são reconstruídos do histórico no accumulated-context.
+  if (/\braio\s*:\s*\d/i.test(userMessage)) {
+    console.log("[detectCollectionIntent] Services filter refinement (Raio/Avaliação mínima) → services (re-run nearby)");
+    return { type: "services", fields: {} };
+  }
+
   const userOnlyContext = conversationHistory
     .slice(-6)
     .filter((m) => m.role === "user")
@@ -906,16 +917,6 @@ export function detectCollectionIntent(
   const isEvaluating = ratingTerms.some((term) => contextIncludes(fullUserContext,term));
   if (servicesScore > 0 && !isEvaluating) {
     scores.push({ type: "services", score: servicesScore, fields: {} });
-  }
-
-  // Refinamento de filtros após uma busca de serviços (chip "Raio: Xkm. Avaliação mínima: ...").
-  // É continuação explícita da busca por proximidade e deve RE-DISPARAR find_nearby_services —
-  // nunca cair na LLM (que apenas "explica" a frase) nem ser confundido com Avaliação de Serviço
-  // (apesar de conter "avaliação"). Por isso sobrepõe o guard isEvaluating e usa score alto.
-  // "Raio:" é exclusivo desse chip de filtro de proximidade.
-  if (/\braio\s*:\s*\d/i.test(userMessage)) {
-    scores.push({ type: "services", score: 16, fields: {} });
-    console.log("[detectCollectionIntent] Services filter refinement (Raio/Avaliação mínima) → re-run nearby");
   }
 
   const audienciasDomain = ["audiência", "audiencia", "consulta pública", "consulta publica", "participar", "inscrever", "próxima reunião", "proxima reuniao"];
