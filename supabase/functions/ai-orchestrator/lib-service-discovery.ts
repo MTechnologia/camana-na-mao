@@ -123,7 +123,10 @@ export function formatServicesWithContext(
   const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : "";
     const rating = s.average_rating ? ` ⭐ ${Number(s.average_rating).toFixed(1)}` : "";
-    return `${i + 1}. ${s.name}${districtInfo}\n📍 ${s.address}${rating}`;
+    const dist = Number.isFinite(s._distance as number)
+      ? ` — a ${formatDistanceMeters(s._distance as number)}`
+      : "";
+    return `${i + 1}. ${s.name}${districtInfo}\n📍 ${s.address}${dist}${rating}`;
   }).join("\n");
 
   const footer = isExpanded
@@ -500,9 +503,9 @@ export async function findNearbyServices(
       // Colapsa unidades do mesmo tipo no mesmo lugar (proximidade ~150 m OU mesmo
       // endereço) — ex.: EMEF/EMEI/CEI de um CEU, cópias com nome/coordenada/endereço
       // variando — ANTES de cortar em `limit`.
+      // Mantém _distance para exibir a distância de cada equipamento no resultado.
       ordered = collapseColocated(withDistance)
-        .slice(0, limit)
-        .map(({ _distance, ...rest }) => rest) as Record<string, unknown>[];
+        .slice(0, limit) as Record<string, unknown>[];
     } else {
       ordered = withAddress
         .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)

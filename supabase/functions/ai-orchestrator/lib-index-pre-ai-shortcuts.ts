@@ -340,14 +340,18 @@ export async function handlePreAiShortcuts(
   }
 
   const isOnlyCepEarly = /^\d{5}-?\d{3}$/.test(lastUserMessage.trim());
+  // pr[oó]xim[oa]s? casa próximo/próxima/próximos/próximas — sem isto, tipos com plural
+  // feminino ("UBSs mais próximas", "escolas/bibliotecas/creches próximas") não entravam no
+  // atalho de serviços e caíam na LLM (com prompt/UX inconsistente).
   const proximityPhrases = [
     /mais\s+perto\s+de\s+mim/i,
-    /mais\s+pr[oó]ximo[s]?\s+(?:de\s+)?mim/i,
+    /mais\s+pr[oó]xim[oa]s?\s+(?:de\s+)?mim/i,
     /perto\s+de\s+mim/i,
-    /pr[oó]ximo[s]?\s+a\s+mim/i,
+    /pr[oó]xim[oa]s?\s+a\s+mim/i,
     /perto\s+aqui/i,
     /na\s+minha\s+regi[aã]o/i,
-    /(?:mais\s+)?pr[oó]ximo[s]?\b/i,
+    /minha\s+localiza[cç][aã]o/i,
+    /(?:mais\s+)?pr[oó]xim[oa]s?\b/i,
     /procurando|buscar|encontrar/i,
   ];
   const serviceSearchMatchEarly = !isOnlyCepEarly && proximityPhrases.some((pattern) => pattern.test(msgLower));

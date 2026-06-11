@@ -207,6 +207,21 @@ Deno.test("formatServicesWithContext: usa só \\n simples (sobrevive ao sanitize
   assertEquals(/\n[ \t]/.test(out), false);
 });
 
+Deno.test("formatServicesWithContext: mostra a distância de cada equipamento quando há _distance", () => {
+  const out = formatServicesWithContext(
+    [
+      { name: "UBS A", district: "Centro", address: "Rua 1, 10", _distance: 320 },
+      { name: "UBS B", district: "Centro", address: "Rua 2, 20", _distance: 1500 },
+    ],
+    "ubs",
+    null,
+    false,
+    "Av. Exemplo, 100",
+  );
+  assertStringIncludes(out, "📍 Rua 1, 10 — a 320 m");
+  assertStringIncludes(out, "📍 Rua 2, 20 — a 1,5 km");
+});
+
 Deno.test("getServiceAddressByName usa full-text (search_tsv), não ILIKE, e prefere melhor match", async () => {
   const { calls, client } = makeSupabaseMock([
     { name: "UBS Jardim Lmisboa", address: "Rua A, 1", district: "Brasilândia", phone: null },
