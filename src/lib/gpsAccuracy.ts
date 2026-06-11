@@ -37,6 +37,10 @@ export function isGpsAccuracyAcceptable(
 export function maxGpsAccuracyForLocationPrompt(promptContent: string): number {
   const content = (promptContent ?? "").toLowerCase();
   const isNearbyServicesPrompt =
+    // Sinal robusto: o picker de localização da jornada de SERVIÇOS sempre carrega o
+    // marcador de progresso de serviços, independentemente do texto exato do prompt
+    // (evita regressão quando a frase do assistente muda).
+    content.includes("[collection_progress:services:") ||
     content.includes("buscar serviços próximos") ||
     content.includes("buscar servicos proximos") ||
     content.includes("informar sua localização para buscar") ||

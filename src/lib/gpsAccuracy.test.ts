@@ -41,6 +41,17 @@ describe("maxGpsAccuracyForLocationPrompt", () => {
     ).toBe(true);
   });
 
+  it("usa o teto permissivo pelo marcador de servicos mesmo sem o texto 'para buscar' (atalho NREF)", () => {
+    // Prompt do atalho (#414): carrega [COLLECTION_PROGRESS:services:...] mas o texto é
+    // "Como você quer informar sua localização?" (sem "para buscar serviços próximos").
+    const shortcutPrompt =
+      "[COLLECTION_PROGRESS:services:{\"service_type\":\"park\"}][FIELD_REQUEST:location_method]" +
+      "Vou te ajudar a encontrar parques próximas a você. Como você quer informar sua localização?\n\n[LOCATION_METHOD_PICKER]";
+    expect(maxGpsAccuracyForLocationPrompt(shortcutPrompt)).toBe(MAX_GPS_ACCURACY_NEARBY_UI_METERS);
+    // regressao do print: 20m deve ser aceito nesse fluxo
+    expect(isGpsAccuracyAcceptable(20, maxGpsAccuracyForLocationPrompt(shortcutPrompt))).toBe(true);
+  });
+
   it("mantem o teto estrito (RN04) no relato urbano/critico", () => {
     expect(
       maxGpsAccuracyForLocationPrompt("Como você quer informar onde fica o problema?"),
