@@ -24,11 +24,17 @@ function compactPlainText(text: string): string {
 }
 
 /** CHB-028: perguntas curtas com chips para risco e escopo (acessível a idosos). */
+// Redação suavizada (menos clínica que "risco imediato").
 export const URBAN_RISK_LEVEL_FIELD_PROMPT =
-  "[FIELD_REQUEST:risk_level]Há risco imediato no local? Toque uma opção ou descreva em uma frase.[QUICK_REPLY:critical,moderate,low,none]";
+  "[FIELD_REQUEST:risk_level]Há risco a pessoas no local agora? Toque uma opção ou descreva em uma frase.[QUICK_REPLY:critical,moderate,low,none]";
 
 export const URBAN_AFFECTED_SCOPE_FIELD_PROMPT =
   "[FIELD_REQUEST:affected_scope]Quem mais está sendo afetado? Toque uma opção.[QUICK_REPLY:somente eu,toda a rua,bairro todo]";
+
+// Variante para emergência: orienta a acionar o canal certo ANTES de continuar. Em 2 frases
+// para sobreviver ao compactFieldPrompt (1ª = emergência, 2ª = pergunta de escopo).
+export const URBAN_AFFECTED_SCOPE_FIELD_PROMPT_EMERGENCY =
+  "[FIELD_REQUEST:affected_scope]Se há risco à vida agora, ligue 193 (Bombeiros), 192 (SAMU) ou 190 (Polícia). Quem mais está sendo afetado?[QUICK_REPLY:somente eu,toda a rua,bairro todo]";
 
 export function compactFieldPrompt(prompt: string): string {
   if (!prompt) return prompt;

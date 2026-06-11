@@ -9,7 +9,7 @@ import {
   assertStringIncludes,
 } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { autoClassifyCategory, executeTool } from "./lib.ts";
-import { normalizeUrbanCategoryAlias } from "./lib-urban-rules.ts";
+import { normalizeUrbanCategoryAlias, descriptionLooksLikeEmergency } from "./lib-urban-rules.ts";
 
 // ─────────────────────────────────────────────────────────
 // Helpers
@@ -483,4 +483,21 @@ Deno.test("O2: empate de peso e de sinais mantém ordem do array — 'rua com li
   const r = autoClassifyCategory("rua com lixo e fedor");
   assertEquals(r.category, "lixo");
   assertEquals(r.confidence, 0.7);
+});
+
+// ─────────────────────────────────────────────────────────
+// Risco: detecção de emergência (orientação 193/192/190)
+// ─────────────────────────────────────────────────────────
+
+Deno.test("Q1: descriptionLooksLikeEmergency detecta risco à vida", () => {
+  assertEquals(descriptionLooksLikeEmergency("prédio pegando fogo, tem gente presa"), true);
+  assertEquals(descriptionLooksLikeEmergency("fio caído soltando faísca, risco de choque"), true);
+  assertEquals(descriptionLooksLikeEmergency("muro desabando na calçada"), true);
+  assertEquals(descriptionLooksLikeEmergency("pessoa ferida sangrando no acidente"), true);
+});
+
+Deno.test("Q2: descriptionLooksLikeEmergency NÃO dispara em problema comum", () => {
+  assertEquals(descriptionLooksLikeEmergency("buraco na rua atrapalhando o trânsito"), false);
+  assertEquals(descriptionLooksLikeEmergency("poste com lâmpada queimada"), false);
+  assertEquals(descriptionLooksLikeEmergency("lixo acumulado na esquina"), false);
 });

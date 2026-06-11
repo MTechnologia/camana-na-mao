@@ -243,6 +243,7 @@ function buildUrbanSuccessMessage(
   eff: Record<string, unknown>,
   acc: Record<string, unknown>,
   urbanRiskCollectionCategories: readonly string[],
+  proximityDetails: string[] | null = null,
 ): string {
   const categoryLabel = URBAN_CATEGORY_LABELS[String(eff.category)] || String(eff.category);
   const addressParts: string[] = [];
@@ -254,6 +255,15 @@ function buildUrbanSuccessMessage(
   const urbanSeveritySummaryLines = buildUrbanSeveritySummaryLines(eff, acc, urbanRiskCollectionCategories);
   const photosSection = Array.isArray(eff.photos) && eff.photos.length > 0
     ? `📷 **Fotos anexadas:** ${eff.photos.length} imagem(ns)`
+    : null;
+  // Acolhimento quando o risco é crítico (sem prometer prazo/atendimento).
+  const isCriticalRisk = String(eff.risk_level ?? acc.risk_level ?? "") === "critical";
+  const reassuranceLine = isCriticalRisk
+    ? "🤝 Obrigado por relatar uma situação grave. Registramos com a devida atenção à gravidade informada."
+    : null;
+  // Transparência: por que a severidade pode ter subido (proximidade a equipamento sensível).
+  const proximityLine = proximityDetails && proximityDetails.length > 0
+    ? `ℹ️ A severidade considerou a **proximidade a ${proximityDetails.join(", ")}** (até 500 m).`
     : null;
 
   const lines: (string | null)[] = [
@@ -269,6 +279,10 @@ function buildUrbanSuccessMessage(
     "",
     `📝 **Descrição:** ${eff.description}`,
     ...(urbanSeveritySummaryLines.length > 0 ? ["", ...urbanSeveritySummaryLines] : []),
+    proximityLine ? "" : null,
+    proximityLine,
+    reassuranceLine ? "" : null,
+    reassuranceLine,
     "",
     "📍 **Endereço:**",
     addressLine ? `- ${addressLine}` : null,
@@ -551,7 +565,13 @@ export async function handleCreateUrbanReport(
     });
   }
 
-  const successMessage = buildUrbanSuccessMessage(data, eff, acc, deps.urbanRiskCollectionCategories);
+  const successMessage = buildUrbanSuccessMessage(
+    data,
+    eff,
+    acc,
+    deps.urbanRiskCollectionCategories,
+    proximityAdjustment?.proximityDetails ?? null,
+  );
 
   try {
     await deps.detectEmergingCategory(String(eff.description || ""), String(eff.category || ""), supabase);

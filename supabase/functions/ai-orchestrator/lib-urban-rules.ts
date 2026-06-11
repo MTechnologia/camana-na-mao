@@ -430,6 +430,17 @@ export function autoClassifyCategory(description: string): {
   return { category: null, confidence: 0, suggestedLabel };
 }
 
+// Sinais de EMERGÊNCIA com risco à vida (fogo, ferido, choque, desabamento, gás, afogamento,
+// pessoa presa). Usado para, no passo de risco, orientar deterministicamente a acionar
+// 193/192/190 antes de continuar o cadastro.
+const URBAN_EMERGENCY_RE =
+  /inc[eê]ndio|incendio|\bfogo\b|chamas|explos[ãa]o|choque\s*el[ée]tric|fio[s]?\s*(expost|ca[íi]d|pelad)|\bferid|machucad|sangrando|desab|desmoron|soterr|afog|vazamento\s*de\s*g[áa]s|risco\s*de\s*vida|pessoa[s]?\s*pres[oa]/i;
+
+/** Indica se a descrição sugere emergência com risco à vida (para orientar 193/192/190). */
+export function descriptionLooksLikeEmergency(text: string | null | undefined): boolean {
+  return URBAN_EMERGENCY_RE.test(String(text ?? ""));
+}
+
 export function autoInferRisk(description: string): {
   risk_level: string | null;
   confidence: number;
