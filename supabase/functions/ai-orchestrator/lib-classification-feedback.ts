@@ -167,6 +167,8 @@ export const EMERGING_PATTERNS = [
   { pattern: /drone|drones/i, key: "drones", name: "Problema com Drones", parent: "outro" },
   { pattern: /carro\s*eletrico|ponto\s*de\s*recarga/i, key: "infraestrutura_ev", name: "Infraestrutura Veículos Elétricos", parent: "outro" },
   { pattern: /delivery|entregador|motoboy/i, key: "problemas_delivery", name: "Problemas com Delivery", parent: "outro" },
+  { pattern: /picha[çc][ãa]o|pichad[oa]|grafitag/i, key: "pichacao", name: "Pichação", parent: "outro" },
+  { pattern: /ocupa[çc][ãa]o\s*irregular|terreno\s*invadid|im[óo]vel\s*invadid/i, key: "ocupacao_irregular", name: "Ocupação Irregular", parent: "outro" },
 ] as const;
 
 export function extractCategoryKeywords(text: string): string[] {
@@ -192,7 +194,7 @@ export async function detectEmergingCategory(
         .from("dynamic_categories")
         .select("id, usage_count")
         .eq("category_key", ep.key)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         await supabaseClient
@@ -205,11 +207,17 @@ export async function detectEmergingCategory(
         console.log(`[detectEmergingCategory] Incremented usage for: ${ep.key}`);
         return { shouldCreate: false };
       }
+
+      // FIX: antes só retornava shouldCreate e ninguém inseria (o caller ignora o retorno),
+      // por isso dynamic_categories ficava sempre zerado. Agora cria a categoria emergente
+      // (status "pending" para revisão do admin) aqui mesmo.
+      const parentCategory = ep.parent || currentCategory;
+      await createDynamicCategory(ep.key, ep.name, parentCategory, description, supabaseClient);
       return {
         shouldCreate: true,
         suggestedKey: ep.key,
         suggestedName: ep.name,
-        parentCategory: ep.parent || currentCategory,
+        parentCategory,
       };
     }
   }
