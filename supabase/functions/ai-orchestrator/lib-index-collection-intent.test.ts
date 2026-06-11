@@ -44,6 +44,25 @@ Deno.test("resolveCollectionIntent respeita JOURNEY_SWITCHED como prioridade má
   assertEquals(result.collectionIntent, { type: "urban_report", fields: {} });
 });
 
+Deno.test("resolveCollectionIntent força services no refinamento de filtro mesmo com frontendCollectionType=general", async () => {
+  // Cenário do bug: após os resultados, o app envia o chip "Raio: ... Avaliação mínima: ..."
+  // com collectionType general/leve → o ramo de light-journey confiava nisso e a mensagem caía
+  // na LLM. Deve forçar services pelo padrão "Raio:", independentemente do frontendCollectionType.
+  const result = await resolveCollectionIntent({
+    chatHistoryTyped: [],
+    chatMessages: [],
+    corsHeaders: {},
+    frontendCollectionType: "general",
+    lastAssistantText: "Encontrei 10 parques perto de você:",
+    lastUserMsg: "Raio: 5km. Avaliação mínima: todas",
+    // deno-lint-ignore no-explicit-any
+    lib: createLibMock() as any,
+  });
+
+  assertEquals(result.response, undefined);
+  assertEquals(result.collectionIntent, { type: "services", fields: {} });
+});
+
 Deno.test("resolveCollectionIntent retorna prompt ao detectar conflito entre jornada estruturada e intenção nova", async () => {
   const result = await resolveCollectionIntent({
     chatHistoryTyped: [{ role: "user", content: "quero avaliar uma UBS" }],
