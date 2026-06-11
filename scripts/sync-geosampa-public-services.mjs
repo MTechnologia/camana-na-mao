@@ -601,8 +601,21 @@ async function main() {
     }
   }
 
-  // Refresca estatísticas do planner após o bulk upsert (evita timeout em /servicos-proximos
-  // por estatísticas defasadas). RPC SECURITY DEFINER criada em 20260609120000.
+  // Dedup pós-sync: funde co-localizados que o sync acabou de (re)inserir, mantendo a base
+  // limpa sem passo manual. Coordenada-only p/ transit_station (nome = linha), coordenada+nome
+  // p/ os demais. Idempotente e reversível. RPC SECURITY DEFINER criada em 20260611130000.
+  if (!dryRun && totalInserted > 0) {
+    const { data: dedupData, error: dedupErr } = await supabase.rpc("run_public_services_dedup");
+    if (dedupErr) {
+      console.warn("[sync] run_public_services_dedup falhou (não-fatal):", dedupErr.message);
+    } else {
+      const marked = Array.isArray(dedupData) ? dedupData : [];
+      console.log("[sync] dedup pós-sync concluído. Marcados por tipo:", JSON.stringify(marked));
+    }
+  }
+
+  // Refresca estatísticas do planner após o bulk upsert + dedup (evita timeout em
+  // /servicos-proximos por estatísticas defasadas). RPC SECURITY DEFINER criada em 20260609120000.
   if (!dryRun && totalInserted > 0) {
     const { error: analyzeErr } = await supabase.rpc("analyze_public_services");
     if (analyzeErr) {
