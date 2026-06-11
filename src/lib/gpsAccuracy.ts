@@ -36,14 +36,15 @@ export function isGpsAccuracyAcceptable(
  */
 export function maxGpsAccuracyForLocationPrompt(promptContent: string): number {
   const content = (promptContent ?? "").toLowerCase();
-  const isNearbyServicesPrompt =
-    // Sinal robusto: o picker de localização da jornada de SERVIÇOS sempre carrega o
-    // marcador de progresso de serviços, independentemente do texto exato do prompt
-    // (evita regressão quando a frase do assistente muda).
-    content.includes("[collection_progress:services:") ||
-    content.includes("buscar serviços próximos") ||
-    content.includes("buscar servicos proximos") ||
-    content.includes("informar sua localização para buscar") ||
-    content.includes("informar sua localizacao para buscar");
-  return isNearbyServicesPrompt ? MAX_GPS_ACCURACY_NEARBY_UI_METERS : MAX_GPS_ACCURACY_METERS;
+  // O teto ESTRITO (RN04, ≤15 m) vale APENAS para relato crítico (urbano/transporte), onde
+  // a localização precisa do problema importa. Para QUALQUER busca de serviços/equipamentos
+  // (UBS, escolas, parques, etc.) e para rotas, 30–100 m+ é aceitável (raio em km) — teto
+  // permissivo. Detecção por contexto de relato (marcador OU frase), seja o prompt do atalho
+  // determinístico ou gerado pela LLM — evita regressão quando a frase muda.
+  const isCriticalReportPrompt =
+    content.includes("[collection_progress:urban_report") ||
+    content.includes("[collection_progress:transport_report") ||
+    content.includes("onde fica o problema") ||
+    content.includes("onde fica o ocorrido");
+  return isCriticalReportPrompt ? MAX_GPS_ACCURACY_METERS : MAX_GPS_ACCURACY_NEARBY_UI_METERS;
 }
