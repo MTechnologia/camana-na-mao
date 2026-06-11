@@ -180,6 +180,7 @@ export async function fetchNearestUrbanReportsForSimilarity(
   category: string,
   excludeUserId: string | undefined,
   limit = 10,
+  radiusMeters?: number,
 ): Promise<NearestUrbanReportRow[]> {
   const { data, error } = await supabase.rpc("nearest_urban_reports_by_distance", {
     p_lat: lat,
@@ -187,6 +188,7 @@ export async function fetchNearestUrbanReportsForSimilarity(
     p_category: category,
     p_exclude_user_id: excludeUserId ?? null,
     p_limit: limit,
+    p_radius_meters: radiusMeters ?? null,
   });
   if (error) {
     console.error("[fetchNearestUrbanReportsForSimilarity]", error);

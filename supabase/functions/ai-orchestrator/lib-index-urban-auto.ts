@@ -240,11 +240,6 @@ export async function handleDeterministicUrbanAutoCreate(
   const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
   const userWantsCorrection = /^(corrigir|corrigir\s+relato|editar|ajustar)$/i.test(msgLower.trim());
 
-  const showedSimilarReports =
-    /\[SIMILAR_URBAN_REPORTS_B64:/i.test(lastAssistantLower) ||
-    /relatos\s+na\s+mesma\s+categoria/i.test(lastAssistantLower);
-  const userWantsNewAfterSimilar =
-    /^(novo_relato|novo\s+relato|registrar\s+novo|criar\s+novo|mesmo\s+assim)\b/i.test(msgLower.trim());
   const askedCorrectionField =
     /qual\s+campo\s+voc[eê]\s+gostaria\s+de\s+corrigir|voc[eê]\s+pode\s+me\s+dizer,\s*por\s+exemplo/i.test(
       lastAssistantLower,
@@ -252,22 +247,7 @@ export async function handleDeterministicUrbanAutoCreate(
   const userSentCorrectionLikeText =
     /\b(n[aã]o\s+[ée]|n[aã]o\s+est[aá]|est[aá]\s+errad|corrig|deveria\s+ser)\b/i.test(msgLower);
 
-  if (
-    showedSimilarReports &&
-    userWantsNewAfterSimilar &&
-    !askedPhotoChoice &&
-    !askedToAttach &&
-    !showedPreview
-  ) {
-    const photoChoiceMsg = buildUrbanProgressContent(
-      accumulatedFields,
-      "Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]",
-    );
-    console.log("[ai-orchestrator] Urban report: similar reports acknowledged → asking photo choice");
-    return { response: createSseResponse(photoChoiceMsg, lib.corsHeaders) };
-  }
-
-  if (!askedPhotoChoice && !askedToAttach && !showedPreview && !showedSimilarReports) {
+  if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
     // Feedback à Câmara não anexa imagens: pula a pergunta de fotos e vai ao resumo.
     if (String(accumulatedFields.category || "") === "feedback_camara") {
       const preview = buildUrbanPreview(accumulatedFields, lib);
@@ -282,38 +262,8 @@ export async function handleDeterministicUrbanAutoCreate(
       return { response: createSseResponse(preview, lib.corsHeaders) };
     }
 
-    const cat = String(accumulatedFields.category || "");
-    if (cat && cat !== "feedback_camara") {
-      try {
-        const coords = await lib.resolveUrbanCoordsForSimilarSearch(supabase, accumulatedFields);
-        if (coords) {
-          const near = await lib.fetchNearestUrbanReportsForSimilarity(
-            supabase,
-            coords.lat,
-            coords.lon,
-            cat,
-            userId,
-            10,
-          );
-          if (near.length > 0) {
-            const payload = { reports: near, center: coords };
-            const json = JSON.stringify(payload);
-            const b64 = btoa(unescape(encodeURIComponent(json)));
-            const intro =
-              `Encontramos **relatos na mesma categoria** próximos do local informado, **do mais próximo ao mais distante** (até ${near.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
-            const similarMsg = buildUrbanProgressContent(
-              accumulatedFields,
-              `${intro}\n\n[SIMILAR_URBAN_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`,
-            );
-            console.log("[ai-orchestrator] Urban report: showing nearest similar reports, count:", near.length);
-            return { response: createSseResponse(similarMsg, lib.corsHeaders) };
-          }
-        }
-      } catch (e) {
-        console.warn("[ai-orchestrator] Urban similar reports lookup failed:", e);
-      }
-    }
-
+    // NOTA: a sugestão de relatos semelhantes foi movida para DEPOIS do registro + avaliação
+    // do canal (ver lib-index-channel-rating-shortcut.ts) — não interrompe mais o fluxo aqui.
     const photoChoiceMsg = buildUrbanProgressContent(
       accumulatedFields,
       "Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]",
