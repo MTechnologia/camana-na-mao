@@ -98,6 +98,36 @@ Deno.test("handlePreAiShortcuts oferece seletor de localização (não só CEP) 
   assertEquals(text.includes("Qual é o CEP da sua região?"), false);
 });
 
+Deno.test("handlePreAiShortcuts: plural feminino 'UBSs mais próximas da minha localização' entra no atalho de serviços", async () => {
+  // Antes, o regex de proximidade só casava "próximo(s)" → "próximas" caía na LLM (UX/GPS
+  // inconsistente). Deve entrar no atalho determinístico e oferecer o seletor de localização.
+  const msg = "Quais são as UBSs mais próximas da minha localização?";
+  const result = await handlePreAiShortcuts({
+    accumulatedFields: {},
+    chatMessages: [{ role: "user", content: msg }],
+    collectionIntent: { type: "general", fields: {} },
+    lastAssistantMessage: "",
+    lastUserMessage: msg,
+    lightJourneyMarker: "[LIGHT_JOURNEY:general]",
+    msgLower: msg.toLowerCase(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      getServiceTypeName: () => "UBS",
+      inferServiceTypeFromText: () => "ubs",
+      isBusInformationalQuery: () => false,
+    } as any,
+  });
+
+  assertExists(result.response);
+  const text = await result.response!.text();
+  assertEquals(text.includes("[COLLECTION_PROGRESS:services:"), true);
+  assertEquals(text.includes("[LOCATION_METHOD_PICKER]"), true);
+});
+
 Deno.test("handlePreAiShortcuts: 'E a UBS Continental?' fora de SP → não inventa, responde honesto (anti-alucinação)", async () => {
   let askedTerm = "";
   const result = await handlePreAiShortcuts({
