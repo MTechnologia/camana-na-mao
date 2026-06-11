@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
+import { moderateUploadedImage } from "@/lib/moderateImage";
 
 const MAX_CHAT_PHOTOS = 3;
 const MAX_CHAT_PHOTO_BYTES = 15 * 1024 * 1024;
@@ -36,6 +37,15 @@ async function uploadSingleChatPhoto(
     onUploadError();
     return null;
   }
+
+  // Moderação de conteúdo: se reprovada, o servidor já removeu o objeto; descarta a foto.
+  const moderation = await moderateUploadedImage("urban-reports", fileName);
+  if (moderation.blocked) {
+    console.warn("[uploadChatAttachments] Foto bloqueada por moderação:", moderation.categories);
+    onUploadError();
+    return null;
+  }
+
   const {
     data: { publicUrl },
   } = supabase.storage.from("urban-reports").getPublicUrl(fileName);

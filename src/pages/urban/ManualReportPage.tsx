@@ -22,6 +22,7 @@ import {
 import { MapPin, Send, Mic, MicOff, Camera, X, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
 import { useAuth } from "@/contexts/AuthContext";
 import { logManualClassificationPrediction } from "@/lib/classificationPredictionLog";
 import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
@@ -247,6 +248,13 @@ export default function ManualReportPage() {
       if (error) {
         console.error("Erro ao fazer upload da foto:", error);
         throw error;
+      }
+
+      // Moderação de conteúdo: se reprovada, o servidor já removeu o objeto; pula a foto.
+      const moderation = await moderateUploadedImage("urban-reports", fileName);
+      if (moderation.blocked) {
+        toast.error(`"${file.name}": ${IMAGE_MODERATION_BLOCKED_MESSAGE}`);
+        continue;
       }
 
       const {
