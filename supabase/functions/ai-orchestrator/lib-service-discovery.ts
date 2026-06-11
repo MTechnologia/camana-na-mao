@@ -227,6 +227,54 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * c;
 }
 
+// Espelha src/lib/nearbyRadiusBands.ts: cada preset de raio é uma FAIXA EM ANEL
+// (Haversine), não um disco cumulativo. O módulo "Perto de você" usa essa regra e o
+// chat deve devolver as mesmas faixas (500 m → 0-500; 1 km → 501-1000;
+// 2 km → 1100-2000; 5 km → 2100-5000). Mantido em sincronia manual com o frontend.
+const NEARBY_RADIUS_PRESETS = [500, 1000, 2000, 5000] as const;
+
+function clampNearbyRadiusMeters(m: number): number {
+  const first = NEARBY_RADIUS_PRESETS[0];
+  const last = NEARBY_RADIUS_PRESETS[NEARBY_RADIUS_PRESETS.length - 1];
+  if (m <= first) return first;
+  if (m >= last) return last;
+  return NEARBY_RADIUS_PRESETS.reduce(
+    (prev, cur) => (Math.abs(cur - m) < Math.abs(prev - m) ? cur : prev),
+    first as number,
+  );
+}
+
+function getNearbyDistanceBand(presetMeters: number): { min: number; max: number } {
+  switch (clampNearbyRadiusMeters(presetMeters)) {
+    case 500:
+      return { min: 0, max: 500 };
+    case 1000:
+      return { min: 501, max: 1000 };
+    case 2000:
+      return { min: 1100, max: 2000 };
+    case 5000:
+      return { min: 2100, max: 5000 };
+    default:
+      return { min: 0, max: presetMeters };
+  }
+}
+
+// Texto curto da faixa em anel, usado nas mensagens de fallback (quando a faixa fica vazia).
+function nearbyBandHint(presetMeters: number): string {
+  switch (clampNearbyRadiusMeters(presetMeters)) {
+    case 500:
+      return "a até 500 m";
+    case 1000:
+      return "entre 501 m e 1 km";
+    case 2000:
+      return "entre 1,1 km e 2 km";
+    case 5000:
+      return "entre 2,1 km e 5 km";
+    default:
+      return "";
+  }
+}
+
 function normalizeForDedup(value: unknown): string {
   return String(value ?? "")
     .normalize("NFD")
@@ -400,20 +448,23 @@ async function findNearbyStations(
       return `No momento não tenho ${typeName} com localização cadastrada na minha base.`;
     }
 
-    // Aplica o raio escolhido pelo cidadão. Estações são infra esparsa: é comum não
-    // haver nenhuma dentro de raios curtos (a mais próxima pode passar de 500 m). Nesse
-    // caso, em vez de devolver vazio (ou ignorar o raio, como antes), mostramos as mais
+    // Aplica a FAIXA EM ANEL do preset escolhido (igual à busca de serviços e ao módulo
+    // "Perto de você"): ex. 2 km → 1,1-2 km. Estações são infra esparsa: é comum não
+    // haver nenhuma na faixa. Nesse caso, em vez de devolver vazio, mostramos as mais
     // próximas com um aviso explícito — espelhando o fallback da busca de serviços comuns.
-    const withinRadius = byDistance.filter((s) => (s._distance as number) <= radiusMeters);
+    const band = getNearbyDistanceBand(radiusMeters);
+    const withinRadius = byDistance.filter((s) => {
+      const d = s._distance as number;
+      return d >= band.min && d <= band.max;
+    });
     if (withinRadius.length > 0) {
       return formatStationsWithContext(withinRadius.slice(0, Math.max(1, limit)), serviceType, referenceLocationText, true);
     }
 
     const ref = (referenceLocationText || "").trim();
     const where = ref ? ` de ${ref}` : " de você";
-    const radiusLabel = formatDistanceMeters(radiusMeters);
     const nearest = byDistance.slice(0, Math.max(1, limit));
-    const headerOverride = `Não há ${typeName} num raio de ${radiusLabel}${where}. Aqui estão as mais próximas:`;
+    const headerOverride = `Não há ${typeName} ${nearbyBandHint(radiusMeters)}${where}. Aqui estão as mais próximas:`;
     return formatStationsWithContext(nearest, serviceType, referenceLocationText, true, headerOverride);
   }
 
@@ -457,7 +508,7 @@ export async function findNearbyServices(
     : "name, address, district, phone, average_rating, service_type";
   const search = (searchQuery || "").trim().toLowerCase();
 
-  const sortAndFormat = (data: Record<string, unknown>[], isExpanded: boolean, radiusOverride?: number): string => {
+  const sortAndFormat = (data: Record<string, unknown>[], isExpanded: boolean, radiusOverride?: number, bandMin: number = 0): string => {
     const radius = radiusOverride ?? radiusMeters;
     let withAddress = data.filter(hasValidAddress);
     if (withAddress.length === 0) return "";
@@ -496,7 +547,8 @@ export async function findNearbyServices(
         }))
         .filter((s: Record<string, unknown>) => {
           const d = s._distance as number;
-          return (Number.isFinite(d) && d <= radius) || d === Infinity;
+          if (d === Infinity) return true;
+          return Number.isFinite(d) && d >= bandMin && d <= radius;
         })
         .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
         .sort((a, b) => (a._distance as number) - (b._distance as number));
@@ -547,11 +599,14 @@ export async function findNearbyServices(
       return { data, error };
     };
 
-    const { data: inRadius, error: inRadiusErr } = await fetchByBbox(radiusMeters, 1200);
+    // Faixa em anel do preset (espelha "Perto de você"): a busca principal devolve só
+    // o que está ENTRE band.min e band.max — não o disco 0..raio. Ex.: 2 km → 1,1-2 km.
+    const band = getNearbyDistanceBand(radiusMeters);
+    const { data: inRadius, error: inRadiusErr } = await fetchByBbox(band.max, 1200);
     if (!inRadiusErr && inRadius?.length) {
-      const out = sortAndFormat(inRadius as unknown as Record<string, unknown>[], !district);
+      const out = sortAndFormat(inRadius as unknown as Record<string, unknown>[], !district, band.max, band.min);
       if (out) {
-        console.log("[findNearbyServices] Sorted by distance from user (bbox current radius)");
+        console.log(`[findNearbyServices] Sorted by distance from user (bbox ring ${band.min}-${band.max}m)`);
         return out;
       }
     }
@@ -565,8 +620,8 @@ export async function findNearbyServices(
       const rowsFb = inFallback as unknown as Record<string, unknown>[];
       const outFb = sortAndFormat(rowsFb, !district, fallbackRadius);
       if (outFb) {
-        console.log(`[findNearbyServices] No results in radius, showing within ${fallbackLabel} (bbox)`);
-        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + " m" : (radiusMeters / 1000) + " km"} de você. Aqui estão as opções mais próximas (até ${fallbackLabel}):\n\n${outFb}`;
+        console.log(`[findNearbyServices] No results in ring band, showing within ${fallbackLabel} (bbox)`);
+        return `Nenhum ${typeName} ${nearbyBandHint(radiusMeters)} de você. Aqui estão as opções mais próximas (até ${fallbackLabel}):\n\n${outFb}`;
       }
       const outAny = sortAndFormat(rowsFb, !district, 1e9);
       if (outAny) {
