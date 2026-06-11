@@ -52,6 +52,24 @@ describe("maxGpsAccuracyForLocationPrompt", () => {
     expect(isGpsAccuracyAcceptable(20, maxGpsAccuracyForLocationPrompt(shortcutPrompt))).toBe(true);
   });
 
+  it("usa o teto permissivo para UBS mesmo com prompt gerado pela LLM (sem marcador de serviços)", () => {
+    // Prompt da LLM para UBS (sem [COLLECTION_PROGRESS:services:] nem "para buscar"): deve ser
+    // permissivo — a busca de QUALQUER equipamento não exige a precisão de relato crítico.
+    const llmPrompt =
+      "Olá! Para que eu possa te ajudar a encontrar as UBSs mais próximas, como prefere informar " +
+      "sua localização? Você pode usar o GPS, seu endereço cadastrado, ou digitar o CEP/endereço.\n\n[LOCATION_METHOD_PICKER]";
+    expect(maxGpsAccuracyForLocationPrompt(llmPrompt)).toBe(MAX_GPS_ACCURACY_NEARBY_UI_METERS);
+    // regressao do print: 83m deve ser aceito
+    expect(isGpsAccuracyAcceptable(83, maxGpsAccuracyForLocationPrompt(llmPrompt))).toBe(true);
+  });
+
+  it("mantem o teto estrito (RN04) no relato de transporte (marcador)", () => {
+    const transportPrompt =
+      "[COLLECTION_PROGRESS:transport_report:{}][FIELD_REQUEST:location_method]Como você quer informar sua localização?\n\n[LOCATION_METHOD_PICKER]";
+    expect(maxGpsAccuracyForLocationPrompt(transportPrompt)).toBe(MAX_GPS_ACCURACY_METERS);
+    expect(isGpsAccuracyAcceptable(83, maxGpsAccuracyForLocationPrompt(transportPrompt))).toBe(false);
+  });
+
   it("mantem o teto estrito (RN04) no relato urbano/critico", () => {
     expect(
       maxGpsAccuracyForLocationPrompt("Como você quer informar onde fica o problema?"),
