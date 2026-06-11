@@ -55,6 +55,20 @@ Deno.test("detectCollectionIntent: refinamento de filtro 'Raio: 2km. Avaliação
   assertEquals(result?.type, "services");
 });
 
+Deno.test("detectCollectionIntent: refinamento de filtro vira services mesmo SEM palavra-chave de intenção (bypassa gate hasIntent)", () => {
+  // Cenário real: o follow-up do chip não tem INTENT_KEYWORDS e o histórico recente (pin de GPS)
+  // também não — antes caía no gate "sem intent" → null → LLM. Deve detectar pelo padrão "Raio:".
+  const result = detectCollectionIntent(
+    "Raio: 5km. Avaliação mínima: 4+ estrelas",
+    [
+      { role: "user", content: "📍 Av. Lineu de Paula Machado, 1490 - Cidade Jardim, São Paulo - SP" },
+      { role: "assistant", content: "[COLLECTION_PROGRESS:services:{}]Encontrei 10 parques perto de você:" },
+    ],
+    baseDeps,
+  );
+  assertEquals(result?.type, "services");
+});
+
 Deno.test("detectExistingJourney: encontra marcador de coleta mais recente", () => {
   const result = detectExistingJourney([
     { role: "assistant", content: "texto livre" },
