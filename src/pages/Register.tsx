@@ -53,7 +53,7 @@ interface FormData {
 
 const Register = () => {
   const navigate = useNavigate();
-  const { signUp, signOut } = useAuth();
+  const { signUp } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -272,7 +272,9 @@ const Register = () => {
       }
 
       toast.success("Cadastro concluído! Confirme seu e-mail para acessar o app.");
-      await signOut();
+      // Encerra a sessão silenciosamente (sem o toast/redirect de "Logout realizado") —
+      // o usuário ainda precisa confirmar o e-mail antes de acessar o app.
+      await supabase.auth.signOut().catch(() => undefined);
       navigate("/confirmar-email", {
         replace: true,
         state: { email: formData.email.trim() },
