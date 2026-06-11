@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const MAX_PHOTOS = 3;
-const MAX_PHOTO_MB = 50;
+const MAX_PHOTO_MB = 15;
 const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
 
 export default function NewReportPage() {

@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 
 const MAX_CHAT_PHOTOS = 3;
-const MAX_CHAT_PHOTO_BYTES = 50 * 1024 * 1024;
+const MAX_CHAT_PHOTO_BYTES = 15 * 1024 * 1024;
 
 export interface UploadChatAttachmentsResult {
   urls: string[];

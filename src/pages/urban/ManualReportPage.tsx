@@ -66,7 +66,7 @@ export default function ManualReportPage() {
     navigate(path);
   };
   const MAX_PHOTOS = 3;
-  const MAX_PHOTO_MB = 50;
+  const MAX_PHOTO_MB = 15;
   const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
 
   const [loading, setLoading] = useState(false);
