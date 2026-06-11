@@ -32,7 +32,7 @@ const ResetPassword = () => {
       if (!error) {
         setEmailSent(true);
         toast.success(
-          `Enviamos um link de recuperação de senha para o e-mail ${email}. Verifique sua caixa de entrada e caixa de spam.`,
+          "Caso o seu e-mail exista na nossa base de dados, você receberá um e-mail com os passos para recuperação de senha. Verifique a caixa de entrada e o spam.",
         );
       }
     } catch (error: unknown) {
@@ -68,12 +68,12 @@ const ResetPassword = () => {
               <Check className="text-green-600" size={32} />
             </div>
 
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">E-mail Enviado</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Solicitação recebida</h1>
 
             <p className="text-gray-600 mb-8 leading-relaxed">
-              Enviamos um link de recuperação de senha para o e-mail <strong>{email}</strong>.
-              Verifique sua caixa de entrada e caixa de spam (lixo eletrônico) e siga as instruções
-              no e-mail.
+              Caso o seu e-mail exista na nossa base de dados, você receberá um e-mail informando
+              os passos para recuperação de senha. Verifique sua caixa de entrada e caixa de spam
+              (lixo eletrônico) e siga as instruções no e-mail.
             </p>
 
             <Button
