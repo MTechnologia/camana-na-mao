@@ -556,17 +556,21 @@ export async function findNearbyServices(
       }
     }
 
-    const { data: in20km, error: in20kmErr } = await fetchByBbox(20000, 2000);
-    if (!in20kmErr && in20km?.length) {
-      const rows20 = in20km as unknown as Record<string, unknown>[];
-      const out20 = sortAndFormat(rows20, !district, 20000);
-      if (out20) {
-        console.log("[findNearbyServices] No results in radius, showing within 20km (bbox)");
-        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + " m" : (radiusMeters / 1000) + " km"} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out20}`;
+    // Fallback quando não há nada no raio pedido: expande até 5 km (não encolhe se o raio
+    // pedido já for maior). Antes era 20 km — distante demais para "perto de você".
+    const fallbackRadius = Math.max(radiusMeters, 5000);
+    const fallbackLabel = fallbackRadius < 1000 ? `${fallbackRadius} m` : `${fallbackRadius / 1000} km`;
+    const { data: inFallback, error: inFallbackErr } = await fetchByBbox(fallbackRadius, 2000);
+    if (!inFallbackErr && inFallback?.length) {
+      const rowsFb = inFallback as unknown as Record<string, unknown>[];
+      const outFb = sortAndFormat(rowsFb, !district, fallbackRadius);
+      if (outFb) {
+        console.log(`[findNearbyServices] No results in radius, showing within ${fallbackLabel} (bbox)`);
+        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + " m" : (radiusMeters / 1000) + " km"} de você. Aqui estão as opções mais próximas (até ${fallbackLabel}):\n\n${outFb}`;
       }
-      const outAny = sortAndFormat(rows20, !district, 1e9);
+      const outAny = sortAndFormat(rowsFb, !district, 1e9);
       if (outAny) {
-        console.log("[findNearbyServices] Showing first N without distance filter (bbox 20km)");
+        console.log("[findNearbyServices] Showing first N without distance filter (bbox fallback)");
         return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${outAny}`;
       }
     }
