@@ -219,6 +219,8 @@ export async function handleDeterministicTransportAutoCreate(
         `${progress}[FIELD_REQUEST:accessibility_details]Atualize o **checklist de acessibilidade** abaixo.[ACCESSIBILITY_CHECKLIST]`;
     } else if (transportPickNorm === "local") {
       reply = `${progress}[FIELD_REQUEST:location]Qual o **local** ou ponto de referência correto? (parada, terminal, trecho)`;
+    } else if (/^(imag|foto)/.test(transportPickNorm)) {
+      reply = buildTransportAttachInstructionMessage(accumulatedFields);
     }
     if (reply) {
       console.log("[ai-orchestrator] Transport report: correction menu pick → field request");
@@ -226,7 +228,7 @@ export async function handleDeterministicTransportAutoCreate(
     }
     const reaskMenu =
       `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Não reconheci essa opção. **O que você gostaria de ajustar** no resumo?\n\n` +
-      `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,parada,ponto,detalhes_acessibilidade,local]`;
+      `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,parada,ponto,detalhes_acessibilidade,local,imagens]`;
     console.log("[ai-orchestrator] Transport report: correction menu — pick não reconhecido, reexibindo opções");
     return { response: createSseResponse(reaskMenu, lib.corsHeaders) };
   }
@@ -263,6 +265,10 @@ export async function handleDeterministicTransportAutoCreate(
       "endereco",
       "detalhes_acessibilidade",
       "local",
+      "imagens",
+      "imagem",
+      "foto",
+      "fotos",
     ]);
     const isMenuPick = menuTokens.has(transportCorrectionMenuPick);
     if (
@@ -284,10 +290,13 @@ export async function handleDeterministicTransportAutoCreate(
     }
   }
 
-  if (isTransportFinalPreview && userWantsCorrectionTransport) {
+  // Paridade com o urbano: "Corrigir" abre as opções sempre que a thread já exibiu um preview/
+  // menu (não depende da última mensagem ser detectada como preview) — antes só o 2º "Corrigir"
+  // funcionava. Menu inclui "imagens" (anexar/corrigir fotos a partir daqui).
+  if (userWantsCorrectionTransport && threadHadTransportPreviewOrCorrection) {
     const correctionOptions =
       `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de **ajustar** no resumo?\n\n` +
-      `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,parada,ponto,detalhes_acessibilidade,local]`;
+      `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,parada,ponto,detalhes_acessibilidade,local,imagens]`;
     console.log("[ai-orchestrator] Transport report: user requested correction → menu");
     return { response: createSseResponse(correctionOptions, lib.corsHeaders) };
   }
