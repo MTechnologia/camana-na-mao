@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { moderateUploadedImage, IMAGE_MODERATION_BLOCKED_MESSAGE } from "@/lib/moderateImage";
+import { convertHeicToJpegIfNeeded } from "@/lib/heicConvert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const MAX_PHOTOS = 3;
@@ -213,31 +214,33 @@ export default function NewReportPage() {
     setResolvingFollowLine(false);
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const files = input.files ? Array.from(input.files) : [];
     if (!files.length) return;
     const remaining = MAX_PHOTOS - photoFiles.length;
     if (remaining <= 0) {
       toast({ title: `Máximo de ${MAX_PHOTOS} fotos`, variant: "destructive" });
-      e.target.value = "";
+      input.value = "";
       return;
     }
     const toAdd: File[] = [];
     for (let i = 0; i < files.length && toAdd.length < remaining; i++) {
-      if (files[i].size > MAX_PHOTO_BYTES) {
+      const file = await convertHeicToJpegIfNeeded(files[i]); // HEIC (iPhone) → JPEG
+      if (file.size > MAX_PHOTO_BYTES) {
         toast({
-          title: `"${files[i].name}" é muito grande. Máximo ${MAX_PHOTO_MB}MB por imagem.`,
+          title: `"${file.name}" é muito grande. Máximo ${MAX_PHOTO_MB}MB por imagem.`,
           variant: "destructive",
         });
         continue;
       }
-      toAdd.push(files[i]);
+      toAdd.push(file);
     }
     setPhotoFiles((prev) => [...prev, ...toAdd].slice(0, MAX_PHOTOS));
     setPhotoPreviews((prev) =>
       [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS),
     );
-    e.target.value = "";
+    input.value = "";
   };
 
   const removePhoto = (index: number) => {

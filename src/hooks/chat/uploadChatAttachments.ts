@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { moderateUploadedImage } from "@/lib/moderateImage";
+import { convertHeicToJpegIfNeeded } from "@/lib/heicConvert";
 
 const MAX_CHAT_PHOTOS = 3;
 const MAX_CHAT_PHOTO_BYTES = 15 * 1024 * 1024;
@@ -17,16 +18,17 @@ async function uploadSingleChatPhoto(
   onOversized: (fileName: string) => void,
   onUploadError: () => void,
 ): Promise<string | null> {
-  if (originalFile.size > MAX_CHAT_PHOTO_BYTES) {
-    onOversized(originalFile.name);
+  const prepared = await convertHeicToJpegIfNeeded(originalFile); // HEIC (iPhone) → JPEG
+  if (prepared.size > MAX_CHAT_PHOTO_BYTES) {
+    onOversized(prepared.name);
     return null;
   }
 
-  let fileToUpload = originalFile;
+  let fileToUpload = prepared;
   try {
-    fileToUpload = await compressChatPhoto(originalFile);
+    fileToUpload = await compressChatPhoto(prepared);
   } catch {
-    // mantém original
+    // mantém o arquivo preparado
   }
 
   const ext = fileToUpload.name.split(".").pop() || "jpg";
