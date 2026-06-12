@@ -1,12 +1,14 @@
 # Sync GeoSampa -> public_services
-# Roda 1x por dia (6h UTC = 3h BRT); upsert atualiza só o que mudou no GeoJSON.
+# Roda 1x por dia em horário OFF-PEAK (6h UTC = 3h BRT); upsert atualiza só o que
+# mudou no GeoJSON. Inserts em massa nessa tabela (~milhões de linhas) são pesados,
+# então evitamos rodar em horário comercial/eventos (NREF056 - lentidão no M-Tech Day).
 # Configure os secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEOSAMPA_LAYERS_JSON
 
 name: Sync GeoSampa -> public_services
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # A cada 6h (UTC)
+    - cron: '0 6 * * *'   # 1x/dia às 06h UTC (03h BRT) — off-peak
   workflow_dispatch:
 
 jobs:
