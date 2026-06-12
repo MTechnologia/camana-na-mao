@@ -173,7 +173,7 @@ export async function handleDeterministicUrbanAutoCreate(
     } else if (/^(imag|foto)/.test(pickNorm)) {
       correctionReply = buildUrbanProgressContent(
         accumulatedFields,
-        "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Toque em **Enviar fotos** quando terminar — ou em **Continuar sem foto** para finalizar sem anexar.",
+        "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos pelos botões **Câmera** ou **Galeria** abaixo e enviá-las pelo botão de enviar do chat. Ou toque em **Continuar sem foto** para seguir sem anexar.",
       );
     }
 
@@ -301,7 +301,7 @@ export async function handleDeterministicUrbanAutoCreate(
   if (askedPhotoChoice && !userSaidNo) {
     const attachMsg = buildUrbanProgressContent(
       accumulatedFields,
-      "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]",
+      "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos pelos botões **Câmera** ou **Galeria** abaixo e enviá-las pelo botão de enviar do chat. Ou toque em **Continuar sem foto** para seguir sem anexar.",
     );
     console.log("[ai-orchestrator] Urban report: user said yes or unclear → showing attach instructions");
     return { response: createSseResponse(attachMsg, lib.corsHeaders) };

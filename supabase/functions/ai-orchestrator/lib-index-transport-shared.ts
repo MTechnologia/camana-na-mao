@@ -65,7 +65,7 @@ export function buildTransportSimilarReportsHint(accumulatedFields: Record<strin
 export function buildTransportAttachInstructionMessage(accumulatedFields: Record<string, unknown>): string {
   return buildTransportProgressContent(
     accumulatedFields,
-    "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Toque em **Enviar fotos** quando terminar — ou em **Continuar sem foto** para ver o resumo sem anexar.",
+    "[PHOTO_ATTACH_STEP][FIELD_REQUEST:photos]Pode anexar até 3 fotos pelos botões **Câmera** ou **Galeria** abaixo e enviá-las pelo botão de enviar do chat. Ou toque em **Continuar sem foto** para ver o resumo sem anexar.",
   );
 }
 

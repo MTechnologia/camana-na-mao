@@ -114,9 +114,12 @@ const AgentChatArea = () => {
     return extractFieldRequestFromContent(lastAssistantMsg.content);
   }, [messages]);
 
-  // Mostrar botões de anexar fotos apenas após "Você deseja anexar imagens?" e usuário ter respondido Sim (backend envia "Pode anexar até 3 fotos")
-  const hasReachedAttachPhotosStep = useMemo(() => {
-    return messages.some((m) => m.role === "assistant" && isPhotoAttachStepContent(m.content));
+  // Mostra os botões de anexar fotos apenas quando a ÚLTIMA mensagem do bot é o passo de
+  // anexo (PHOTO_ATTACH_STEP). Antes usávamos messages.some(...), que mantinha a UI visível
+  // em qualquer turno posterior — inclusive no menu de correção, antes de clicar em "Imagens".
+  const isAtPhotoAttachStep = useMemo(() => {
+    const last = [...messages].reverse().find((m) => m.role === "assistant");
+    return !!last && isPhotoAttachStepContent(last.content);
   }, [messages]);
 
   const suppressLegacyStarRating = useMemo(
@@ -134,7 +137,7 @@ const AgentChatArea = () => {
     if (collectionType !== "urban_report" && collectionType !== "transport_report") {
       return false;
     }
-    if (!hasReachedAttachPhotosStep) return false;
+    if (!isAtPhotoAttachStep) return false;
     // Resumo final: não mostrar Câmera/Galeria (evita confusão com o Registrar do resumo)
     if (/resumo do relato de transporte/i.test(lastAssistantContent)) return false;
     if (
@@ -144,7 +147,7 @@ const AgentChatArea = () => {
       return false;
     }
     return true;
-  }, [collectionType, hasReachedAttachPhotosStep, lastAssistantContent]);
+  }, [collectionType, isAtPhotoAttachStep, lastAssistantContent]);
 
   // Força re-render após hydration completa
   useEffect(() => {
@@ -660,31 +663,10 @@ const AgentChatArea = () => {
                   </Button>
                 </div>
               )}
-              <div className="flex gap-2 pt-0.5">
-                {chatPhotoPreviews.length > 0 ? (
-                  <>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => submitAttachStep(true)}
-                      disabled={isLoading}
-                      className="text-xs"
-                    >
-                      Enviar {chatPhotoPreviews.length}{" "}
-                      {chatPhotoPreviews.length === 1 ? "foto" : "fotos"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => submitAttachStep(false)}
-                      disabled={isLoading}
-                      className="text-xs"
-                    >
-                      Sem foto
-                    </Button>
-                  </>
-                ) : (
+              {/* Com fotos anexadas: o usuário envia pelo botão de enviar do chat (↑).
+                  Sem fotos: oferece seguir sem anexar. */}
+              {chatPhotoPreviews.length === 0 && (
+                <div className="flex gap-2 pt-0.5">
                   <Button
                     type="button"
                     size="sm"
@@ -694,13 +676,14 @@ const AgentChatArea = () => {
                   >
                     Continuar sem foto
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
           <ChatInput
             onSendMessage={handleSendMessage}
             disabled={isLoading}
+            allowSendWithoutText={chatPhotoPreviews.length > 0}
             placeholder="Digite sua mensagem..."
             draftKey={activeConversationId || "new"}
             autoFocus={false}
