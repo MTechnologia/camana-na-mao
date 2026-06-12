@@ -71,9 +71,7 @@ async function buildUrbanSimilarSupportBlock(
   const payload = { reports: near, center: { lat, lon } };
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   const intro =
-    "Muito obrigado por sua contribuição! O seu relato foi cadastrado com sucesso. " +
-    "Aproveitando, você gostaria de descobrir e apoiar **relatos semelhantes na região**? " +
-    "Seu apoio pode ajudar a ampliar a voz da sua comunidade!";
+    "Relato cadastrado com sucesso! Quer apoiar **relatos semelhantes na sua região**?";
   return `${intro}\n\n[SIMILAR_URBAN_REPORTS_B64:${b64}]`;
 }
 

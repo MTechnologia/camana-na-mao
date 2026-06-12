@@ -395,7 +395,7 @@ export async function handleDeterministicUrbanAutoCreate(
   ) {
     const hint = buildUrbanProgressContent(
       accumulatedFields,
-      "Para **seguir com um novo relato** (fotos e confirmação), use **Registrar novo relato**. Você pode **apoiar** um dos relatos listados acima.[QUICK_REPLY:novo_relato]",
+      "Toque em **Registrar novo relato** para seguir, ou **apoie** um relato da lista.[QUICK_REPLY:novo_relato]",
     );
     return { response: createSseResponse(hint, lib.corsHeaders) };
   }

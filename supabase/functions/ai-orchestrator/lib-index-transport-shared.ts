@@ -58,7 +58,7 @@ export function buildTransportPhotoChoiceMessage(accumulatedFields: Record<strin
 export function buildTransportSimilarReportsHint(accumulatedFields: Record<string, unknown>): string {
   return buildTransportProgressContent(
     accumulatedFields,
-    "Para **seguir com um novo relato** (fotos e confirmação), use **Registrar novo relato**. Você pode **apoiar** um dos relatos listados acima.[QUICK_REPLY:novo_relato]",
+    "Toque em **Registrar novo relato** para seguir, ou **apoie** um relato da lista.[QUICK_REPLY:novo_relato]",
   );
 }
 
@@ -130,10 +130,10 @@ export async function maybeCreateSimilarTransportReportsResponse(args: {
       const json = JSON.stringify(payload);
       const b64 = btoa(unescape(encodeURIComponent(json)));
       const intro =
-        `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similar.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+        `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similar.length}). Apoie um existente ou registre um novo.`;
       const similarMsg = buildTransportProgressContent(
         accumulatedFields,
-        `${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`,
+        `${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}][QUICK_REPLY:novo_relato]`,
       );
       console.log(logContext, similar.length);
       return createSseResponse(similarMsg, corsHeaders);
