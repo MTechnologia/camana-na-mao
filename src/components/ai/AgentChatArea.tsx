@@ -146,14 +146,6 @@ const AgentChatArea = () => {
     return true;
   }, [collectionType, hasReachedAttachPhotosStep, lastAssistantContent]);
 
-  // Só exige fotos no passo em que a última mensagem ainda é "Pode anexar…".
-  // Depois do envio, chatPhotoPreviews zera — se usássemos só hasReachedAttachPhotosStep,
-  // o Registrar do resumo final ficaria desabilitado para sempre.
-  const disableRegistrarUntilPhotosAttached = useMemo(() => {
-    if (!isPhotoAttachStepContent(lastAssistantContent)) return false;
-    return chatPhotoPreviews.length === 0;
-  }, [lastAssistantContent, chatPhotoPreviews.length]);
-
   // Força re-render após hydration completa
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -268,6 +260,13 @@ const AgentChatArea = () => {
       e.target.value = "";
       return;
     }
+    // Galeria deixa selecionar mais que o limite: avisa que só as primeiras serão anexadas.
+    if (files.length > remaining) {
+      toast({
+        title: `Limite de ${MAX_CHAT_PHOTOS} fotos`,
+        description: `Você selecionou ${files.length}. Vou anexar só ${remaining} para respeitar o limite de ${MAX_CHAT_PHOTOS}.`,
+      });
+    }
     const maxBytes = MAX_CHAT_PHOTO_MB * 1024 * 1024;
     const toAdd: File[] = [];
     for (let i = 0; i < files.length && toAdd.length < remaining; i++) {
@@ -294,6 +293,20 @@ const AgentChatArea = () => {
     URL.revokeObjectURL(chatPhotoPreviews[index]);
     setChatPhotoFiles((prev) => prev.filter((_, i) => i !== index));
     setChatPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Finaliza o passo de anexo direto pelos botões locais (sem o antigo chip "Registrar").
+  // withPhotos=false permite ao usuário desistir de anexar e seguir o relato sem fotos.
+  const submitAttachStep = (withPhotos: boolean) => {
+    if (!activeConversationId) return;
+    const opts =
+      withPhotos && chatPhotoFiles.length
+        ? { attachmentFiles: chatPhotoFiles.slice(0, MAX_CHAT_PHOTOS) }
+        : undefined;
+    sendMessage("Registrar", opts);
+    chatPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setChatPhotoFiles([]);
+    setChatPhotoPreviews([]);
   };
 
   const handleNewReport = () => {
@@ -514,7 +527,6 @@ const AgentChatArea = () => {
                         onApplyNearbyFilters={handleApplyNearbyFilters}
                         onSendMessage={handleSendMessage}
                         patchMessageContent={patchMessageContent}
-                        disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
                         suppressLegacyStarRating={suppressLegacyStarRating}
                       />
                     </motion.div>
@@ -648,6 +660,42 @@ const AgentChatArea = () => {
                   </Button>
                 </div>
               )}
+              <div className="flex gap-2 pt-0.5">
+                {chatPhotoPreviews.length > 0 ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => submitAttachStep(true)}
+                      disabled={isLoading}
+                      className="text-xs"
+                    >
+                      Enviar {chatPhotoPreviews.length}{" "}
+                      {chatPhotoPreviews.length === 1 ? "foto" : "fotos"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => submitAttachStep(false)}
+                      disabled={isLoading}
+                      className="text-xs"
+                    >
+                      Sem foto
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => submitAttachStep(false)}
+                    disabled={isLoading}
+                    className="text-xs"
+                  >
+                    Continuar sem foto
+                  </Button>
+                )}
+              </div>
             </div>
           )}
           <ChatInput
