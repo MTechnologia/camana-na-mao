@@ -1,5 +1,5 @@
 import { ChevronLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 
 interface PageHeaderProps {
   title?: string;
@@ -9,15 +9,15 @@ interface PageHeaderProps {
 }
 
 const PageHeader = ({ title, onBack, backTo, rightElement }: PageHeaderProps) => {
-  const navigate = useNavigate();
+  // Back determinístico: honra backTo; senão usa histórico in-app; senão cai no
+  // pai lógico da rota (NREF054).
+  const smartBack = useSmartBack(backTo);
 
   const handleBack = () => {
     if (onBack) {
       onBack();
-    } else if (backTo) {
-      navigate(backTo);
     } else {
-      navigate(-1);
+      smartBack();
     }
   };
 

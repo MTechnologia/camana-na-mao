@@ -1,5 +1,5 @@
 import { ReactNode, Suspense, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "@/components/ui/page-header";
 import { useMenu } from "@/contexts/MenuContext";
@@ -84,7 +84,6 @@ const ROUTE_BACK_TO: Record<string, string> = {
 
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { isMenuOpen, closeMenu } = useMenu();
 
   const { isAdmin, isGestor } = useUserRole();
@@ -133,13 +132,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       {!isHeaderlessRoute && (
         (() => {
           const fixedBackTo = ROUTE_BACK_TO[location.pathname];
-          return (
-            <PageHeader
-              title={getTitle()}
-              backTo={fixedBackTo}
-              onBack={fixedBackTo ? undefined : () => navigate(-1)}
-            />
-          );
+          // Sem onBack: o PageHeader usa back inteligente (histórico in-app ou
+          // pai lógico da rota) quando não há fixedBackTo (NREF054).
+          return <PageHeader title={getTitle()} backTo={fixedBackTo} />;
         })()
       )}
 
