@@ -40,8 +40,7 @@ export const ReferralDialog = ({ open, onOpenChange, report, onComplete }: Refer
 
   const handleBlocked = () => {
     toast.error("Acesso restrito", {
-      description:
-        "Encaminhar para vereador está disponível apenas para Cidadão Engajado, Gestor e Admin.",
+      description: "Encaminhar para vereador está disponível apenas para Gestor e Admin.",
     });
     onOpenChange(false);
   };
@@ -67,8 +66,8 @@ export const ReferralDialog = ({ open, onOpenChange, report, onComplete }: Refer
           <div className="p-6 space-y-3">
             <h3 className="text-base font-semibold">Acesso restrito</h3>
             <p className="text-sm text-muted-foreground">
-              Encaminhar para vereador está disponível apenas para <strong>Cidadão Engajado</strong>
-              , <strong>Gestor</strong> e <strong>Admin</strong>.
+              Encaminhar para vereador está disponível apenas para <strong>Gestor</strong> e{" "}
+              <strong>Admin</strong>.
             </p>
             <button
               className="text-sm text-primary underline"

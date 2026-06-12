@@ -65,7 +65,7 @@ const availableRoles: Array<{
   {
     value: "cidadao_engajado",
     label: "Cidadão Engajado",
-    description: "Pode criar dashboards e encaminhar para vereadores",
+    description: "Pode criar e visualizar dashboards",
     color: "bg-yellow-500",
   },
   {
