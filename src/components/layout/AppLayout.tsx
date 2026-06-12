@@ -5,6 +5,7 @@ import PageHeader from "@/components/ui/page-header";
 import { useMenu } from "@/contexts/MenuContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import MenuDrawer from "@/components/MenuDrawer";
+import PullToRefresh from "@/components/layout/PullToRefresh";
 import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
 
 interface AppLayoutProps {
@@ -127,6 +128,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <>
+      <PullToRefresh />
+
       {!isHeaderlessRoute && (
         (() => {
           const fixedBackTo = ROUTE_BACK_TO[location.pathname];
