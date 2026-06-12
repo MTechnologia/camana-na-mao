@@ -64,9 +64,26 @@ export default defineConfig(() => ({
     VitePWA({
       registerType: "autoUpdate",
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // index.html é deliberadamente EXCLUÍDO do precache: queremos que o
+        // shell do app seja sempre buscado da rede (sempre "fresco"), evitando
+        // que o usuário fique "um reload atrás" após cada deploy. Sem fallback
+        // offline da tela inicial — decisão consciente (priorizar frescor).
+        globPatterns: ["**/*.{js,css,ico,png,svg,woff2}"],
+        // Sem fallback de navegação para um index.html precacheado.
+        navigateFallback: null,
         navigateFallbackDenylist: [/\/functions\/v1\//],
         runtimeCaching: [
+          {
+            // Navegações (HTML do app): sempre tenta a rede primeiro.
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "app-shell",
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/(?:.*\/)?functions\/v1\/.*/i,
             handler: "NetworkOnly",
