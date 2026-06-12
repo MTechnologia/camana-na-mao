@@ -7,6 +7,8 @@ interface ChatInputProps {
   /** Retorne `false` para manter o texto no campo (ex.: abrir revisão antes de enviar). Pode ser async. */
   onSendMessage: (message: string) => void | boolean | Promise<void | boolean>;
   disabled?: boolean;
+  /** Permite enviar com o texto vazio (ex.: quando há imagens anexadas a enviar). */
+  allowSendWithoutText?: boolean;
   placeholder?: string;
   onFocus?: () => void;
   autoFocus?: boolean;
@@ -24,6 +26,7 @@ const DEFAULT_FOCUS_LOCK_MS = 2500;
 const ChatInput = ({
   onSendMessage,
   disabled,
+  allowSendWithoutText = false,
   placeholder = "Pergunte qualquer coisa...",
   onFocus,
   autoFocus = true,
@@ -188,7 +191,7 @@ const ChatInput = ({
   }, [inputValue, adjustTextareaHeight]);
 
   const handleSend = () => {
-    if (inputValue.trim() && !disabled) {
+    if ((inputValue.trim() || allowSendWithoutText) && !disabled) {
       const trimmed = inputValue.trim();
       void Promise.resolve(onSendMessage(trimmed)).then((r) => {
         const keepDraft = r === false;
@@ -270,7 +273,7 @@ const ChatInput = ({
         {/* Send button */}
         <Button
           onClick={handleSend}
-          disabled={disabled || !inputValue.trim()}
+          disabled={disabled || (!inputValue.trim() && !allowSendWithoutText)}
           size="icon"
           type="button"
           data-testid="chat-send"

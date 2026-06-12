@@ -660,31 +660,10 @@ const AgentChatArea = () => {
                   </Button>
                 </div>
               )}
-              <div className="flex gap-2 pt-0.5">
-                {chatPhotoPreviews.length > 0 ? (
-                  <>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => submitAttachStep(true)}
-                      disabled={isLoading}
-                      className="text-xs"
-                    >
-                      Enviar {chatPhotoPreviews.length}{" "}
-                      {chatPhotoPreviews.length === 1 ? "foto" : "fotos"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => submitAttachStep(false)}
-                      disabled={isLoading}
-                      className="text-xs"
-                    >
-                      Sem foto
-                    </Button>
-                  </>
-                ) : (
+              {/* Com fotos anexadas: o usuário envia pelo botão de enviar do chat (↑).
+                  Sem fotos: oferece seguir sem anexar. */}
+              {chatPhotoPreviews.length === 0 && (
+                <div className="flex gap-2 pt-0.5">
                   <Button
                     type="button"
                     size="sm"
@@ -694,13 +673,14 @@ const AgentChatArea = () => {
                   >
                     Continuar sem foto
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
           <ChatInput
             onSendMessage={handleSendMessage}
             disabled={isLoading}
+            allowSendWithoutText={chatPhotoPreviews.length > 0}
             placeholder="Digite sua mensagem..."
             draftKey={activeConversationId || "new"}
             autoFocus={false}
