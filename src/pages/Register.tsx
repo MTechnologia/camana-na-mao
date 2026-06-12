@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import InterestsStep from "@/components/register/InterestsStep";
 import { formatPhone, unformatPhone } from "@/lib/phoneMask";
 
 const TOTAL_STEPS = 4;
+
+// Rascunho do cadastro guardado por sessão para que, ao sair da tela (ex.: abrir
+// os Termos de Uso) e voltar, os dados já preenchidos sejam preservados.
+const DRAFT_STORAGE_KEY = "register-form-draft";
 
 // Mensagem amigável exibida em pop-up (toast) quando o e-mail informado é inválido.
 const INVALID_EMAIL_MESSAGE =
@@ -64,7 +68,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<FormData>({
+  const defaultFormData: FormData = {
     fullName: "",
     email: "",
     phone: "",
@@ -84,7 +88,27 @@ const Register = () => {
     city: "",
     state: "",
     interests: [],
+  };
+
+  const [formData, setFormData] = useState<FormData>(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) return { ...defaultFormData, ...(JSON.parse(saved) as Partial<FormData>) };
+    } catch {
+      // ignore — rascunho inválido
+    }
+    return defaultFormData;
   });
+
+  // Mantém o rascunho atualizado a cada alteração, para sobreviver à navegação
+  // até os Termos de Uso / Política de Privacidade e voltar.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(formData));
+    } catch {
+      // ignore — armazenamento indisponível
+    }
+  }, [formData]);
 
   const handleChange = (field: keyof FormData, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -276,6 +300,12 @@ const Register = () => {
       }
 
       toast.success("Cadastro concluído! Confirme seu e-mail para acessar o app.");
+      // Cadastro concluído: descarta o rascunho.
+      try {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
       // Encerra a sessão silenciosamente (sem o toast/redirect de "Logout realizado") —
       // o usuário ainda precisa confirmar o e-mail antes de acessar o app.
       await supabase.auth.signOut().catch(() => undefined);
@@ -480,7 +510,7 @@ const Register = () => {
                     Aceito os{" "}
                     <Link
                       to="/termos-de-uso"
-                      target="_blank"
+                      state={{ from: "/register" }}
                       className="text-primary underline hover:text-primary/80"
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -504,7 +534,7 @@ const Register = () => {
                     Aceito a{" "}
                     <Link
                       to="/privacidade"
-                      target="_blank"
+                      state={{ from: "/register" }}
                       className="text-primary underline hover:text-primary/80"
                       onClick={(e) => e.stopPropagation()}
                     >
