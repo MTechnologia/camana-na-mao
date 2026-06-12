@@ -249,7 +249,9 @@ export const useUserRole = () => {
   const canAccessAdvancedAnalytics = canUseStaffPaineis;
   const canExportData = canUseStaffPaineis;
 
-  const canReferToCouncilMember = isAdmin || isGestor || isCidadaoEngajado;
+  // Encaminhamento de relatos a vereadores é ação de TRIAGEM (staff) — não disponível
+  // para cidadãos (nem o cidadão engajado). Apenas admin/gestor encaminham.
+  const canReferToCouncilMember = isAdmin || isGestor;
   const canViewDashboards =
     canUseStaffPaineis ||
     isCidadaoEngajado ||
