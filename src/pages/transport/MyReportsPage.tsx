@@ -4,7 +4,6 @@ import {
   Clock,
   Bus,
   Info,
-  Hash,
   Calendar,
   MapPin,
   Search,
@@ -26,10 +25,8 @@ import { formatShortDate } from "@/lib/dateUtils";
 import { transportProblems } from "@/data/transportProblems";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
-import { CitizenReportStatusBadge } from "@/components/citizen/CitizenReportStatusBadge";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { useUserRole } from "@/hooks/useUserRole";
-import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
 import { formatTransportReportDescriptionForDisplay } from "@/lib/parseTransportReportPreview";
 import { embeddedRelationCount } from "@/lib/citizenReportStatus";
 import { supabase } from "@/integrations/supabase/client";
@@ -326,9 +323,6 @@ export default function MyReportsPage() {
     isHighlighted: boolean,
   ) => {
     const problem = transportProblems.find((p) => p.id === report.report_type);
-    const citizenProtocol = formatCitizenProtocolForDisplay(
-      report.protocol_code as string | null | undefined,
-    );
     const reportIdStr = String(report.id);
     const apoiosCount = embeddedRelationCount(
       report as Record<string, unknown>,
@@ -362,7 +356,6 @@ export default function MyReportsPage() {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <CitizenReportStatusBadge status={report.status as string | null | undefined} />
               {apoiosCount > 0 ? (
                 <span
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground"
@@ -380,13 +373,6 @@ export default function MyReportsPage() {
 
           {showAuthor && report.profiles?.full_name ? (
             <p className="text-xs text-muted-foreground mb-2">Por {report.profiles.full_name}</p>
-          ) : null}
-
-          {citizenProtocol ? (
-            <p className="text-xs font-mono font-medium text-primary mb-2 flex items-center gap-1.5">
-              <Hash className="w-3 h-3 shrink-0" aria-hidden />
-              {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
-            </p>
           ) : null}
 
           <div className="space-y-2 mb-2">
@@ -522,9 +508,6 @@ export default function MyReportsPage() {
   const renderCommunityCard = () => {
     if (!otherReport) return null;
     const problem = transportProblems.find((p) => p.id === otherReport.report_type);
-    const citizenProtocol = formatCitizenProtocolForDisplay(
-      otherReport.protocol_code as string | null | undefined,
-    );
     const line = otherReport.line as { line_code?: string; line_name?: string } | null | undefined;
     const otherApoios = embeddedRelationCount(
       otherReport as Record<string, unknown>,
@@ -566,7 +549,6 @@ export default function MyReportsPage() {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <CitizenReportStatusBadge status={otherReport.status as string | null | undefined} />
               {otherApoios > 0 ? (
                 <span
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground"
@@ -582,12 +564,6 @@ export default function MyReportsPage() {
             </div>
           </div>
 
-          {citizenProtocol ? (
-            <p className="text-xs font-mono font-medium text-primary flex items-center gap-1.5">
-              <Hash className="w-3 h-3 shrink-0" aria-hidden />
-              {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
-            </p>
-          ) : null}
 
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
@@ -869,16 +845,6 @@ export default function MyReportsPage() {
                     (selectedTransportForComments.line_code_custom as string) ||
                     "Linha não informada"}
                 </h4>
-                {formatCitizenProtocolForDisplay(
-                  selectedTransportForComments.protocol_code as string | null | undefined,
-                ) ? (
-                  <p className="text-xs font-mono text-primary mb-2">
-                    {CITIZEN_PROTOCOL_LABEL}:{" "}
-                    {formatCitizenProtocolForDisplay(
-                      selectedTransportForComments.protocol_code as string | null | undefined,
-                    )}
-                  </p>
-                ) : null}
                 {selectedCommentNarrative ? (
                   <p className="text-sm text-muted-foreground">{selectedCommentNarrative}</p>
                 ) : null}
@@ -907,9 +873,6 @@ export default function MyReportsPage() {
           {transportDetailReport ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <CitizenReportStatusBadge
-                  status={transportDetailReport.status as string | null | undefined}
-                />
                 {embeddedRelationCount(
                   transportDetailReport as Record<string, unknown>,
                   "transport_report_likes",
@@ -934,16 +897,6 @@ export default function MyReportsPage() {
                       "—"}
                   </span>
                 </p>
-                {formatCitizenProtocolForDisplay(
-                  transportDetailReport.protocol_code as string | null | undefined,
-                ) ? (
-                  <p className="font-mono text-xs text-primary">
-                    {CITIZEN_PROTOCOL_LABEL}:{" "}
-                    {formatCitizenProtocolForDisplay(
-                      transportDetailReport.protocol_code as string | null | undefined,
-                    )}
-                  </p>
-                ) : null}
                 <p>
                   <span className="text-muted-foreground">Tipo: </span>
                   {transportTypeLabel(transportDetailReport.report_type)}
