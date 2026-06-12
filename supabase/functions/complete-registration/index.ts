@@ -210,15 +210,12 @@ serve(async (req) => {
       { onConflict: "user_id" }
     );
 
-    // 6) Notificação de boas-vindas
-    await admin.from("notifications").insert({
-      user_id: userId,
-      title: "Bem-vindo(a) à Câmara Municipal!",
-      message:
-        "Agora você pode acompanhar audiências públicas, fazer relatos de transporte e urbanos, ver serviços perto de você e muito mais. Acesse o menu para explorar.",
-      type: "system",
-      priority: "normal",
-    });
+    // 6) Notificação de boas-vindas — NÃO é mais criada aqui (NREF055).
+    // O e-mail de boas-vindas chegava antes da confirmação, sendo confundido
+    // com o e-mail de confirmação. Agora a notificação (e o e-mail) é criada
+    // pelo trigger `trg_notify_welcome_on_confirmation` em auth.users, apenas
+    // quando o e-mail é confirmado. Ver migration
+    // 20260612210000_welcome_notification_on_confirmation.sql.
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
