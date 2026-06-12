@@ -12,8 +12,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/cors.ts";
 
-// Categorias visuais que bloqueiam (omni-moderation). Foco no que faz sentido p/ imagem.
-const BLOCK_CATEGORIES = ["sexual", "sexual/minors", "violence", "violence/graphic"];
+// Categorias visuais que bloqueiam (omni-moderation) + limiar de score (0–1).
+// O flag booleano da OpenAI só dispara em conteúdo EXPLÍCITO (pornografia, gore),
+// deixando passar conteúdo apenas SUGESTIVO (ex.: biquíni / poses sensuais). Por isso
+// usamos também `category_scores` com limiares mais baixos: bloqueia se o flag for true
+// OU se o score da categoria ultrapassar o limiar. Limiares são ajustáveis aqui.
+const BLOCK_THRESHOLDS: Record<string, number> = {
+  sexual: 0.2,
+  "sexual/minors": 0.1,
+  violence: 0.5,
+  "violence/graphic": 0.4,
+};
+const BLOCK_CATEGORIES = Object.keys(BLOCK_THRESHOLDS);
 const MODERATION_TIMEOUT_MS = 8000;
 
 function json(body: unknown, status: number, cors: Record<string, string>): Response {
@@ -87,7 +97,15 @@ serve(async (req) => {
       const data = await res.json();
       const result = data?.results?.[0];
       const cats = (result?.categories ?? {}) as Record<string, boolean>;
-      categories = BLOCK_CATEGORIES.filter((c) => cats[c] === true);
+      const scores = (result?.category_scores ?? {}) as Record<string, number>;
+      // Bloqueia se o flag booleano disparar OU se o score passar do limiar (pega sugestivo).
+      categories = BLOCK_CATEGORIES.filter(
+        (c) => cats[c] === true || (scores[c] ?? 0) >= BLOCK_THRESHOLDS[c],
+      );
+      if (categories.length > 0) {
+        const detail = categories.map((c) => `${c}=${(scores[c] ?? 0).toFixed(3)}`).join(", ");
+        console.log(`[moderate-image] scores acima do limiar: ${detail}`);
+      }
     } catch (e) {
       console.error("[moderate-image] moderation call failed", e instanceof Error ? e.message : e);
       return json({ blocked: false, moderated: false }, 200, cors); // fail-open
