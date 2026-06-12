@@ -20,6 +20,7 @@ import AboutYouStep from "@/components/register/AboutYouStep";
 import LocationStep from "@/components/register/LocationStep";
 import InterestsStep from "@/components/register/InterestsStep";
 import { formatPhone, unformatPhone } from "@/lib/phoneMask";
+import { markIntentionalSignOut } from "@/lib/authTelemetry";
 
 const TOTAL_STEPS = 4;
 
@@ -308,6 +309,7 @@ const Register = () => {
       }
       // Encerra a sessão silenciosamente (sem o toast/redirect de "Logout realizado") —
       // o usuário ainda precisa confirmar o e-mail antes de acessar o app.
+      markIntentionalSignOut(); // NREF057: logout esperado (pós-cadastro), não inesperado
       await supabase.auth.signOut().catch(() => undefined);
       navigate("/confirmar-email", {
         replace: true,

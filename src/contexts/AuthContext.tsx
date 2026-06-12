@@ -25,6 +25,7 @@ import {
   translateAuthError,
 } from "@/lib/authErrorMessages";
 import { withTimeout } from "@/lib/promiseTimeout";
+import { markIntentionalSignOut, recordAuthEvent } from "@/lib/authTelemetry";
 
 const AUTH_INIT_TIMEOUT_MS = 8_000;
 // Login/logout toleram mais latência (rede móvel lenta, cold start do Auth) que a
@@ -60,6 +61,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      // NREF057: registra o evento (logout inesperado vira breadcrumb p/ diagnóstico).
+      recordAuthEvent(event);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user?.email_confirmed_at && hasEmailConfirmationCallback()) {
@@ -216,6 +219,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = useCallback(async () => {
     try {
+      // NREF057: logout iniciado pelo app/usuário — não classificar como inesperado.
+      markIntentionalSignOut();
       // Register audit log for logout before signing out (best-effort)
       if (user) {
         try {
