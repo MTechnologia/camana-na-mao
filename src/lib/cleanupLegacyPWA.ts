@@ -9,6 +9,18 @@ const CLEANUP_KEY = "__cmsp_pwa_cleanup_v2__";
 /** Script URLs do PWA atual (vite-plugin-pwa) — não desregistrar. */
 const KEEP_SW_PATTERNS = [/workbox/i, /dev-sw\.js/i, /sw\.js/i];
 
+/**
+ * Caches do PWA atual (vite-plugin-pwa / workbox) que NÃO devem ser apagados:
+ * precache do workbox e os runtime caches que configuramos (app-shell, supabase-api).
+ * Apagar esses quebraria o app recém-instalado (precache) — o cleanup deve atingir
+ * apenas caches LEGADOS.
+ */
+const KEEP_CACHE_PATTERNS = [/workbox/i, /precache/i, /^app-shell$/i, /supabase-api/i];
+
+function shouldKeepCache(cacheKey: string): boolean {
+  return KEEP_CACHE_PATTERNS.some((p) => p.test(cacheKey));
+}
+
 function shouldKeepRegistration(registration: ServiceWorkerRegistration): boolean {
   const scriptUrl =
     registration.active?.scriptURL ??
@@ -43,14 +55,17 @@ async function unregisterServiceWorkers(): Promise<number> {
 /**
  * Limpa caches da Cache API
  */
-async function clearCaches(): Promise<number> {
+async function clearCaches(keepCurrent = true): Promise<number> {
   let count = 0;
   try {
     if ("caches" in window) {
       const cacheKeys = await caches.keys();
       for (const key of cacheKeys) {
+        // Preserva os caches do PWA atual (precache/runtime); só remove os legados.
+        // keepCurrent=false (forceNuclearCleanup) limpa tudo.
+        if (keepCurrent && shouldKeepCache(key)) continue;
         await caches.delete(key);
-        console.info(`[PWA Cleanup] Cache deletado: ${key}`);
+        console.info(`[PWA Cleanup] Cache legado deletado: ${key}`);
         count++;
       }
     }
@@ -118,7 +133,7 @@ export const logPWADiagnostics = async (): Promise<void> => {
 export const forceNuclearCleanup = async (): Promise<boolean> => {
   localStorage.removeItem(CLEANUP_KEY);
   const swCleared = await unregisterServiceWorkers();
-  const cachesCleared = await clearCaches();
+  const cachesCleared = await clearCaches(false); // nuclear: limpa tudo
   return swCleared > 0 || cachesCleared > 0;
 };
 
