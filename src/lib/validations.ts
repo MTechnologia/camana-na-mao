@@ -73,11 +73,16 @@ const BRAZILIAN_DDDS = new Set([
 
 function hasPlausibleFullName(value: string): boolean {
   const normalized = value.trim().replace(/\s+/g, " ");
-  if (normalized.length < 5 || /\d/.test(normalized)) return false;
-  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ' .-]+$/.test(normalized)) return false;
+  if (normalized.length < 5) return false;
+  // Permite numerais no nome (ex.: "Maria Silva 2"); mantém apenas letras, números,
+  // espaço e os separadores usuais de nome (' . -).
+  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ0-9' .-]+$/.test(normalized)) return false;
 
   const parts = normalized.split(" ").filter(Boolean);
-  return parts.length >= 2 && parts.every((part) => /[A-Za-zÀ-ÖØ-öø-ÿ]{2,}/.test(part));
+  // Ainda exige um nome plausível: ao menos 2 "palavras" com 2+ letras (nome + sobrenome),
+  // permitindo tokens numéricos adicionais.
+  const wordParts = parts.filter((part) => /[A-Za-zÀ-ÖØ-öø-ÿ]{2,}/.test(part));
+  return wordParts.length >= 2;
 }
 
 function hasPlausibleEmailDomain(value: string): boolean {
@@ -159,7 +164,7 @@ export const registerStep1Schema = z.object({
   fullName: z
     .string()
     .min(3, "Nome deve ter no mínimo 3 caracteres")
-    .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos, sem números."),
+    .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos."),
   email: z
     .string()
     .email("E-mail inválido")
@@ -197,7 +202,7 @@ export const registerSchema = z
     fullName: z
       .string()
       .min(3, "Nome deve ter no mínimo 3 caracteres")
-      .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos, sem números."),
+      .refine(hasPlausibleFullName, "Informe nome e sobrenome válidos."),
     email: z
       .string()
       .email("E-mail inválido")
