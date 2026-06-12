@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useImageLightbox } from "@/components/ui/ImageLightbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -109,6 +110,7 @@ export default function ReportHistoryPage() {
   const reportIdFromQuery = searchParams.get("reportId");
   const { user } = useAuth();
   const { canReferToCouncilMember } = useUserRole();
+  const { openLightbox, lightbox } = useImageLightbox();
   const [myReports, setMyReports] = useState<Report[]>([]);
   const [allReports, setAllReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -404,15 +406,14 @@ export default function ReportHistoryPage() {
           {photosMine.length > 0 ? (
             <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
               {photosMine.slice(0, 5).map((url, i) => (
-                <a
+                <button
                   key={`${url}-${i}`}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() => openLightbox(photosMine, i)}
                   className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border bg-muted"
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                </a>
+                </button>
               ))}
               {photosMine.length > 5 ? (
                 <span className="flex-shrink-0 text-xs text-muted-foreground self-center">
@@ -613,16 +614,17 @@ export default function ReportHistoryPage() {
                       <div>
                         <p className="text-sm font-medium mb-2">Fotos</p>
                         <div className="flex flex-wrap gap-2">
-                          {selectedReport.photos.slice(0, 6).map((url) => (
-                            <a
+                          {selectedReport.photos.slice(0, 6).map((url, i) => (
+                            <button
                               key={url}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              type="button"
+                              onClick={() =>
+                                openLightbox(selectedReport.photos as string[], i)
+                              }
                               className="block w-20 h-20 rounded-lg overflow-hidden border bg-muted"
                             >
                               <img src={url} alt="" className="w-full h-full object-cover" />
-                            </a>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -634,6 +636,8 @@ export default function ReportHistoryPage() {
             })()}
         </DialogContent>
       </Dialog>
+
+      {lightbox}
 
       <DeleteReportConfirmDialog
         open={!!reportToDelete}
