@@ -206,7 +206,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      toast.success("Login realizado com sucesso!");
       return { error: null };
     } catch (error: unknown) {
       const translatedMessage = formatAuthErrorForUser(error);
