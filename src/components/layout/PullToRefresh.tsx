@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 
 // Distância (px) necessária para disparar o refresh ao soltar.
@@ -15,12 +16,21 @@ const DAMPING = 0.5;
  * - Ativo apenas em dispositivos de toque.
  * - Só inicia quando a página está no topo (window.scrollY === 0).
  * - Ignorado quando há um modal/drawer aberto (scroll travado pelo Radix).
- * - "Recarregar" = location.reload(), aproveitando o cache fresco (index.html
- *   no-cache + service worker NetworkFirst) para trazer a versão/dados atuais.
+ * - "Atualizar" = revalida os dados via react-query (invalidateQueries), sem
+ *   recarregar a página inteira — refetch suave das telas visíveis.
  */
+// Tempo mínimo (ms) que o spinner fica visível, para o gesto não "piscar".
+const MIN_SPINNER_MS = 600;
+
 export default function PullToRefresh() {
+  const queryClient = useQueryClient();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+
+  // queryClient é estável; guardamos em ref para uso dentro dos listeners
+  // (effect roda uma única vez).
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
 
   // Espelhos em ref para a lógica dentro dos listeners (evita re-registrar a
   // cada movimento e problemas de closure).
@@ -77,8 +87,15 @@ export default function PullToRefresh() {
       startY.current = null;
       if (pullRef.current >= THRESHOLD) {
         setRefreshing(true);
-        // Pequeno atraso para o spinner aparecer antes de recarregar.
-        window.setTimeout(() => window.location.reload(), 150);
+        // Revalida os dados (refetch das queries ativas) sem recarregar a página.
+        Promise.all([
+          queryClientRef.current.invalidateQueries(),
+          new Promise((resolve) => window.setTimeout(resolve, MIN_SPINNER_MS)),
+        ]).finally(() => {
+          releasing.current = true;
+          setRefreshing(false);
+          setPullValue(0);
+        });
       } else {
         setPullValue(0);
       }
