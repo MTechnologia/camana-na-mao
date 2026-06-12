@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Mail, ArrowRight, RefreshCw } from "lucide-react";
@@ -11,17 +11,33 @@ const ConfirmarEmail = () => {
   const location = useLocation();
   const { user, resendEmailConfirmation } = useAuth();
   const [resending, setResending] = useState(false);
+  // Cooldown (segundos) entre reenvios do e-mail de confirmação — evita cliques
+  // repetidos/abuso e indica ao usuário quando poderá reenviar. Sugestão: 60s.
+  const RESEND_COOLDOWN_SECONDS = 60;
+  const [cooldown, setCooldown] = useState(0);
   const state = location.state as { email?: string } | null;
   const searchEmail = new URLSearchParams(location.search).get("email") ?? undefined;
   const email = state?.email ?? user?.email ?? searchEmail;
   const requiresSupabaseConfiguration = isAutoConfirmedEmailPending(email);
   const isEmailConfirmed = Boolean(user?.email_confirmed_at) && !requiresSupabaseConfiguration;
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => {
+      setCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
   const handleResend = async () => {
-    if (!email) return;
+    if (!email || resending || cooldown > 0) return;
     setResending(true);
-    await resendEmailConfirmation(email);
-    setResending(false);
+    try {
+      await resendEmailConfirmation(email);
+    } finally {
+      setResending(false);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    }
   };
 
   const handleGoToLogin = async () => {
@@ -93,11 +109,15 @@ const ConfirmarEmail = () => {
               type="button"
               variant="outline"
               onClick={() => void handleResend()}
-              disabled={resending}
+              disabled={resending || cooldown > 0}
               className="w-full"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${resending ? "animate-spin" : ""}`} />
-              {resending ? "Reenviando..." : "Reenviar e-mail de confirmação"}
+              {resending
+                ? "Reenviando..."
+                : cooldown > 0
+                  ? `Reenviar em ${cooldown}s`
+                  : "Reenviar e-mail de confirmação"}
             </Button>
           )}
           <Link to="/welcome" className="text-sm text-muted-foreground hover:text-foreground">
