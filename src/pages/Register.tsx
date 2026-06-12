@@ -479,7 +479,7 @@ const Register = () => {
                   >
                     Aceito os{" "}
                     <Link
-                      to="/privacidade"
+                      to="/termos-de-uso"
                       target="_blank"
                       className="text-primary underline hover:text-primary/80"
                       onClick={(e) => e.stopPropagation()}
