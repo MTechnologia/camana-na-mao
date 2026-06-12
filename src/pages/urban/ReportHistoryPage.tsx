@@ -20,7 +20,6 @@ import {
   FileText,
   Footprints,
   Heart,
-  Hash,
   Info,
   Landmark,
   Lightbulb,
@@ -43,10 +42,8 @@ import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
-import { CitizenReportStatusBadge } from "@/components/citizen/CitizenReportStatusBadge";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 import { toast } from "@/hooks/use-toast";
-import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
 import { embeddedRelationCount } from "@/lib/citizenReportStatus";
 import { formatShortDate } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
@@ -319,7 +316,6 @@ export default function ReportHistoryPage() {
     isHighlighted: boolean = false,
   ) => {
     const canShowReferralAction = canReferToCouncilMember && !!user && report.user_id === user.id;
-    const citizenProtocol = formatCitizenProtocolForDisplay(report.protocol_code);
     const categoryLabel = categoryLabels[report.category] || report.category;
     const cardTitle = report.subcategory || categoryLabel;
     const apoiosCount = embeddedRelationCount(
@@ -348,7 +344,6 @@ export default function ReportHistoryPage() {
               <span className="font-medium line-clamp-2">{cardTitle}</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <CitizenReportStatusBadge status={report.status} />
               {apoiosCount > 0 ? (
                 <span
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground"
@@ -378,13 +373,6 @@ export default function ReportHistoryPage() {
 
           {showAuthor && report.profiles?.full_name ? (
             <p className="text-xs text-muted-foreground mb-2">Por {report.profiles.full_name}</p>
-          ) : null}
-
-          {citizenProtocol ? (
-            <p className="text-xs font-mono font-medium text-primary mb-2 flex items-center gap-1.5">
-              <Hash className="w-3 h-3 shrink-0" aria-hidden />
-              {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
-            </p>
           ) : null}
 
           <div className="space-y-2 mb-2">
@@ -578,7 +566,6 @@ export default function ReportHistoryPage() {
                 <div className="space-y-4">
                   <div className="pb-4 border-b border-border space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <CitizenReportStatusBadge status={selectedReport.status} />
                       {apoiosDialog > 0 ? (
                         <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                           <Heart className="w-4 h-4 text-red-500/80 shrink-0" aria-hidden />
@@ -589,12 +576,6 @@ export default function ReportHistoryPage() {
                     <h4 className="font-semibold mb-1">
                       {categoryLabels[selectedReport.category] || selectedReport.category}
                     </h4>
-                    {formatCitizenProtocolForDisplay(selectedReport.protocol_code) && (
-                      <p className="text-xs font-mono text-primary mb-2">
-                        {CITIZEN_PROTOCOL_LABEL}:{" "}
-                        {formatCitizenProtocolForDisplay(selectedReport.protocol_code)}
-                      </p>
-                    )}
                     {selectedReport.severity ? (
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm text-muted-foreground">Gravidade:</span>
