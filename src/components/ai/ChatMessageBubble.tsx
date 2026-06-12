@@ -208,8 +208,6 @@ interface ChatMessageBubbleProps {
     collectionTypePreset?: CollectionTypePreset,
   ) => void | Promise<void>;
   onOpenDiscovery?: () => void;
-  /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
-  disableRegistrarUntilPhotosAttached?: boolean;
   /** CHB-035: oculta picker de estrelas legado quando o fluxo usa dimensões atômicas. */
   suppressLegacyStarRating?: boolean;
 }
@@ -244,7 +242,6 @@ const ChatMessageBubble = ({
   onApplyNearbyFilters,
   onSendMessage,
   patchMessageContent,
-  disableRegistrarUntilPhotosAttached = false,
   suppressLegacyStarRating = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
@@ -1955,8 +1952,6 @@ const ChatMessageBubble = ({
         {quickReplyButtons.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Respostas rápidas">
             {quickReplyButtons.map((btn) => {
-              const isRegistrar = btn.value === "registrar";
-              const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
               const isCorrigir = btn.value === "corrigir";
               const isConfirmar = btn.value === "confirmar";
               const isPublicar = btn.value === "publicar";
@@ -1972,10 +1967,8 @@ const ChatMessageBubble = ({
                       ? "default"
                       : "sm"
                   }
-                  disabled={disabled}
-                  onClick={() => !disabled && onSendMessage?.(btn.label)}
+                  onClick={() => onSendMessage?.(btn.label)}
                   onKeyDown={(e) => {
-                    if (disabled) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       onSendMessage?.(btn.label);
