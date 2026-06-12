@@ -23,6 +23,10 @@ import { formatPhone, unformatPhone } from "@/lib/phoneMask";
 
 const TOTAL_STEPS = 4;
 
+// Mensagem amigável exibida em pop-up (toast) quando o e-mail informado é inválido.
+const INVALID_EMAIL_MESSAGE =
+  "Ops! Este e-mail não é válido. Digite um novo endereço de e-mail e tente novamente.";
+
 interface FormData {
   // Step 1: Basic info
   fullName: string;
@@ -366,6 +370,11 @@ const Register = () => {
                   placeholder="seuemail@exemplo.com"
                   value={formData.email}
                   onChange={(e) => handleChange("email", e.target.value)}
+                  onBlur={() => {
+                    if (formData.email.trim().length > 0 && !emailFieldValid) {
+                      toast.error(INVALID_EMAIL_MESSAGE, { id: "register-email-invalido" });
+                    }
+                  }}
                   className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />
