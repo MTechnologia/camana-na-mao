@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useImageLightbox } from "@/components/ui/ImageLightbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from "@/components/ui/page-header";
 import { useTransportReport } from "@/hooks/useTransportReport";
@@ -86,6 +87,7 @@ export default function MyReportsPage() {
   const { user } = useAuth();
   const { getMyReports } = useTransportReport();
   const { canReferToCouncilMember } = useUserRole();
+  const { openLightbox, lightbox } = useImageLightbox();
   const {
     subscriptions: transportSubscriptions,
     loading: transportSubscriptionsLoading,
@@ -408,15 +410,14 @@ export default function MyReportsPage() {
           {photosMine.length > 0 ? (
             <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
               {photosMine.slice(0, 5).map((url, i) => (
-                <a
+                <button
                   key={`${url}-${i}`}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() => openLightbox(photosMine, i)}
                   className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border bg-muted"
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                </a>
+                </button>
               ))}
               {photosMine.length > 5 ? (
                 <span className="flex-shrink-0 text-xs text-muted-foreground self-center">
@@ -643,16 +644,15 @@ export default function MyReportsPage() {
 
           {photos.length > 0 ? (
             <div className="grid grid-cols-3 gap-2 max-w-md">
-              {photos.slice(0, 3).map((url) => (
-                <a
+              {photos.slice(0, 3).map((url, i) => (
+                <button
                   key={url}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block aspect-video rounded-md overflow-hidden border bg-muted"
+                  type="button"
+                  onClick={() => openLightbox(photos, i)}
+                  className="block aspect-video rounded-md overflow-hidden border bg-muted w-full"
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                </a>
+                </button>
               ))}
             </div>
           ) : null}
@@ -1020,16 +1020,17 @@ export default function MyReportsPage() {
                 <div>
                   <p className="text-sm font-medium mb-2">Fotos</p>
                   <div className="flex flex-wrap gap-2">
-                    {(transportDetailReport.photos as string[]).slice(0, 6).map((url) => (
-                      <a
+                    {(transportDetailReport.photos as string[]).slice(0, 6).map((url, i) => (
+                      <button
                         key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        type="button"
+                        onClick={() =>
+                          openLightbox(transportDetailReport.photos as string[], i)
+                        }
                         className="block w-20 h-20 rounded-lg overflow-hidden border bg-muted"
                       >
                         <img src={url} alt="" className="w-full h-full object-cover" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1047,6 +1048,8 @@ export default function MyReportsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {lightbox}
 
       <ReferralDialog
         open={referralDialogOpen}
