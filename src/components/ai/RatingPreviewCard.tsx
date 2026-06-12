@@ -5,12 +5,14 @@ import {
   isCompleteServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
 import { shouldOfferRatingReferral } from "@/lib/shouldOfferRatingReferral";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star } from "lucide-react";
 
 type Props = { preview: ParsedServiceRatingSubmitPreview };
 
 export function RatingPreviewCard({ preview }: Props) {
+  const { canReferToCouncilMember } = useUserRole();
   const row = (label: string, value: string) => (
     <div className="text-sm">
       <span className="text-muted-foreground">{label}: </span>
@@ -27,7 +29,8 @@ export function RatingPreviewCard({ preview }: Props) {
       : null;
 
   /** HU-8.1 / HU-1.3: encaminhamento (não revisão de comentário) — CTA [OFFER_REFERRAL] só após Publicar. */
-  const showReferralAfterPublishHint = shouldOfferRatingReferral(preview.rating_stars, rd);
+  const showReferralAfterPublishHint =
+    canReferToCouncilMember && shouldOfferRatingReferral(preview.rating_stars, rd);
 
   return (
     <Card className="mt-3 border-primary/20 bg-primary/5">
