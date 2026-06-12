@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/hooks/useUserRole";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
 import { toMarkdownHardBreaks } from "@/lib/markdownLineBreaks";
 import { UserChatBubbleText } from "./UserChatBubbleText";
@@ -251,6 +252,8 @@ const ChatMessageBubble = ({
       : []
     : [];
   const navigate = useNavigate();
+  // Encaminhar relato/avaliação a vereador é ação de staff (triagem) — não disponível ao cidadão.
+  const { canReferToCouncilMember } = useUserRole();
   const [addressSelected, setAddressSelected] = useState(false);
   const [decisionMade, setDecisionMade] = useState(false);
   const [lineSelected, setLineSelected] = useState(false);
@@ -872,9 +875,11 @@ const ChatMessageBubble = ({
     (message.content.includes("[SHOW_SERVICES_CHIPS]") ||
       message.content.includes("o intuito deste canal é poder te ajudar com estes serviços"));
 
-  // Botão "Encaminhar para vereador" após relato ou oferta pós-avaliação com nota baixa
+  // Botão "Encaminhar para vereador" após relato ou oferta pós-avaliação com nota baixa.
+  // Restrito a staff (admin/gestor): o cidadão não encaminha relatos a vereador.
   const hasEncaminharVereadorCta =
     !isUser &&
+    canReferToCouncilMember &&
     (message.content.includes("[REPORT_CREATED:") ||
       message.content.includes("[TRANSPORT_CREATED:") ||
       message.content.includes("[OFFER_REFERRAL]"));
