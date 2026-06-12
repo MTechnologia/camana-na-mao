@@ -111,6 +111,7 @@ const MyFavoritesPage = lazy(() => import("./pages/services/MyFavoritesPage"));
 // LEGAL PAGES - Lazy loaded
 // ============================================
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const TermsOfUsePage = lazy(() => import("./pages/TermsOfUsePage"));
 
 // ============================================
 // TRANSPORT PAGES - Lazy loaded
@@ -334,6 +335,7 @@ const AppContent = () => {
           {/* HU-11.1 — Página de complemento de cadastro pós-convite. */}
           <Route path="/completar-convite" element={<CompleteInvitePage />} />
           <Route path="/privacidade" element={<PrivacyPolicyPage />} />
+          <Route path="/termos-de-uso" element={<TermsOfUsePage />} />
           {/* Documentação: apenas admin — redireciona URLs antigas */}
           <Route path="/docs" element={<Navigate to="/admin/docs/overview" replace />} />
           <Route path="/docs/overview" element={<Navigate to="/admin/docs/overview" replace />} />
